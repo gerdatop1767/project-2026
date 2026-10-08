@@ -11,6 +11,13 @@ export const progressSummarySchema = z.object({
       solved: z.number().int().nonnegative(),
       correct: z.number().int().nonnegative(),
       accuracyPercent: z.number().min(0).max(100),
+      /** Distinct tasks (by taskId) with at least one correct attempt —
+       * additive to `solved`/`correct`/`accuracyPercent` above (which
+       * stay attempt-row counts for the screens that legitimately need
+       * that). Re-solving the same task any number of times still
+       * counts once; two different tasks that happen to share a
+       * taskNumber (different sources/variants) count separately. */
+      uniqueSolved: z.number().int().nonnegative(),
     }),
   ),
   byTaskNumber: z.array(

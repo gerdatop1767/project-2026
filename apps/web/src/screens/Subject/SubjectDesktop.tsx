@@ -97,6 +97,11 @@ export function SubjectDesktop({
   // `subject.taskCount`/`mastery` demo fields. null until loaded — never
   // a `0` placeholder masquerading as a real "0 solved / 0% accuracy"
   // (see SubjectMobile.tsx for why: same component shape, same bug).
+  // "Решено" is `uniqueSolved` (distinct tasks with >=1 correct
+  // attempt), NOT `solved` (an attempt-row count — re-solving one task
+  // 100 times used to show "100 решено"; see the nav/stats bugfix
+  // report). `accuracyPercent` stays the existing attempt-based metric,
+  // unchanged.
   const [solved, setSolved] = useState<number | null>(null);
   const [accuracyPercent, setAccuracyPercent] = useState<number | null>(null);
   const [totalTasks, setTotalTasks] = useState<number | null>(null);
@@ -107,7 +112,7 @@ export function SubjectDesktop({
       .then((data) => {
         if (cancelled) return;
         const entry = data.bySubject.find((s) => s.subjectId === subject.id);
-        setSolved(entry?.solved ?? 0);
+        setSolved(entry?.uniqueSolved ?? 0);
         setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
       })
       .catch(() => {

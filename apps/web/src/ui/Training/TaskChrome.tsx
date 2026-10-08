@@ -22,6 +22,12 @@ export interface TaskChromeProps {
   previous: TaskNumberStripEntry | null;
   next: TaskNumberStripEntry | null;
   onGoTo: (entry: TaskNumberStripEntry) => void;
+  /** Position within the real current session/list (from
+   * `buildSessionProgress`, the same ordered list `numberStripRange`
+   * comes from) — NOT `task.indexInSession`/`task.totalInSession`,
+   * which are just a safe single-item default (see taskAdapter.ts). */
+  indexInSession: number;
+  totalInSession: number;
 }
 
 /**
@@ -42,8 +48,10 @@ export function TaskChrome({
   previous,
   next,
   onGoTo,
+  indexInSession,
+  totalInSession,
 }: TaskChromeProps) {
-  const progressPercent = (task.indexInSession / task.totalInSession) * 100;
+  const progressPercent = (indexInSession / totalInSession) * 100;
   const favorite = useFavorite(task.id);
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -108,7 +116,7 @@ export function TaskChrome({
       <div>
         <div className={styles.progressRow}>
           <span className="text-body-sm text-secondary">
-            Задание {task.indexInSession} из {task.totalInSession}
+            Задание {indexInSession} из {totalInSession}
           </span>
           <span className="text-body-sm text-secondary">{Math.round(progressPercent)}%</span>
         </div>

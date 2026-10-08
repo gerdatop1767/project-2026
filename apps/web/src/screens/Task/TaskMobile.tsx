@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigation, type Route } from '../../lib/navigation.js';
 import { serializeMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber, submitAttempt } from '../../lib/api.js';
-import { toSampleTask } from '../../lib/taskAdapter.js';
+import { buildSessionProgress, toSampleTask } from '../../lib/taskAdapter.js';
 import { useTaskNavigation } from '../../lib/useTaskNavigation.js';
 import { useActiveLearningSessionForTask } from '../../lib/learningSessionContext.js';
 import { useStreakContext } from '../../lib/streakContext.js';
@@ -176,6 +176,8 @@ export function TaskMobile({
     );
   }
 
+  const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks);
+
   return (
     <SlideUp key={task.id} className={styles.stack}>
       <TaskChrome
@@ -187,6 +189,8 @@ export function TaskMobile({
         previous={taskNav.previous}
         next={taskNav.next}
         onGoTo={taskNav.goTo}
+        indexInSession={sessionProgress.indexInSession}
+        totalInSession={sessionProgress.totalInSession}
       />
 
       <div className={styles.timerRow}>

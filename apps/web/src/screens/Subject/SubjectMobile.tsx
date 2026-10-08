@@ -91,7 +91,10 @@ export function SubjectMobile({ subjectId, collectionSlug, initialMode }: Subjec
       .then((data) => {
         if (cancelled) return;
         const entry = data.bySubject.find((s) => s.subjectId === subject.id);
-        setSolved(entry?.solved ?? 0);
+        // "Решено" is uniqueSolved (distinct tasks with >=1 correct
+        // attempt), not solved (an attempt-row count) — see the
+        // nav/stats bugfix report.
+        setSolved(entry?.uniqueSolved ?? 0);
         setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
       })
       .catch(() => {
