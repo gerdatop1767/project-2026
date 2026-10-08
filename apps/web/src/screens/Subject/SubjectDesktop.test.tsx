@@ -98,7 +98,9 @@ describe('SubjectDesktop — honest loading state (mobile page flash regression)
       correctTotal: 9,
       incorrectTotal: 3,
       accuracyPercent: 0,
-      bySubject: [{ subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75 }],
+      bySubject: [
+        { subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],

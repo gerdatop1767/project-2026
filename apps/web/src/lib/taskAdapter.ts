@@ -1,6 +1,7 @@
 import type { TaskPublic, TaskWithSolution } from '@zybrilka/shared';
-import type { SampleTask } from '../data/sampleTask.js';
+import type { SampleTask, SessionTask } from '../data/sampleTask.js';
 import { subjects } from '../data/subjects.js';
+import type { TaskNavigationEntry } from './useTaskNavigation.js';
 
 const DIFFICULTY_LABELS = ['Лёгкое', 'Среднее', 'Сложное'] as const;
 
@@ -13,13 +14,30 @@ function shortCode(id: string): string {
 }
 
 /**
- * Maps a real API task (+ its siblings sharing the same task number, for
- * the "Другие задания" list and session strip) onto the `SampleTask`
- * shape the approved-design components already render. `hint`/`steps`
- * come straight from the task's own `hintMd`/`solutionSteps` — an empty
- * hint hides the hint UI entirely (see TaskDesktop/TaskMobile) rather
- * than falling back to a generic one, and a task with no `solutionSteps`
- * falls back to one block holding the whole `explanationMd`.
+ * Maps a real API task (+ its siblings sharing the same task number,
+ * for the "Другие задания"/"Похожие задания" comparison list ONLY)
+ * onto the `SampleTask` shape the approved-design components already
+ * render. `hint`/`steps` come straight from the task's own `hintMd`/
+ * `solutionSteps` — an empty hint hides the hint UI entirely (see
+ * TaskDesktop/TaskMobile) rather than falling back to a generic one,
+ * and a task with no `solutionSteps` falls back to one block holding
+ * the whole `explanationMd`.
+ *
+ * `totalInSession`/`indexInSession`/`sessionTasks` are set to a safe
+ * single-item default here (this task alone) — NOT derived from
+ * `siblings`. `siblings` is every published task across every
+ * source/variant that happens to share this exact `taskNumber` (the
+ * `listTasksByNumber` endpoint), which answers "which other sources
+ * have a task numbered N", never "what training session/list am I in
+ * right now". Callers that have a real ordered list (from
+ * `useTaskNavigation`'s `orderedTasks` — the same list that already
+ * correctly drives the top TaskNumberStrip/prev/next) must call
+ * `buildSessionProgress()` below and use ITS result for the progress
+ * header, desktop sidebar and "Прогресс в теме" ring instead of these
+ * fields. See docs/imports/ or the nav bugfix report for the full
+ * story: before Вариант 2-5 existed this was invisible (usually one
+ * row), and became a visibly wrong fake "Задание K из 5" the moment a
+ * real fifth variant existed.
  */
 export function toSampleTask(
   task: TaskPublic | TaskWithSolution,
@@ -27,9 +45,7 @@ export function toSampleTask(
 ): SampleTask {
   const subject = subjects.find((s) => s.id === task.subjectId);
   const hasSolution = 'correctAnswer' in task;
-  const orderedSiblings = siblings.length > 0 ? siblings : [task];
-  const indexInSession = Math.max(orderedSiblings.findIndex((t) => t.id === task.id) + 1, 1);
-  const others = orderedSiblings.filter((t) => t.id !== task.id);
+  const others = siblings.filter((t) => t.id !== task.id);
 
   return {
     id: task.id,
@@ -37,8 +53,8 @@ export function toSampleTask(
     subjectName: subject?.name ?? task.subjectId,
     topic: task.topicName ?? 'Общее',
     number: task.taskNumber,
-    totalInSession: orderedSiblings.length,
-    indexInSession,
+    totalInSession: 1,
+    indexInSession: 1,
     difficulty: task.difficulty as 1 | 2 | 3,
     difficultyLabel: difficultyLabel(task.difficulty),
     source: task.source,
@@ -63,9 +79,42 @@ export function toSampleTask(
       difficultyLabel: difficultyLabel(t.difficulty),
       preview: t.conditionMd.slice(0, 60),
     })),
-    sessionTasks: orderedSiblings.map((t, i) => ({
+    sessionTasks: [{ index: 1, status: 'current' }],
+  };
+}
+
+export interface SessionProgress {
+  indexInSession: number;
+  totalInSession: number;
+  sessionTasks: readonly SessionTask[];
+}
+
+/**
+ * The REAL "position in the current list" — for the progress header
+ * ("Задание X из Y" + its bar), the desktop sidebar list, and the
+ * "Прогресс в теме" ring. Driven by the exact same ordered list
+ * `useTaskNavigation`'s `orderedTasks` already resolves (customOrderedTasks
+ * a user/mode assembled, or the real variant/collection order) — the
+ * same list the top TaskNumberStrip and prev/next already use — never
+ * by `listTasksByNumber`'s cross-source same-number `siblings` (see
+ * `toSampleTask`'s doc comment for why that one's wrong here). `taskId`
+ * identifies the current task within the list; falls back to a
+ * single-item "1 of 1" when there is no real list (e.g. reached via
+ * Темы/Мои ошибки/Избранное with no session context) — never invents a
+ * range that doesn't exist.
+ */
+export function buildSessionProgress(
+  currentTaskId: string,
+  orderedTasks: readonly TaskNavigationEntry[],
+): SessionProgress {
+  const list = orderedTasks.length > 0 ? orderedTasks : [{ taskId: currentTaskId, taskNumber: 0 }];
+  const indexInSession = Math.max(list.findIndex((t) => t.taskId === currentTaskId) + 1, 1);
+  return {
+    indexInSession,
+    totalInSession: list.length,
+    sessionTasks: list.map((t, i) => ({
       index: i + 1,
-      status: t.id === task.id ? 'current' : 'pending',
+      status: t.taskId === currentTaskId ? 'current' : 'pending',
     })),
   };
 }

@@ -34,13 +34,18 @@ function accuracy(solved: number, correct: number): number {
 }
 
 export async function getSummary(db: Database, userId: string): Promise<ProgressSummary> {
-  const [totals, bySubject, byTaskNumber, byTopic, timedAttempts] = await Promise.all([
-    repo.getTotals(db, userId),
-    repo.getBySubject(db, userId),
-    repo.getByTaskNumber(db, userId),
-    repo.getByTopic(db, userId),
-    repo.getTimedAttemptsBySubjectRaw(db, userId),
-  ]);
+  const [totals, bySubject, byTaskNumber, byTopic, timedAttempts, uniqueSolvedBySubject] =
+    await Promise.all([
+      repo.getTotals(db, userId),
+      repo.getBySubject(db, userId),
+      repo.getByTaskNumber(db, userId),
+      repo.getByTopic(db, userId),
+      repo.getTimedAttemptsBySubjectRaw(db, userId),
+      repo.getUniqueSolvedBySubject(db, userId),
+    ]);
+  const uniqueSolvedBySubjectId = new Map(
+    uniqueSolvedBySubject.map((row) => [row.subjectId, row.uniqueSolved]),
+  );
 
   const timesBySubject = new Map<string, number[]>();
   for (const row of timedAttempts) {
@@ -65,6 +70,10 @@ export async function getSummary(db: Database, userId: string): Promise<Progress
       solved: row.solved,
       correct: row.correct,
       accuracyPercent: accuracy(row.solved, row.correct),
+      // Distinct tasks with >=1 correct attempt — see
+      // getUniqueSolvedBySubject's doc comment. 0, never missing, for a
+      // subject with attempts but no correct one yet.
+      uniqueSolved: uniqueSolvedBySubjectId.get(row.subjectId) ?? 0,
     })),
     byTaskNumber: byTaskNumber.map((row) => ({
       subjectId: row.subjectId,

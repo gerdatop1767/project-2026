@@ -39,6 +39,31 @@ export async function getBySubject(db: Database, userId: string) {
     .groupBy(schema.tasks.subjectId);
 }
 
+/**
+ * "Решено" — count of DISTINCT tasks (by `taskId`, never `taskNumber`)
+ * this user has at least one correct attempt on, per subject. Additive
+ * to `getBySubject`'s `solved`/`correct`/`accuracyPercent` above (an
+ * attempt-ROW count, a legitimately different metric several other
+ * screens already rely on — see `getSummary`'s doc comment) — this is
+ * a separate query, never a replacement, so re-solving the same task
+ * 100 times only ever counts once, and two different tasks that happen
+ * to share a `taskNumber` (e.g. Вариант 1's №7 and Вариант 2's №7,
+ * different `taskId`s) are correctly counted as 2.
+ */
+export async function getUniqueSolvedBySubject(db: Database, userId: string) {
+  return db
+    .select({
+      subjectId: schema.tasks.subjectId,
+      uniqueSolved: countDistinct(
+        sql`case when ${schema.attempts.isCorrect} then ${schema.attempts.taskId} end`,
+      ),
+    })
+    .from(schema.attempts)
+    .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
+    .where(eq(schema.attempts.userId, userId))
+    .groupBy(schema.tasks.subjectId);
+}
+
 export async function getByTaskNumber(db: Database, userId: string) {
   return db
     .select({

@@ -3,6 +3,7 @@ import { useNavigation, type Route } from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
+  buildSessionProgress,
   explanationForPart,
   splitMultiPartExplanation,
   toSampleTask,
@@ -140,7 +141,12 @@ export function ResultDesktop({
     );
   }
 
-  const progressPercent = (task.indexInSession / task.totalInSession) * 100;
+  // The real position within the current session/list — same ordered
+  // list the top TaskNumberStrip/prev-next already use, never
+  // `task.indexInSession`/`task.totalInSession` (a safe single-item
+  // default — see taskAdapter.ts).
+  const progress = buildSessionProgress(task.id, taskNav.orderedTasks);
+  const progressPercent = (progress.indexInSession / progress.totalInSession) * 100;
   const displayedAnswer = userAnswer || '—';
 
   const multiPartSpec =
@@ -177,7 +183,7 @@ export function ResultDesktop({
         <Icon name="chevronRight" size={14} />
         <span>Тренировка</span>
         <Icon name="chevronRight" size={14} />
-        <span className={styles.breadcrumbCurrent}>Задание {task.indexInSession}</span>
+        <span className={styles.breadcrumbCurrent}>Задание {progress.indexInSession}</span>
       </div>
 
       <div className={styles.grid}>
@@ -193,7 +199,7 @@ export function ResultDesktop({
             </button>
             <div className={styles.progressHeaderBar}>
               <span className="text-body-sm">
-                Задание {task.indexInSession} из {task.totalInSession}
+                Задание {progress.indexInSession} из {progress.totalInSession}
               </span>
               <ProgressBar value={progressPercent} label="Прогресс тренировки" />
             </div>
@@ -430,14 +436,14 @@ export function ResultDesktop({
           {correct ? (
             <SessionTaskListCard
               title="Задания в теме"
-              sessionTasks={task.sessionTasks}
+              sessionTasks={progress.sessionTasks}
               onSelect={() => undefined}
             />
           ) : (
             <>
               <SessionTaskListCard
                 title="Задания"
-                sessionTasks={task.sessionTasks}
+                sessionTasks={progress.sessionTasks}
                 onSelect={() => undefined}
               />
               <DesktopToolsCard

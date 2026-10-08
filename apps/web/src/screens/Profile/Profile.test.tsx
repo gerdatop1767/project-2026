@@ -150,7 +150,9 @@ describe('Profile', () => {
       correctTotal: 9,
       incorrectTotal: 3,
       accuracyPercent: 75,
-      bySubject: [{ subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75 }],
+      bySubject: [
+        { subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],

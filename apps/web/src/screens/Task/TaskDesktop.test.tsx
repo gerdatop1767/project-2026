@@ -185,7 +185,7 @@ describe('TaskDesktop', () => {
     renderTask();
     await screen.findByText(CONDITION);
     expect(screen.getByText('Прогресс в теме')).toBeInTheDocument();
-    expect(screen.getByText('Другие задания')).toBeInTheDocument();
+    expect(screen.getByText('Задания')).toBeInTheDocument();
     expect(screen.getByText('Инструменты')).toBeInTheDocument();
   });
 
@@ -604,6 +604,62 @@ describe('TaskDesktop', () => {
       await user.click(skip);
       expect(screen.getByTestId('overlay')).toHaveTextContent('none');
     });
+  });
+});
+
+/**
+ * Navigation bugfix regression: "Задание X из Y" / the sidebar list
+ * must reflect the REAL current variant list (useTaskNavigation's
+ * orderedTasks), never `listTasksByNumber`'s cross-source same-number
+ * siblings — before this fix, every task open showed a fake
+ * "Задание K из N" sized by how many OTHER SOURCES happen to have a
+ * task with this same number, and clicking a sidebar row silently
+ * jumped to a different source's same-numbered task instead of the
+ * real next item in the list.
+ */
+describe('TaskDesktop — session progress reflects the real list, not cross-source siblings', () => {
+  beforeEach(() => {
+    resetFavoritesCacheForTests();
+    resetCanvasStoreForTests();
+    vi.mocked(api.getTask).mockResolvedValue(baseTask);
+    // 3 cross-source siblings sharing taskNumber=15 — must NOT drive
+    // "Задание X из Y" once a real 2-task variant list exists below.
+    vi.mocked(api.listTasksByNumber).mockResolvedValue(siblings);
+  });
+
+  it('"Задание X из Y" uses the real variant size (2), not the sibling count (3)', async () => {
+    vi.mocked(api.getVariantForTask).mockResolvedValue(twoTaskVariant);
+    renderTaskWithVariantContext();
+    await screen.findByText(CONDITION);
+    await waitFor(() => {
+      expect(screen.getByText(/Задание 1 из 2/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/из 3/)).not.toBeInTheDocument();
+  });
+
+  it('falls back to "Задание 1 из 1" with no real list context (plain single-task open)', async () => {
+    renderTask();
+    await screen.findByText(CONDITION);
+    await waitFor(() => {
+      expect(screen.getByText(/Задание 1 из 1/)).toBeInTheDocument();
+    });
+  });
+
+  it('clicking "Задание 2" in the sidebar navigates to the real next variant task, not a cross-source sibling', async () => {
+    vi.mocked(api.getVariantForTask).mockResolvedValue(twoTaskVariant);
+    const user = userEvent.setup();
+    renderTaskWithVariantContext();
+    await screen.findByText(CONDITION);
+    await waitFor(() => expect(screen.getByText(/Задание 1 из 2/)).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Задание 2' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('overlay')).toHaveTextContent(`task:${NEXT_TASK_ID}`);
+    });
+    // Never SIBLING_A/SIBLING_B — those are cross-source same-number
+    // tasks, not members of the real variant list.
+    expect(screen.getByTestId('overlay')).not.toHaveTextContent(SIBLING_A);
+    expect(screen.getByTestId('overlay')).not.toHaveTextContent(SIBLING_B);
   });
 });
 

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigation, type Route } from '../../lib/navigation.js';
-import type { TaskPublic } from '@zybrilka/shared';
 import { serializeMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber, submitAttempt } from '../../lib/api.js';
-import { toSampleTask } from '../../lib/taskAdapter.js';
+import { buildSessionProgress, toSampleTask } from '../../lib/taskAdapter.js';
 import { useFavorite } from '../../lib/useFavorite.js';
 import { useTaskNavigation } from '../../lib/useTaskNavigation.js';
 import { useActiveLearningSessionForTask } from '../../lib/learningSessionContext.js';
@@ -47,7 +46,7 @@ export interface TaskDesktopProps {
  * Desktop Training screen (S1 Block 6, approved design —
  * desktop/04_training.png): a three-part composition — breadcrumb +
  * task card in the main column, "Инструменты" / "Прогресс в теме" /
- * "Другие задания" in the sidebar. Structurally its own layout, not a
+ * "Задания" in the sidebar. Structurally its own layout, not a
  * scaled mobile screen.
  */
 export function TaskDesktop({
@@ -79,7 +78,6 @@ export function TaskDesktop({
   // change, so state starts fresh here — no manual reset-on-taskId-change
   // effect needed.
   const [task, setTask] = useState<ReturnType<typeof toSampleTask> | null>(null);
-  const [siblings, setSiblings] = useState<readonly TaskPublic[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [answer, setAnswer] = useState('');
   const [partAnswers, setPartAnswers] = useState<Record<string, string>>({});
@@ -94,7 +92,6 @@ export function TaskDesktop({
     void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
       .then(([fetchedTask, fetchedSiblings]) => {
         if (cancelled) return;
-        setSiblings(fetchedSiblings);
         setTask(toSampleTask(fetchedTask, fetchedSiblings));
       })
       .catch(() => {
@@ -105,27 +102,30 @@ export function TaskDesktop({
     };
   }, [taskId, subjectId, taskNumber]);
 
+  // Selecting a row in the real session/variant list (sidebar) — uses
+  // the SAME ordered list the top TaskNumberStrip/prev-next already use
+  // (taskNav.orderedTasks), never listTasksByNumber's cross-source
+  // same-number siblings (a different task's "Задание 3" used to mean
+  // "the 3rd task sharing this number from another variant", silently
+  // jumping to the wrong place — see taskAdapter.ts's doc comment).
   function handleSelectSession(index: number) {
-    const sibling = siblings[index - 1];
-    if (!sibling) return;
-    // Cross-source sibling ("Другие задания") — explicitly drop the
-    // current source/variant context rather than carrying it into a
-    // task that may belong to a different source entirely (and the old
-    // `returnTo` with it — it belonged to the source we just left).
-    navigate({
-      screen: 'task',
-      subjectId: sibling.subjectId,
-      taskNumber: sibling.taskNumber,
-      taskId: sibling.id,
-      returnTo: { screen: 'subject', subjectId: sibling.subjectId },
-    });
+    const entry = taskNav.orderedTasks[index - 1];
+    if (!entry) return;
+    taskNav.goTo(entry);
   }
 
   const isMultiPart = task?.answerType === 'multi_part' && task.answerParts !== null;
   const canSubmit = isMultiPart
     ? task!.answerParts!.every((p) => (partAnswers[p.id] ?? '').trim().length > 0) && !checking
     : answer.trim().length > 0 && !checking && task !== null;
-  const progressPercent = task ? (task.indexInSession / task.totalInSession) * 100 : 0;
+  // The real position within the current session/list (customOrderedTasks
+  // / variant / collection — same list the top TaskNumberStrip/prev-next
+  // already use), never `task.indexInSession`/`task.totalInSession`
+  // (just a safe single-item default — see taskAdapter.ts).
+  const sessionProgress = task ? buildSessionProgress(task.id, taskNav.orderedTasks) : null;
+  const progressPercent = sessionProgress
+    ? (sessionProgress.indexInSession / sessionProgress.totalInSession) * 100
+    : 0;
 
   function handleCheck() {
     if (!canSubmit || !task) return;
@@ -180,6 +180,7 @@ export function TaskDesktop({
       </FadeIn>
     );
   }
+  const progress = sessionProgress!;
 
   return (
     <FadeIn key={task.id} className={styles.page}>
@@ -191,7 +192,7 @@ export function TaskDesktop({
         <Icon name="chevronRight" size={14} />
         <span>Тренировка</span>
         <Icon name="chevronRight" size={14} />
-        <span className={styles.breadcrumbCurrent}>Задание {task.indexInSession}</span>
+        <span className={styles.breadcrumbCurrent}>Задание {progress.indexInSession}</span>
       </div>
 
       <div className={styles.grid}>
@@ -208,7 +209,7 @@ export function TaskDesktop({
             </button>
             <div className={styles.progressHeaderBar}>
               <span className="text-body-sm">
-                Задание {task.indexInSession} из {task.totalInSession}
+                Задание {progress.indexInSession} из {progress.totalInSession}
               </span>
               <ProgressBar value={progressPercent} label="Прогресс тренировки" />
             </div>
@@ -227,7 +228,7 @@ export function TaskDesktop({
           <div className={styles.card}>
             <div className={styles.metaRow}>
               {learningSession && <LearningSessionBadge session={learningSession} />}
-              <span className={styles.currentChip}>Задание {task.indexInSession}</span>
+              <span className={styles.currentChip}>Задание {progress.indexInSession}</span>
               <span className={styles.metaChip}>{task.topic}</span>
               <span className={styles.metaChip}>Показательные уравнения</span>
               <span className={styles.metaChip}>
@@ -353,12 +354,12 @@ export function TaskDesktop({
             onSelectCanvas={() => setCanvasOpen(true)}
           />
           <SessionProgressCard
-            sessionTasks={task.sessionTasks}
-            totalInSession={task.totalInSession}
+            sessionTasks={progress.sessionTasks}
+            totalInSession={progress.totalInSession}
           />
           <SessionTaskListCard
-            title="Другие задания"
-            sessionTasks={task.sessionTasks}
+            title="Задания"
+            sessionTasks={progress.sessionTasks}
             onSelect={handleSelectSession}
           />
         </div>

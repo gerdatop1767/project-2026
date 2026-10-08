@@ -3,6 +3,7 @@ import { useNavigation, type Route } from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
+  buildSessionProgress,
   explanationForPart,
   splitMultiPartExplanation,
   toSampleTask,
@@ -185,6 +186,8 @@ export function ResultMobile({
     });
   }
 
+  const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks);
+
   return (
     <SlideUp key={`${taskId}-${correct}`} className={styles.stack}>
       <TaskChrome
@@ -196,6 +199,8 @@ export function ResultMobile({
         previous={taskNav.previous}
         next={taskNav.next}
         onGoTo={taskNav.goTo}
+        indexInSession={sessionProgress.indexInSession}
+        totalInSession={sessionProgress.totalInSession}
       />
 
       <div
