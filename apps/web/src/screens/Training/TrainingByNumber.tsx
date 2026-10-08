@@ -52,6 +52,14 @@ export interface TrainingByNumberProps {
    * actually opened this screen (audit: Back routing fix). Absent
    * falls back to "Тренировка", the screen's own previous default. */
   from?: Route;
+  /** Pre-selects this one number on entry (e.g. arriving from a task's
+   * "Другие задания №N" → "К списку заданий №N") — applied once, at
+   * mount, with both flags off (the same default `toggleNumber` gives
+   * any freshly-picked number); the user can add/remove numbers
+   * afterward exactly as if they'd clicked the chip themselves. Never
+   * starts training automatically. An out-of-range number for the
+   * resolved subject is silently ignored. */
+  initialTaskNumber?: number;
 }
 
 /**
@@ -66,14 +74,29 @@ export interface TrainingByNumberProps {
  * task-selection mechanism. One shared component for desktop/mobile
  * (same business logic, the layout itself is already responsive).
  */
-export function TrainingByNumber({ subjectId, collectionSlug, from }: TrainingByNumberProps) {
+export function TrainingByNumber({
+  subjectId,
+  collectionSlug,
+  from,
+  initialTaskNumber,
+}: TrainingByNumberProps) {
   const { navigate } = useNavigation();
   const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId ?? 'math');
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   const [selectedCollectionSlug, setSelectedCollectionSlug] = useState<string | null>(
     collectionSlug ?? null,
   );
-  const [selection, setSelection] = useState<Record<number, NumberSelection>>({});
+  // Applied once, at mount — same shape toggleNumber gives any
+  // freshly-picked chip (both flags off), so the user can immediately
+  // add/remove/adjust it exactly as if they'd clicked it themselves.
+  // Out-of-range for the resolved subject → silently ignored, matching
+  // selectSubject's own existing out-of-range rule below.
+  const [selection, setSelection] = useState<Record<number, NumberSelection>>(() => {
+    if (!initialTaskNumber) return {};
+    const max = getSubjectContent(subjectId ?? 'math').taskNumberCount;
+    if (initialTaskNumber < 1 || initialTaskNumber > max) return {};
+    return { [initialTaskNumber]: { random: false, unseen: false } };
+  });
   const [shuffleOrder, setShuffleOrder] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);

@@ -39,7 +39,10 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, {
     if (!query.success) {
       return reply.code(400).send({ error: 'invalid_query', issues: query.error.issues });
     }
-    return service.listTasks(db, query.data);
+    if (query.data.unsolved && !request.userId) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+    return service.listTasks(db, query.data, request.userId);
   });
 
   // Registered before "/tasks/:id" so "counts" is never parsed as a

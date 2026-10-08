@@ -261,5 +261,80 @@ describe('useTaskNavigation', () => {
         customOrderedTasks: CUSTOM_LIST,
       });
     });
+
+    /**
+     * Navigation bugfix round 3: a shuffled "По номерам" single-number
+     * session (V1-V5 of #13, reordered by resolveSingleNumberSession)
+     * is exactly a customOrderedTasks list where every entry shares one
+     * taskNumber. Next/previous must follow the FIXED shuffled order
+     * given — never re-shuffle, never step by taskNumber (impossible
+     * here anyway, since every entry has the same number 13), and never
+     * call a random endpoint to find "the next task".
+     */
+    it('follows a shuffled same-number session (V1-V5 of #13) in the exact given order, never re-randomizing', () => {
+      const SAME_NUMBER_SHUFFLED = [
+        { taskId: 'v4-task-13', taskNumber: 13 },
+        { taskId: 'v2-task-13', taskNumber: 13 },
+        { taskId: 'v5-task-13', taskNumber: 13 },
+        { taskId: 'v1-task-13', taskNumber: 13 },
+        { taskId: 'v3-task-13', taskNumber: 13 },
+      ];
+
+      // V4 (first) → next is V2.
+      const atV4 = renderHook(
+        () =>
+          useTaskNavigation({
+            subjectId: 'math',
+            taskId: 'v4-task-13',
+            customOrderedTasks: SAME_NUMBER_SHUFFLED,
+          }),
+        { wrapper },
+      );
+      expect(atV4.result.current.previous).toBeNull();
+      expect(atV4.result.current.next).toEqual(SAME_NUMBER_SHUFFLED[1]); // V2
+
+      // V2 (second) → next is V5, previous is V4.
+      const atV2 = renderHook(
+        () =>
+          useTaskNavigation({
+            subjectId: 'math',
+            taskId: 'v2-task-13',
+            customOrderedTasks: SAME_NUMBER_SHUFFLED,
+          }),
+        { wrapper },
+      );
+      expect(atV2.result.current.previous).toEqual(SAME_NUMBER_SHUFFLED[0]); // V4
+      expect(atV2.result.current.next).toEqual(SAME_NUMBER_SHUFFLED[2]); // V5
+
+      // V5 (third) → next is V1, previous is V2.
+      const atV5 = renderHook(
+        () =>
+          useTaskNavigation({
+            subjectId: 'math',
+            taskId: 'v5-task-13',
+            customOrderedTasks: SAME_NUMBER_SHUFFLED,
+          }),
+        { wrapper },
+      );
+      expect(atV5.result.current.previous).toEqual(SAME_NUMBER_SHUFFLED[1]); // V2
+      expect(atV5.result.current.next).toEqual(SAME_NUMBER_SHUFFLED[3]); // V1
+
+      // V3 (last) → next is null, never wraps or invents a 6th task.
+      const atV3 = renderHook(
+        () =>
+          useTaskNavigation({
+            subjectId: 'math',
+            taskId: 'v3-task-13',
+            customOrderedTasks: SAME_NUMBER_SHUFFLED,
+          }),
+        { wrapper },
+      );
+      expect(atV3.result.current.next).toBeNull();
+
+      // The whole list stays in the exact given shuffled order — never
+      // re-sorted back to V1..V5, never re-randomized between renders.
+      expect(atV4.result.current.orderedTasks).toEqual(SAME_NUMBER_SHUFFLED);
+      expect(atV2.result.current.orderedTasks).toEqual(SAME_NUMBER_SHUFFLED);
+    });
   });
 });

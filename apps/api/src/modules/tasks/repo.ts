@@ -91,6 +91,10 @@ export async function getCountsBySubject(
 export async function listTasks(
   db: Database,
   filters: TaskListQuery,
+  /** Required (and only meaningful) when `filters.unsolved` is set — see
+   * `userId`'s doc on `FastifyRequest` for why this is never a
+   * client-trusted value. */
+  userId?: string | null,
 ): Promise<{ items: TaskWithTopic[]; nextCursor: string | null }> {
   const conditions = [eq(schema.tasks.status, filters.status ?? 'published')];
   if (filters.subject) conditions.push(eq(schema.tasks.subjectId, filters.subject));
@@ -99,6 +103,17 @@ export async function listTasks(
   if (filters.difficulty) conditions.push(eq(schema.tasks.difficulty, filters.difficulty));
   const scoped = taskIdsForCollectionOrVariant(db, filters);
   if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  if (filters.unsolved && userId) {
+    conditions.push(
+      notInArray(
+        schema.tasks.id,
+        db
+          .select({ taskId: schema.attempts.taskId })
+          .from(schema.attempts)
+          .where(and(eq(schema.attempts.userId, userId), eq(schema.attempts.isCorrect, true))),
+      ),
+    );
+  }
 
   const cursor = filters.cursor ? decodeCursor(filters.cursor) : null;
   if (cursor) {

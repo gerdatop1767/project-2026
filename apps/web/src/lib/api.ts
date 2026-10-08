@@ -141,19 +141,27 @@ export function getVariantForTask(taskId: string, collection?: string): Promise<
 
 /**
  * Every published task sharing one exam number — used both for the
- * cross-source "Другие задания" comparison list (no `collection`, the
- * whole bank) and, since the navigation bugfix below, as the real
- * ordered list for "По номерам" with exactly one number selected
- * (`collection` then scopes it exactly like every other entry point's
- * 🎲 toggle already does — see `resolveSingleNumberSession`).
+ * cross-source "Другие задания" comparison list (no `collection`/
+ * `unsolved`, the whole bank) and, since the navigation bugfix below,
+ * as the real ordered list for "По номерам" with exactly one number
+ * selected (`collection` then scopes it exactly like every other entry
+ * point's 🎲 toggle already does — see `resolveSingleNumberSession`).
+ *
+ * `unsolved` excludes any task the current user has a CORRECT attempt
+ * on — "По номерам"'s «Только нерешённые» checkbox, deliberately a
+ * different filter from `getRandomTask`'s `unseen` (which excludes a
+ * task on any attempt at all — see the shared `taskListQuerySchema`'s
+ * doc comment on `unsolved` for the full distinction).
  */
 export function listTasksByNumber(
   subject: string,
   taskNumber: number,
   collection?: string,
+  unsolved?: boolean,
 ): Promise<TaskPublic[]> {
   const query = new URLSearchParams({ subject, taskNumber: String(taskNumber) });
   if (collection) query.set('collection', collection);
+  if (unsolved) query.set('unsolved', 'true');
   return apiFetch<{ items: TaskPublic[] }>(`/tasks?${query.toString()}`).then((r) => r.items);
 }
 

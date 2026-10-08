@@ -794,11 +794,62 @@ describe('TaskDesktop — "Другие задания" (desktop, bugfix: block 
     expect(screen.getByText(`#${SIBLING_A.slice(0, 8)}`)).toBeInTheDocument();
   });
 
+  it('is collapsed by default (same UX as mobile), expands on header click', async () => {
+    const user = userEvent.setup();
+    renderTask();
+    await screen.findByText(CONDITION);
+    const header = await screen.findByRole('button', {
+      name: new RegExp(`Другие задания №${baseTask.taskNumber}`),
+    });
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    await user.click(header);
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('"К списку заданий №N" navigates to По номерам with this taskNumber pre-selected (never auto-starts training)', async () => {
+    function ByNumberOverlayDetail() {
+      const { overlay } = useNavigation();
+      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      return (
+        <p data-testid="by-number">
+          byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}
+        </p>
+      );
+    }
+    const user = userEvent.setup();
+    render(
+      <NavigationProvider>
+        <TaskDesktop
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+        />
+        <ByNumberOverlayDetail />
+      </NavigationProvider>,
+    );
+    await screen.findByText(CONDITION);
+    await user.click(
+      await screen.findByRole('button', {
+        name: new RegExp(`Другие задания №${baseTask.taskNumber}`),
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: `К списку заданий №${baseTask.taskNumber}` }),
+    );
+    expect(screen.getByTestId('by-number')).toHaveTextContent(
+      `byNumber:${baseTask.subjectId}:${baseTask.taskNumber}`,
+    );
+  });
+
   it("clicking a card opens exactly that card's taskId", async () => {
     const user = userEvent.setup();
     renderTask();
     await screen.findByText(CONDITION);
-    await screen.findByText(`Другие задания №${baseTask.taskNumber}`);
+    await user.click(
+      await screen.findByRole('button', {
+        name: new RegExp(`Другие задания №${baseTask.taskNumber}`),
+      }),
+    );
     await user.click(
       screen.getByRole('button', { name: `Задание #${SIBLING_A.slice(0, 8)}, Сложное` }),
     );

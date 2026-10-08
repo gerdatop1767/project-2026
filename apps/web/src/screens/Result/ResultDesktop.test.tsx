@@ -559,6 +559,58 @@ describe('ResultDesktop — "Другие задания" (desktop, bugfix: bloc
     expect(katexHtml!.textContent).not.toContain('$');
   });
 
+  it('is collapsed by default (same UX as mobile), expands on header click', async () => {
+    const user = userEvent.setup();
+    renderResult(true);
+    await screen.findByText(EXPLANATION);
+    const header = await screen.findByRole('button', {
+      name: new RegExp(`Другие задания №${baseTask.taskNumber}`),
+    });
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    await user.click(header);
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('"К списку заданий №N" inside "Другие задания" navigates to По номерам with this taskNumber pre-selected, distinct from the main action bar\'s plain "К списку заданий"', async () => {
+    function ByNumberOverlayDetail() {
+      const { overlay } = useNavigation();
+      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      return (
+        <p data-testid="by-number">
+          byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}
+        </p>
+      );
+    }
+    const user = userEvent.setup();
+    render(
+      <NavigationProvider>
+        <ResultDesktop
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+          correct
+          userAnswer={CORRECT_ANSWER}
+        />
+        <ByNumberOverlayDetail />
+      </NavigationProvider>,
+    );
+    await screen.findByText(EXPLANATION);
+    // The main action bar's own "К списку заданий" (no number) is a
+    // separate, unrelated button (goToTaskList) and must stay untouched.
+    expect(screen.getByRole('button', { name: 'К списку заданий' })).toBeInTheDocument();
+    await user.click(
+      await screen.findByRole('button', {
+        name: new RegExp(`Другие задания №${baseTask.taskNumber}`),
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: `К списку заданий №${baseTask.taskNumber}` }),
+    );
+    expect(screen.getByTestId('by-number')).toHaveTextContent(
+      `byNumber:${baseTask.subjectId}:${baseTask.taskNumber}`,
+    );
+  });
+
   it("clicking a card opens exactly that card's taskId", async () => {
     function TaskIdOverlayMarker() {
       const { overlay } = useNavigation();
@@ -579,7 +631,11 @@ describe('ResultDesktop — "Другие задания" (desktop, bugfix: bloc
       </NavigationProvider>,
     );
     await screen.findByText(EXPLANATION);
-    await screen.findByText(`Другие задания №${baseTask.taskNumber}`);
+    await user.click(
+      await screen.findByRole('button', {
+        name: new RegExp(`Другие задания №${baseTask.taskNumber}`),
+      }),
+    );
     await user.click(
       screen.getByRole('button', { name: `Задание #${OTHER_ID.slice(0, 8)}, Сложное` }),
     );

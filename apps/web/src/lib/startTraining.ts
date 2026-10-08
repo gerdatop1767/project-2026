@@ -195,46 +195,40 @@ export async function resolveTaskBatch(
  * navigation list. Resolved once at session start; the returned ids
  * stay fixed (never re-rolled on Prev/Next).
  *
- * `random` ignores the selected Сборник, same meaning as everywhere
- * else `TaskPickFilter.random` is used. `unseen`, when on, additionally
- * calls the real `getRandomTask` unseen filter once to choose which of
- * these tasks to start on; if none of them is unseen, this fails the
- * same way `resolveTaskBatch` already does (`no_unseen_tasks`) rather
- * than silently starting on an already-solved one. `unseen` off simply
- * starts on the first entry (today, Вариант 1's copy) — no second
- * random pick.
+ * The pipeline (bugfix round 3 — unseen/random/start-task were each
+ * silently broken for this mode):
+ * 1. fetch candidates, scoped to subject/number/collection;
+ * 2. `unseen` (UI label «Только нерешённые») filters OUT, server-side,
+ *    any task with a CORRECT attempt already on record — deliberately
+ *    different from `getRandomTask`'s `unseen` (excludes on ANY
+ *    attempt); see `listTasksByNumber`'s doc comment. An empty result
+ *    here means every copy is already solved correctly: fails with
+ *    `no_unseen_tasks`, never silently drops the filter or falls back
+ *    to an already-solved task;
+ * 3. `shuffleOrder` (the real "Перемешать порядок" toggle) shuffles
+ *    this already-filtered list exactly once;
+ * 4. the start task is ALWAYS `orderedTasks[0]` of that final list —
+ *    never a separate `getRandomTask` call, which is what silently
+ *    decoupled the shown start task from position 1 before this fix.
+ *
+ * `random` ignores the selected Сборник when fetching candidates, same
+ * meaning as everywhere else `TaskPickFilter.random` is used.
  */
 export async function resolveSingleNumberSession(
   filter: TaskPickFilter,
   options: { shuffleOrder?: boolean } = {},
 ): Promise<{ tasks: TaskPublic[]; startTaskId: string } | { error: TaskBatchError }> {
   const collection = filter.random ? undefined : filter.collection;
-  const tasks = await listTasksByNumber(filter.subject, filter.taskNumber!, collection);
-  if (tasks.length === 0) {
-    return { error: { reason: 'none', index: 0, filter } };
+  const candidates = await listTasksByNumber(
+    filter.subject,
+    filter.taskNumber!,
+    collection,
+    filter.unseen,
+  );
+  if (candidates.length === 0) {
+    return { error: { reason: filter.unseen ? 'no_unseen_tasks' : 'none', index: 0, filter } };
   }
 
-  let startTaskId = tasks[0]!.id;
-  if (filter.unseen) {
-    try {
-      const picked = await getRandomTask({
-        subject: filter.subject,
-        taskNumber: filter.taskNumber,
-        collection,
-        unseen: true,
-      });
-      startTaskId = picked.id;
-    } catch (error) {
-      if (
-        error instanceof ApiError &&
-        (error.body as { error?: string })?.error === 'no_unseen_tasks'
-      ) {
-        return { error: { reason: 'no_unseen_tasks', index: 0, filter } };
-      }
-      return { error: { reason: 'none', index: 0, filter } };
-    }
-  }
-
-  const orderedTasks = options.shuffleOrder ? shuffled(tasks) : tasks;
-  return { tasks: orderedTasks, startTaskId };
+  const orderedTasks = options.shuffleOrder ? shuffled(candidates) : candidates;
+  return { tasks: orderedTasks, startTaskId: orderedTasks[0]!.id };
 }

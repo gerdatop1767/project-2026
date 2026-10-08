@@ -151,6 +151,13 @@ export type OverlayRoute =
       from?: Route;
       subjectId?: string;
       collectionSlug?: string;
+      /** Pre-selects this one number on entry (e.g. "Другие задания
+       * №13"'s "К списку заданий №13" button) — the user can freely
+       * add/remove numbers afterward, same chips as any other entry.
+       * An out-of-range number for the resolved subject is silently
+       * ignored (TrainingByNumber's own existing out-of-range rule —
+       * see `selectSubject`), never a crash or a fake selection. */
+      initialTaskNumber?: number;
     }
   | { screen: 'rating' }
   | { screen: 'about' }
@@ -194,6 +201,26 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
  * name (task/result/subject carry their own context instead). */
 export function getRouteLabel(route: Route): string {
   return routeLabels[route.screen] ?? 'Главная';
+}
+
+/**
+ * "К списку заданий №N" (Similar Tasks' `OtherVariantsSection`/
+ * `OtherVariantsSectionDesktop`, both mobile and desktop) — the ONE
+ * shared way every Task/Result screen builds this route, so neither
+ * platform invents its own. Pre-selects `taskNumber` on
+ * TrainingByNumber (see its `initialTaskNumber` doc comment) without
+ * starting training; `from` matches the existing cross-source
+ * "Другие задания" convention (`handleSelectVariant` elsewhere in
+ * these same screens) of returning to the subject page, since this
+ * leaves the current task's source/session context behind.
+ */
+export function trainingByNumberRouteFor(subjectId: string, taskNumber: number): Route {
+  return {
+    screen: 'trainingByNumber',
+    subjectId,
+    initialTaskNumber: taskNumber,
+    from: { screen: 'subject', subjectId },
+  };
 }
 
 interface NavigationContextValue {
@@ -286,11 +313,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     [tab, overlay, navigate, back],
   );
 
-  return (
-    <NavigationContext.Provider value={value}>
-      {children}
-    </NavigationContext.Provider>
-  );
+  return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
 }
 
 export function useNavigation(): NavigationContextValue {

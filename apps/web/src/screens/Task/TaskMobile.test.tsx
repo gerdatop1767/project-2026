@@ -652,3 +652,53 @@ describe('TaskMobile — submit carries the session list forward to Result (navi
     });
   });
 });
+
+/**
+ * "К списку заданий №N" (UX bugfix round 3 — restored as a real
+ * action): opens "Другие задания", clicks the button, confirms it
+ * navigates to TrainingByNumber with this task's real subject/number
+ * pre-selected — never auto-starting training.
+ */
+describe('TaskMobile — "К списку заданий №N" (navigation to По номерам, bugfix round 3)', () => {
+  beforeEach(() => {
+    resetFavoritesCacheForTests();
+    resetCanvasStoreForTests();
+    vi.mocked(api.getTask).mockResolvedValue(baseTask);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue(siblings);
+  });
+
+  it('navigates to По номерам with this taskNumber pre-selected', async () => {
+    function ByNumberOverlayDetail() {
+      const { overlay } = useNavigation();
+      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      return (
+        <p data-testid="by-number">
+          byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}
+        </p>
+      );
+    }
+    const user = userEvent.setup();
+    render(
+      <NavigationProvider>
+        <TaskMobile
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+        />
+        <ByNumberOverlayDetail />
+      </NavigationProvider>,
+    );
+    await screen.findByText(CONDITION);
+    await user.click(
+      await screen.findByRole('button', {
+        name: new RegExp(`Другие задания №${baseTask.taskNumber}`),
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: `К списку заданий №${baseTask.taskNumber}` }),
+    );
+    expect(screen.getByTestId('by-number')).toHaveTextContent(
+      `byNumber:${baseTask.subjectId}:${baseTask.taskNumber}`,
+    );
+  });
+});

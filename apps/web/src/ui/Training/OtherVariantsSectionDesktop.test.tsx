@@ -10,31 +10,80 @@ const VARIANTS: TaskVariant[] = [
 ];
 
 /**
- * Desktop "Другие задания" block (bugfix: desktop had no equivalent of
- * mobile's "Другие задания" at all) — same cards/math renderer/click
- * behavior/data source as mobile's OtherVariantsSection, just an
- * always-visible grid instead of a collapsible accordion.
+ * Desktop "Другие задания" (UX bugfix round 2): collapsed-by-default
+ * accordion, matching mobile's `OtherVariantsSection` exactly, never
+ * an always-expanded block — same cards (`VariantPreviewCard`), same
+ * math renderer, same click behavior/data source as mobile, only the
+ * expanded layout (grid vs stacked column) differs.
  */
-describe('OtherVariantsSectionDesktop', () => {
-  it('renders the header with the real taskNumber and subtitle', () => {
+describe('OtherVariantsSectionDesktop — collapsible accordion, same UX as mobile', () => {
+  it('is collapsed by default', () => {
     render(
       <OtherVariantsSectionDesktop
         taskNumber={13}
         variants={VARIANTS}
+        open={false}
+        onToggle={() => {}}
         onSelectVariant={() => {}}
+        onGoToList={() => {}}
         subtitle="Похожие задания на эту тему"
       />,
     );
-    expect(screen.getByText('Другие задания №13')).toBeInTheDocument();
-    expect(screen.getByText('Похожие задания на эту тему')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Другие задания №13/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
-  it('renders one card per variant, using the shared VariantPreviewCard (same card as mobile)', () => {
+  it('clicking the header calls onToggle (expand)', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
     render(
       <OtherVariantsSectionDesktop
         taskNumber={13}
         variants={VARIANTS}
+        open={false}
+        onToggle={onToggle}
         onSelectVariant={() => {}}
+        onGoToList={() => {}}
+        subtitle="Похожие"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /Другие задания №13/ }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking the header again calls onToggle (collapse)', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(
+      <OtherVariantsSectionDesktop
+        taskNumber={13}
+        variants={VARIANTS}
+        open
+        onToggle={onToggle}
+        onSelectVariant={() => {}}
+        onGoToList={() => {}}
+        subtitle="Похожие"
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Другие задания №13/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    await user.click(screen.getByRole('button', { name: /Другие задания №13/ }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders one card per variant (using the shared VariantPreviewCard) when open', () => {
+    render(
+      <OtherVariantsSectionDesktop
+        taskNumber={13}
+        variants={VARIANTS}
+        open
+        onToggle={() => {}}
+        onSelectVariant={() => {}}
+        onGoToList={() => {}}
         subtitle="Похожие"
       />,
     );
@@ -47,11 +96,40 @@ describe('OtherVariantsSectionDesktop', () => {
       <OtherVariantsSectionDesktop
         taskNumber={13}
         variants={[]}
+        open
+        onToggle={() => {}}
         onSelectVariant={() => {}}
+        onGoToList={() => {}}
         subtitle="Похожие"
       />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  /**
+   * "К списку заданий №N" (UX bugfix round 3 — this button was briefly
+   * removed as inert, now restored as a real action): takes the user
+   * to Тренировка → По номерам with this taskNumber pre-selected,
+   * never auto-starting training — see `onGoToList`'s doc comment on
+   * `OtherVariantsSection`.
+   */
+  it('renders a "К списку заданий №13" button and clicking it calls onGoToList', async () => {
+    const user = userEvent.setup();
+    const onGoToList = vi.fn();
+    render(
+      <OtherVariantsSectionDesktop
+        taskNumber={13}
+        variants={VARIANTS}
+        open
+        onToggle={() => {}}
+        onSelectVariant={() => {}}
+        onGoToList={onGoToList}
+        subtitle="Похожие"
+      />,
+    );
+    const button = screen.getByRole('button', { name: /К списку заданий №13/ });
+    await user.click(button);
+    expect(onGoToList).toHaveBeenCalledTimes(1);
   });
 
   it('clicking a card calls onSelectVariant with that exact variant, never a different one or the current one', async () => {
@@ -61,7 +139,10 @@ describe('OtherVariantsSectionDesktop', () => {
       <OtherVariantsSectionDesktop
         taskNumber={13}
         variants={VARIANTS}
+        open
+        onToggle={() => {}}
         onSelectVariant={onSelectVariant}
+        onGoToList={() => {}}
         subtitle="Похожие"
       />,
     );
@@ -75,7 +156,10 @@ describe('OtherVariantsSectionDesktop', () => {
       <OtherVariantsSectionDesktop
         taskNumber={13}
         variants={VARIANTS}
+        open
+        onToggle={() => {}}
         onSelectVariant={() => {}}
+        onGoToList={() => {}}
         subtitle="Похожие"
       />,
     );

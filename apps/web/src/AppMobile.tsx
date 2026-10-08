@@ -172,6 +172,7 @@ export function AppMobile() {
                 subjectId={contentOverlay.subjectId}
                 collectionSlug={contentOverlay.collectionSlug}
                 from={contentOverlay.from}
+                initialTaskNumber={contentOverlay.initialTaskNumber}
               />
             )}
             {contentOverlay.screen === 'rating' && <RatingMobile />}
