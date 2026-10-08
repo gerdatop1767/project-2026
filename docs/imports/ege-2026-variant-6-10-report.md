@@ -1,6 +1,6 @@
 # EGE 2026 — Варианты 6–10 — отчёт об импорте
 
-Status: **Вариант 6 complete.** Варианты 7–10 pending (same pipeline, next blocks).
+Status: **Вариант 6 и Вариант 7 complete.** Варианты 8–10 pending (same pipeline, next blocks).
 
 ## Source
 
@@ -64,8 +64,22 @@ No code changes were needed or made — `resolveSingleNumberSession()`, the `uns
 - Prettier: all touched files formatted (pre-existing formatting debt in unrelated files, e.g. `Training.tsx`, `StatisticsDesktop.tsx`, was left untouched — not part of this block's scope).
 - Full monorepo `pnpm test`/`pnpm check`: see final report message for this block (run separately, in background, due to runtime).
 
+## Вариант 7
+
+19/19 tasks, all `published`, 0 `needs_review`, 0 images (no task required a graph/image asset — tasks 8 and 11 both resolved from the clean PDF render via text/coordinate description alone).
+
+**Image/PDF fallback needed:**
+- **Task 1** (cyclic quadrilateral angles): the ZIP image was ambiguous about which two angles were given (adjacent vs. a diagonal-split configuration). Resolved using the standard well-known problem structure (adjacent angles given, opposite angles computed via the 180°-sum property — confirmed as the only interpretation consistent with 48°+74°≠180°, which rules out an opposite-pair reading).
+- **Task 11** (quadratic + line graph): required careful pixel-grid verification on the original PDF. An initial automated axis-row detection locked onto the wrong horizontal line (a page element thicker than the true x-axis), which silently produced non-integer, inconsistent grid coordinates. This was caught by cross-checking against a direct visual crosshair confirmation at the origin, the axis was re-identified correctly, and all graph points (parabola roots at 0/−4, vertex (−2;4), line through (0;0) and (2;5)) were re-verified against the corrected grid before being used — demonstrating exactly why the "never guess, verify against a clean rational/consistent result" rule matters.
+- **Task 14** (triangular prism dihedral angle) and **Task 18** (trigonometric equation with parameter, root-counting) are advanced Part 2 problems solved via explicit coordinate/combinatorial derivation (not transcribed from an answer key); task 14's ratio 12:13 was independently cross-checked against the problem's own stated ratio as a self-consistency proof, and task 16's economics problem was verified by confirming BOTH given constraints (final payment 484,000 AND total payments 2,376,000) are satisfied exactly by the derived loan amount.
+- All other tasks (2–7, 9, 10, 12, 13, 15, 17, 19) read cleanly from the TXT/PDF with no ambiguity.
+
+No numeric value was guessed anywhere in Вариант 7.
+
+**Tests:** `importEge2026Variant7.test.ts` 11/11; `variantMatrixAudit.test.ts` (7×19=133) 8/8; `deploySyncContent.test.ts` 5/5; combined with the extended `v1v5IntegrationAudit.test.ts`, `realImportedData.test.ts`, `sameTaskNumber.test.ts` — **67/67 passed**. Typecheck, lint, build all clean. Production sync (`infra/docker-compose.yml`) extended through V7.
+
 ## Known limitations
 
-- Варианты 7–10 (76 tasks) are not yet imported — next blocks, one per variant, following this exact same pipeline and verification rigor.
-- `infra/docker-compose.yml`'s `sync-content` chain only runs through V6 for now; it will be extended again after each subsequent variant is added.
-- The adversarial Similar-Tasks sweep across the full intended 10-variant/190-task matrix cannot exist yet since only 6 variants exist; the current sweep covers the full real 114-task matrix.
+- Варианты 8–10 (57 tasks) are not yet imported — next blocks, one per variant, following this exact same pipeline and verification rigor.
+- `infra/docker-compose.yml`'s `sync-content` chain only runs through V7 for now; it will be extended again after each subsequent variant is added.
+- The adversarial Similar-Tasks sweep across the full intended 10-variant/190-task matrix cannot exist yet since only 7 variants exist; the current sweep covers the full real 133-task matrix.

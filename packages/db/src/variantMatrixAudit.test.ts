@@ -10,18 +10,19 @@ import { importVariant3 } from './importEge2026Variant3.js';
 import { importVariant4 } from './importEge2026Variant4.js';
 import { importVariant5 } from './importEge2026Variant5.js';
 import { importVariant6 } from './importEge2026Variant6.js';
+import { importVariant7 } from './importEge2026Variant7.js';
 
 /**
  * Integration audit (Block "audit ege 2026 variants 1-5 integration",
- * extended to V6): proves the full real-data 6×19 matrix is correct
- * and stable, on top of each variant's own already-passing per-variant
- * test file. This file checks properties that only exist once ALL six
- * variants are imported together — the full matrix shape, cross-variant
- * duplicate detection, and idempotency of re-running all six imports in
- * one database — which no single variant's test file can check on its
- * own.
+ * extended to V6 and V7): proves the full real-data 7×19 matrix is
+ * correct and stable, on top of each variant's own already-passing
+ * per-variant test file. This file checks properties that only exist
+ * once ALL seven variants are imported together — the full matrix
+ * shape, cross-variant duplicate detection, and idempotency of
+ * re-running all seven imports in one database — which no single
+ * variant's test file can check on its own.
  */
-describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
+describe('EGE-2026 V1-V7 integration audit — full 7×19 matrix', () => {
   let testDb: Awaited<ReturnType<typeof createImportedVariantsTestDb>>;
 
   beforeAll(async () => {
@@ -32,7 +33,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
     await testDb.close();
   });
 
-  it('has exactly 114 published real EGE-2026 tasks (6 variants × 19 numbers)', async () => {
+  it('has exactly 133 published real EGE-2026 tasks (7 variants × 19 numbers)', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -43,7 +44,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
           eq(schema.tasks.source, 'Ященко ЕГЭ 2026. Типовые экзаменационные варианты'),
         ),
       );
-    expect(rows.length).toBe(114);
+    expect(rows.length).toBe(133);
     expect(rows.every((r) => r.status === 'published')).toBe(true);
   });
 
@@ -67,7 +68,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
 
     const missing: string[] = [];
     const duplicated: string[] = [];
-    for (const variant of [1, 2, 3, 4, 5, 6]) {
+    for (const variant of [1, 2, 3, 4, 5, 6, 7]) {
       for (let taskNumber = 1; taskNumber <= 19; taskNumber++) {
         const key = `${variant}:${taskNumber}`;
         const count = seen.get(key) ?? 0;
@@ -77,7 +78,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
     }
     expect(missing).toEqual([]);
     expect(duplicated).toEqual([]);
-    expect(seen.size).toBe(114);
+    expect(seen.size).toBe(133);
   });
 
   it('has no duplicate task ids and no duplicate content hashes across the whole matrix', async () => {
@@ -91,8 +92,8 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
           eq(schema.tasks.source, 'Ященко ЕГЭ 2026. Типовые экзаменационные варианты'),
         ),
       );
-    expect(new Set(rows.map((r) => r.id)).size).toBe(114);
-    expect(new Set(rows.map((r) => r.contentHash)).size).toBe(114);
+    expect(new Set(rows.map((r) => r.id)).size).toBe(133);
+    expect(new Set(rows.map((r) => r.contentHash)).size).toBe(133);
   });
 
   it('every task belongs to the correct variant via variant_tasks, with matching position', async () => {
@@ -102,7 +103,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
       .from(schema.variants)
       .innerJoin(schema.collections, eq(schema.collections.id, schema.variants.collectionId))
       .where(eq(schema.collections.slug, 'ege-2026-yashchenko'));
-    expect(variants).toHaveLength(6);
+    expect(variants).toHaveLength(7);
 
     for (const { variants: variant } of variants) {
       const members = await db
@@ -121,7 +122,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
     }
   });
 
-  it('re-running all six imports is idempotent — same 114 tasks, same ids, same content hashes', async () => {
+  it('re-running all seven imports is idempotent — same 133 tasks, same ids, same content hashes', async () => {
     const { db } = testDb;
     const before = await db
       .select({
@@ -137,7 +138,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
           eq(schema.tasks.source, 'Ященко ЕГЭ 2026. Типовые экзаменационные варианты'),
         ),
       );
-    expect(before).toHaveLength(114);
+    expect(before).toHaveLength(133);
 
     await importVariant1(db);
     await importVariant2(db);
@@ -145,6 +146,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
     await importVariant4(db);
     await importVariant5(db);
     await importVariant6(db);
+    await importVariant7(db);
 
     const after = await db
       .select({
@@ -160,7 +162,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
           eq(schema.tasks.source, 'Ященко ЕГЭ 2026. Типовые экзаменационные варианты'),
         ),
       );
-    expect(after).toHaveLength(114);
+    expect(after).toHaveLength(133);
 
     const beforeById = new Map(before.map((r) => [r.id, r]));
     for (const row of after) {
@@ -193,10 +195,10 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
       .from(schema.collections)
       .where(eq(schema.collections.slug, 'ege-2026-yashchenko'));
     expect(collections).toHaveLength(1);
-    expect(variants).toHaveLength(6);
+    expect(variants).toHaveLength(7);
   });
 
-  it('answer type distribution across the 114-task matrix matches each variant report (interval/short_answer/multi_part only)', async () => {
+  it('answer type distribution across the 133-task matrix matches each variant report (interval/short_answer/multi_part only)', async () => {
     const { db } = testDb;
     const rows = await db
       .select({ answerType: schema.tasks.answerType })
@@ -216,7 +218,7 @@ describe('EGE-2026 V1-V6 integration audit — full 6×19 matrix', () => {
     expect(
       [...counts.keys()].every((t) => ['short_answer', 'interval', 'multi_part'].includes(t)),
     ).toBe(true);
-    expect(rows).toHaveLength(114);
+    expect(rows).toHaveLength(133);
   });
 
   it('every imageUrl on the matrix points at a file that actually exists on disk', async () => {

@@ -18,7 +18,7 @@ import { getNextTaskRecommendation } from './recommendation/service.js';
 /**
  * Integration audit (Block "audit ege 2026 variants 1-5 integration")
  * — proves the existing Zybrilka Learning System (not a new one)
- * actually works end-to-end on the real 114-task V1-V6 catalog: Similar
+ * actually works end-to-end on the real 133-task V1-V7 catalog: Similar
  * Tasks cross-number isolation on the specific pairs requested, all
  * five Variant Sessions through the one generic service, per-task
  * (not per-number) Task Statistics for two same-numbered tasks from
@@ -114,7 +114,7 @@ describe('EGE-2026 V1-V5 integration audit — Similar Tasks (read-only, shared 
     },
   );
 
-  it('full 114-task matrix: every task of every variant resolves only same-numbered candidates', async () => {
+  it('full 133-task matrix: every task of every variant resolves only same-numbered candidates', async () => {
     const rows = await testDb.db
       .select({
         id: schema.tasks.id,
@@ -128,7 +128,7 @@ describe('EGE-2026 V1-V5 integration audit — Similar Tasks (read-only, shared 
           eq(schema.tasks.source, 'Ященко ЕГЭ 2026. Типовые экзаменационные варианты'),
         ),
       );
-    expect(rows).toHaveLength(114);
+    expect(rows).toHaveLength(133);
     for (const row of rows) {
       const similar = await getSimilarTasks(testDb.db, row.id, 50);
       for (const candidate of similar) {

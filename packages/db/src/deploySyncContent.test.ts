@@ -10,13 +10,13 @@ import { describe, expect, it } from 'vitest';
  * test db (`createImportedVariantsTestDb`), but were never synced into
  * any real deployed Postgres. This test reads the actual compose file
  * (plain text — no YAML dependency needed for a simple ordered-
- * substring check) and pins down the fix: all six importers (extended
- * to Вариант 6 alongside the new import) are invoked, strictly in
- * order, `&&`-chained so a failing importer stops the deploy instead
- * of letting later ones (or `api`/`worker`) start against a
- * half-synced database.
+ * substring check) and pins down the fix: all seven importers (extended
+ * to Вариант 6 and Вариант 7 alongside the new imports) are invoked,
+ * strictly in order, `&&`-chained so a failing importer stops the
+ * deploy instead of letting later ones (or `api`/`worker`) start
+ * against a half-synced database.
  */
-describe('infra/docker-compose.yml — sync-content runs all six EGE-2026 variant imports', () => {
+describe('infra/docker-compose.yml — sync-content runs all seven EGE-2026 variant imports', () => {
   const composePath = fileURLToPath(new URL('../../../infra/docker-compose.yml', import.meta.url));
   const compose = readFileSync(composePath, 'utf-8');
 
@@ -28,14 +28,14 @@ describe('infra/docker-compose.yml — sync-content runs all six EGE-2026 varian
     throw new Error('sync-content service block not found in infra/docker-compose.yml');
   const serviceBlock = serviceMatch[1]!;
 
-  it('invokes all six importEge2026VariantN.js scripts', () => {
-    for (let n = 1; n <= 6; n++) {
+  it('invokes all seven importEge2026VariantN.js scripts', () => {
+    for (let n = 1; n <= 7; n++) {
       expect(serviceBlock).toContain(`node_modules/@zybrilka/db/dist/importEge2026Variant${n}.js`);
     }
   });
 
-  it('runs them strictly in order V1 -> V2 -> V3 -> V4 -> V5 -> V6', () => {
-    const positions = [1, 2, 3, 4, 5, 6].map((n) =>
+  it('runs them strictly in order V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7', () => {
+    const positions = [1, 2, 3, 4, 5, 6, 7].map((n) =>
       serviceBlock.indexOf(`importEge2026Variant${n}.js`),
     );
     for (let i = 1; i < positions.length; i++) {
@@ -44,11 +44,11 @@ describe('infra/docker-compose.yml — sync-content runs all six EGE-2026 varian
   });
 
   it('chains every import with && so a failing importer stops the sequence with a non-zero exit', () => {
-    // Count of "&&" between the six invocations must be exactly 5 —
+    // Count of "&&" between the seven invocations must be exactly 6 —
     // not ";" (which would silently continue past a failure) and not
     // "||" (which would swallow one).
     const andCount = (serviceBlock.match(/&&/g) ?? []).length;
-    expect(andCount).toBe(5);
+    expect(andCount).toBe(6);
     expect(serviceBlock).not.toMatch(/importEge2026Variant\d\.js\s*;/);
   });
 
