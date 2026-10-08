@@ -1,4 +1,4 @@
-import { ApiError, getRandomTask } from './api.js';
+import { ApiError, getRandomTask, listTasksByNumber } from './api.js';
 import type { Route } from './navigation.js';
 import type { TaskPublic } from '@zybrilka/shared';
 
@@ -180,4 +180,61 @@ export async function resolveTaskBatch(
   }
 
   return { tasks };
+}
+
+/**
+ * "По номерам" with exactly ONE number selected (bugfix: correct task
+ * navigation for a single selected number). `resolveTaskBatch` picks
+ * one random task per DISTINCT number — for a single number that's a
+ * list of length 1, which honestly (since `03864df`) shows "Задание 1
+ * из 1" and nowhere to go next. That isn't this mode's real list: the
+ * real list is every published copy of THIS ONE number across
+ * variants/sources (today, one per Ященко V1-V5), the same "same-
+ * number siblings" `listTasksByNumber` already exposes for TaskDesktop/
+ * TaskMobile's "Другие задания" — reused here, not reinvented, as the
+ * navigation list. Resolved once at session start; the returned ids
+ * stay fixed (never re-rolled on Prev/Next).
+ *
+ * `random` ignores the selected Сборник, same meaning as everywhere
+ * else `TaskPickFilter.random` is used. `unseen`, when on, additionally
+ * calls the real `getRandomTask` unseen filter once to choose which of
+ * these tasks to start on; if none of them is unseen, this fails the
+ * same way `resolveTaskBatch` already does (`no_unseen_tasks`) rather
+ * than silently starting on an already-solved one. `unseen` off simply
+ * starts on the first entry (today, Вариант 1's copy) — no second
+ * random pick.
+ */
+export async function resolveSingleNumberSession(
+  filter: TaskPickFilter,
+  options: { shuffleOrder?: boolean } = {},
+): Promise<{ tasks: TaskPublic[]; startTaskId: string } | { error: TaskBatchError }> {
+  const collection = filter.random ? undefined : filter.collection;
+  const tasks = await listTasksByNumber(filter.subject, filter.taskNumber!, collection);
+  if (tasks.length === 0) {
+    return { error: { reason: 'none', index: 0, filter } };
+  }
+
+  let startTaskId = tasks[0]!.id;
+  if (filter.unseen) {
+    try {
+      const picked = await getRandomTask({
+        subject: filter.subject,
+        taskNumber: filter.taskNumber,
+        collection,
+        unseen: true,
+      });
+      startTaskId = picked.id;
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        (error.body as { error?: string })?.error === 'no_unseen_tasks'
+      ) {
+        return { error: { reason: 'no_unseen_tasks', index: 0, filter } };
+      }
+      return { error: { reason: 'none', index: 0, filter } };
+    }
+  }
+
+  const orderedTasks = options.shuffleOrder ? shuffled(tasks) : tasks;
+  return { tasks: orderedTasks, startTaskId };
 }

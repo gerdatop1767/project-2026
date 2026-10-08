@@ -101,7 +101,11 @@ export function TaskChrome({
         >
           <Icon name="chevronLeft" size={20} />
         </button>
-        <TaskNumberStrip active={task.number} range={numberStripRange} onSelect={onSelectNumber} />
+        <TaskNumberStrip
+          activeTaskId={task.id}
+          range={numberStripRange}
+          onSelect={onSelectNumber}
+        />
         <button
           type="button"
           className={styles.iconButton}
