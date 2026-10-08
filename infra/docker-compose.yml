@@ -92,19 +92,32 @@ services:
     command: ['node', 'node_modules/@zybrilka/db/dist/syncSubjects.js']
     restart: 'no'
 
-  # One-shot: syncs the EGE-2026 Variant 1 content (conditionMd,
-  # solutionSteps, correctAnswerDisplay, ...) into the 19 existing task
-  # rows and exits. Runs after `migrate` (needs the columns it adds,
-  # e.g. correct_answer_display) and before `api`/`worker` start, every
+  # One-shot: syncs the EGE-2026 Ященко content (conditionMd,
+  # solutionSteps, correctAnswerDisplay, ...) for ALL FIVE variants
+  # (Вариант 1-5, 95 tasks total) into their existing task rows and
+  # exits. Runs after `migrate` (needs the columns it adds, e.g.
+  # correct_answer_display) and before `api`/`worker` start, every
   # deploy — this is what makes a code-only deploy (no one manually
   # re-running an import script) actually bring the live content up to
-  # date. Safe to run on a database with real users: `importVariant1`
-  # (packages/db/src/importEge2026Variant1.ts) upserts each of the 19
-  # tasks by its stable identity (subject + source + variant + task
-  # number), never by a freshly-generated id, so re-running this never
-  # touches `attempts`/`mistakes`/bookmarks — it only updates content
-  # columns on the same rows (EGE Fidelity: Final Polish, production
-  # content-migration fix).
+  # date. Safe to run on a database with real users: every
+  # `importVariantN` (packages/db/src/importEge2026VariantN.ts)
+  # upserts each task by its stable identity (subject + source +
+  # variant + task number), never by a freshly-generated id, so
+  # re-running this never touches `attempts`/`mistakes`/bookmarks — it
+  # only updates content columns on the same rows (EGE Fidelity: Final
+  # Polish, production content-migration fix).
+  #
+  # Runs V1 -> V2 -> V3 -> V4 -> V5 strictly in order (`&&`, not `;` —
+  # a failing importer stops the chain immediately rather than letting
+  # later ones run against a half-synced database) inside one `sh -c`,
+  # so the service's own exit code is non-zero the moment ANY variant
+  # fails — `api`/`worker`'s `depends_on: sync-content: condition:
+  # service_completed_successfully` then correctly blocks startup
+  # instead of the deploy silently "succeeding" with only a partial
+  # import (the exact gap this fixes: before, sync-content only ever
+  # ran Variant 1 — Вариант 2-5 existed in the image and passed
+  # integration tests against an in-memory test db, but were never
+  # synced into any real deployed Postgres).
   sync-content:
     build:
       context: ..
@@ -118,7 +131,15 @@ services:
     depends_on:
       sync-subjects:
         condition: service_completed_successfully
-    command: ['node', 'node_modules/@zybrilka/db/dist/importEge2026Variant1.js']
+    command:
+      - sh
+      - -c
+      - >-
+        node node_modules/@zybrilka/db/dist/importEge2026Variant1.js &&
+        node node_modules/@zybrilka/db/dist/importEge2026Variant2.js &&
+        node node_modules/@zybrilka/db/dist/importEge2026Variant3.js &&
+        node node_modules/@zybrilka/db/dist/importEge2026Variant4.js &&
+        node node_modules/@zybrilka/db/dist/importEge2026Variant5.js
     restart: 'no'
 
   api:
