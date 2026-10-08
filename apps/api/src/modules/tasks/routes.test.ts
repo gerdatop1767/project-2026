@@ -204,6 +204,136 @@ describe('tasks routes', () => {
     });
   });
 
+  describe('GET /api/v1/tasks?unsolved=true ("По номерам" — «Только нерешённые»)', () => {
+    // Deliberately a DIFFERENT filter from `/tasks/random`'s `unseen`
+    // (excludes on ANY attempt, correct or not). `unsolved` excludes
+    // only on a CORRECT attempt — a task answered wrong 10 times with
+    // zero correct attempts must still come back.
+    it('requires x-anon-id, same as unseen elsewhere — never silently skips the filter', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/tasks?subject=math&taskNumber=1&unsolved=true',
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: 'missing_anon_id' });
+    });
+
+    it('excludes a task with a CORRECT attempt on record', async () => {
+      const anonId = randomUUID();
+      const tasks = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.taskNumber, 1));
+      expect(tasks.length).toBe(2);
+      const [solved, unsolved] = tasks;
+      await app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${solved!.id}/attempt`,
+        headers: { 'x-anon-id': anonId },
+        payload: { answer: solved!.correctAnswer },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/tasks?subject=math&taskNumber=1&unsolved=true',
+        headers: { 'x-anon-id': anonId },
+      });
+      const ids = res.json().items.map((t: { id: string }) => t.id);
+      expect(ids).not.toContain(solved!.id);
+      expect(ids).toContain(unsolved!.id);
+    });
+
+    it('keeps a task that was only answered WRONG — 10 incorrect attempts, zero correct, still counts as unsolved', async () => {
+      const anonId = randomUUID();
+      const [task] = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.taskNumber, 3));
+      for (let i = 0; i < 10; i += 1) {
+        await app.inject({
+          method: 'POST',
+          url: `/api/v1/tasks/${task!.id}/attempt`,
+          headers: { 'x-anon-id': anonId },
+          payload: { answer: 'definitely wrong' },
+        });
+      }
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/tasks?subject=math&taskNumber=3&unsolved=true',
+        headers: { 'x-anon-id': anonId },
+      });
+      const ids = res.json().items.map((t: { id: string }) => t.id);
+      expect(ids).toContain(task!.id);
+    });
+
+    it('identifies by taskId, not taskNumber — a different task sharing the same number is unaffected by a sibling being solved', async () => {
+      const anonId = randomUUID();
+      const tasks = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.taskNumber, 1));
+      const [first, second] = tasks;
+      await app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${first!.id}/attempt`,
+        headers: { 'x-anon-id': anonId },
+        payload: { answer: first!.correctAnswer },
+      });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/tasks?subject=math&taskNumber=1&unsolved=true',
+        headers: { 'x-anon-id': anonId },
+      });
+      const ids = res.json().items.map((t: { id: string }) => t.id);
+      expect(ids).toContain(second!.id);
+      expect(ids).not.toContain(first!.id);
+    });
+
+    it('returns an empty list (never a fallback) once every task of that number is solved correctly', async () => {
+      const anonId = randomUUID();
+      const tasks = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.taskNumber, 1));
+      for (const task of tasks) {
+        await app.inject({
+          method: 'POST',
+          url: `/api/v1/tasks/${task.id}/attempt`,
+          headers: { 'x-anon-id': anonId },
+          payload: { answer: task.correctAnswer },
+        });
+      }
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/tasks?subject=math&taskNumber=1&unsolved=true',
+        headers: { 'x-anon-id': anonId },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().items).toEqual([]);
+    });
+
+    it('without unsolved, an already-correctly-solved task is still listed (default behavior unchanged)', async () => {
+      const anonId = randomUUID();
+      const [task] = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.taskNumber, 5));
+      await app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${task!.id}/attempt`,
+        headers: { 'x-anon-id': anonId },
+        payload: { answer: task!.correctAnswer },
+      });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/tasks?subject=math&taskNumber=5',
+        headers: { 'x-anon-id': anonId },
+      });
+      const ids = res.json().items.map((t: { id: string }) => t.id);
+      expect(ids).toContain(task!.id);
+    });
+  });
+
   describe('POST /api/v1/tasks/:id/attempt', () => {
     it('requires an x-anon-id header', async () => {
       const [task] = await testDb.db.select().from(schema.tasks).limit(1);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigation, type Route } from '../../lib/navigation.js';
+import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
@@ -184,6 +184,12 @@ export function ResultMobile({
       taskId: variant.id,
       returnTo: { screen: 'subject', subjectId: task.subjectId },
     });
+  }
+
+  // "К списку заданий №N" — see trainingByNumberRouteFor's doc comment.
+  function handleGoToList() {
+    if (!task) return;
+    navigate(trainingByNumberRouteFor(task.subjectId, task.number));
   }
 
   const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks);
@@ -377,6 +383,7 @@ export function ResultMobile({
         open={otherOpen}
         onToggle={() => setOtherOpen((v) => !v)}
         onSelectVariant={handleSelectVariant}
+        onGoToList={handleGoToList}
         summarySubtitle="Похожее на это задание"
       />
 

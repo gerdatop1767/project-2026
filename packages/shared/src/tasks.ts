@@ -102,6 +102,17 @@ export const taskListQuerySchema = z.object({
   // reachable through the public list endpoint, even by an explicit
   // query param, unlike the other statuses this endpoint already allows.
   status: z.enum(['draft', 'published', 'archived']).optional(),
+  /**
+   * Excludes any task the current user has at least one CORRECT
+   * attempt on — deliberately distinct from `/tasks/random`'s `unseen`
+   * (which excludes a task on ANY attempt, correct or not — "not yet
+   * encountered"). "По номерам"'s «Только нерешённые» means "not yet
+   * solved correctly": 10 wrong attempts and zero correct ones still
+   * counts as unsolved. Requires `x-anon-id` identity, same as `unseen`
+   * elsewhere — the route rejects it without one rather than silently
+   * not filtering.
+   */
+  unsolved: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
 });

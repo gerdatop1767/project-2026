@@ -91,6 +91,7 @@ export function AppDesktop() {
             subjectId={overlay.subjectId}
             collectionSlug={overlay.collectionSlug}
             from={overlay.from}
+            initialTaskNumber={overlay.initialTaskNumber}
           />
         )}
         {overlay.screen === 'rating' && <RatingDesktop />}

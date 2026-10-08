@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { NavigationProvider, useNavigation } from './navigation.js';
+import { NavigationProvider, trainingByNumberRouteFor, useNavigation } from './navigation.js';
 
 function Probe() {
   const { tab, overlay, navigate, back } = useNavigation();
@@ -104,5 +104,30 @@ describe('NavigationProvider — URL is the source of truth', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(screen.getByTestId('tab')).toHaveTextContent('home');
+  });
+});
+
+/**
+ * "К списку заданий №N" (UX bugfix round 3) — the ONE shared way every
+ * Task/Result screen (mobile and desktop alike) builds this route, so
+ * neither platform invents its own navigation mechanism.
+ */
+describe('trainingByNumberRouteFor', () => {
+  it('builds a trainingByNumber route with the real subjectId and initialTaskNumber', () => {
+    expect(trainingByNumberRouteFor('math', 13)).toEqual({
+      screen: 'trainingByNumber',
+      subjectId: 'math',
+      initialTaskNumber: 13,
+      from: { screen: 'subject', subjectId: 'math' },
+    });
+  });
+
+  it('is deterministic for different subjects/numbers, never hardcoded to one', () => {
+    expect(trainingByNumberRouteFor('russian', 7)).toEqual({
+      screen: 'trainingByNumber',
+      subjectId: 'russian',
+      initialTaskNumber: 7,
+      from: { screen: 'subject', subjectId: 'russian' },
+    });
   });
 });

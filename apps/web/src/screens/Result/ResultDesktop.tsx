@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigation, type Route } from '../../lib/navigation.js';
+import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
@@ -109,6 +109,7 @@ export function ResultDesktop({
   const [loadError, setLoadError] = useState(false);
   const [detailedSolution, setDetailedSolution] = useState(true);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(false);
   const xp = useCountUp(correct ? XP_REWARD : 0, 500);
 
@@ -191,6 +192,12 @@ export function ResultDesktop({
       taskId: variant.id,
       returnTo: { screen: 'subject', subjectId: task.subjectId },
     });
+  }
+
+  // "К списку заданий №N" — see trainingByNumberRouteFor's doc comment.
+  function handleGoToList() {
+    if (!task) return;
+    navigate(trainingByNumberRouteFor(task.subjectId, task.number));
   }
 
   return (
@@ -479,7 +486,10 @@ export function ResultDesktop({
       <OtherVariantsSectionDesktop
         taskNumber={task.number}
         variants={task.otherVariants}
+        open={otherOpen}
+        onToggle={() => setOtherOpen((v) => !v)}
         onSelectVariant={handleSelectVariant}
+        onGoToList={handleGoToList}
         subtitle="Похожие на это задание"
       />
       <Modal open={calculatorOpen} onClose={() => setCalculatorOpen(false)} title="Калькулятор">

@@ -18,6 +18,7 @@ describe('OtherVariantsSection (mobile) — "Другие задания", real 
         open={false}
         onToggle={() => {}}
         onSelectVariant={() => {}}
+        onGoToList={() => {}}
         summarySubtitle="Похожее на это задание"
       />,
     );
@@ -35,6 +36,7 @@ describe('OtherVariantsSection (mobile) — "Другие задания", real 
         open
         onToggle={() => {}}
         onSelectVariant={() => {}}
+        onGoToList={() => {}}
         summarySubtitle="Похожее на это задание"
       />,
     );
@@ -50,6 +52,7 @@ describe('OtherVariantsSection (mobile) — "Другие задания", real 
         open
         onToggle={() => {}}
         onSelectVariant={() => {}}
+        onGoToList={() => {}}
         summarySubtitle="Похожее на это задание"
       />,
     );
@@ -68,11 +71,37 @@ describe('OtherVariantsSection (mobile) — "Другие задания", real 
         open
         onToggle={() => {}}
         onSelectVariant={onSelectVariant}
+        onGoToList={() => {}}
         summarySubtitle="Похожее на это задание"
       />,
     );
     await user.click(screen.getByRole('button', { name: /Задание #d1033404/ }));
     expect(onSelectVariant).toHaveBeenCalledWith(VARIANTS[1]);
     expect(onSelectVariant).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * "К списку заданий №N" (UX bugfix round 3 — this button was briefly
+   * removed as inert, now restored as a real action): takes the user
+   * to Тренировка → По номерам with this taskNumber pre-selected,
+   * never auto-starting training — see `onGoToList`'s doc comment.
+   */
+  it('renders a "К списку заданий №13" button and clicking it calls onGoToList', async () => {
+    const user = userEvent.setup();
+    const onGoToList = vi.fn();
+    render(
+      <OtherVariantsSection
+        taskNumber={13}
+        variants={VARIANTS}
+        open
+        onToggle={() => {}}
+        onSelectVariant={() => {}}
+        onGoToList={onGoToList}
+        summarySubtitle="Похожее на это задание"
+      />,
+    );
+    const button = screen.getByRole('button', { name: /К списку заданий №13/ });
+    await user.click(button);
+    expect(onGoToList).toHaveBeenCalledTimes(1);
   });
 });

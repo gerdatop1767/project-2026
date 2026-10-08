@@ -98,7 +98,7 @@ describe('TrainingByNumber', () => {
     // listTasksByNumber (every variant's copy of #5), never a single
     // random pick — see resolveSingleNumberSession (navigation bugfix).
     await waitFor(() => {
-      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined);
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined, false);
     });
     expect(api.getRandomTask).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:5'));
@@ -128,15 +128,13 @@ describe('TrainingByNumber', () => {
 
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
-      // 🎲 ON drops the Сборник scope (draws from the whole bank) when
-      // building the real multi-variant list; 🔄 ON separately picks
-      // which of those variants to start on via the real unseen filter
-      // — both at once, never exclusive.
-      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined);
-      expect(api.getRandomTask).toHaveBeenCalledWith(
-        expect.objectContaining({ taskNumber: 5, collection: undefined, unseen: true }),
-      );
+      // 🎲 ON drops the Сборник scope (draws from the whole bank); 🔄 ON
+      // excludes correctly-solved tasks server-side — both apply to the
+      // SAME listTasksByNumber call, at once, never exclusive, and
+      // never a second getRandomTask call.
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined, true);
     });
+    expect(api.getRandomTask).not.toHaveBeenCalled();
   });
 
   it('🎲 OFF + 🔄 ON stays scoped to the selected Сборник with the unseen filter', async () => {
@@ -153,15 +151,14 @@ describe('TrainingByNumber', () => {
     await user.click(screen.getByRole('button', { name: 'Только нерешённые' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
-      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, COLLECTION.collection.slug);
-      expect(api.getRandomTask).toHaveBeenCalledWith(
-        expect.objectContaining({
-          taskNumber: 5,
-          collection: COLLECTION.collection.slug,
-          unseen: true,
-        }),
+      expect(api.listTasksByNumber).toHaveBeenCalledWith(
+        'math',
+        5,
+        COLLECTION.collection.slug,
+        true,
       );
     });
+    expect(api.getRandomTask).not.toHaveBeenCalled();
   });
 
   it('🎲 ON + 🔄 OFF drops the collection scope without the unseen filter', async () => {
@@ -177,10 +174,10 @@ describe('TrainingByNumber', () => {
     await user.click(screen.getByRole('button', { name: 'Случайное' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
-      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined);
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined, false);
     });
     // No "unseen" refinement requested — the starting task is just the
-    // first entry in the list, no second getRandomTask call needed.
+    // first entry in the list, no getRandomTask call needed.
     expect(api.getRandomTask).not.toHaveBeenCalled();
   });
 
@@ -238,11 +235,11 @@ describe('TrainingByNumber', () => {
     randomSpy.mockRestore();
   });
 
-  it('shows the specific "no unseen tasks" message for that number, never silently substituting a random task', async () => {
+  it('shows the specific "no unseen tasks" message for that number, never silently substituting a random (already-solved) task', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getRandomTask).mockRejectedValue(
-      new api.ApiError(404, { error: 'no_unseen_tasks' }),
-    );
+    // Every copy of #5 already has a correct attempt — the server-side
+    // `unsolved` filter leaves nothing, not a fallback to a random pick.
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([]);
     renderScreen();
     await user.click(screen.getByRole('button', { name: '№5' }));
     await user.click(screen.getByRole('button', { name: 'Только нерешённые' }));
@@ -252,6 +249,7 @@ describe('TrainingByNumber', () => {
         'Для №5 больше нет нерешённых заданий. Можно выключить «Только нерешённые» для этого номера.',
       ),
     ).toBeInTheDocument();
+    expect(api.getRandomTask).not.toHaveBeenCalled();
   });
 
   it('works for an arbitrary subject/taskNumber combination — never hardcoded to one number', async () => {
@@ -261,7 +259,7 @@ describe('TrainingByNumber', () => {
     await user.click(screen.getByRole('button', { name: '№12' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
-      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 12, undefined);
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 12, undefined, false);
     });
   });
 
@@ -363,5 +361,79 @@ describe('TrainingByNumber — single-number session (navigation bugfix)', () =>
     await waitFor(() =>
       expect(screen.getByTestId('full-overlay')).toHaveTextContent('session:v1-task-17'),
     );
+  });
+});
+
+/**
+ * `initialTaskNumber` (UX bugfix round 3 — "Другие задания" → "К
+ * списку заданий №N"): pre-selects exactly that number on entry, both
+ * flags off (same shape a manual chip click gives), the user can
+ * freely add/remove numbers afterward, and training is NEVER
+ * auto-started — the user still has to press "Начать тренировку"
+ * themselves.
+ */
+describe('TrainingByNumber — initialTaskNumber (pre-selects on entry, never auto-starts)', () => {
+  it('Test 7: №13 is already selected on entry', () => {
+    renderScreen({ initialTaskNumber: 13 });
+    expect(screen.getByRole('button', { name: '№13' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Test 8: no other number is pre-selected', () => {
+    renderScreen({ initialTaskNumber: 13 });
+    expect(screen.getByRole('button', { name: '№5' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '№7' })).toHaveAttribute('aria-pressed', 'false');
+    // Only one mode row exists (for №13) — confirms nothing else got selected.
+    expect(screen.getAllByText(/^№\d+$/, { selector: 'span' })).toHaveLength(1);
+  });
+
+  it('Test 9: the user can still add another number on top of the pre-selected one', async () => {
+    const user = userEvent.setup();
+    renderScreen({ initialTaskNumber: 13 });
+    await user.click(screen.getByRole('button', { name: '№5' }));
+    expect(screen.getByRole('button', { name: '№13' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '№5' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Test 9b: the user can remove the pre-selected number just like any other chip', async () => {
+    const user = userEvent.setup();
+    renderScreen({ initialTaskNumber: 13 });
+    await user.click(screen.getByRole('button', { name: '№13' }));
+    expect(screen.getByRole('button', { name: '№13' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('Test 10: training never starts automatically — "Начать тренировку" still requires an explicit click', () => {
+    renderScreen({ initialTaskNumber: 13 });
+    expect(api.getRandomTask).not.toHaveBeenCalled();
+    expect(api.listTasksByNumber).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Начать тренировку' })).toBeInTheDocument();
+  });
+
+  it('pressing "Начать тренировку" after entering with initialTaskNumber works exactly like a manual pick', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([{ ...RANDOM_TASK, taskNumber: 13 }]);
+    renderScreen({ initialTaskNumber: 13 });
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() => {
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 13, undefined, false);
+    });
+  });
+
+  it('Test 11: a normal entry with no initialTaskNumber is completely unchanged — nothing pre-selected', () => {
+    renderScreen();
+    expect(screen.getByRole('button', { name: '№13' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByText('Режим для каждого номера')).not.toBeInTheDocument();
+  });
+
+  it('Test 12: an out-of-range initialTaskNumber (math only has 19) is safely ignored, never a crash', () => {
+    renderScreen({ initialTaskNumber: 999 });
+    expect(screen.queryByText('Режим для каждого номера')).not.toBeInTheDocument();
+    // The screen still renders normally — the chip grid and button are present.
+    expect(screen.getByRole('button', { name: '№1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Начать тренировку' })).toBeInTheDocument();
+  });
+
+  it('a zero/negative initialTaskNumber is also safely ignored', () => {
+    renderScreen({ initialTaskNumber: 0 });
+    expect(screen.queryByText('Режим для каждого номера')).not.toBeInTheDocument();
   });
 });

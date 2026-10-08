@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigation, type Route } from '../../lib/navigation.js';
+import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
 import { serializeMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber, submitAttempt } from '../../lib/api.js';
 import { buildSessionProgress, toSampleTask } from '../../lib/taskAdapter.js';
@@ -164,6 +164,12 @@ export function TaskMobile({
     });
   }
 
+  // "К списку заданий №N" — see trainingByNumberRouteFor's doc comment.
+  function handleGoToList() {
+    if (!task) return;
+    navigate(trainingByNumberRouteFor(task.subjectId, task.number));
+  }
+
   if (loadError) {
     return (
       <SlideUp className={styles.stack}>
@@ -326,6 +332,7 @@ export function TaskMobile({
         open={otherOpen}
         onToggle={() => setOtherOpen((v) => !v)}
         onSelectVariant={handleSelectVariant}
+        onGoToList={handleGoToList}
         summarySubtitle="Похожие задания на эту тему"
       />
 

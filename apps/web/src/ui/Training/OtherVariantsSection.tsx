@@ -11,6 +11,11 @@ export interface OtherVariantsSectionProps {
   open: boolean;
   onToggle: () => void;
   onSelectVariant: (variant: TaskVariant) => void;
+  /** "К списку заданий №N" — takes the user to Тренировка → По номерам
+   * with this exact taskNumber pre-selected (never auto-starts
+   * training; the user picks/adjusts numbers and modes themselves, see
+   * TrainingByNumber's `initialTaskNumber`). */
+  onGoToList: () => void;
   /** Result screen's collapsed summary reads "Похожие на это задание"
    * instead of Training's "Похожие задания на эту тему". */
   summarySubtitle: string;
@@ -27,6 +32,7 @@ export function OtherVariantsSection({
   open,
   onToggle,
   onSelectVariant,
+  onGoToList,
   summarySubtitle,
 }: OtherVariantsSectionProps) {
   return (
@@ -48,7 +54,7 @@ export function OtherVariantsSection({
               <VariantPreviewCard key={variant.id} variant={variant} onSelect={onSelectVariant} />
             ))}
           </div>
-          <Button variant="secondary" fullWidth>
+          <Button variant="secondary" fullWidth onClick={onGoToList}>
             <Icon name="grid" size={18} /> К списку заданий №{taskNumber}
           </Button>
         </div>

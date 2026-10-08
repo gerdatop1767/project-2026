@@ -71,8 +71,12 @@ function toTaskWithSolution(row: repo.TaskWithTopic): TaskWithSolution {
   };
 }
 
-export async function listTasks(db: Database, query: TaskListQuery): Promise<TaskListResponse> {
-  const { items, nextCursor } = await repo.listTasks(db, query);
+export async function listTasks(
+  db: Database,
+  query: TaskListQuery,
+  userId?: string | null,
+): Promise<TaskListResponse> {
+  const { items, nextCursor } = await repo.listTasks(db, query, userId);
   return { items: items.map(toPublicTask), nextCursor };
 }
 
