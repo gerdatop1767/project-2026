@@ -10,6 +10,7 @@ import { useStreakContext } from '../../lib/streakContext.js';
 import { useSolvingTimer } from '../../lib/useSolvingTimer.js';
 import { SolvingTimer } from '../../ui/Timer/SolvingTimer.js';
 import { LearningSessionBadge } from '../../ui/LearningSession/LearningSessionBadge.js';
+import type { TaskVariant } from '../../data/sampleTask.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
@@ -19,6 +20,7 @@ import { Icon } from '../../ui/Icon/Icon.js';
 import { Modal } from '../../ui/Modal/Modal.js';
 import { ReportTaskContent } from '../../ui/ReportTask/ReportTaskContent.js';
 import { DesktopToolsCard } from '../../ui/Training/DesktopToolsCard.js';
+import { OtherVariantsSectionDesktop } from '../../ui/Training/OtherVariantsSectionDesktop.js';
 import { SessionProgressCard } from '../../ui/Training/SessionProgressCard.js';
 import { SessionTaskListCard } from '../../ui/Training/SessionTaskListCard.js';
 import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
@@ -114,6 +116,20 @@ export function TaskDesktop({
     taskNav.goTo(entry);
   }
 
+  // "Другие задания №N" (desktop): same cross-source sibling navigation
+  // as TaskMobile's handleSelectVariant — explicitly drops the current
+  // source/variant context (it belonged to the source we just left).
+  function handleSelectVariant(variant: TaskVariant) {
+    if (!task) return;
+    navigate({
+      screen: 'task',
+      subjectId: task.subjectId,
+      taskNumber: task.number,
+      taskId: variant.id,
+      returnTo: { screen: 'subject', subjectId: task.subjectId },
+    });
+  }
+
   const isMultiPart = task?.answerType === 'multi_part' && task.answerParts !== null;
   const canSubmit = isMultiPart
     ? task!.answerParts!.every((p) => (partAnswers[p.id] ?? '').trim().length > 0) && !checking
@@ -155,6 +171,13 @@ export function TaskDesktop({
           userAnswer: userAnswerForResult,
           collectionSlug,
           variantId: taskNav.variantId ?? undefined,
+          // Carries the real session list forward so Result's own
+          // useTaskNavigation resolves the SAME orderedTasks as this
+          // screen did — without this, a customOrderedTasks-driven
+          // session (e.g. "По номерам" single-number) lost all
+          // navigation context on submit, and "Следующее задание"
+          // showed disabled (navigation bugfix, round 2).
+          customOrderedTasks,
           returnTo,
           timeSpentMs,
         });
@@ -364,6 +387,13 @@ export function TaskDesktop({
           />
         </div>
       </div>
+
+      <OtherVariantsSectionDesktop
+        taskNumber={task.number}
+        variants={task.otherVariants}
+        onSelectVariant={handleSelectVariant}
+        subtitle="Похожие задания на эту тему"
+      />
       <Modal open={calculatorOpen} onClose={() => setCalculatorOpen(false)} title="Калькулятор">
         <Calculator />
       </Modal>

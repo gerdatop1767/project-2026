@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { serializeMultiPartSpec, serializeMultiPartUserAnswer } from '@zybrilka/shared';
 import { ResultMobile } from './ResultMobile.js';
@@ -411,5 +411,119 @@ describe('ResultMobile — real solving time display (replaces the old static "�
     await screen.findByText('Правильно!');
     expect(screen.queryByText('Время 1:24')).not.toBeInTheDocument();
     expect(screen.queryByText(/^Время /)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Navigation bugfix round 2: a `customOrderedTasks` session (e.g. "По
+ * номерам" with one number selected: V1#13..V5#13) must drive a real,
+ * working "Следующее задание" on Result — mirrors
+ * TaskDesktop/TaskMobile's "submit carries the session list forward"
+ * fix on the receiving end.
+ */
+describe('ResultMobile — "Следующее задание" with a real customOrderedTasks session (navigation bugfix round 2)', () => {
+  const V1 = { taskId: TASK_ID, taskNumber: 13 };
+  const V2 = { taskId: SIBLING_A, taskNumber: 13 };
+  const V3_ID = '33333333-3333-3333-3333-333333333333';
+  const V3 = { taskId: V3_ID, taskNumber: 13 };
+
+  function renderWithSession(taskId: string) {
+    return render(
+      <NavigationProvider>
+        <ResultMobile
+          subjectId="math"
+          taskNumber={13}
+          taskId={taskId}
+          correct
+          userAnswer={CORRECT_ANSWER}
+          customOrderedTasks={[V1, V2, V3]}
+        />
+        <OverlayMarker />
+      </NavigationProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.getTask).mockImplementation((id) =>
+      Promise.resolve({ ...taskWithSolution, id, taskNumber: 13 }),
+    );
+  });
+
+  it('V1#13 → Next → V2#13 (never a 1-of-1 fallback)', async () => {
+    const user = userEvent.setup();
+    renderWithSession(TASK_ID);
+    const next = await screen.findByRole('button', { name: 'Следующее задание' });
+    expect(next).toBeEnabled();
+    await user.click(next);
+    expect(screen.getByTestId('overlay')).toHaveTextContent('task');
+  });
+
+  it('V5#13 (last entry) disables Next', async () => {
+    renderWithSession(V3_ID);
+    const next = await screen.findByRole('button', { name: 'Следующее задание' });
+    expect(next).toBeDisabled();
+  });
+});
+
+/**
+ * "Другие задания" (Similar Tasks) preview bugfix: the preview must go
+ * through the real math renderer (InlineMathText/KaTeX), never raw
+ * `$...$`/`\sqrt`/`\cdot` text — and clicking a card opens exactly that
+ * card's real taskId.
+ */
+describe('ResultMobile — "Другие задания" preview renders real math, not raw LaTeX (bugfix)', () => {
+  const OTHER_ID = '55555555-5555-5555-5555-555555555555';
+  const RAW_CONDITION = 'а) Решите уравнение $\\sqrt{4\\sin^3x - 4\\cos^2x} - \\cos x = 0$';
+
+  beforeEach(() => {
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([
+      taskWithSolution,
+      { ...taskWithSolution, id: OTHER_ID, conditionMd: RAW_CONDITION },
+    ]);
+  });
+
+  it('renders real KaTeX for the similar-task preview, never the raw $...$ source', async () => {
+    const user = userEvent.setup();
+    renderResult(true);
+    await screen.findByText('Правильно!');
+    await user.click(screen.getByRole('button', { name: /Другие задания/ }));
+    expect(await screen.findByText(/Решите уравнение/)).toBeInTheDocument();
+    // `.katex-mathml` legitimately holds the raw TeX source (sr-only,
+    // same as every other math span in the app) — the bug was the
+    // VISIBLE rendering showing it as plain text, so the check is on
+    // `.katex-html` (what's actually on screen) only.
+    const katexHtml = document.querySelector('.katex-html');
+    expect(katexHtml).toBeInTheDocument();
+    expect(katexHtml!.textContent).not.toMatch(/\\sqrt/);
+    expect(katexHtml!.textContent).not.toMatch(/\\cos/);
+    expect(katexHtml!.textContent).not.toContain('$');
+  });
+
+  it("clicking the preview card opens exactly that card's taskId, never a random or the current one", async () => {
+    function TaskIdOverlayMarker() {
+      const { overlay } = useNavigation();
+      if (overlay?.screen !== 'task') return <p data-testid="task-overlay">none</p>;
+      return <p data-testid="task-overlay">task:{overlay.taskId}</p>;
+    }
+    const user = userEvent.setup();
+    render(
+      <NavigationProvider>
+        <ResultMobile
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+          correct
+          userAnswer={CORRECT_ANSWER}
+        />
+        <TaskIdOverlayMarker />
+      </NavigationProvider>,
+    );
+    await screen.findByText('Правильно!');
+    await user.click(screen.getByRole('button', { name: /Другие задания/ }));
+    await screen.findByText(/Решите уравнение/);
+    await user.click(screen.getByText(/Решите уравнение/));
+    await waitFor(() => {
+      expect(screen.getByTestId('task-overlay')).toHaveTextContent(`task:${OTHER_ID}`);
+    });
   });
 });

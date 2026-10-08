@@ -73,11 +73,17 @@ export function toSampleTask(
         ])
       : [],
     canonicalSolution: hasSolution ? task.canonicalSolution : undefined,
+    // The FULL condition, never a character-sliced substring — slicing
+    // risks cutting a `$...$` LaTeX span mid-formula, which leaves an
+    // unbalanced `$` the math renderer can't tokenize and falls back to
+    // showing as raw text (the "Другие задания" raw-LaTeX bug). The
+    // card that renders this (VariantPreviewCard) clamps it visually to
+    // a few lines with CSS instead.
     otherVariants: others.slice(0, 3).map((t) => ({
       id: t.id,
       code: shortCode(t.id),
       difficultyLabel: difficultyLabel(t.difficulty),
-      preview: t.conditionMd.slice(0, 60),
+      preview: t.conditionMd,
     })),
     sessionTasks: [{ index: 1, status: 'current' }],
   };
