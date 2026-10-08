@@ -7,6 +7,7 @@ import { importVariant1 } from './importEge2026Variant1.js';
 import { importVariant2 } from './importEge2026Variant2.js';
 import { importVariant3 } from './importEge2026Variant3.js';
 import { importVariant4 } from './importEge2026Variant4.js';
+import { importVariant5 } from './importEge2026Variant5.js';
 import * as schema from './schema.js';
 
 // In-memory Postgres (PGlite) with all migrations applied. Tests only.
@@ -34,7 +35,7 @@ export async function createImportedTestDb() {
   return testDb;
 }
 
-// Same, plus Вариант 2, 3 and 4 — for tests that need the real N×19
+// Same, plus Вариант 2, 3, 4 and 5 — for tests that need the real N×19
 // matrix (same taskNumber present across multiple variants) to exist,
 // e.g. the Similar Tasks hard-filter regression test on real imported
 // data.
@@ -45,5 +46,6 @@ export async function createImportedVariantsTestDb() {
   await importVariant2(testDb.db);
   await importVariant3(testDb.db);
   await importVariant4(testDb.db);
+  await importVariant5(testDb.db);
   return testDb;
 }

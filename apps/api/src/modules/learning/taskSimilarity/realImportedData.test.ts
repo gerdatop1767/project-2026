@@ -7,15 +7,15 @@ import { getSimilarTasks } from './service.js';
 /**
  * Block D (import EGE 2026 variants 2-5): proves the taskNumber hard
  * filter (commit 7b311ca, apps/api/src/modules/learning/taskSimilarity/
- * repo.ts) still holds on REAL imported rows spanning four real exam
- * variants (Вариант 1, 2, 3 and 4 of the same Ященко collection), not
+ * repo.ts) still holds on REAL imported rows spanning five real exam
+ * variants (Вариант 1, 2, 3, 4 and 5 of the same Ященко collection), not
  * just the synthetic adversarial fixture in sameTaskNumber.test.ts.
  * Each variant's task №N is a genuinely different task (different
  * topic/skills/condition) — Similar Tasks for one must only ever
  * surface same-numbered tasks from the other variants, never a
  * different-numbered one from any variant.
  */
-describe('getSimilarTasks — real imported data (Вариант 1 + 2 + 3 + 4), same taskNumber only', () => {
+describe('getSimilarTasks — real imported data (Вариант 1 + 2 + 3 + 4 + 5), same taskNumber only', () => {
   let testDb: Awaited<ReturnType<typeof createImportedVariantsTestDb>>;
 
   beforeAll(async () => {
@@ -106,6 +106,29 @@ describe('getSimilarTasks — real imported data (Вариант 1 + 2 + 3 + 4),
       expect(similar.length).toBeGreaterThan(0);
       expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
       expect(similar.every((r) => r.taskId !== v4task!.id)).toBe(true);
+    },
+  );
+
+  it.each([1, 10, 19])(
+    'Вариант 5 task №%i only ever surfaces same-numbered tasks from V1-V4, never a different number',
+    async (taskNumber) => {
+      const { db } = testDb;
+      const [v5task] = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'math'),
+            eq(schema.tasks.taskNumber, taskNumber),
+            eq(schema.tasks.sourceVariant, 5),
+          ),
+        );
+      expect(v5task).toBeDefined();
+
+      const similar = await getSimilarTasks(db, v5task!.id, 20);
+      expect(similar.length).toBeGreaterThan(0);
+      expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
+      expect(similar.every((r) => r.taskId !== v5task!.id)).toBe(true);
     },
   );
 
