@@ -107,7 +107,7 @@ services:
   # only updates content columns on the same rows (EGE Fidelity: Final
   # Polish, production content-migration fix).
   #
-  # Runs V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7 strictly in order (`&&`, not `;` —
+  # Runs V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7 -> V8 strictly in order (`&&`, not `;` —
   # a failing importer stops the chain immediately rather than letting
   # later ones run against a half-synced database) inside one `sh -c`,
   # so the service's own exit code is non-zero the moment ANY variant
@@ -141,7 +141,8 @@ services:
         node node_modules/@zybrilka/db/dist/importEge2026Variant4.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant5.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant6.js &&
-        node node_modules/@zybrilka/db/dist/importEge2026Variant7.js
+        node node_modules/@zybrilka/db/dist/importEge2026Variant7.js &&
+        node node_modules/@zybrilka/db/dist/importEge2026Variant8.js
     restart: 'no'
 
   api:

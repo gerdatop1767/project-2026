@@ -1,6 +1,6 @@
 # EGE 2026 — Варианты 6–10 — отчёт об импорте
 
-Status: **Вариант 6 и Вариант 7 complete.** Варианты 8–10 pending (same pipeline, next blocks).
+Status: **Варианты 6, 7 и 8 complete.** Варианты 9–10 pending (same pipeline, next blocks).
 
 ## Source
 
@@ -78,8 +78,23 @@ No numeric value was guessed anywhere in Вариант 7.
 
 **Tests:** `importEge2026Variant7.test.ts` 11/11; `variantMatrixAudit.test.ts` (7×19=133) 8/8; `deploySyncContent.test.ts` 5/5; combined with the extended `v1v5IntegrationAudit.test.ts`, `realImportedData.test.ts`, `sameTaskNumber.test.ts` — **67/67 passed**. Typecheck, lint, build all clean. Production sync (`infra/docker-compose.yml`) extended through V7.
 
+## Вариант 8
+
+19/19 tasks, all `published`, 0 `needs_review`, 0 images.
+
+**Image/PDF fallback needed:**
+- **Task 8** (derivative-from-graph, find the LARGEST derivative among marked points −1,1,2,3): the ZIP/TXT gave no usable rendering of this wavy graph. Read directly from the clean PDF: points 1 and 2 sit exactly at a local max/min (derivative 0), point −1 sits just past a peak (small negative slope), point 3 sits just before the next peak (small positive slope) — answer 3, the only strictly positive value among the four.
+- **Task 11** (parabola + line sharing a root): required the same pixel-grid crosshair verification used in V6/V7 — confirmed parabola roots at 0 and 2 with vertex (1;−1), and the line through (0;0) and (2;4), giving a clean intersection at x=4.
+- **Task 17** (circle inscribed in a 120° angle, prove AD=3BC, find PN): solved via the same general coordinate derivation built for V7's analogous 60°-angle problem, re-derived for the new angle and re-verified algebraically (AD/BC ratio computed exactly as 3, and PN came out to a clean R/13 — with R=13 given, PN=1, a strong self-consistency signal).
+- **Task 18** (root-counting with parameter): re-derived the boundary-sensitivity analysis from scratch for the different interval `[-π;4π]` (not V7's `[π;6π]`), since the asymmetric interval changes which boundary (x=−π vs x=4π) drives the critical ε-thresholds — resulted in a `φ/(4π)` half-width instead of V7's `φ/(6π)`, confirmed by checking both interval endpoints independently rather than assuming the same formula transfers.
+- All other tasks read cleanly from the PDF with no ambiguity.
+
+No numeric value was guessed anywhere in Вариант 8.
+
+**Tests:** `importEge2026Variant8.test.ts` 11/11; `variantMatrixAudit.test.ts` (8×19=152) 8/8; `deploySyncContent.test.ts` 5/5; combined with the extended API test files — **70/70 passed**. Typecheck, lint, build all clean. Production sync extended through V8.
+
 ## Known limitations
 
-- Варианты 8–10 (57 tasks) are not yet imported — next blocks, one per variant, following this exact same pipeline and verification rigor.
-- `infra/docker-compose.yml`'s `sync-content` chain only runs through V7 for now; it will be extended again after each subsequent variant is added.
-- The adversarial Similar-Tasks sweep across the full intended 10-variant/190-task matrix cannot exist yet since only 7 variants exist; the current sweep covers the full real 133-task matrix.
+- Варианты 9–10 (38 tasks) are not yet imported — next blocks, one per variant, following this exact same pipeline and verification rigor.
+- `infra/docker-compose.yml`'s `sync-content` chain only runs through V8 for now; it will be extended again after each subsequent variant is added.
+- The adversarial Similar-Tasks sweep across the full intended 10-variant/190-task matrix cannot exist yet since only 8 variants exist; the current sweep covers the full real 152-task matrix.
