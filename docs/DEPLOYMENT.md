@@ -51,9 +51,13 @@ volume, `postgres_data` — survives `down`/`up` and a container
 rebuild), a one-shot `migrate` job that applies any pending Drizzle
 **schema** migrations and exits, a one-shot `sync-subjects` job that
 upserts the canonical `subjects` rows and exits, a one-shot
-`sync-content` job that upserts the EGE-2026 Variant 1 **content**
-(conditionMd, solutionSteps, correctAnswerDisplay, ...) into the 19
-existing task rows and exits, `api` and `worker` (both wait for
+`sync-content` job that upserts the EGE-2026 Ященко **content**
+(conditionMd, solutionSteps, correctAnswerDisplay, ...) for all five
+variants (Вариант 1-5, 95 tasks) into their existing task rows and
+exits — running each variant's importer strictly in order (V1 through
+V5, `&&`-chained so the job's own exit code is non-zero and `api`/
+`worker` never start if any one of them fails) — `api` and `worker`
+(both wait for
 `sync-content` to finish successfully), `web`, and `caddy` (the only
 container publishing `80`/`443`), which reverse-proxies `/api/*` and
 `/health` to `api:3000` and everything else to `web:80`,
