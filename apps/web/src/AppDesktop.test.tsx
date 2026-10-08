@@ -68,6 +68,7 @@ describe('AppDesktop — Subject → Задания по номерам → task
   it('Back from the started task returns to Задания по номерам, not Subject or a hardcoded Тренировка', async () => {
     const user = userEvent.setup();
     vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
     renderApp();
 
     await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));

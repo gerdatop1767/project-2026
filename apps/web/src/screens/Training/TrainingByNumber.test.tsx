@@ -17,6 +17,7 @@ vi.mock('../../lib/api.js', () => {
   return {
     listCollections: vi.fn(),
     getRandomTask: vi.fn(),
+    listTasksByNumber: vi.fn(),
     ApiError: MockApiError,
   };
 });
@@ -73,6 +74,10 @@ function renderScreen(props: Partial<React.ComponentProps<typeof TrainingByNumbe
 
 beforeEach(() => {
   vi.mocked(api.listCollections).mockResolvedValue([]);
+  // Single-number "По номерам" default: a non-empty same-number list so
+  // every test that doesn't care about its exact contents still
+  // resolves — see resolveSingleNumberSession.
+  vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
 });
 
 describe('TrainingByNumber', () => {
@@ -86,20 +91,16 @@ describe('TrainingByNumber', () => {
 
   it('a newly selected number defaults to both flags off — "обычный выбор"', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
     renderScreen();
     await user.click(screen.getByRole('button', { name: '№5' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    // Exactly one number selected: the real navigation list comes from
+    // listTasksByNumber (every variant's copy of #5), never a single
+    // random pick — see resolveSingleNumberSession (navigation bugfix).
     await waitFor(() => {
-      expect(api.getRandomTask).toHaveBeenCalledWith(
-        expect.objectContaining({
-          subject: 'math',
-          taskNumber: 5,
-          collection: undefined,
-          unseen: undefined,
-        }),
-      );
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined);
     });
+    expect(api.getRandomTask).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:5'));
   });
 
@@ -127,8 +128,11 @@ describe('TrainingByNumber', () => {
 
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
-      // 🎲 ON drops the Сборник scope (draws from the whole bank), 🔄
-      // ON adds the real unseen filter — both at once, never exclusive.
+      // 🎲 ON drops the Сборник scope (draws from the whole bank) when
+      // building the real multi-variant list; 🔄 ON separately picks
+      // which of those variants to start on via the real unseen filter
+      // — both at once, never exclusive.
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined);
       expect(api.getRandomTask).toHaveBeenCalledWith(
         expect.objectContaining({ taskNumber: 5, collection: undefined, unseen: true }),
       );
@@ -149,6 +153,7 @@ describe('TrainingByNumber', () => {
     await user.click(screen.getByRole('button', { name: 'Только нерешённые' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, COLLECTION.collection.slug);
       expect(api.getRandomTask).toHaveBeenCalledWith(
         expect.objectContaining({
           taskNumber: 5,
@@ -162,7 +167,6 @@ describe('TrainingByNumber', () => {
   it('🎲 ON + 🔄 OFF drops the collection scope without the unseen filter', async () => {
     const user = userEvent.setup();
     vi.mocked(api.listCollections).mockResolvedValue([COLLECTION]);
-    vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
     renderScreen();
 
     const trigger = await screen.findByRole('button', { name: /Все источники/ });
@@ -173,10 +177,11 @@ describe('TrainingByNumber', () => {
     await user.click(screen.getByRole('button', { name: 'Случайное' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
-      expect(api.getRandomTask).toHaveBeenCalledWith(
-        expect.objectContaining({ taskNumber: 5, collection: undefined, unseen: undefined }),
-      );
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 5, undefined);
     });
+    // No "unseen" refinement requested — the starting task is just the
+    // first entry in the list, no second getRandomTask call needed.
+    expect(api.getRandomTask).not.toHaveBeenCalled();
   });
 
   it('mixes independent flag combinations across different numbers in one run', async () => {
@@ -251,14 +256,12 @@ describe('TrainingByNumber', () => {
 
   it('works for an arbitrary subject/taskNumber combination — never hardcoded to one number', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getRandomTask).mockResolvedValue({ ...RANDOM_TASK, taskNumber: 12 });
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([{ ...RANDOM_TASK, taskNumber: 12 }]);
     renderScreen();
     await user.click(screen.getByRole('button', { name: '№12' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
-      expect(api.getRandomTask).toHaveBeenCalledWith(
-        expect.objectContaining({ subject: 'math', taskNumber: 12 }),
-      );
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 12, undefined);
     });
   });
 
@@ -276,5 +279,89 @@ describe('TrainingByNumber', () => {
     expect(screen.getByRole('button', { name: 'Математика' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Математика' }));
     expect(screen.getByTestId('overlay')).toHaveTextContent('subject');
+  });
+});
+
+/**
+ * Navigation bugfix: selecting exactly ONE number builds a real
+ * multi-variant navigation list (every published copy of that number),
+ * never a single-item "Задание 1 из 1" list — see
+ * resolveSingleNumberSession's doc comment. Exercises the exact
+ * real-data scenario from the bug report: #13 across 5 Ященко variants.
+ */
+describe('TrainingByNumber — single-number session (navigation bugfix)', () => {
+  function variantTask(variant: number, taskNumber: number) {
+    return { ...RANDOM_TASK, id: `v${variant}-task-${taskNumber}`, taskNumber };
+  }
+
+  function FullOverlayMarker() {
+    const { overlay } = useNavigation();
+    if (overlay?.screen !== 'task') return <p data-testid="full-overlay">{overlay?.screen}</p>;
+    return (
+      <p data-testid="full-overlay">
+        taskId:{overlay.taskId}|taskNumber:{overlay.taskNumber}|session:
+        {(overlay.customOrderedTasks ?? []).map((t) => t.taskId).join(',')}
+      </p>
+    );
+  }
+
+  function renderWithFullOverlay(
+    props: Partial<React.ComponentProps<typeof TrainingByNumber>> = {},
+  ) {
+    return render(
+      <NavigationProvider>
+        <TrainingByNumber {...props} />
+        <FullOverlayMarker />
+      </NavigationProvider>,
+    );
+  }
+
+  it("Test 1: builds a 5-entry session, all sharing taskNumber 13, from every variant's copy", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([
+      variantTask(1, 13),
+      variantTask(2, 13),
+      variantTask(3, 13),
+      variantTask(4, 13),
+      variantTask(5, 13),
+    ]);
+    renderWithFullOverlay();
+    await user.click(screen.getByRole('button', { name: '№13' }));
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('full-overlay')).toHaveTextContent(
+        'session:v1-task-13,v2-task-13,v3-task-13,v4-task-13,v5-task-13',
+      ),
+    );
+    expect(screen.getByTestId('full-overlay')).toHaveTextContent('taskId:v1-task-13');
+    expect(screen.getByTestId('full-overlay')).toHaveTextContent('taskNumber:13');
+  });
+
+  it('Test 2-4: prev/next step through V1#13 → V2#13 → ... → V5#13, never #14', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([
+      variantTask(1, 13),
+      variantTask(2, 13),
+      variantTask(3, 13),
+      variantTask(4, 13),
+      variantTask(5, 13),
+    ]);
+    renderWithFullOverlay();
+    await user.click(screen.getByRole('button', { name: '№13' }));
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() => expect(screen.getByTestId('full-overlay')).toHaveTextContent('v1-task-13'));
+    // The landed task is V1#13 — first entry, previous disabled, next is V2#13.
+    expect(screen.getByTestId('full-overlay')).toHaveTextContent('taskId:v1-task-13');
+  });
+
+  it('a single-entry list (no other variant has this number) falls back to "1 of 1" honestly, never fabricating siblings', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([variantTask(1, 17)]);
+    renderWithFullOverlay();
+    await user.click(screen.getByRole('button', { name: '№17' }));
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('full-overlay')).toHaveTextContent('session:v1-task-17'),
+    );
   });
 });

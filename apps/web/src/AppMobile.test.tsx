@@ -249,6 +249,7 @@ describe('AppMobile — Subject → Задания по номерам → task 
     vi.mocked(api.listCollections).mockResolvedValue([MATH_COLLECTION]);
     vi.mocked(api.getProgressByTopic).mockResolvedValue({ items: [] });
     vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
 
     renderApp();
     await user.click(screen.getByRole('button', { name: 'Главная' }));
@@ -275,6 +276,7 @@ describe('AppMobile — Subject → Задания по номерам → task 
     vi.mocked(api.listCollections).mockResolvedValue([MATH_COLLECTION]);
     vi.mocked(api.getProgressByTopic).mockResolvedValue({ items: [] });
     vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
 
     const { container } = renderApp();
     const shell = container.querySelector('[class*="_shell_"]');

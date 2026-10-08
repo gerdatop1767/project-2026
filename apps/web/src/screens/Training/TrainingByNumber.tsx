@@ -3,7 +3,11 @@ import { getRouteLabel, useNavigation, type Route } from '../../lib/navigation.j
 import { subjects } from '../../data/subjects.js';
 import { getSubjectContent } from '../../data/subjectContent.js';
 import { listCollections } from '../../lib/api.js';
-import { resolveTaskBatch, type TaskPickFilter } from '../../lib/startTraining.js';
+import {
+  resolveSingleNumberSession,
+  resolveTaskBatch,
+  type TaskPickFilter,
+} from '../../lib/startTraining.js';
 import type { CollectionListItem } from '@zybrilka/shared';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Button } from '../../ui/Button/Button.js';
@@ -138,16 +142,55 @@ export function TrainingByNumber({ subjectId, collectionSlug, from }: TrainingBy
       return;
     }
 
-    const filters: TaskPickFilter[] = numbers.map((number) => ({
-      subject: selectedSubjectId,
-      taskNumber: number,
-      collection: selectedCollectionSlug ?? undefined,
-      random: selection[number]!.random,
-      unseen: selection[number]!.unseen,
-    }));
-
     setStarting(true);
     try {
+      // Exactly one number selected: the real navigation list is every
+      // published copy of THIS number across variants/sources (V1#N,
+      // V2#N, ...), never a single-item list — see
+      // resolveSingleNumberSession's doc comment for why
+      // `resolveTaskBatch` (one random task per DISTINCT number) is the
+      // wrong tool here.
+      if (numbers.length === 1) {
+        const number = numbers[0]!;
+        const filter: TaskPickFilter = {
+          subject: selectedSubjectId,
+          taskNumber: number,
+          collection: selectedCollectionSlug ?? undefined,
+          random: selection[number]!.random,
+          unseen: selection[number]!.unseen,
+        };
+        const result = await resolveSingleNumberSession(filter, { shuffleOrder });
+        if ('error' in result) {
+          if (result.error.reason === 'no_unseen_tasks') {
+            setStartError(
+              `Для №${number} больше нет нерешённых заданий. Можно выключить «Только нерешённые» для этого номера.`,
+            );
+          } else {
+            setStartError('Не нашлось подходящих заданий — попробуй другие номера или режимы.');
+          }
+          return;
+        }
+
+        const start = result.tasks.find((t) => t.id === result.startTaskId) ?? result.tasks[0]!;
+        navigate({
+          screen: 'task',
+          subjectId: start.subjectId,
+          taskNumber: start.taskNumber,
+          taskId: start.id,
+          customOrderedTasks: result.tasks.map((t) => ({ taskId: t.id, taskNumber: t.taskNumber })),
+          returnTo: thisScreenRoute(),
+        });
+        return;
+      }
+
+      const filters: TaskPickFilter[] = numbers.map((n) => ({
+        subject: selectedSubjectId,
+        taskNumber: n,
+        collection: selectedCollectionSlug ?? undefined,
+        random: selection[n]!.random,
+        unseen: selection[n]!.unseen,
+      }));
+
       const result = await resolveTaskBatch(filters, { shuffleOrder });
       if ('error' in result) {
         if (result.error.reason === 'no_unseen_tasks') {
