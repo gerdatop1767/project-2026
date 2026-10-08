@@ -216,7 +216,11 @@ describe('TaskDesktop', () => {
     render(
       <NavigationProvider>
         <StreakProvider>
-          <TaskDesktop subjectId={baseTask.subjectId} taskNumber={baseTask.taskNumber} taskId={TASK_ID} />
+          <TaskDesktop
+            subjectId={baseTask.subjectId}
+            taskNumber={baseTask.taskNumber}
+            taskId={TASK_ID}
+          />
         </StreakProvider>
         <OverlayMarker />
       </NavigationProvider>,
@@ -712,5 +716,94 @@ describe('TaskDesktop — real solving timer (never the old static clock)', () =
     await waitFor(() => expect(api.submitAttempt).toHaveBeenCalled());
     const [, payload] = vi.mocked(api.submitAttempt).mock.calls[0]!;
     expect(typeof payload.timeSpentMs).toBe('number');
+  });
+});
+
+/**
+ * Navigation bugfix round 2: submitting an answer must carry the real
+ * session list (`customOrderedTasks`) forward to Result — before this
+ * fix, a "По номерам" single-number session (V1#13..V5#13) resolved
+ * correctly on the Task screen (1 2 3 4 5, real Next), but the moment
+ * you submitted, Result's own `useTaskNavigation` got NO list at all
+ * (no customOrderedTasks, no collectionSlug, no variantId — the
+ * resolved variantId for a customOrderedTasks session is always null,
+ * see useTaskNavigation.ts), so "Следующее задание" showed disabled.
+ */
+describe('TaskDesktop — submit carries the session list forward to Result (navigation bugfix round 2)', () => {
+  const V1 = { taskId: TASK_ID, taskNumber: 13 };
+  const V2 = { taskId: SIBLING_A, taskNumber: 13 };
+  const V3 = { taskId: SIBLING_B, taskNumber: 13 };
+
+  function OverlayResultDetail() {
+    const { overlay } = useNavigation();
+    if (overlay?.screen !== 'result') return <p data-testid="result-detail">none</p>;
+    return (
+      <p data-testid="result-detail">
+        session:{(overlay.customOrderedTasks ?? []).map((t) => t.taskId).join(',')}
+      </p>
+    );
+  }
+
+  beforeEach(() => {
+    resetFavoritesCacheForTests();
+    resetCanvasStoreForTests();
+    vi.mocked(api.getTask).mockResolvedValue({ ...baseTask, taskNumber: 13 });
+    vi.mocked(api.listTasksByNumber).mockResolvedValue(siblings);
+  });
+
+  it('forwards the exact same customOrderedTasks list it was given, unchanged', async () => {
+    const user = userEvent.setup();
+    render(
+      <NavigationProvider>
+        <TaskDesktop
+          subjectId="math"
+          taskNumber={13}
+          taskId={TASK_ID}
+          customOrderedTasks={[V1, V2, V3]}
+        />
+        <OverlayResultDetail />
+      </NavigationProvider>,
+    );
+    await pasteAnswer(user, CORRECT_ANSWER);
+    await user.click(screen.getByRole('button', { name: /Проверить ответ/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId('result-detail')).toHaveTextContent(
+        `session:${TASK_ID},${SIBLING_A},${SIBLING_B}`,
+      );
+    });
+  });
+});
+
+/**
+ * Desktop "Другие задания" bugfix: previously only mobile had this
+ * block at all — desktop Task now shows the same cards/data source at
+ * the bottom of the page.
+ */
+describe('TaskDesktop — "Другие задания" (desktop, bugfix: block was missing on Task too)', () => {
+  beforeEach(() => {
+    resetFavoritesCacheForTests();
+    resetCanvasStoreForTests();
+    vi.mocked(api.getTask).mockResolvedValue(baseTask);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue(siblings);
+  });
+
+  it('renders the block below the main grid, using the real siblings from listTasksByNumber', async () => {
+    renderTask();
+    await screen.findByText(CONDITION);
+    expect(await screen.findByText(`Другие задания №${baseTask.taskNumber}`)).toBeInTheDocument();
+    expect(screen.getByText(`#${SIBLING_A.slice(0, 8)}`)).toBeInTheDocument();
+  });
+
+  it("clicking a card opens exactly that card's taskId", async () => {
+    const user = userEvent.setup();
+    renderTask();
+    await screen.findByText(CONDITION);
+    await screen.findByText(`Другие задания №${baseTask.taskNumber}`);
+    await user.click(
+      screen.getByRole('button', { name: `Задание #${SIBLING_A.slice(0, 8)}, Сложное` }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('overlay')).toHaveTextContent(`task:${SIBLING_A}`);
+    });
   });
 });

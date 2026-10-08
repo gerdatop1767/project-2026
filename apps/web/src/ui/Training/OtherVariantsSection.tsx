@@ -1,7 +1,7 @@
 import { Icon } from '../Icon/Icon.js';
 import { Button } from '../Button/Button.js';
-import { DifficultyTag } from './DifficultyTag.js';
 import { Collapse } from '../motion/motion.js';
+import { VariantPreviewCard } from './VariantPreviewCard.js';
 import type { TaskVariant } from '../../data/sampleTask.js';
 import styles from './OtherVariantsSection.module.css';
 
@@ -45,20 +45,7 @@ export function OtherVariantsSection({
         <div className={styles.content}>
           <div className={styles.variantRow}>
             {variants.map((variant) => (
-              <button
-                key={variant.id}
-                type="button"
-                className={styles.variantCard}
-                onClick={() => onSelectVariant(variant)}
-              >
-                <span className={styles.variantHead}>
-                  <span className="text-body-sm" style={{ fontWeight: 700 }}>
-                    {variant.code}
-                  </span>
-                  <DifficultyTag label={variant.difficultyLabel} />
-                </span>
-                <span className={styles.variantPreview}>{variant.preview}</span>
-              </button>
+              <VariantPreviewCard key={variant.id} variant={variant} onSelect={onSelectVariant} />
             ))}
           </div>
           <Button variant="secondary" fullWidth>

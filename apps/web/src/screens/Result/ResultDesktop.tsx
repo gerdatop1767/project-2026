@@ -13,7 +13,7 @@ import { useActiveLearningSessionForTask } from '../../lib/learningSessionContex
 import { formatElapsed } from '../../lib/formatElapsed.js';
 import { LearningSessionBadge } from '../../ui/LearningSession/LearningSessionBadge.js';
 import { LearningSessionResultAction } from '../../ui/LearningSession/LearningSessionResultAction.js';
-import type { SampleTask } from '../../data/sampleTask.js';
+import type { SampleTask, TaskVariant } from '../../data/sampleTask.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
@@ -21,6 +21,7 @@ import { CanvasWorkspaceDesktop } from '../../ui/CanvasWorkspace/CanvasWorkspace
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Modal } from '../../ui/Modal/Modal.js';
 import { DesktopToolsCard } from '../../ui/Training/DesktopToolsCard.js';
+import { OtherVariantsSectionDesktop } from '../../ui/Training/OtherVariantsSectionDesktop.js';
 import { SessionTaskListCard } from '../../ui/Training/SessionTaskListCard.js';
 import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { useCountUp } from '../../lib/useCountUp.js';
@@ -95,6 +96,10 @@ export function ResultDesktop({
       taskId,
       collectionSlug,
       variantId: taskNav.variantId ?? undefined,
+      // Same navigation-context carry as goToNext — otherwise retrying
+      // a wrong answer in a customOrderedTasks session (e.g. "По
+      // номерам" single-number) silently drops back to "1 из 1".
+      customOrderedTasks,
       returnTo,
     });
   }
@@ -170,6 +175,21 @@ export function ResultDesktop({
       subjectId: task.subjectId,
       collectionSlug,
       initialMode: 'topics',
+    });
+  }
+
+  // "Другие задания №N" (desktop): same cross-source sibling navigation
+  // as ResultMobile's handleSelectVariant — explicitly drops the
+  // current source/variant context (it belonged to the source we just
+  // left).
+  function handleSelectVariant(variant: TaskVariant) {
+    if (!task) return;
+    navigate({
+      screen: 'task',
+      subjectId: task.subjectId,
+      taskNumber: task.number,
+      taskId: variant.id,
+      returnTo: { screen: 'subject', subjectId: task.subjectId },
     });
   }
 
@@ -455,6 +475,13 @@ export function ResultDesktop({
           )}
         </div>
       </div>
+
+      <OtherVariantsSectionDesktop
+        taskNumber={task.number}
+        variants={task.otherVariants}
+        onSelectVariant={handleSelectVariant}
+        subtitle="Похожие на это задание"
+      />
       <Modal open={calculatorOpen} onClose={() => setCalculatorOpen(false)} title="Калькулятор">
         <Calculator />
       </Modal>

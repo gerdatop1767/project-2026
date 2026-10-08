@@ -133,6 +133,13 @@ export function TaskMobile({
           userAnswer: userAnswerForResult,
           collectionSlug,
           variantId: taskNav.variantId ?? undefined,
+          // Carries the real session list forward so Result's own
+          // useTaskNavigation resolves the SAME orderedTasks as this
+          // screen did — without this, a customOrderedTasks-driven
+          // session (e.g. "По номерам" single-number) lost all
+          // navigation context on submit, and "Следующее задание"
+          // showed disabled (navigation bugfix, round 2).
+          customOrderedTasks,
           returnTo,
           timeSpentMs,
         });

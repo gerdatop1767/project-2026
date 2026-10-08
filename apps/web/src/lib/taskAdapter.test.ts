@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildSessionProgress, explanationForPart, splitMultiPartExplanation } from './taskAdapter.js';
+import {
+  buildSessionProgress,
+  explanationForPart,
+  splitMultiPartExplanation,
+  toSampleTask,
+} from './taskAdapter.js';
+import type { TaskWithSolution } from '@zybrilka/shared';
 
 describe('splitMultiPartExplanation', () => {
   it('splits on ### headings, trimming heading and body', () => {
@@ -110,5 +116,59 @@ describe('buildSessionProgress', () => {
       { index: 1, status: 'pending' },
       { index: 2, status: 'current' },
     ]);
+  });
+});
+
+/**
+ * Bugfix: `otherVariants[].preview` ("Другие задания" / Similar Tasks
+ * card content) used to be `conditionMd.slice(0, 60)` — a fixed
+ * character cut that can land mid-`$...$` span, leaving an unbalanced
+ * `$` the math renderer can't tokenize, so it fell back to showing the
+ * raw LaTeX source as plain text (confirmed in production: "a) Решите
+ * уравнение $\sqrt{4\sin^3x - 4\cos^2x} - \cos x - \s"). It must now
+ * carry the FULL condition — the card component clamps it visually
+ * with CSS instead, after InlineMathText has rendered every `$...$`
+ * span completely.
+ */
+describe('toSampleTask — otherVariants preview (Similar Tasks raw-LaTeX bugfix)', () => {
+  const task: TaskWithSolution = {
+    id: 'task-1',
+    subjectId: 'math',
+    taskNumber: 13,
+    topicId: null,
+    topicName: null,
+    difficulty: 3,
+    conditionMd: 'Условие основного задания.',
+    imageUrl: null,
+    hintMd: null,
+    answerType: 'short_answer',
+    answerOptions: null,
+    answerParts: null,
+    source: 'Ященко',
+    sourceUrl: null,
+    sourceYear: 2026,
+    tags: [],
+    status: 'published',
+    correctAnswer: '42',
+    correctAnswerDisplay: null,
+    explanationMd: 'Объяснение.',
+    solutionSteps: null,
+  };
+
+  const LONG_LATEX_CONDITION =
+    'а) Решите уравнение $\\sqrt{4\\sin^3x - 4\\cos^2x} - \\cos x - \\sin x = 0$ на отрезке.';
+
+  it('never truncates the sibling condition to a fixed character count', () => {
+    const sibling = { ...task, id: 'task-2', conditionMd: LONG_LATEX_CONDITION };
+    const sample = toSampleTask(task, [task, sibling]);
+    expect(sample.otherVariants[0]!.preview).toBe(LONG_LATEX_CONDITION);
+    expect(sample.otherVariants[0]!.preview.length).toBeGreaterThan(60);
+  });
+
+  it('keeps every $...$ span balanced (never cuts a LaTeX command mid-way)', () => {
+    const sibling = { ...task, id: 'task-2', conditionMd: LONG_LATEX_CONDITION };
+    const sample = toSampleTask(task, [task, sibling]);
+    const dollarCount = (sample.otherVariants[0]!.preview.match(/\$/g) ?? []).length;
+    expect(dollarCount % 2).toBe(0);
   });
 });

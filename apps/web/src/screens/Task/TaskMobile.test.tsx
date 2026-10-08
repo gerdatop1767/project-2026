@@ -319,7 +319,11 @@ describe('TaskMobile', () => {
     render(
       <NavigationProvider>
         <StreakProvider>
-          <TaskMobile subjectId={baseTask.subjectId} taskNumber={baseTask.taskNumber} taskId={TASK_ID} />
+          <TaskMobile
+            subjectId={baseTask.subjectId}
+            taskNumber={baseTask.taskNumber}
+            taskId={TASK_ID}
+          />
         </StreakProvider>
         <OverlayMarker />
       </NavigationProvider>,
@@ -587,5 +591,64 @@ describe('TaskMobile — real solving timer (compact, top of screen)', () => {
     await waitFor(() => expect(api.submitAttempt).toHaveBeenCalled());
     const [, payload] = vi.mocked(api.submitAttempt).mock.calls[0]!;
     expect(typeof payload.timeSpentMs).toBe('number');
+  });
+});
+
+/**
+ * Navigation bugfix round 2: submitting an answer must carry the real
+ * session list (`customOrderedTasks`) forward to Result — see
+ * TaskDesktop.test.tsx's matching describe block for the full root
+ * cause. Mobile's handleCheck had the exact same gap.
+ */
+describe('TaskMobile — submit carries the session list forward to Result (navigation bugfix round 2)', () => {
+  const V1 = { taskId: TASK_ID, taskNumber: 13 };
+  const V2 = { taskId: SIBLING_A, taskNumber: 13 };
+  const V3 = { taskId: SIBLING_B, taskNumber: 13 };
+
+  function OverlayResultDetail() {
+    const { overlay } = useNavigation();
+    if (overlay?.screen !== 'result') return <p data-testid="result-detail">none</p>;
+    return (
+      <p data-testid="result-detail">
+        session:{(overlay.customOrderedTasks ?? []).map((t) => t.taskId).join(',')}
+      </p>
+    );
+  }
+
+  beforeEach(() => {
+    resetFavoritesCacheForTests();
+    resetCanvasStoreForTests();
+    vi.mocked(api.getTask).mockResolvedValue({ ...baseTask, taskNumber: 13 });
+    vi.mocked(api.listTasksByNumber).mockResolvedValue(siblings);
+    vi.mocked(api.submitAttempt).mockResolvedValue({
+      correct: true,
+      correctAnswer: CORRECT_ANSWER,
+      correctAnswerDisplay: null,
+      explanation: EXPLANATION,
+      attemptId: 'a1',
+      mistakeId: null,
+    });
+  });
+
+  it('forwards the exact same customOrderedTasks list it was given, unchanged', async () => {
+    const user = userEvent.setup();
+    render(
+      <NavigationProvider>
+        <TaskMobile
+          subjectId="math"
+          taskNumber={13}
+          taskId={TASK_ID}
+          customOrderedTasks={[V1, V2, V3]}
+        />
+        <OverlayResultDetail />
+      </NavigationProvider>,
+    );
+    await pasteAnswer(user, CORRECT_ANSWER);
+    await user.click(screen.getByRole('button', { name: /Проверить ответ/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId('result-detail')).toHaveTextContent(
+        `session:${TASK_ID},${SIBLING_A},${SIBLING_B}`,
+      );
+    });
   });
 });
