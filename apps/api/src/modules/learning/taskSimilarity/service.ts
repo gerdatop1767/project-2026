@@ -30,10 +30,14 @@ export function toSimilarityInput(meta: repo.TaskSimilarityMetadata): TaskSimila
  * Deterministic, on-demand (never precomputed/stored — see Phase 6's
  * instructions: the task catalog is small enough that a stored
  * `similar_task_relations` table would just be a second place for the
- * same calculation to drift out of sync). Candidates are resolved
- * purely by `taskId` → `subjectId` → every other published task in
- * that subject — zero `taskNumber` branching. Returns `[]` for an
- * unknown `taskId`, never throws.
+ * same calculation to drift out of sync). Candidates are resolved by
+ * `taskId` → `subjectId` + the SAME `taskNumber` — a hard SQL filter
+ * (see `getCandidateTasksForSimilarity`'s doc comment), not a scoring
+ * weight: "Решить похожее" must only ever surface another task of the
+ * exact same EGE question number, never a different number that
+ * happens to score well on skills/topic. Returns `[]` for an unknown
+ * `taskId`, or for a real task that has no OTHER published task of its
+ * own number yet — never substituted with a different number.
  */
 export async function getSimilarTasks(
   db: Database,
@@ -43,7 +47,12 @@ export async function getSimilarTasks(
   const target = await repo.getTaskMetadataForSimilarity(db, taskId);
   if (!target) return [];
 
-  const candidates = await repo.getCandidateTasksForSimilarity(db, target.subjectId, taskId);
+  const candidates = await repo.getCandidateTasksForSimilarity(
+    db,
+    target.subjectId,
+    target.taskNumber,
+    taskId,
+  );
   const targetInput = toSimilarityInput(target);
 
   const scored = candidates.map((candidate) => {

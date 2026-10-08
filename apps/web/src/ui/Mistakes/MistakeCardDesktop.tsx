@@ -13,6 +13,10 @@ export interface MistakeCardDesktopProps {
   onReview: () => void;
   onToggleFavorite: () => void;
   favorited: boolean;
+  /** "Решить похожее" — omitted entirely (not just hidden) if the
+   * caller has no real similarity lookup to back it with. */
+  onSolveSimilar?: () => void;
+  solvingSimilar?: boolean;
 }
 
 /**
@@ -28,6 +32,8 @@ export function MistakeCardDesktop({
   onReview,
   onToggleFavorite,
   favorited,
+  onSolveSimilar,
+  solvingSimilar = false,
 }: MistakeCardDesktopProps) {
   const color = getTopicColor(mistake.topic);
 
@@ -65,6 +71,17 @@ export function MistakeCardDesktop({
         <Button variant="secondary" fullWidth onClick={onToggleFavorite}>
           <Icon name={favorited ? 'favorite' : 'bookmark'} size={16} />В избранное
         </Button>
+        {onSolveSimilar && (
+          <Button
+            variant="secondary"
+            fullWidth
+            className={styles.solveSimilarButton}
+            loading={solvingSimilar}
+            onClick={onSolveSimilar}
+          >
+            Решить похожее
+          </Button>
+        )}
       </div>
 
       <button type="button" className={styles.moreButton} aria-label="Ещё">

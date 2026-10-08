@@ -1,0 +1,185 @@
+{
+  "source": "Ященко ЕГЭ 2026. Типовые экзаменационные варианты",
+  "sourceFile": "ЕГЭ_2026_Ященко_варианты_2-5.pdf",
+  "variant": 3,
+  "pages": [
+    5,
+    6,
+    7,
+    8
+  ],
+  "importedAt": "2026-10-03",
+  "tasks": [
+    {
+      "taskNumber": 1,
+      "part": 1,
+      "sourcePage": 5,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "e5563cc6fdbd1ea97f0c51a512cd5f705ffaff9782642e9353ac9533a47a6870"
+    },
+    {
+      "taskNumber": 2,
+      "part": 1,
+      "sourcePage": 5,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "08e8b02fc064453dbeb5598a1b778719e19f0b4391e4071b8a7b1be7b2c92c3f"
+    },
+    {
+      "taskNumber": 3,
+      "part": 1,
+      "sourcePage": 5,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "aa2b88615fc362d9b62c7848dd384b6af515b18ac0b79a73dd53be386b81ccbf"
+    },
+    {
+      "taskNumber": 4,
+      "part": 1,
+      "sourcePage": 5,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "d0f18dadb2102bf3dbbc6b9e891d0d2bc6c23e3cf11a3b81e5278dfbbf19af90"
+    },
+    {
+      "taskNumber": 5,
+      "part": 1,
+      "sourcePage": 6,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "524a840aceeb3d6ba83da5639fb669843e67ee2bd2aae4c9808f4f0d9a054a9b"
+    },
+    {
+      "taskNumber": 6,
+      "part": 1,
+      "sourcePage": 6,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "1cfaf166a4c62c0f915438f8a275d657dd4c2b791a21e92781102d635cd57b23"
+    },
+    {
+      "taskNumber": 7,
+      "part": 1,
+      "sourcePage": 6,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "ed72b181f6ad401c589f8785ace1ed7caf9cc1f59f0307618f8a511b90772070"
+    },
+    {
+      "taskNumber": 8,
+      "part": 1,
+      "sourcePage": 6,
+      "hasImage": true,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "78c9d0b62eddd3581469ab1e1127c2f888c25efe34b3cccdb679eded66025db4"
+    },
+    {
+      "taskNumber": 9,
+      "part": 1,
+      "sourcePage": 6,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "238b9937dff6f16399a3d02e5cf477d1c46a2085c4a7f64fcc9c206c15288d54"
+    },
+    {
+      "taskNumber": 10,
+      "part": 1,
+      "sourcePage": 6,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "cfabc86edb8cf4f58d4b9cecb96cfb6579a74d3eefac9242ffcc7308d35360fb"
+    },
+    {
+      "taskNumber": 11,
+      "part": 1,
+      "sourcePage": 7,
+      "hasImage": true,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "7c12ce1c033ab7078f503b52bf3b2daf977483f005eccb421a19538ce40756fe"
+    },
+    {
+      "taskNumber": 12,
+      "part": 1,
+      "sourcePage": 7,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "ab314489314fb57bb794f9a0a17875d75993ae88417951437f8e14ecf97232c3"
+    },
+    {
+      "taskNumber": 13,
+      "part": 2,
+      "sourcePage": 7,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "b958e89f8904d98afd2d0266b5595427e8d0204a208c6ccc307bfe8ac4b8d33b"
+    },
+    {
+      "taskNumber": 14,
+      "part": 2,
+      "sourcePage": 7,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "dc66eaabf2e147020a0d6e11b50e28a9f3c695d07be5a942439556210a37c3da"
+    },
+    {
+      "taskNumber": 15,
+      "part": 2,
+      "sourcePage": 8,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "affe41c648ee28f2dc7960db72331f821969a3f2e2b3f1f049067a0eeb60bdf3"
+    },
+    {
+      "taskNumber": 16,
+      "part": 2,
+      "sourcePage": 8,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "8128e309170cb02b08023af142b5e9febb8a5023c864c72658ce4b398357b00f"
+    },
+    {
+      "taskNumber": 17,
+      "part": 2,
+      "sourcePage": 8,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "24ad3bae8e6362dbbb5fa8e9c5c625f780fb1a0f21800b9fd55f7f674c83a41c"
+    },
+    {
+      "taskNumber": 18,
+      "part": 2,
+      "sourcePage": 8,
+      "hasImage": false,
+      "answerType": "short_answer",
+      "status": "published",
+      "contentHash": "6335f367adaafa881945af9410a2067151cbc16e832465dd1a75cb455d25d543"
+    },
+    {
+      "taskNumber": 19,
+      "part": 2,
+      "sourcePage": 8,
+      "hasImage": false,
+      "answerType": "multi_part",
+      "status": "published",
+      "contentHash": "3b71916caf2c37237951fc70a23590b944512509612e7b3ed912c9abfbd6e9d3"
+    }
+  ]
+}

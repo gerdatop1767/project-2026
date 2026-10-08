@@ -69,12 +69,19 @@ export async function getTaskMetadataForSimilarity(
   return withSkills;
 }
 
-/** Every published task in the same subject, excluding the task itself —
- * the candidate pool `getSimilarTasks` scores. Subject + status filtering
- * happens here (in SQL), never left to the in-memory scoring step. */
+/** Every published task in the same subject AND the same `taskNumber`,
+ * excluding the task itself — the candidate pool `getSimilarTasks`
+ * scores. "Решить похожее" only ever means "another task that is the
+ * same EGE question number" (CLAUDE.md), so `taskNumber` is a hard SQL
+ * filter here, in the candidate query itself — never a scoring weight
+ * applied after the fact, which could let a different-numbered task
+ * with a high skills/topic match outscore same-numbered ones. Subject
+ * + status + number filtering all happen here (in SQL), never left to
+ * the in-memory scoring step. */
 export async function getCandidateTasksForSimilarity(
   db: Database,
   subjectId: string,
+  taskNumber: number,
   excludeTaskId: string,
 ): Promise<TaskSimilarityMetadata[]> {
   const rows = await db
@@ -84,6 +91,7 @@ export async function getCandidateTasksForSimilarity(
     .where(
       and(
         eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.taskNumber, taskNumber),
         eq(schema.tasks.status, 'published'),
         ne(schema.tasks.id, excludeTaskId),
       ),

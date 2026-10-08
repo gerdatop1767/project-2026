@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
-import { getMistakes } from '../../lib/api.js';
+import { getMistakes, getSimilarTasks } from '../../lib/api.js';
 import { toSampleMistake } from '../../lib/mistakeAdapter.js';
+import { useToast } from '../../ui/Toast/ToastProvider.js';
 import { formatDateShort } from '../../lib/formatDate.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Chip } from '../../ui/Chip/Chip.js';
@@ -31,12 +32,16 @@ type FilterId = 'all' | 'unsolved' | 'byTopic' | 'byDate';
  */
 export function MistakesDesktop() {
   const { navigate } = useNavigation();
+  const { show: showToast } = useToast();
   const [subjectId, setSubjectId] = useState('math');
   const [filter, setFilter] = useState<FilterId>('all');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [favorited, setFavorited] = useState<ReadonlySet<string>>(new Set());
   const [mistakes, setMistakes] = useState<readonly Mistake[]>([]);
   const [loading, setLoading] = useState(true);
+  // Only one card's "Решить похожее" can be in flight at a time — same
+  // pattern as MistakesMobile.
+  const [solvingSimilarId, setSolvingSimilarId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +80,42 @@ export function MistakesDesktop() {
       taskId: mistake.taskId,
       returnTo: { screen: 'mistakes' },
     });
+  }
+
+  /**
+   * "Решить похожее" — same deterministic similarity engine and same
+   * `customOrderedTasks` ad-hoc training-list mechanism as
+   * MistakesMobile, not a second system. The backend now hard-filters
+   * candidates to the exact same taskNumber (see
+   * apps/api/src/modules/learning/taskSimilarity/repo.ts), so this
+   * never has to re-check the number client-side.
+   */
+  function solveSimilar(mistake: Mistake) {
+    if (solvingSimilarId) return;
+    setSolvingSimilarId(mistake.id);
+    void getSimilarTasks(mistake.taskId)
+      .then((items) => {
+        if (items.length === 0) {
+          showToast({
+            variant: 'info',
+            message: 'Похожих заданий этого номера пока нет.',
+          });
+          return;
+        }
+        const first = items[0]!;
+        navigate({
+          screen: 'task',
+          subjectId: mistake.subjectId,
+          taskNumber: first.taskNumber,
+          taskId: first.taskId,
+          customOrderedTasks: items.map((i) => ({ taskId: i.taskId, taskNumber: i.taskNumber })),
+          returnTo: { screen: 'mistakes' },
+        });
+      })
+      .catch(() => {
+        showToast({ variant: 'error', message: 'Не удалось подобрать похожие задания.' });
+      })
+      .finally(() => setSolvingSimilarId(null));
   }
 
   const subjectOptions = subjects.map((s) => ({ value: s.id, label: s.shortName }));
@@ -129,6 +170,8 @@ export function MistakesDesktop() {
                 onReview={() => openMistake(m)}
                 onToggleFavorite={() => toggleFavorite(m.id)}
                 favorited={favorited.has(m.id)}
+                onSolveSimilar={() => solveSimilar(m)}
+                solvingSimilar={solvingSimilarId === m.id}
               />
             ));
             if (group.taskNumber !== null) {

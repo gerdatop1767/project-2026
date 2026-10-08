@@ -92,13 +92,17 @@ export function MistakesMobile() {
   /**
    * "Решить похожее" — the existing deterministic Phase 6 similarity
    * engine (`GET /tasks/:taskId/similar`), never a new AI/ML system.
-   * On a real candidate list, this is the exact same
-   * `customOrderedTasks` ad-hoc training-list mechanism
-   * startCustomVariant/Training's "По номерам" already use — not a
-   * second parallel session system. An empty result is real (small
-   * catalog today, or genuinely nothing close yet) and must never
-   * silently open an empty/fake session — only a toast telling the
-   * user why.
+   * The backend hard-filters candidates to the SAME taskNumber as the
+   * mistake before scoring (see
+   * apps/api/src/modules/learning/taskSimilarity/repo.ts) — a mistake
+   * in №5 only ever surfaces other №5 tasks, never a different number
+   * that merely scores well on skills/topic. On a real candidate list,
+   * this is the exact same `customOrderedTasks` ad-hoc training-list
+   * mechanism startCustomVariant/Training's "По номерам" already use —
+   * not a second parallel session system. An empty result is real
+   * (small catalog today, or genuinely no other task of this exact
+   * number yet) and must never silently open an empty/fake session or
+   * substitute a different number — only a toast telling the user why.
    */
   function solveSimilar(mistake: Mistake) {
     if (solvingSimilarId) return; // one in-flight request at a time
@@ -109,7 +113,7 @@ export function MistakesMobile() {
           showToast({
             variant: 'info',
             message:
-              'Похожих заданий пока нет — когда в базе появятся задания этого типа, мы подберём их автоматически.',
+              'Похожих заданий этого номера пока нет.',
           });
           return;
         }
