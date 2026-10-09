@@ -80,6 +80,9 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, {
       if (error instanceof service.InvalidAnswerShapeError) {
         return reply.code(400).send({ error: 'invalid_answer_shape' });
       }
+      if (error instanceof service.EssayNotGradableError) {
+        return reply.code(400).send({ error: 'essay_not_gradable' });
+      }
       throw error;
     }
     if (!result) return reply.code(404).send({ error: 'task_not_found' });

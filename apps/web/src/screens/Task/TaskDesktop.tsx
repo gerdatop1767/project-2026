@@ -138,6 +138,13 @@ export function TaskDesktop({
   }
 
   const isMultiPart = task?.answerType === 'multi_part' && task.answerParts !== null;
+  // Essay tasks (e.g. EGE Russian 27) have no single correct answer and
+  // are never auto-graded — the backend rejects any attempt against
+  // them (see EssayNotGradableError). The UI must not offer an answer
+  // field or a "Проверить ответ" button that would just 400; instead it
+  // shows the task's own explanation note directly (no attempt needed
+  // to unlock it — see service.ts's getTask essay carve-out).
+  const isEssay = task?.answerType === 'essay';
   const canSubmit = isMultiPart
     ? task!.answerParts!.every((p) => (partAnswers[p.id] ?? '').trim().length > 0) && !checking
     : answer.trim().length > 0 && !checking && task !== null;
@@ -316,46 +323,64 @@ export function TaskDesktop({
               </>
             )}
 
-            <div>
-              <p
-                className="text-body-sm"
-                style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}
-              >
-                Введите ответ
-              </p>
-              {isMultiPart ? (
-                <div className={styles.multiPartFields}>
-                  {task.answerParts!.map((part) => (
-                    <div key={part.id} className={styles.answerRow}>
-                      <span className={styles.multiPartLabel}>{part.label})</span>
-                      <MathAnswerField
-                        value={partAnswers[part.id] ?? ''}
-                        onChange={(v) => setPartAnswers((prev) => ({ ...prev, [part.id]: v }))}
-                        placeholder="Ваш ответ..."
-                        disabled={checking}
-                        ariaLabel={`Ответ ${part.label})`}
-                        className={styles.mathField}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <MathAnswerField
-                    value={answer}
-                    onChange={setAnswer}
-                    placeholder="Ваш ответ..."
-                    disabled={checking}
-                    ariaLabel="Ответ"
-                  />
-                  <p className={clsx('text-body-sm', 'text-secondary', styles.answerHelp)}>
-                    Можно использовать: ∪ для объединения, ∩ для пересечения, ∞, дроби, скобки.
-                    <br />
-                    Например: (−∞; 1] ∪ [3; ∞)
-                  </p>
-                </>
-              )}
-            </div>
+            {isEssay ? (
+              <div className={styles.hintText} style={{ marginTop: 'var(--space-3)' }}>
+                <p className="text-body-sm" style={{ fontWeight: 600 }}>
+                  Задание с развёрнутым ответом (сочинение)
+                </p>
+                <p className="text-body-sm text-secondary">
+                  Это задание не проверяется автоматически — напишите сочинение на бумаге или в
+                  черновике (можно воспользоваться «Расширить поле» в инструментах). Ниже —
+                  пояснение к заданию.
+                </p>
+                {task.explanation && (
+                  <div style={{ marginTop: 'var(--space-2)' }}>
+                    <MathText text={task.explanation} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p
+                  className="text-body-sm"
+                  style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}
+                >
+                  Введите ответ
+                </p>
+                {isMultiPart ? (
+                  <div className={styles.multiPartFields}>
+                    {task.answerParts!.map((part) => (
+                      <div key={part.id} className={styles.answerRow}>
+                        <span className={styles.multiPartLabel}>{part.label})</span>
+                        <MathAnswerField
+                          value={partAnswers[part.id] ?? ''}
+                          onChange={(v) => setPartAnswers((prev) => ({ ...prev, [part.id]: v }))}
+                          placeholder="Ваш ответ..."
+                          disabled={checking}
+                          ariaLabel={`Ответ ${part.label})`}
+                          className={styles.mathField}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <MathAnswerField
+                      value={answer}
+                      onChange={setAnswer}
+                      placeholder="Ваш ответ..."
+                      disabled={checking}
+                      ariaLabel="Ответ"
+                    />
+                    <p className={clsx('text-body-sm', 'text-secondary', styles.answerHelp)}>
+                      Можно использовать: ∪ для объединения, ∩ для пересечения, ∞, дроби, скобки.
+                      <br />
+                      Например: (−∞; 1] ∪ [3; ∞)
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className={styles.actions}>
               <Button
@@ -363,16 +388,18 @@ export function TaskDesktop({
                 disabled={!taskNav.next}
                 onClick={() => taskNav.next && taskNav.goTo(taskNav.next)}
               >
-                <Icon name="skip" size={16} /> Пропустить
+                <Icon name="skip" size={16} /> {isEssay ? 'Следующее задание' : 'Пропустить'}
               </Button>
-              <Button
-                variant="primary"
-                loading={checking}
-                disabled={!canSubmit}
-                onClick={handleCheck}
-              >
-                Проверить ответ <Icon name="arrowRight" size={18} />
-              </Button>
+              {!isEssay && (
+                <Button
+                  variant="primary"
+                  loading={checking}
+                  disabled={!canSubmit}
+                  onClick={handleCheck}
+                >
+                  Проверить ответ <Icon name="arrowRight" size={18} />
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -34,12 +34,42 @@ function numericEquals(a: string, b: string): boolean {
   return Math.abs(numA - numB) < 1e-9;
 }
 
+/** True when every character of `normalized` is an ASCII digit 0-9 (and non-empty). */
+function isDigitString(normalized: string): boolean {
+  return normalized.length > 0 && /^[0-9]+$/.test(normalized);
+}
+
+export interface CheckAnswerOptions {
+  /**
+   * Opt-in, per-task flag — NOT a global default. Some multi-select EGE
+   * tasks ask the student to "запишите номера ответов" where the
+   * official key accepts any digit order (e.g. "125" and "521" are the
+   * same selection); others (e.g. a multi-part answer position, or a
+   * task whose own wording fixes an order) must NOT have their digits
+   * reordered — "134" and "431" are different answers there. Callers
+   * that know a specific task's answer is an order-free digit set pass
+   * `digitSetOrderInsensitive: true` explicitly; the default (`false`
+   * /omitted) preserves the exact existing behavior for every answer
+   * format already in production (math included).
+   */
+  digitSetOrderInsensitive?: boolean;
+}
+
 /**
  * True when `userAnswer` matches `correctAnswer` after normalization —
  * exact string match, numeric match (so "6" === "6.0"), or, for
  * multi-value answers, the same set of tokens regardless of order.
+ *
+ * `options.digitSetOrderInsensitive` additionally allows a concatenated
+ * digit string (no separators, e.g. "125") to match any permutation of
+ * the same digits — scoped to this one call via the opt-in flag, never
+ * applied by default. See `CheckAnswerOptions`.
  */
-export function checkAnswer(userAnswer: string, correctAnswer: string): boolean {
+export function checkAnswer(
+  userAnswer: string,
+  correctAnswer: string,
+  options?: CheckAnswerOptions,
+): boolean {
   const normalizedUser = normalizeAnswer(userAnswer);
   const normalizedCorrect = normalizeAnswer(correctAnswer);
 
@@ -53,6 +83,15 @@ export function checkAnswer(userAnswer: string, correctAnswer: string): boolean 
       const correctToken = correctTokens[i]!;
       return token === correctToken || numericEquals(token, correctToken);
     });
+  }
+
+  if (
+    options?.digitSetOrderInsensitive &&
+    isDigitString(normalizedUser) &&
+    isDigitString(normalizedCorrect) &&
+    normalizedUser.length === normalizedCorrect.length
+  ) {
+    return [...normalizedUser].sort().join('') === [...normalizedCorrect].sort().join('');
   }
 
   return false;
