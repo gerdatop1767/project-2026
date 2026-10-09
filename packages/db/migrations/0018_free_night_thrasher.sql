@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "digit_set_order_insensitive" boolean DEFAULT false NOT NULL;

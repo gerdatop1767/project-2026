@@ -59,11 +59,22 @@ export const topics = pgTable(
  * @zybrilka/shared's intervalAnswer.ts); for 'multi_part' it's JSON
  * (see multiPartAnswer.ts). No separate columns per type.
  */
+/**
+ * 'essay' (e.g. EGE Russian task 27, развёрнутый ответ/сочинение): no
+ * single correct answer exists or should ever be invented. `correctAnswer`
+ * is stored as an empty-string sentinel (same convention as a
+ * `needs_review` task with no confirmed answer yet) and is never compared
+ * against a user's answer — `submitAttempt` rejects attempts on an
+ * 'essay' task outright via `EssayNotGradableError` before any grading
+ * logic runs. Added additively: zero migration (this is a TS-level
+ * literal union over a plain text column, not a native Postgres enum).
+ */
 export const taskAnswerTypes = [
   'short_answer',
   'multiple_choice',
   'interval',
   'multi_part',
+  'essay',
 ] as const;
 /**
  * 'needs_review' (S3 import pipeline): parsed/solved but not safe to show a
@@ -72,6 +83,39 @@ export const taskAnswerTypes = [
  * validation pass. Never served by the public API alongside 'published'.
  */
 export const taskStatuses = ['draft', 'published', 'archived', 'needs_review'] as const;
+
+/**
+ * A shared reading passage (Russian EGE §1 Текст 1-3, §23-27 литературный
+ * текст; a prose/official-document excerpt multiple tasks reference by
+ * number — "Прочитайте текст и выполните задания N-M") — stored ONCE
+ * per passage, never duplicated into every referencing task's
+ * `conditionMd`. A task that reads a passage links to it via
+ * `tasks.passageId`; a task with no shared passage (most math tasks,
+ * and most Russian tasks whose own short example sentence is entirely
+ * self-contained) leaves it null. `bodyMd` keeps the original sentence
+ * numbering "(1)...(2)..." exactly as printed, since several task
+ * types (e.g. "среди предложений 33-41 найдите...") refer to those
+ * numbers directly.
+ */
+export const passages = pgTable(
+  'passages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    subjectId: text('subject_id')
+      .notNull()
+      .references(() => subjects.id),
+    slug: text('slug').notNull(),
+    title: text('title'),
+    bodyMd: text('body_md').notNull(),
+    /** Display label, e.g. "По М.А. Осоргину" or "Из Правил перевозки...". Null when the source gives no attribution. */
+    sourceAuthor: text('source_author'),
+    /** A footnote about the author printed under the passage (e.g. a short bio), kept verbatim and separate from `bodyMd`. */
+    sourceNote: text('source_note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('passages_subject_slug_idx').on(table.subjectId, table.slug)],
+);
 
 export const tasks = pgTable(
   'tasks',
@@ -83,11 +127,27 @@ export const tasks = pgTable(
     /** The official EGE question number within the subject (1, 2, 3…). */
     taskNumber: integer('task_number').notNull(),
     topicId: uuid('topic_id').references(() => topics.id),
+    /** The shared passage this task reads, if any — see `passages` above. Null for a self-contained task. */
+    passageId: uuid('passage_id').references(() => passages.id),
     /** 1 = лёгкое, 2 = среднее, 3 = сложное. */
     difficulty: integer('difficulty').notNull(),
     conditionMd: text('condition_md').notNull(),
     imageUrl: text('image_url'),
     answerType: text('answer_type', { enum: taskAnswerTypes }).notNull().default('short_answer'),
+    /**
+     * Per-task, explicit opt-in for `checkAnswer`'s
+     * `digitSetOrderInsensitive` option (see `packages/shared/src/
+     * answerChecker.ts`) — true only for a `short_answer` task whose
+     * own wording ("Запишите номера ответов", "Укажите цифру(-ы)…")
+     * genuinely accepts the selected digits in any order, per the
+     * standard EGE multi-select answer convention. Defaults to false,
+     * so every existing task (all math, and any Russian task not
+     * explicitly marked) keeps the exact order-sensitive behavior it
+     * always had — this column changes grading for ONLY the tasks it
+     * is set true on, never globally. Never applies to `interval` or
+     * `multi_part` answers, which have their own comparison logic.
+     */
+    digitSetOrderInsensitive: boolean('digit_set_order_insensitive').notNull().default(false),
     /** Never sent to the client before an attempt exists for it — see modules/tasks/service.ts. */
     correctAnswer: text('correct_answer').notNull(),
     /**
