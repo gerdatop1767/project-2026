@@ -22,6 +22,7 @@ const TASK = {
   topicName: null,
   difficulty: 2 as const,
   conditionMd: 'Условие',
+  passage: null,
   imageUrl: null,
   hintMd: null,
   answerType: 'short_answer' as const,

@@ -88,4 +88,27 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, {
     if (!result) return reply.code(404).send({ error: 'task_not_found' });
     return result;
   });
+
+  // "Я решил" for an essay task — deliberately not an attempt (essay
+  // tasks are never auto-graded, see EssayNotGradableError above).
+  // Idempotent: a repeat click just no-ops.
+  app.post('/tasks/:id/essay-ack', async (request, reply) => {
+    const params = taskIdParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: 'invalid_id' });
+    if (!request.userId) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+
+    let outcome;
+    try {
+      outcome = await service.acknowledgeEssay(db, params.data.id, request.userId);
+    } catch (error) {
+      if (error instanceof service.NotAnEssayTaskError) {
+        return reply.code(400).send({ error: 'not_an_essay_task' });
+      }
+      throw error;
+    }
+    if (outcome === 'not_found') return reply.code(404).send({ error: 'task_not_found' });
+    return { acknowledged: true };
+  });
 };

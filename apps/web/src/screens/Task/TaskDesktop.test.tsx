@@ -14,6 +14,7 @@ vi.mock('../../lib/api.js', () => ({
   getTask: vi.fn(),
   listTasksByNumber: vi.fn(),
   submitAttempt: vi.fn(),
+  acknowledgeEssay: vi.fn(() => Promise.resolve({ acknowledged: true })),
   getVariant: vi.fn(),
   getVariantForTask: vi.fn(),
   listFavoriteTaskIds: vi.fn(() => Promise.resolve({ taskIds: [] })),
@@ -39,6 +40,7 @@ const baseTask = {
   topicName: 'Логарифмы',
   difficulty: 3 as const,
   conditionMd: CONDITION,
+  passage: null,
   imageUrl: null,
   hintMd: 'Проверь область допустимых значений перед возведением в квадрат.',
   answerType: 'short_answer' as const,
@@ -557,11 +559,22 @@ describe('TaskDesktop', () => {
       explanationMd: 'Сочинение пишется по тексту Б. Критериев оценивания в источнике нет.',
       solutionSteps: null,
       canonicalSolution: undefined,
+      passage: {
+        id: 'passage-1',
+        slug: 'text-b',
+        title: null,
+        bodyMd: '(1)Были у Татьяны Егоровны старинные часы.',
+        sourceAuthor: 'По М.А. Осоргину',
+        sourceNote: null,
+      },
+      sampleEssayMd: 'Пример сочинения про бабушкины часы.',
+      essayAcknowledged: false,
     };
 
     beforeEach(() => {
       vi.mocked(api.getTask).mockResolvedValue(essayTask);
       vi.mocked(api.listTasksByNumber).mockResolvedValue([essayTask]);
+      vi.mocked(api.acknowledgeEssay).mockResolvedValue({ acknowledged: true });
     });
 
     it('shows the explanation note instead of an answer field, with no Проверить ответ button', async () => {
@@ -579,6 +592,27 @@ describe('TaskDesktop', () => {
       renderTask();
       await screen.findByText(CONDITION);
       expect(api.submitAttempt).not.toHaveBeenCalled();
+    });
+
+    it('renders the shared passage above the condition', async () => {
+      renderTask();
+      await screen.findByText(CONDITION);
+      expect(screen.getByText('Текст к заданию')).toBeInTheDocument();
+      expect(screen.getByText('(1)Были у Татьяны Егоровны старинные часы.')).toBeInTheDocument();
+    });
+
+    it('"Я решил" calls acknowledgeEssay and reveals "Пример решения", which is NOT shown before clicking', async () => {
+      const user = userEvent.setup();
+      renderTask();
+      await screen.findByText(CONDITION);
+      expect(screen.queryByText('Пример решения')).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Я решил/ }));
+      await waitFor(() => expect(api.acknowledgeEssay).toHaveBeenCalledWith(TASK_ID));
+      expect(await screen.findByText('Отмечено как решённое')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Пример решения' }));
+      expect(await screen.findByText('Пример сочинения про бабушкины часы.')).toBeInTheDocument();
     });
   });
 

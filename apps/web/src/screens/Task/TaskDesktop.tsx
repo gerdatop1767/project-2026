@@ -28,6 +28,9 @@ import { Collapse, FadeIn } from '../../ui/motion/motion.js';
 import { MathText } from '../../ui/MathText/MathText.js';
 import { MathAnswerField } from '../../ui/MathAnswerField/MathAnswerField.js';
 import { TaskExamIllustration } from '../../ui/TaskIllustration/TaskIllustration.js';
+import { PassageCard } from '../../ui/Passage/PassageCard.js';
+import { EssayPanel } from '../../ui/Essay/EssayPanel.js';
+import { useEssayAck } from '../../lib/useEssayAck.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './TaskDesktop.module.css';
 
@@ -145,6 +148,7 @@ export function TaskDesktop({
   // shows the task's own explanation note directly (no attempt needed
   // to unlock it — see service.ts's getTask essay carve-out).
   const isEssay = task?.answerType === 'essay';
+  const essayAck = useEssayAck(isEssay ? task?.id : undefined, task?.essayAcknowledged);
   const canSubmit = isMultiPart
     ? task!.answerParts!.every((p) => (partAnswers[p.id] ?? '').trim().length > 0) && !checking
     : answer.trim().length > 0 && !checking && task !== null;
@@ -291,6 +295,8 @@ export function TaskDesktop({
               </button>
             </div>
 
+            {task.passage && <PassageCard passage={task.passage} />}
+
             <p className="text-h3" style={{ marginTop: 'var(--space-2)' }}>
               Условие
             </p>
@@ -324,21 +330,13 @@ export function TaskDesktop({
             )}
 
             {isEssay ? (
-              <div className={styles.hintText} style={{ marginTop: 'var(--space-3)' }}>
-                <p className="text-body-sm" style={{ fontWeight: 600 }}>
-                  Задание с развёрнутым ответом (сочинение)
-                </p>
-                <p className="text-body-sm text-secondary">
-                  Это задание не проверяется автоматически — напишите сочинение на бумаге или в
-                  черновике (можно воспользоваться «Расширить поле» в инструментах). Ниже —
-                  пояснение к заданию.
-                </p>
-                {task.explanation && (
-                  <div style={{ marginTop: 'var(--space-2)' }}>
-                    <MathText text={task.explanation} />
-                  </div>
-                )}
-              </div>
+              <EssayPanel
+                explanation={task.explanation}
+                sampleEssay={task.sampleEssay}
+                acknowledged={essayAck.acknowledged}
+                acknowledging={essayAck.acknowledging}
+                onAcknowledge={essayAck.acknowledge}
+              />
             ) : (
               <div>
                 <p

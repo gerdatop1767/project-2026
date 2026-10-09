@@ -33,6 +33,7 @@ const baseTask = {
   topicName: 'Логарифмы',
   difficulty: 3 as const,
   conditionMd: CONDITION,
+  passage: null,
   imageUrl: null,
   hintMd: 'Проверь область допустимых значений перед возведением в квадрат.',
   answerType: 'short_answer' as const,

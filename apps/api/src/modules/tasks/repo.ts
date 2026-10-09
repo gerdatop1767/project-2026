@@ -4,10 +4,13 @@ import type { RandomTaskQuery, TaskListQuery } from '@zybrilka/shared';
 import { and, asc, count, eq, gt, inArray, notInArray, or, sql } from 'drizzle-orm';
 
 type TaskRow = typeof schema.tasks.$inferSelect;
+type PassageRow = typeof schema.passages.$inferSelect;
 
 export interface TaskWithTopic {
   task: TaskRow;
   topicName: string | null;
+  /** The shared text this task reads, if any — see `tasks.passageId`'s doc comment. Null for a self-contained task. */
+  passage: PassageRow | null;
 }
 
 function decodeCursor(cursor: string): { createdAt: Date; id: string } | null {
@@ -127,9 +130,10 @@ export async function listTasks(
 
   // Fetch one extra row to know whether another page follows.
   const rows = await db
-    .select({ task: schema.tasks, topicName: schema.topics.name })
+    .select({ task: schema.tasks, topicName: schema.topics.name, passage: schema.passages })
     .from(schema.tasks)
     .leftJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
+    .leftJoin(schema.passages, eq(schema.tasks.passageId, schema.passages.id))
     .where(and(...conditions))
     .orderBy(asc(schema.tasks.createdAt), asc(schema.tasks.id))
     .limit(filters.limit + 1);
@@ -143,9 +147,10 @@ export async function listTasks(
 
 export async function getTaskById(db: Database, id: string): Promise<TaskWithTopic | undefined> {
   const [row] = await db
-    .select({ task: schema.tasks, topicName: schema.topics.name })
+    .select({ task: schema.tasks, topicName: schema.topics.name, passage: schema.passages })
     .from(schema.tasks)
     .leftJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
+    .leftJoin(schema.passages, eq(schema.tasks.passageId, schema.passages.id))
     .where(eq(schema.tasks.id, id));
   return row;
 }
@@ -177,9 +182,10 @@ export async function getRandomTask(
   }
 
   const [row] = await db
-    .select({ task: schema.tasks, topicName: schema.topics.name })
+    .select({ task: schema.tasks, topicName: schema.topics.name, passage: schema.passages })
     .from(schema.tasks)
     .leftJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
+    .leftJoin(schema.passages, eq(schema.tasks.passageId, schema.passages.id))
     .where(and(...conditions))
     .orderBy(sql`random()`)
     .limit(1);
@@ -192,6 +198,34 @@ export async function hasAttempt(db: Database, userId: string, taskId: string): 
     .from(schema.attempts)
     .where(and(eq(schema.attempts.userId, userId), eq(schema.attempts.taskId, taskId)));
   return (row?.value ?? 0) > 0;
+}
+
+/** Whether `userId` has clicked "Я решил" on this essay task — see `essay_acknowledgements`. */
+export async function hasEssayAck(db: Database, userId: string, taskId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(schema.essayAcknowledgements)
+    .where(
+      and(
+        eq(schema.essayAcknowledgements.userId, userId),
+        eq(schema.essayAcknowledgements.taskId, taskId),
+      ),
+    );
+  return (row?.value ?? 0) > 0;
+}
+
+/** Idempotent — a repeat "Я решил" click on the same task is a no-op, never a duplicate row. */
+export async function acknowledgeEssay(
+  db: Database,
+  userId: string,
+  taskId: string,
+): Promise<void> {
+  await db
+    .insert(schema.essayAcknowledgements)
+    .values({ userId, taskId })
+    .onConflictDoNothing({
+      target: [schema.essayAcknowledgements.userId, schema.essayAcknowledgements.taskId],
+    });
 }
 
 export async function createAttempt(

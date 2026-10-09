@@ -8,6 +8,7 @@ import {
   toMoscowDateString,
   type AttemptRequest,
   type AttemptResult,
+  type Passage,
   type RandomTaskQuery,
   type TaskCountsBySubjectResponse,
   type TaskListQuery,
@@ -41,8 +42,21 @@ export class EssayNotGradableError extends Error {
   }
 }
 
+/** Maps a joined `passages` row (possibly null, from a LEFT JOIN) to its public DTO shape. */
+function toPassageDto(passage: repo.TaskWithTopic['passage']): Passage | null {
+  if (!passage) return null;
+  return {
+    id: passage.id,
+    slug: passage.slug,
+    title: passage.title,
+    bodyMd: passage.bodyMd,
+    sourceAuthor: passage.sourceAuthor,
+    sourceNote: passage.sourceNote,
+  };
+}
+
 /** Exported for modules/variants/service.ts — the full variant view maps tasks through the exact same shape. */
-export function toPublicTask({ task, topicName }: repo.TaskWithTopic): TaskPublic {
+export function toPublicTask({ task, topicName, passage }: repo.TaskWithTopic): TaskPublic {
   return {
     id: task.id,
     subjectId: task.subjectId,
@@ -51,6 +65,7 @@ export function toPublicTask({ task, topicName }: repo.TaskWithTopic): TaskPubli
     topicName: topicName ?? null,
     difficulty: task.difficulty,
     conditionMd: task.conditionMd,
+    passage: toPassageDto(passage),
     imageUrl: task.imageUrl,
     hintMd: task.hintMd,
     answerType: task.answerType,
@@ -70,7 +85,10 @@ export function toPublicTask({ task, topicName }: repo.TaskWithTopic): TaskPubli
   };
 }
 
-function toTaskWithSolution(row: repo.TaskWithTopic): TaskWithSolution {
+function toTaskWithSolution(
+  row: repo.TaskWithTopic,
+  essayAcknowledged?: boolean,
+): TaskWithSolution {
   return {
     ...toPublicTask(row),
     correctAnswer: row.task.correctAnswer,
@@ -81,6 +99,9 @@ function toTaskWithSolution(row: repo.TaskWithTopic): TaskWithSolution {
     // explanationMd/solutionSteps above. undefined for every task
     // except the one real task this has authored content for.
     canonicalSolution: getCanonicalSolutionForTask(row.task),
+    ...(row.task.answerType === 'essay'
+      ? { sampleEssayMd: row.task.sampleEssayMd, essayAcknowledged: essayAcknowledged ?? false }
+      : {}),
   };
 }
 
@@ -114,9 +135,41 @@ export async function getTask(
   // every attempt against it outright — see EssayNotGradableError), so
   // its explanationMd/solutionSteps are shown up front rather than
   // gated behind an attempt that can never happen.
-  if (row.task.answerType === 'essay') return toTaskWithSolution(row);
+  if (row.task.answerType === 'essay') {
+    const acknowledged = userId ? await repo.hasEssayAck(db, userId, id) : false;
+    return toTaskWithSolution(row, acknowledged);
+  }
   const attempted = userId ? await repo.hasAttempt(db, userId, id) : false;
   return attempted ? toTaskWithSolution(row) : toPublicTask(row);
+}
+
+/**
+ * Thrown when "Я решил" is sent against a non-essay task — the route
+ * maps this to a 400, never a silent no-op. Essay-only, same spirit as
+ * `EssayNotGradableError` guarding `submitAttempt` the other way round.
+ */
+export class NotAnEssayTaskError extends Error {
+  constructor() {
+    super('essay acknowledgement only applies to essay tasks');
+  }
+}
+
+/**
+ * Records "Я решил" for an essay task — deliberately NOT a graded
+ * attempt (essay tasks are never auto-graded, see
+ * `EssayNotGradableError`): just "the user says they wrote it",
+ * idempotent across repeat clicks (see `repo.acknowledgeEssay`).
+ */
+export async function acknowledgeEssay(
+  db: Database,
+  taskId: string,
+  userId: string,
+): Promise<'ok' | 'not_found'> {
+  const row = await repo.getTaskById(db, taskId);
+  if (!row) return 'not_found';
+  if (row.task.answerType !== 'essay') throw new NotAnEssayTaskError();
+  await repo.acknowledgeEssay(db, userId, taskId);
+  return 'ok';
 }
 
 export async function getRandomTask(
