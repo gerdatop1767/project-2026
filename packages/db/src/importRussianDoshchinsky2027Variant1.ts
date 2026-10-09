@@ -1,18 +1,20 @@
 import { createHash } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import { serializeMultiPartSpec } from '@zybrilka/shared';
 import type { Database } from './client.js';
+import { isMainModule } from './isMainModule.js';
 import * as schema from './schema.js';
 
 /**
- * EXPERIMENTAL single-variant import (cost/quality pilot, not wired
- * into production sync or `pnpm db:seed`): EGE Russian 2027, Дощинский
- * сборник, Вариант 1, sourced from a single scanned (no text layer)
- * PDF, read at 300dpi. Separate subject ('russian'), separate source
- * label from the math Ященко collection, deliberately NOT added to
- * `infra/docker-compose.yml`'s `sync-content` chain or
- * `createImportedVariantsTestDb()` — this is a cost experiment for one
- * variant, not a production rollout.
+ * EGE Russian 2027, Дощинский сборник, Вариант 1, sourced from a
+ * single scanned (no text layer) PDF, read at 300dpi. Separate subject
+ * ('russian'), separate source label from the math Ященко collection.
+ * Wired into `infra/docker-compose.yml`'s `sync-content` chain (after
+ * `importEge2026Variant10`) and into `createImportedVariantsTestDb()`
+ * — pilot verified (27/27 published), rolled out alongside the math
+ * variants.
  *
  * Two genuinely shared passages exist in this variant (tasks 1-3 read
  * one official-document excerpt; tasks 23-26 — and task 27's essay
@@ -1170,4 +1172,28 @@ export async function importRussianVariant1(db: Database) {
     passageCount: importPassages.length,
     essayTaskNumber: 27,
   };
+}
+
+async function main() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is not set');
+  }
+  const client = postgres(databaseUrl, { max: 1 });
+  try {
+    const db = drizzle(client, { schema });
+    const result = await importRussianVariant1(db);
+    console.log(
+      `Imported ${result.total} tasks from Русский язык Вариант 1 (${result.published} published, ${result.needsReview} needs_review).`,
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+if (isMainModule(import.meta.url)) {
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  });
 }

@@ -107,17 +107,25 @@ services:
   # only updates content columns on the same rows (EGE Fidelity: Final
   # Polish, production content-migration fix).
   #
-  # Runs V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7 -> V8 strictly in order (`&&`, not `;` —
-  # a failing importer stops the chain immediately rather than letting
-  # later ones run against a half-synced database) inside one `sh -c`,
-  # so the service's own exit code is non-zero the moment ANY variant
-  # fails — `api`/`worker`'s `depends_on: sync-content: condition:
+  # Runs V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7 -> V8 -> V9 -> V10 ->
+  # Russian V1 strictly in order (`&&`, not `;` — a failing importer
+  # stops the chain immediately rather than letting later ones run
+  # against a half-synced database) inside one `sh -c`, so the
+  # service's own exit code is non-zero the moment ANY variant fails —
+  # `api`/`worker`'s `depends_on: sync-content: condition:
   # service_completed_successfully` then correctly blocks startup
   # instead of the deploy silently "succeeding" with only a partial
   # import (the exact gap this fixes: before, sync-content only ever
   # ran Variant 1 — Вариант 2-5 existed in the image and passed
   # integration tests against an in-memory test db, but were never
-  # synced into any real deployed Postgres).
+  # synced into any real deployed Postgres). EGE Russian 2027 Вариант 1
+  # (importRussianDoshchinsky2027Variant1.ts) runs last for the same
+  # reason: it was previously a deliberate experiment NOT added here,
+  # so production never ran it and the Russian catalog never appeared
+  # on the live site — upserts tasks by stable identity (subject +
+  # source + variant + task number), same as every math importer, so
+  # re-running it never duplicates rows or touches
+  # attempts/mistakes/bookmarks.
   sync-content:
     build:
       context: ..
@@ -144,7 +152,8 @@ services:
         node node_modules/@zybrilka/db/dist/importEge2026Variant7.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant8.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant9.js &&
-        node node_modules/@zybrilka/db/dist/importEge2026Variant10.js
+        node node_modules/@zybrilka/db/dist/importEge2026Variant10.js &&
+        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant1.js
     restart: 'no'
 
   api:
