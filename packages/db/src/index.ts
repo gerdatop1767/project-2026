@@ -7,5 +7,6 @@ export { importVariant2 } from './importEge2026Variant2.js';
 export { importVariant3 } from './importEge2026Variant3.js';
 export { importVariant4 } from './importEge2026Variant4.js';
 export { importVariant5 } from './importEge2026Variant5.js';
+export { importRussianVariant1 } from './importRussianDoshchinsky2027Variant1.js';
 export { canonicalSubjects } from './canonicalSubjects.js';
 export { syncSubjects } from './syncSubjects.js';
