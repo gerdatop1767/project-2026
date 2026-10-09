@@ -418,6 +418,40 @@ describe('TaskMobile', () => {
     });
   });
 
+  describe('essay task (развёрнутый ответ)', () => {
+    const essayTask = {
+      ...baseTask,
+      answerType: 'essay' as const,
+      correctAnswer: '',
+      correctAnswerDisplay: null,
+      explanationMd: 'Сочинение пишется по тексту Б. Критериев оценивания в источнике нет.',
+      solutionSteps: null,
+      canonicalSolution: undefined,
+    };
+
+    beforeEach(() => {
+      vi.mocked(api.getTask).mockResolvedValue(essayTask);
+      vi.mocked(api.listTasksByNumber).mockResolvedValue([essayTask]);
+    });
+
+    it('shows the explanation note instead of an answer field, with no Проверить ответ button', async () => {
+      renderTask();
+      await screen.findByText(CONDITION);
+      expect(screen.queryByLabelText('Ответ')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Проверить ответ/ })).not.toBeInTheDocument();
+      expect(screen.getByText('Задание с развёрнутым ответом (сочинение)')).toBeInTheDocument();
+      expect(
+        screen.getByText('Сочинение пишется по тексту Б. Критериев оценивания в источнике нет.'),
+      ).toBeInTheDocument();
+    });
+
+    it('never calls submitAttempt for an essay task', async () => {
+      renderTask();
+      await screen.findByText(CONDITION);
+      expect(api.submitAttempt).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Пропустить (skip)', () => {
     it('skips from the first task to the next real task in the variant, using useTaskNavigation', async () => {
       vi.mocked(api.getVariantForTask).mockResolvedValue(twoTaskVariant);

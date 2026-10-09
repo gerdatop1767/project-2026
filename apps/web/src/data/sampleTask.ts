@@ -50,7 +50,7 @@ export interface SampleTask {
   /** A graph/figure required to solve the task (e.g. derivative or parabola graphs). */
   imageUrl: string | null;
   /** 'short_answer' unless the backend says otherwise — most tasks need no UI branch at all. */
-  answerType: 'short_answer' | 'multiple_choice' | 'interval' | 'multi_part';
+  answerType: 'short_answer' | 'multiple_choice' | 'interval' | 'multi_part' | 'essay';
   /** Non-null only for multi_part tasks — one input per part, no answers included. */
   answerParts: readonly SampleTaskAnswerPart[] | null;
   /** Numeric/short-text answer tasks (most of EGE profile-math Part 1). For

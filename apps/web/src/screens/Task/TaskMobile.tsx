@@ -101,6 +101,9 @@ export function TaskMobile({
   }, [taskId, subjectId, taskNumber]);
 
   const isMultiPart = task?.answerType === 'multi_part' && task.answerParts !== null;
+  // Essay tasks (e.g. EGE Russian 27) have no single correct answer and
+  // are never auto-graded — see TaskDesktop's matching comment.
+  const isEssay = task?.answerType === 'essay';
   const canSubmit = isMultiPart
     ? task!.answerParts!.every((p) => (partAnswers[p.id] ?? '').trim().length > 0) && !checking
     : answer.trim().length > 0 && !checking && task !== null;
@@ -256,7 +259,23 @@ export function TaskMobile({
           </div>
         )}
 
-        {isMultiPart ? (
+        {isEssay ? (
+          <div className={styles.hintText}>
+            <p className="text-body-sm" style={{ fontWeight: 600 }}>
+              Задание с развёрнутым ответом (сочинение)
+            </p>
+            <p className="text-body-sm text-secondary">
+              Это задание не проверяется автоматически — напишите сочинение на бумаге или в
+              черновике (можно воспользоваться «Расширить поле» в инструментах). Ниже — пояснение к
+              заданию.
+            </p>
+            {task.explanation && (
+              <div style={{ marginTop: 'var(--space-2)' }}>
+                <MathText text={task.explanation} />
+              </div>
+            )}
+          </div>
+        ) : isMultiPart ? (
           <div className={styles.multiPartFields}>
             {task.answerParts!.map((part) => (
               <div key={part.id} className={styles.answerRow}>
@@ -295,15 +314,17 @@ export function TaskMobile({
           </>
         )}
 
-        <Button
-          variant="primary"
-          fullWidth
-          loading={checking}
-          disabled={!canSubmit}
-          onClick={handleCheck}
-        >
-          Проверить ответ <Icon name="arrowRight" size={18} />
-        </Button>
+        {!isEssay && (
+          <Button
+            variant="primary"
+            fullWidth
+            loading={checking}
+            disabled={!canSubmit}
+            onClick={handleCheck}
+          >
+            Проверить ответ <Icon name="arrowRight" size={18} />
+          </Button>
+        )}
         <div className={styles.secondaryActions}>
           <Button
             variant="secondary"
@@ -311,7 +332,7 @@ export function TaskMobile({
             disabled={!taskNav.next}
             onClick={() => taskNav.next && taskNav.goTo(taskNav.next)}
           >
-            <Icon name="skip" size={16} /> Пропустить
+            <Icon name="skip" size={16} /> {isEssay ? 'Следующее задание' : 'Пропустить'}
           </Button>
         </div>
       </div>
