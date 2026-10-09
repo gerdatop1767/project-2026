@@ -11,11 +11,16 @@ import { canonicalSolutionDtoSchema } from './canonicalSolutionDto.js';
  * identically, so splitting them out would just be duplication with no
  * behavior difference.
  */
+/**
+ * 'essay': no correctAnswer exists; `submitAttempt` rejects attempts on
+ * these tasks before grading (see `EssayNotGradableError`).
+ */
 export const taskAnswerTypeSchema = z.enum([
   'short_answer',
   'multiple_choice',
   'interval',
   'multi_part',
+  'essay',
 ]);
 export type TaskAnswerType = z.infer<typeof taskAnswerTypeSchema>;
 
