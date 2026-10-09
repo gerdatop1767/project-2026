@@ -28,6 +28,19 @@ export class InvalidAnswerShapeError extends Error {
   }
 }
 
+/**
+ * Thrown for any attempt against an `essay` task (e.g. EGE Russian 27):
+ * there is no correctAnswer to grade against, by design — the route maps
+ * this to a 400, never a 500. Checked first in `submitAttempt`, before
+ * any existing shape/grading logic, so it never touches the
+ * interval/multi_part/short_answer paths used by math and everything else.
+ */
+export class EssayNotGradableError extends Error {
+  constructor() {
+    super('essay tasks have no correctAnswer and cannot be auto-graded');
+  }
+}
+
 /** Exported for modules/variants/service.ts — the full variant view maps tasks through the exact same shape. */
 export function toPublicTask({ task, topicName }: repo.TaskWithTopic): TaskPublic {
   return {
@@ -97,6 +110,11 @@ export async function getTask(
 ): Promise<TaskPublic | TaskWithSolution | undefined> {
   const row = await repo.getTaskById(db, id);
   if (!row) return undefined;
+  // An 'essay' task has no correctAnswer to spoil (submitAttempt rejects
+  // every attempt against it outright — see EssayNotGradableError), so
+  // its explanationMd/solutionSteps are shown up front rather than
+  // gated behind an attempt that can never happen.
+  if (row.task.answerType === 'essay') return toTaskWithSolution(row);
   const attempted = userId ? await repo.hasAttempt(db, userId, id) : false;
   return attempted ? toTaskWithSolution(row) : toPublicTask(row);
 }
@@ -119,11 +137,14 @@ export async function submitAttempt(
   const row = await repo.getTaskById(db, taskId);
   if (!row) return undefined;
 
+  const answerType = row.task.answerType;
+  if (answerType === 'essay') throw new EssayNotGradableError();
+
   // The only place correctness is decided — never trust a `correct`
   // flag sent by the client. `answer` shape must match this task's
   // answerType (object only for multi_part) or the request is rejected
   // before anything is written.
-  if (row.task.answerType === 'multi_part') {
+  if (answerType === 'multi_part') {
     if (typeof input.answer !== 'object') throw new InvalidAnswerShapeError();
     return submitMultiPartAttempt(db, row, userId, input.answer, input.timeSpentMs);
   }
@@ -131,9 +152,11 @@ export async function submitAttempt(
   const answerRaw = input.answer;
 
   const correct =
-    row.task.answerType === 'interval'
+    answerType === 'interval'
       ? checkIntervalAnswer(answerRaw, row.task.correctAnswer)
-      : checkAnswer(answerRaw, row.task.correctAnswer);
+      : checkAnswer(answerRaw, row.task.correctAnswer, {
+          digitSetOrderInsensitive: row.task.digitSetOrderInsensitive,
+        });
 
   // One transaction: the attempt, its mistakes update, and the skill
   // statistics it feeds (ZUBRILKA LEARNING INTELLIGENCE Phase 3) must
@@ -164,7 +187,7 @@ export async function submitAttempt(
       tx,
       userId,
       {
-        answerType: row.task.answerType,
+        answerType,
         isCorrect: correct,
         answerRaw,
         correctAnswer: row.task.correctAnswer,

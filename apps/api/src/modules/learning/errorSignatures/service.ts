@@ -67,6 +67,15 @@ export function buildDetectionInput(
     };
   }
 
+  // 'essay' attempts are never written — submitAttempt rejects them
+  // before any attempt row is created (see EssayNotGradableError) — so
+  // this is unreachable in practice. Guarded rather than widening
+  // DetectableAnswerType, which every other error-detection rule is
+  // written against.
+  if (attempt.answerType === 'essay') {
+    throw new Error('unreachable: no attempt should ever be stored for an essay task');
+  }
+
   return {
     answerType: attempt.answerType,
     isCorrect: attempt.isCorrect,

@@ -17,6 +17,7 @@ describe('interval and multi_part answer types', () => {
   let app: ReturnType<typeof buildApp>;
   let intervalTaskId: string;
   let multiPartTaskId: string;
+  let essayTaskId: string;
 
   beforeAll(async () => {
     testDb = await createTestDb();
@@ -64,6 +65,22 @@ describe('interval and multi_part answer types', () => {
       })
       .returning();
     multiPartTaskId = multiPartTask!.id;
+
+    const [essayTask] = await testDb.db
+      .insert(schema.tasks)
+      .values({
+        subjectId: 'math',
+        taskNumber: 27,
+        difficulty: 3,
+        conditionMd: 'Задание с развёрнутым ответом (сочинение) — тест.',
+        answerType: 'essay',
+        correctAnswer: '',
+        explanationMd: 'Нет единственного правильного ответа.',
+        source: 'test',
+        status: 'needs_review',
+      })
+      .returning();
+    essayTaskId = essayTask!.id;
   });
 
   afterAll(async () => {
@@ -208,6 +225,62 @@ describe('interval and multi_part answer types', () => {
       const body = res.json();
       expect(body.partStatus).toBe('partially_correct');
       expect(body.correctParts).toBe(2);
+    });
+  });
+
+  describe('essay', () => {
+    it('rejects any attempt against an essay task with 400, never a 500 or a grade', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${essayTaskId}/attempt`,
+        headers: { 'x-anon-id': randomUUID() },
+        payload: { answer: 'Полный текст сочинения...' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toBe('essay_not_gradable');
+    });
+
+    it('records no attempt row for a rejected essay submission', async () => {
+      const anonId = randomUUID();
+      await app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${essayTaskId}/attempt`,
+        headers: { 'x-anon-id': anonId },
+        payload: { answer: 'Текст сочинения' },
+      });
+      const rows = await testDb.db.select().from(schema.attempts).where(eqTask(essayTaskId));
+      expect(rows).toHaveLength(0);
+    });
+
+    it('fetching the essay task still works (no correctAnswer leaked)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/tasks/${essayTaskId}`,
+        headers: { 'x-anon-id': randomUUID() },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().answerType).toBe('essay');
+    });
+
+    it('exposes explanationMd up front, with NO attempt ever recorded — essay tasks never gate their explanation behind an attempt that can never happen', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/tasks/${essayTaskId}`,
+        headers: { 'x-anon-id': randomUUID() },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.explanationMd).toBe('Нет единственного правильного ответа.');
+      expect(body.correctAnswer).toBe('');
+    });
+
+    it('explanationMd is also visible with no anon-id/userId at all (anonymous browsing)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/tasks/${essayTaskId}`,
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().explanationMd).toBe('Нет единственного правильного ответа.');
     });
   });
 
