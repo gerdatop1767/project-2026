@@ -5,7 +5,7 @@
  * (условие, ответ, шаги решения, вариант задания №15, code #3214).
  * Demo/seed content for the UI only — not the real task database.
  */
-import type { CanonicalSolutionDto } from '@zybrilka/shared';
+import type { CanonicalSolutionDto, Passage } from '@zybrilka/shared';
 
 export interface SolutionStep {
   /** Task-specific step name ("ОДЗ", "Считываем данные с графика", ...) — absent for the single-block fallback. */
@@ -47,6 +47,8 @@ export interface SampleTask {
   source: string;
   code: string;
   condition: string;
+  /** The shared text this task reads, if any — null for a self-contained task. */
+  passage: Passage | null;
   /** A graph/figure required to solve the task (e.g. derivative or parabola graphs). */
   imageUrl: string | null;
   /** 'short_answer' unless the backend says otherwise — most tasks need no UI branch at all. */
@@ -74,6 +76,10 @@ export interface SampleTask {
    * work that will actually display it.
    */
   canonicalSolution?: CanonicalSolutionDto;
+  /** Only for essay tasks — a genuine example essay, never the single correct answer. Undefined for every other task. */
+  sampleEssay?: string | null;
+  /** Only for essay tasks — whether the current user clicked "Я решил". Undefined for every other task. */
+  essayAcknowledged?: boolean;
   otherVariants: readonly TaskVariant[];
   sessionTasks: readonly SessionTask[];
 }
@@ -100,6 +106,7 @@ export const sampleTask: SampleTask = {
   source: 'ФИПИ',
   code: '#3214',
   condition: 'Решите неравенство: log₂(x² − 3x − 4) ≥ 1',
+  passage: null,
   imageUrl: null,
   answerType: 'short_answer',
   answerParts: null,

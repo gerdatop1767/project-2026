@@ -60,6 +60,7 @@ export function toSampleTask(
     source: task.source,
     code: shortCode(task.id),
     condition: task.conditionMd,
+    passage: task.passage,
     imageUrl: task.imageUrl,
     answerType: task.answerType,
     answerParts: task.answerParts,
@@ -73,6 +74,8 @@ export function toSampleTask(
         ])
       : [],
     canonicalSolution: hasSolution ? task.canonicalSolution : undefined,
+    sampleEssay: hasSolution ? task.sampleEssayMd : undefined,
+    essayAcknowledged: hasSolution ? task.essayAcknowledged : undefined,
     // The FULL condition, never a character-sliced substring — slicing
     // risks cutting a `$...$` LaTeX span mid-formula, which leaves an
     // unbalanced `$` the math renderer can't tokenize and falls back to

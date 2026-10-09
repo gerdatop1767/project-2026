@@ -72,6 +72,162 @@ describe('Russian Вариант 1 is browsable through the real API (not just i
     expect(body.conditionMd).toContain('старинные вещи');
   });
 
+  it('tasks 1-3 carry the shared "train ticket" passage (text A) through GET /api/v1/tasks/:id — the deploy gap this fixes', async () => {
+    for (const taskNumber of [1, 2, 3]) {
+      const [row] = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'russian'),
+            eq(schema.tasks.sourceVariant, 1),
+            eq(schema.tasks.taskNumber, taskNumber),
+          ),
+        );
+      const res = await app.inject({ method: 'GET', url: `/api/v1/tasks/${row!.id}` });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.passage).toBeTruthy();
+      expect(body.passage.slug).toBe('doshchinskiy-2027-v1-text-a-train-tickets');
+      expect(body.passage.bodyMd).toContain('Билет на поезд дальнего следования');
+      expect(body.passage.sourceAuthor).toContain('Правил перевозки');
+    }
+  });
+
+  it('tasks 23-27 carry the shared Osorgin passage (text B), stored once and linked, not duplicated', async () => {
+    const bodies: string[] = [];
+    for (const taskNumber of [23, 24, 25, 26, 27]) {
+      const [row] = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'russian'),
+            eq(schema.tasks.sourceVariant, 1),
+            eq(schema.tasks.taskNumber, taskNumber),
+          ),
+        );
+      const res = await app.inject({ method: 'GET', url: `/api/v1/tasks/${row!.id}` });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.passage).toBeTruthy();
+      expect(body.passage.slug).toBe('doshchinskiy-2027-v1-text-b-osorgin-clock');
+      expect(body.passage.sourceAuthor).toBe('По М.А. Осоргину');
+      bodies.push(body.passage.id);
+    }
+    // Same passage row (same id) for every task that reads it — never duplicated per task.
+    expect(new Set(bodies).size).toBe(1);
+  });
+
+  it('a self-contained task (e.g. task 21, its own inline excerpt) has passage: null, not an empty object', async () => {
+    const [row] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.subjectId, 'russian'),
+          eq(schema.tasks.sourceVariant, 1),
+          eq(schema.tasks.taskNumber, 21),
+        ),
+      );
+    const res = await app.inject({ method: 'GET', url: `/api/v1/tasks/${row!.id}` });
+    const body = res.json();
+    expect(body.passage).toBeNull();
+    expect(body.conditionMd).toContain('Земля Франца-Иосифа');
+  });
+
+  it('task 27 carries a genuine sampleEssayMd grounded in the Osorgin text, plus essayAcknowledged starting false', async () => {
+    const [row] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.subjectId, 'russian'),
+          eq(schema.tasks.sourceVariant, 1),
+          eq(schema.tasks.taskNumber, 27),
+        ),
+      );
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/tasks/${row!.id}`,
+      headers: { 'x-anon-id': randomUUID() },
+    });
+    const body = res.json();
+    expect(body.sampleEssayMd).toBeTruthy();
+    expect(body.sampleEssayMd).toContain('Татьяна Егоровна');
+    expect(body.essayAcknowledged).toBe(false);
+  });
+
+  it('"Я решил" (essay-ack) on task 27: rejects for a non-essay task, then succeeds and is idempotent and reflected on the next GET', async () => {
+    const [task27] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.subjectId, 'russian'),
+          eq(schema.tasks.sourceVariant, 1),
+          eq(schema.tasks.taskNumber, 27),
+        ),
+      );
+    const [task1] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.subjectId, 'russian'),
+          eq(schema.tasks.sourceVariant, 1),
+          eq(schema.tasks.taskNumber, 1),
+        ),
+      );
+    const anonId = randomUUID();
+
+    const noAnonIdRes = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tasks/${task27!.id}/essay-ack`,
+    });
+    expect(noAnonIdRes.statusCode).toBe(400);
+    expect(noAnonIdRes.json().error).toBe('missing_anon_id');
+
+    const notEssayRes = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tasks/${task1!.id}/essay-ack`,
+      headers: { 'x-anon-id': anonId },
+    });
+    expect(notEssayRes.statusCode).toBe(400);
+    expect(notEssayRes.json().error).toBe('not_an_essay_task');
+
+    const firstAck = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tasks/${task27!.id}/essay-ack`,
+      headers: { 'x-anon-id': anonId },
+    });
+    expect(firstAck.statusCode).toBe(200);
+    expect(firstAck.json()).toEqual({ acknowledged: true });
+
+    // Idempotent: a second click is not a duplicate/error.
+    const secondAck = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tasks/${task27!.id}/essay-ack`,
+      headers: { 'x-anon-id': anonId },
+    });
+    expect(secondAck.statusCode).toBe(200);
+
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/tasks/${task27!.id}`,
+      headers: { 'x-anon-id': anonId },
+    });
+    expect(getRes.json().essayAcknowledged).toBe(true);
+
+    // A different user never sees someone else's acknowledgement.
+    const otherUserRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/tasks/${task27!.id}`,
+      headers: { 'x-anon-id': randomUUID() },
+    });
+    expect(otherUserRes.json().essayAcknowledged).toBe(false);
+  });
+
   it('any attempt against task 27 is rejected with 400 essay_not_gradable, never served as correct/incorrect', async () => {
     const [task27] = await testDb.db
       .select()
@@ -155,6 +311,19 @@ describe('Russian Вариант 1 is browsable through the real API (not just i
       .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.sourceVariant, 1)));
     expect(mathRows.length).toBeGreaterThan(0);
     expect(mathRows.every((r) => r.digitSetOrderInsensitive === false)).toBe(true);
+    expect(mathRows.every((r) => r.passageId === null)).toBe(true);
+    expect(mathRows.every((r) => r.sampleEssayMd === null)).toBe(true);
+  });
+
+  it('a math task served through the real API has passage: null, same shape as a Russian self-contained task (no regression from the passages join)', async () => {
+    const [mathTask] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.sourceVariant, 1)))
+      .limit(1);
+    const res = await app.inject({ method: 'GET', url: `/api/v1/tasks/${mathTask!.id}` });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().passage).toBeNull();
   });
 
   it('no needs_review tasks remain — every task row is published', async () => {

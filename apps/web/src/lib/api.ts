@@ -2,6 +2,7 @@ import type {
   AttemptRequest,
   AttemptResult,
   CollectionListItem,
+  EssayAckResponse,
   FavoritesListResponse,
   LearningProfileResponse,
   LearningSessionResponse,
@@ -203,6 +204,11 @@ export function submitAttempt(taskId: string, request: AttemptRequest): Promise<
     method: 'POST',
     body: JSON.stringify(request),
   });
+}
+
+/** "Я решил" for an essay task — not a graded attempt, see EssayAckResponse's doc comment. */
+export function acknowledgeEssay(taskId: string): Promise<EssayAckResponse> {
+  return apiFetch(`/tasks/${taskId}/essay-ack`, { method: 'POST' });
 }
 
 export function getMistakes(): Promise<Mistake[]> {

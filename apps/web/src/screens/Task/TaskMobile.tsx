@@ -25,6 +25,9 @@ import { OtherVariantsSection } from '../../ui/Training/OtherVariantsSection.js'
 import { Collapse, SlideUp } from '../../ui/motion/motion.js';
 import { MathText } from '../../ui/MathText/MathText.js';
 import { TaskExamIllustration } from '../../ui/TaskIllustration/TaskIllustration.js';
+import { PassageCard } from '../../ui/Passage/PassageCard.js';
+import { EssayPanel } from '../../ui/Essay/EssayPanel.js';
+import { useEssayAck } from '../../lib/useEssayAck.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './TaskMobile.module.css';
 
@@ -104,6 +107,7 @@ export function TaskMobile({
   // Essay tasks (e.g. EGE Russian 27) have no single correct answer and
   // are never auto-graded — see TaskDesktop's matching comment.
   const isEssay = task?.answerType === 'essay';
+  const essayAck = useEssayAck(isEssay ? task?.id : undefined, task?.essayAcknowledged);
   const canSubmit = isMultiPart
     ? task!.answerParts!.every((p) => (partAnswers[p.id] ?? '').trim().length > 0) && !checking
     : answer.trim().length > 0 && !checking && task !== null;
@@ -228,6 +232,8 @@ export function TaskMobile({
           </span>
         </div>
 
+        {task.passage && <PassageCard passage={task.passage} />}
+
         <div className={clsx('text-task', styles.condition)}>
           <MathText text={task.condition} />
         </div>
@@ -260,21 +266,13 @@ export function TaskMobile({
         )}
 
         {isEssay ? (
-          <div className={styles.hintText}>
-            <p className="text-body-sm" style={{ fontWeight: 600 }}>
-              Задание с развёрнутым ответом (сочинение)
-            </p>
-            <p className="text-body-sm text-secondary">
-              Это задание не проверяется автоматически — напишите сочинение на бумаге или в
-              черновике (можно воспользоваться «Расширить поле» в инструментах). Ниже — пояснение к
-              заданию.
-            </p>
-            {task.explanation && (
-              <div style={{ marginTop: 'var(--space-2)' }}>
-                <MathText text={task.explanation} />
-              </div>
-            )}
-          </div>
+          <EssayPanel
+            explanation={task.explanation}
+            sampleEssay={task.sampleEssay}
+            acknowledged={essayAck.acknowledged}
+            acknowledging={essayAck.acknowledging}
+            onAcknowledge={essayAck.acknowledge}
+          />
         ) : isMultiPart ? (
           <div className={styles.multiPartFields}>
             {task.answerParts!.map((part) => (

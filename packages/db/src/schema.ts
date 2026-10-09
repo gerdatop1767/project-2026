@@ -182,6 +182,15 @@ export const tasks = pgTable(
     solutionSteps: jsonb('solution_steps').$type<
       readonly { title: string; explanation: string }[] | null
     >(),
+    /**
+     * A genuine, authored example essay for an `essay`-type task (e.g.
+     * EGE Russian 27) — grounded in that task's own passage, never a
+     * generic template and never presented as the single correct
+     * answer. Null for every non-essay task, and null for an essay
+     * task that has no prepared sample yet (never fabricated to avoid
+     * a blank state).
+     */
+    sampleEssayMd: text('sample_essay_md'),
     source: text('source').notNull(),
     sourceUrl: text('source_url'),
     sourceYear: integer('source_year'),
@@ -382,6 +391,29 @@ export const favorites = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('favorites_user_task_idx').on(table.userId, table.taskId)],
+);
+
+/**
+ * "Я решил" acknowledgement for an `essay`-type task — distinct from
+ * `attempts` on purpose: an essay is never auto-graded
+ * (`EssayNotGradableError`), so there is no correctness to record,
+ * only "the user says they wrote it". One row per (user, task), same
+ * shape as `favorites` — upserted (never duplicated) on each
+ * "Я решил" click, so the button stays idempotent across repeat visits.
+ */
+export const essayAcknowledgements = pgTable(
+  'essay_acknowledgements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('essay_acknowledgements_user_task_idx').on(table.userId, table.taskId)],
 );
 
 /**
