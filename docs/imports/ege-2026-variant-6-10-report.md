@@ -1,6 +1,6 @@
 # EGE 2026 — Варианты 6–10 — отчёт об импорте
 
-Status: **Варианты 6, 7, 8 и 9 complete.** Вариант 10 pending (same pipeline, next block).
+Status: **Варианты 6, 7, 8, 9 и 10 complete.** Full batch (95 tasks) finished.
 
 ## Source
 
@@ -109,8 +109,21 @@ No numeric value was guessed anywhere in Вариант 9. Every graph-reading a
 
 **Tests:** `importEge2026Variant9.test.ts` 12/12; `variantMatrixAudit.test.ts` (9×19=171) passed; `deploySyncContent.test.ts` (9 importers, 8 `&&`) passed; extended `v1v5IntegrationAudit.test.ts` (28/28) and `realImportedData.test.ts` (21/21) passed. Typecheck, lint, build all clean. Production sync (`infra/docker-compose.yml`) extended through V9.
 
+## Вариант 10
+
+19/19 tasks, all `published`, 0 `needs_review`, 0 images — both of this variant's graph-based tasks (№2 vectors, №11 logarithmic curve) were resolved with full pixel-grid precision, same as V9.
+
+**Image/PDF fallback needed (resolved via pixel analysis, not transcribed as images):**
+- **Task 2** (vectors): gridline-calibrated the clean 300dpi PDF render and traced both vector lines via crosshair-overlay zooms at each endpoint. The two vectors turned out to share no common tail (vector a: tail (−1,6) → tip (3,−5); vector b: tail (1,−2) → tip (4,5) — their lines merely cross visually near the origin, confirmed by tracing each line independently past the crossing point). b−3a=(3,7)−(12,−33)=(−9,40), length=√1681=41 — a clean integer.
+- **Task 11** (f(x)=log_a(x+b) graph): an initial eyeball read of the second marked point as (1,2) produced a non-clean f(29)=log_√5(33), immediately flagged as suspicious; a precise pixel/crosshair re-check found the point was actually at (1,4), not (1,2) — giving a=√2, b=3, f(29)=log_√2(32)=10, a clean integer. This is a direct instance of the "never trust an eyeball read, verify against the clean-answer constraint" rule catching a real misreading before it reached the database.
+- **Task 18** (system of equations with parameter, solution-count problem, same family as V9's task 18): the first equation reduced to a circle `(x-a)²+(y+a)²=18(a+2)²`; the exact transition boundaries `a=-6` and `a=-6/5` (where the solution count is exactly 7) were derived both symbolically and confirmed by numerically scanning solution counts across a wide range of `a`, exactly as for V9.
+- **Task 19** (number theory, three-number board problem, same family as V9's task 19 but with a 5000 threshold instead of 1000 and 15 numbers instead of 20): the larger threshold enables two extra squaring chains (`{7,49,2401}` and `{8,64,4096}`) not available under V9's 1000 cutoff — notably `2401`, the exact number named in the problem statement, is the middle term of one of these chains, which is a strong internal-consistency signal that the chain-counting approach is the intended solution path. Part в)'s answer (10 pairs) was verified by comparing multiple chain allocations.
+- All other tasks (1, 3–10, 12–17) were read cleanly from the TXT/PDF with no ambiguity.
+
+No numeric value was guessed anywhere in Вариант 10. Task 11 in particular demonstrates why every graph reading is cross-checked against the exam's own "integer or finite decimal" constraint before being accepted — the first read would have silently produced a wrong answer.
+
+**Tests:** `importEge2026Variant10.test.ts` 12/12; `variantMatrixAudit.test.ts` (10×19=190) passed; `deploySyncContent.test.ts` (10 importers, 9 `&&`) passed; extended `v1v5IntegrationAudit.test.ts` and `realImportedData.test.ts` (55/55 combined) passed. Typecheck, lint, build all clean. Production sync (`infra/docker-compose.yml`) extended through V10.
+
 ## Known limitations
 
-- Вариант 10 (19 tasks) is not yet imported — next block, following this exact same pipeline and verification rigor.
-- `infra/docker-compose.yml`'s `sync-content` chain only runs through V9 for now; it will be extended again once V10 is added.
-- The adversarial Similar-Tasks sweep across the full intended 10-variant/190-task matrix cannot exist yet since only 9 variants exist; the current sweep covers the full real 171-task matrix.
+- None remaining for this batch — Варианты 6–10 (95 tasks) are all imported, tested, and synced into production. V1–V10 together form the full real 190-task matrix.

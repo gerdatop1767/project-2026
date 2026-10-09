@@ -18,7 +18,7 @@ import { getNextTaskRecommendation } from './recommendation/service.js';
 /**
  * Integration audit (Block "audit ege 2026 variants 1-5 integration")
  * — proves the existing Zybrilka Learning System (not a new one)
- * actually works end-to-end on the real 171-task V1-V9 catalog: Similar
+ * actually works end-to-end on the real 190-task V1-V10 catalog: Similar
  * Tasks cross-number isolation on the specific pairs requested, all
  * five Variant Sessions through the one generic service, per-task
  * (not per-number) Task Statistics for two same-numbered tasks from
@@ -88,6 +88,8 @@ describe('EGE-2026 V1-V5 integration audit — Similar Tasks (read-only, shared 
     [6, 13],
     [9, 2],
     [9, 14],
+    [10, 3],
+    [10, 15],
   ])(
     'V%i №%i only surfaces same-numbered tasks, never the source, never another subject',
     async (variant, taskNumber) => {
@@ -116,7 +118,7 @@ describe('EGE-2026 V1-V5 integration audit — Similar Tasks (read-only, shared 
     },
   );
 
-  it('full 171-task matrix: every task of every variant resolves only same-numbered candidates', async () => {
+  it('full 190-task matrix: every task of every variant resolves only same-numbered candidates', async () => {
     const rows = await testDb.db
       .select({
         id: schema.tasks.id,
@@ -130,7 +132,7 @@ describe('EGE-2026 V1-V5 integration audit — Similar Tasks (read-only, shared 
           eq(schema.tasks.source, 'Ященко ЕГЭ 2026. Типовые экзаменационные варианты'),
         ),
       );
-    expect(rows).toHaveLength(171);
+    expect(rows).toHaveLength(190);
     for (const row of rows) {
       const similar = await getSimilarTasks(testDb.db, row.id, 50);
       for (const candidate of similar) {
@@ -158,7 +160,7 @@ describe('EGE-2026 V1-V5 integration audit — Variant Sessions (isolated db)', 
     return userId;
   }
 
-  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9])(
+  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])(
     'V%i: 19 tasks, order №1→№19, submit, advance, complete — same generic service, no special-casing',
     async (variantNumber) => {
       const [variantRow] = await testDb.db
