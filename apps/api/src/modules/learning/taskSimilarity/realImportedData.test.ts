@@ -5,17 +5,17 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getSimilarTasks } from './service.js';
 
 /**
- * Block D (import EGE 2026 variants 2-5): proves the taskNumber hard
- * filter (commit 7b311ca, apps/api/src/modules/learning/taskSimilarity/
- * repo.ts) still holds on REAL imported rows spanning five real exam
- * variants (Вариант 1, 2, 3, 4 and 5 of the same Ященко collection), not
- * just the synthetic adversarial fixture in sameTaskNumber.test.ts.
- * Each variant's task №N is a genuinely different task (different
- * topic/skills/condition) — Similar Tasks for one must only ever
- * surface same-numbered tasks from the other variants, never a
- * different-numbered one from any variant.
+ * Block D (import EGE 2026 variants 2-5, extended to variants 6-10): proves
+ * the taskNumber hard filter (commit 7b311ca, apps/api/src/modules/
+ * learning/taskSimilarity/repo.ts) still holds on REAL imported rows
+ * spanning ten real exam variants (Вариант 1-10 of the same Ященко
+ * collection), not just the synthetic adversarial fixture in
+ * sameTaskNumber.test.ts. Each variant's task №N is a genuinely
+ * different task (different topic/skills/condition) — Similar Tasks for
+ * one must only ever surface same-numbered tasks from the other
+ * variants, never a different-numbered one from any variant.
  */
-describe('getSimilarTasks — real imported data (Вариант 1 + 2 + 3 + 4 + 5), same taskNumber only', () => {
+describe('getSimilarTasks — real imported data (Вариант 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10), same taskNumber only', () => {
   let testDb: Awaited<ReturnType<typeof createImportedVariantsTestDb>>;
 
   beforeAll(async () => {
@@ -129,6 +129,121 @@ describe('getSimilarTasks — real imported data (Вариант 1 + 2 + 3 + 4 +
       expect(similar.length).toBeGreaterThan(0);
       expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
       expect(similar.every((r) => r.taskId !== v5task!.id)).toBe(true);
+    },
+  );
+
+  it.each([1, 10, 19])(
+    'Вариант 6 task №%i only ever surfaces same-numbered tasks from V1-V5, never a different number',
+    async (taskNumber) => {
+      const { db } = testDb;
+      const [v6task] = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'math'),
+            eq(schema.tasks.taskNumber, taskNumber),
+            eq(schema.tasks.sourceVariant, 6),
+          ),
+        );
+      expect(v6task).toBeDefined();
+
+      const similar = await getSimilarTasks(db, v6task!.id, 20);
+      expect(similar.length).toBeGreaterThan(0);
+      expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
+      expect(similar.every((r) => r.taskId !== v6task!.id)).toBe(true);
+    },
+  );
+
+  it.each([1, 10, 19])(
+    'Вариант 7 task №%i only ever surfaces same-numbered tasks from V1-V6, never a different number',
+    async (taskNumber) => {
+      const { db } = testDb;
+      const [v7task] = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'math'),
+            eq(schema.tasks.taskNumber, taskNumber),
+            eq(schema.tasks.sourceVariant, 7),
+          ),
+        );
+      expect(v7task).toBeDefined();
+
+      const similar = await getSimilarTasks(db, v7task!.id, 20);
+      expect(similar.length).toBeGreaterThan(0);
+      expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
+      expect(similar.every((r) => r.taskId !== v7task!.id)).toBe(true);
+    },
+  );
+
+  it.each([1, 10, 19])(
+    'Вариант 8 task №%i only ever surfaces same-numbered tasks from V1-V7, never a different number',
+    async (taskNumber) => {
+      const { db } = testDb;
+      const [v8task] = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'math'),
+            eq(schema.tasks.taskNumber, taskNumber),
+            eq(schema.tasks.sourceVariant, 8),
+          ),
+        );
+      expect(v8task).toBeDefined();
+
+      const similar = await getSimilarTasks(db, v8task!.id, 20);
+      expect(similar.length).toBeGreaterThan(0);
+      expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
+      expect(similar.every((r) => r.taskId !== v8task!.id)).toBe(true);
+    },
+  );
+
+  it.each([1, 10, 19])(
+    'Вариант 9 task №%i only ever surfaces same-numbered tasks from V1-V8, never a different number',
+    async (taskNumber) => {
+      const { db } = testDb;
+      const [v9task] = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'math'),
+            eq(schema.tasks.taskNumber, taskNumber),
+            eq(schema.tasks.sourceVariant, 9),
+          ),
+        );
+      expect(v9task).toBeDefined();
+
+      const similar = await getSimilarTasks(db, v9task!.id, 20);
+      expect(similar.length).toBeGreaterThan(0);
+      expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
+      expect(similar.every((r) => r.taskId !== v9task!.id)).toBe(true);
+    },
+  );
+
+  it.each([1, 10, 19])(
+    'Вариант 10 task №%i only ever surfaces same-numbered tasks from V1-V9, never a different number',
+    async (taskNumber) => {
+      const { db } = testDb;
+      const [v10task] = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'math'),
+            eq(schema.tasks.taskNumber, taskNumber),
+            eq(schema.tasks.sourceVariant, 10),
+          ),
+        );
+      expect(v10task).toBeDefined();
+
+      const similar = await getSimilarTasks(db, v10task!.id, 20);
+      expect(similar.length).toBeGreaterThan(0);
+      expect(similar.every((r) => r.taskNumber === taskNumber)).toBe(true);
+      expect(similar.every((r) => r.taskId !== v10task!.id)).toBe(true);
     },
   );
 
