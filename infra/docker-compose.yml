@@ -142,7 +142,8 @@ services:
         node node_modules/@zybrilka/db/dist/importEge2026Variant5.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant6.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant7.js &&
-        node node_modules/@zybrilka/db/dist/importEge2026Variant8.js
+        node node_modules/@zybrilka/db/dist/importEge2026Variant8.js &&
+        node node_modules/@zybrilka/db/dist/importEge2026Variant9.js
     restart: 'no'
 
   api:

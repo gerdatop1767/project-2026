@@ -1,6 +1,6 @@
 # EGE 2026 — Варианты 6–10 — отчёт об импорте
 
-Status: **Варианты 6, 7 и 8 complete.** Варианты 9–10 pending (same pipeline, next blocks).
+Status: **Варианты 6, 7, 8 и 9 complete.** Вариант 10 pending (same pipeline, next block).
 
 ## Source
 
@@ -93,8 +93,24 @@ No numeric value was guessed anywhere in Вариант 8.
 
 **Tests:** `importEge2026Variant8.test.ts` 11/11; `variantMatrixAudit.test.ts` (8×19=152) 8/8; `deploySyncContent.test.ts` 5/5; combined with the extended API test files — **70/70 passed**. Typecheck, lint, build all clean. Production sync extended through V8.
 
+## Вариант 9
+
+19/19 tasks, all `published`, 0 `needs_review`, 0 images — both of this variant's graph-based tasks (№2 vectors, №11 exponential curve) were resolved with full pixel-grid precision rather than an image fallback (see below).
+
+**Image/PDF fallback needed (resolved via pixel analysis, not transcribed as images):**
+- **Task 2** (vectors): the clean 300dpi PDF render was gridline-calibrated (x0,y0,dx,dy detected from row/column dark-pixel peaks), then both vector endpoints were located by scanning thick-stroke column runs and confirmed with a crosshair-overlay zoom at each endpoint. An initial eyeball read gave a=(0,−3), b=(−2,4) — producing an irrational length (3√10) for 1.5b−a, immediately flagged as wrong per the "integer or finite decimal" answer-format rule for tasks 1-12. The corrected, crosshair-verified coordinates are a=(−1,−3) (tail (3,1), tip (2,−2)) and b=(−4,6) (tail (−1,−1), tip (−5,5)), giving 1.5b−a=(−5,12), length=13 — a clean integer, strongly corroborating the reading.
+- **Task 11** (f(x)=a^(x+b) graph): the ZIP's low-resolution image was gridline-calibrated independently (separate image, smaller scale), and the two marked dots were isolated via `binary_erosion` blob detection plus a crosshair-overlay re-check. Points read as (0,4) and (2,1) — giving a=1/2, b=−2, f(−3)=32, again a clean integer.
+- **Task 9** (radiator cooling, physics formula): the ZIP/TXT OCR of the formula was heavily garbled; re-read from the clean PDF render, confirming `x=(acm/γ)·lg((Tв−Tп)/(T−Tп))` (lg = log base 10). The coefficient `acm/γ` evaluates to exactly 168 — identical to the given pipe length `x`, which collapses the log argument to exactly 10¹ and yields a clean T=21°C, a strong self-consistency signal that the re-read formula is correct.
+- **Task 18** (system of equations with parameter, solution-count problem): the first equation was algebraically reduced to a circle `(x+a)²+(y−a)²=12(a−2)²` and cross-checked numerically (root-finding over the exact quartic obtained by eliminating y) across a wide scan of `a` to locate every transition in solution count, rather than guessing a plausible-looking interval; the two boundary values `a=6±2√6` where the count is exactly 7 were confirmed both symbolically (via the circle/hyperbola intersection structure) and numerically.
+- **Task 19** (number theory, three-number board problem): resolved via the mod-3 argument forced by "average of any three of Petya's squares is an integer," cross-checked against both sub-questions (104 not divisible by 3 vs. 306 divisible by 3), and part в)'s maximum-pairs count was verified by comparing multiple chain-allocation strategies (all converging on 11), not assumed from a single construction.
+- All other tasks (1, 3–8, 10, 12–17) were read cleanly from the TXT/PDF with no ambiguity.
+
+No numeric value was guessed anywhere in Вариант 9. Every graph-reading and hard-algebra task was cross-checked against the exam's own "integer or finite decimal" constraint (tasks 1-12) or an independent self-consistency check (tasks 13-19) before being accepted.
+
+**Tests:** `importEge2026Variant9.test.ts` 12/12; `variantMatrixAudit.test.ts` (9×19=171) passed; `deploySyncContent.test.ts` (9 importers, 8 `&&`) passed; extended `v1v5IntegrationAudit.test.ts` (28/28) and `realImportedData.test.ts` (21/21) passed. Typecheck, lint, build all clean. Production sync (`infra/docker-compose.yml`) extended through V9.
+
 ## Known limitations
 
-- Варианты 9–10 (38 tasks) are not yet imported — next blocks, one per variant, following this exact same pipeline and verification rigor.
-- `infra/docker-compose.yml`'s `sync-content` chain only runs through V8 for now; it will be extended again after each subsequent variant is added.
-- The adversarial Similar-Tasks sweep across the full intended 10-variant/190-task matrix cannot exist yet since only 8 variants exist; the current sweep covers the full real 152-task matrix.
+- Вариант 10 (19 tasks) is not yet imported — next block, following this exact same pipeline and verification rigor.
+- `infra/docker-compose.yml`'s `sync-content` chain only runs through V9 for now; it will be extended again once V10 is added.
+- The adversarial Similar-Tasks sweep across the full intended 10-variant/190-task matrix cannot exist yet since only 9 variants exist; the current sweep covers the full real 171-task matrix.

@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
  * the deploy instead of letting later ones (or `api`/`worker`) start
  * against a half-synced database.
  */
-describe('infra/docker-compose.yml — sync-content runs all eight EGE-2026 variant imports', () => {
+describe('infra/docker-compose.yml — sync-content runs all nine EGE-2026 variant imports', () => {
   const composePath = fileURLToPath(new URL('../../../infra/docker-compose.yml', import.meta.url));
   const compose = readFileSync(composePath, 'utf-8');
 
@@ -28,14 +28,14 @@ describe('infra/docker-compose.yml — sync-content runs all eight EGE-2026 vari
     throw new Error('sync-content service block not found in infra/docker-compose.yml');
   const serviceBlock = serviceMatch[1]!;
 
-  it('invokes all eight importEge2026VariantN.js scripts', () => {
-    for (let n = 1; n <= 8; n++) {
+  it('invokes all nine importEge2026VariantN.js scripts', () => {
+    for (let n = 1; n <= 9; n++) {
       expect(serviceBlock).toContain(`node_modules/@zybrilka/db/dist/importEge2026Variant${n}.js`);
     }
   });
 
-  it('runs them strictly in order V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7 -> V8', () => {
-    const positions = [1, 2, 3, 4, 5, 6, 7, 8].map((n) =>
+  it('runs them strictly in order V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7 -> V8 -> V9', () => {
+    const positions = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) =>
       serviceBlock.indexOf(`importEge2026Variant${n}.js`),
     );
     for (let i = 1; i < positions.length; i++) {
@@ -44,11 +44,11 @@ describe('infra/docker-compose.yml — sync-content runs all eight EGE-2026 vari
   });
 
   it('chains every import with && so a failing importer stops the sequence with a non-zero exit', () => {
-    // Count of "&&" between the eight invocations must be exactly 7 —
+    // Count of "&&" between the nine invocations must be exactly 8 —
     // not ";" (which would silently continue past a failure) and not
     // "||" (which would swallow one).
     const andCount = (serviceBlock.match(/&&/g) ?? []).length;
-    expect(andCount).toBe(7);
+    expect(andCount).toBe(8);
     expect(serviceBlock).not.toMatch(/importEge2026Variant\d\.js\s*;/);
   });
 
