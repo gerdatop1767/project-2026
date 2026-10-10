@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import katex from 'katex';
 import { tokenizeMathText } from './mathTokenizer.js';
+import { parseEmphasis } from './emphasis.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MathText.module.css';
 
@@ -50,12 +51,26 @@ function MathLine({ text }: { text: string }) {
           <Fragment key={i}>
             {lines.map((line, j) => (
               <Fragment key={j}>
-                {line}
+                <EmphasisLine text={line} />
                 {j < lines.length - 1 && <br />}
               </Fragment>
             ))}
           </Fragment>
         );
+      })}
+    </>
+  );
+}
+
+/** Renders one plain-text line with `**bold**`/`*italic*` spans as real `<strong>`/`<em>` — see `parseEmphasis`'s doc comment. */
+function EmphasisLine({ text }: { text: string }) {
+  const tokens = useMemo(() => parseEmphasis(text), [text]);
+  return (
+    <>
+      {tokens.map((token, i) => {
+        if (token.type === 'bold') return <strong key={i}>{token.value}</strong>;
+        if (token.type === 'italic') return <em key={i}>{token.value}</em>;
+        return <Fragment key={i}>{token.value}</Fragment>;
       })}
     </>
   );

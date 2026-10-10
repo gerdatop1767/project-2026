@@ -32,6 +32,7 @@ import {
   TaskSolutionIllustration,
 } from '../../ui/TaskIllustration/TaskIllustration.js';
 import { CanonicalSolutionView } from '../../ui/CanonicalSolution/CanonicalSolutionView.js';
+import { PassageCard } from '../../ui/Passage/PassageCard.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './ResultDesktop.module.css';
 
@@ -249,6 +250,7 @@ export function ResultDesktop({
           <div className={styles.card}>
             {learningSession && <LearningSessionBadge session={learningSession} />}
             {!correct && <span className={styles.topicChip}>{task.topic}</span>}
+            {task.passage && <PassageCard passage={task.passage} />}
             <p className="text-h3">Условие</p>
             <div className={clsx('text-task', styles.condition)}>
               <MathText text={task.condition} />

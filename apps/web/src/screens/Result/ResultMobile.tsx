@@ -32,6 +32,7 @@ import {
   TaskSolutionIllustration,
 } from '../../ui/TaskIllustration/TaskIllustration.js';
 import { CanonicalSolutionView } from '../../ui/CanonicalSolution/CanonicalSolutionView.js';
+import { PassageCard } from '../../ui/Passage/PassageCard.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './ResultMobile.module.css';
 
@@ -225,6 +226,7 @@ export function ResultMobile({
          * sees "вот какое было задание" before the result below it,
          * instead of landing straight on correct/incorrect with no
          * memory of what they just answered. */}
+        {task.passage && <PassageCard passage={task.passage} />}
         <div className={clsx('text-task', styles.condition)}>
           <MathText text={task.condition} />
         </div>

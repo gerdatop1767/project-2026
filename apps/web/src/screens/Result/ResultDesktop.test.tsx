@@ -166,6 +166,51 @@ describe('ResultDesktop — correct state', () => {
   });
 });
 
+describe('ResultDesktop — passage on the result screen (critical fix: the result screen fetched the task but never rendered task.passage)', () => {
+  const PASSAGE_BODY = '(1)Были у Татьяны Егоровны старинные часы.';
+  const taskWithPassage = {
+    ...taskWithSolution,
+    passage: {
+      id: 'passage-1',
+      slug: 'text-b',
+      title: null,
+      bodyMd: PASSAGE_BODY,
+      sourceAuthor: 'По М.А. Осоргину',
+      sourceNote: null,
+    },
+  };
+
+  it('shows the full condition AND the shared passage after checking (correct)', async () => {
+    vi.mocked(api.getTask).mockResolvedValue(taskWithPassage);
+    renderResult(true);
+    expect(await screen.findByText(CONDITION)).toBeInTheDocument();
+    expect(screen.getByText('Текст к заданию')).toBeInTheDocument();
+    expect(screen.getByText(PASSAGE_BODY)).toBeInTheDocument();
+  });
+
+  it('shows the full condition AND the shared passage after checking (incorrect) — the critical "what was I even solving" gap', async () => {
+    vi.mocked(api.getTask).mockResolvedValue(taskWithPassage);
+    renderResult(false);
+    expect(await screen.findByText(CONDITION)).toBeInTheDocument();
+    expect(screen.getByText(PASSAGE_BODY)).toBeInTheDocument();
+  });
+
+  it('shows no passage block for a self-contained task (passage: null) — no empty card, nothing fabricated', async () => {
+    vi.mocked(api.getTask).mockResolvedValue(taskWithSolution);
+    renderResult(true);
+    await screen.findByText(CONDITION);
+    expect(screen.queryByText('Текст к заданию')).not.toBeInTheDocument();
+  });
+
+  it('never shows a different passage than the one belonging to this exact task (no cross-task leakage)', async () => {
+    const otherTaskPassageBody = '(1)Миражи — удивительные оптические обманы.';
+    vi.mocked(api.getTask).mockResolvedValue(taskWithPassage);
+    renderResult(true);
+    await screen.findByText(PASSAGE_BODY);
+    expect(screen.queryByText(otherTaskPassageBody)).not.toBeInTheDocument();
+  });
+});
+
 describe('ResultDesktop — incorrect state', () => {
   it('shows a calm error banner with both answers and the solution toggle', async () => {
     renderResult(false);
