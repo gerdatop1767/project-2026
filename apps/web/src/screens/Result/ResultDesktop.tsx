@@ -253,7 +253,7 @@ export function ResultDesktop({
             {task.passage && <PassageCard passage={task.passage} />}
             <p className="text-h3">Условие</p>
             <div className={clsx('text-task', styles.condition)}>
-              <MathText text={task.condition} />
+              <MathText text={task.condition} separateInstruction />
             </div>
             <TaskExamIllustration
               subjectId={task.subjectId}

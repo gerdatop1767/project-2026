@@ -301,7 +301,7 @@ export function TaskDesktop({
               Условие
             </p>
             <div className={clsx('text-task', styles.condition)}>
-              <MathText text={task.condition} />
+              <MathText text={task.condition} separateInstruction />
             </div>
             <TaskExamIllustration
               subjectId={task.subjectId}
