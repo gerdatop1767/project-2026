@@ -235,7 +235,7 @@ export function TaskMobile({
         {task.passage && <PassageCard passage={task.passage} />}
 
         <div className={clsx('text-task', styles.condition)}>
-          <MathText text={task.condition} />
+          <MathText text={task.condition} separateInstruction />
         </div>
         <TaskExamIllustration
           subjectId={task.subjectId}

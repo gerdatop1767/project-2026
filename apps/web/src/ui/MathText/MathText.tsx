@@ -15,12 +15,35 @@ import styles from './MathText.module.css';
  * paragraphs (matches how the source content already uses them to
  * separate "Шаг 1. ...\n\nШаг 2. ...").
  */
-export function MathText({ text, className }: { text: string; className?: string }) {
+export function MathText({
+  text,
+  className,
+  separateInstruction,
+}: {
+  text: string;
+  className?: string;
+  /** Adds extra space below the first paragraph, when there's more
+   * than one. EGE task conditions commonly store a plain instruction
+   * sentence ("Запишите номера ответов.") as the opening paragraph,
+   * immediately followed by the numbered condition itself — the
+   * source content has no separate "instruction" field to split on,
+   * so without this the two read as one unbroken block of text. Pass
+   * this only where that reads as instruction-then-condition (task
+   * conditions); other multi-paragraph content (a passage, an essay
+   * explanation) has no such opening sentence and shouldn't get it. */
+  separateInstruction?: boolean;
+}) {
   const paragraphs = useMemo(() => text.split(/\n{2,}/), [text]);
   return (
     <>
       {paragraphs.map((paragraph, i) => (
-        <p key={i} className={className}>
+        <p
+          key={i}
+          className={clsx(
+            className,
+            separateInstruction && i === 0 && paragraphs.length > 1 && styles.instructionGap,
+          )}
+        >
           <MathLine text={paragraph} />
         </p>
       ))}

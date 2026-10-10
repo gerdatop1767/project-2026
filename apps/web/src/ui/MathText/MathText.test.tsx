@@ -20,6 +20,54 @@ describe('MathText / InlineMathText — real KaTeX typography', () => {
   });
 });
 
+describe('MathText — separateInstruction (instruction-to-condition spacing, task readability)', () => {
+  it('without separateInstruction, no paragraph gets the instruction-gap class', () => {
+    const { container } = render(
+      <MathText text={'Запишите номера ответов.\n\n1) первое\n\n2) второе'} />,
+    );
+    const paragraphs = container.querySelectorAll('p');
+    expect(paragraphs).toHaveLength(3);
+    paragraphs.forEach((p) => expect(p.className).toBe(''));
+  });
+
+  it('with separateInstruction and more than one paragraph, only the first paragraph gets the gap class', () => {
+    const { container } = render(
+      <MathText text={'Запишите номера ответов.\n\n1) первое\n\n2) второе'} separateInstruction />,
+    );
+    const paragraphs = container.querySelectorAll('p');
+    expect(paragraphs).toHaveLength(3);
+    expect(paragraphs[0]!.className).not.toBe('');
+    expect(paragraphs[1]!.className).toBe('');
+    expect(paragraphs[2]!.className).toBe('');
+  });
+
+  it('with separateInstruction but only a single paragraph, no gap is added (nothing to separate from)', () => {
+    const { container } = render(
+      <MathText
+        text="Самостоятельно подберите союз, который должен стоять на месте пропуска."
+        separateInstruction
+      />,
+    );
+    const paragraphs = container.querySelectorAll('p');
+    expect(paragraphs).toHaveLength(1);
+    expect(paragraphs[0]!.className).toBe('');
+  });
+
+  it('separateInstruction composes with a passed className — both apply to the instruction paragraph, only the className applies to the rest', () => {
+    const { container } = render(
+      <MathText
+        text={'Инструкция.\n\nОсновной текст.'}
+        className="text-task"
+        separateInstruction
+      />,
+    );
+    const paragraphs = container.querySelectorAll('p');
+    expect(paragraphs[0]!.classList.contains('text-task')).toBe(true);
+    expect(paragraphs[1]!.classList.contains('text-task')).toBe(true);
+    expect(paragraphs[1]!.className).toBe('text-task');
+  });
+});
+
 describe('KatexSpan — scroll affordance for oversized formulas (EGE Fidelity Final Polish, Block 2)', () => {
   it('wraps every formula in a scroll-cue wrapper with data-scrollable state', () => {
     render(<InlineMathText text="$x^2$" />);
