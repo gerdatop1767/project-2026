@@ -190,6 +190,43 @@ describe('ResultMobile — correct state', () => {
   });
 });
 
+describe('ResultMobile — passage on the result screen (critical fix: the result screen fetched the task but never rendered task.passage)', () => {
+  const PASSAGE_BODY = '(1)Были у Татьяны Егоровны старинные часы.';
+  const taskWithPassage = {
+    ...taskWithSolution,
+    passage: {
+      id: 'passage-1',
+      slug: 'text-b',
+      title: null,
+      bodyMd: PASSAGE_BODY,
+      sourceAuthor: 'По М.А. Осоргину',
+      sourceNote: null,
+    },
+  };
+
+  it('shows the full condition AND the shared passage after checking (correct)', async () => {
+    vi.mocked(api.getTask).mockResolvedValue(taskWithPassage);
+    renderResult(true);
+    expect(await screen.findByText(CONDITION)).toBeInTheDocument();
+    expect(screen.getByText('Текст к заданию')).toBeInTheDocument();
+    expect(screen.getByText(PASSAGE_BODY)).toBeInTheDocument();
+  });
+
+  it('shows the full condition AND the shared passage after checking (incorrect)', async () => {
+    vi.mocked(api.getTask).mockResolvedValue(taskWithPassage);
+    renderResult(false);
+    expect(await screen.findByText(CONDITION)).toBeInTheDocument();
+    expect(screen.getByText(PASSAGE_BODY)).toBeInTheDocument();
+  });
+
+  it('shows no passage block for a self-contained task (passage: null)', async () => {
+    vi.mocked(api.getTask).mockResolvedValue(taskWithSolution);
+    renderResult(true);
+    await screen.findByText(CONDITION);
+    expect(screen.queryByText('Текст к заданию')).not.toBeInTheDocument();
+  });
+});
+
 describe('ResultMobile — incorrect state', () => {
   it('shows a calm error state with the correct answer', async () => {
     renderResult(false);

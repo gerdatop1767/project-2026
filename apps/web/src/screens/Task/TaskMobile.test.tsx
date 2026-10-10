@@ -397,6 +397,20 @@ describe('TaskMobile', () => {
       expect(screen.queryByLabelText('Ответ')).not.toBeInTheDocument();
     });
 
+    it('renders **bold** column headers in a matching-task condition as real <strong>, not literal asterisks', async () => {
+      const matchingTask = {
+        ...multiPartTask,
+        conditionMd:
+          'Установите соответствие.\n\n**ПРЕДЛОЖЕНИЯ**\n\nА) Пример А.\n\n**СРЕДСТВА ЯЗЫКА**\n\n1) метафора',
+      };
+      vi.mocked(api.getTask).mockResolvedValue(matchingTask);
+      vi.mocked(api.listTasksByNumber).mockResolvedValue([matchingTask]);
+      renderTask();
+      const heading = await screen.findByText('ПРЕДЛОЖЕНИЯ');
+      expect(heading.tagName).toBe('STRONG');
+      expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+    });
+
     it('submits one object payload once every part is filled', async () => {
       const user = userEvent.setup();
       renderTask();
