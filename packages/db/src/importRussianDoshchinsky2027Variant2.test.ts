@@ -6,12 +6,13 @@ import { createTestDb } from './testing.js';
 
 /**
  * Verifies the Вариант 2 Russian import in isolation, mirroring
- * importRussianDoshchinsky2027Variant1.test.ts. 2 of 27 tasks are
- * intentionally `needs_review` (8, 9) — genuine unresolved derivation
- * questions (a grammatical-error matching task with 2 of 5 pairs
- * unconfirmed, and a root-spelling task whose 4 non-matching rows rely
- * on dictionary vowels this pass could not verify against an official
- * key), not guessed to inflate the published count.
+ * importRussianDoshchinsky2027Variant1.test.ts. Task 9 (root-spelling row
+ * matching) was resolved during a full-base re-audit: rows 2 and 3 are
+ * independently verifiable (критиковать/напоминание/стипендия all "и";
+ * зарядил/состязание/одряхлевший all "я"), giving answer "123" instead of
+ * just "1". Task 8 remains `needs_review`: a second independent pass over
+ * all six remaining candidate sentences found no confirmable error for
+ * its "В" (однородные члены) slot — a genuine unresolved question.
  */
 describe('importRussianVariant2', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
@@ -38,7 +39,7 @@ describe('importRussianVariant2', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks exactly 25 of 27 tasks published, 2 needs_review (8, 9)', async () => {
+  it('marks exactly 26 of 27 tasks published, 1 needs_review (8)', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -48,8 +49,8 @@ describe('importRussianVariant2', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([8, 9]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(25);
+    expect(needsReviewNumbers).toEqual([8]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(26);
   });
 
   it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {
@@ -89,7 +90,7 @@ describe('importRussianVariant2', () => {
     }
   });
 
-  it('needs_review tasks (8, 9) are honest about what is unconfirmed, not silently empty', async () => {
+  it('needs_review task (8) is honest about what is unconfirmed, not silently empty', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -101,7 +102,7 @@ describe('importRussianVariant2', () => {
           eq(schema.tasks.status, 'needs_review'),
         ),
       );
-    expect(rows.length).toBe(2);
+    expect(rows.length).toBe(1);
     for (const row of rows) {
       expect(row.explanationMd.length).toBeGreaterThan(0);
       expect(row.explanationMd).not.toContain('`');

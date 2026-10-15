@@ -11,15 +11,21 @@ import { createTestDb } from './testing.js';
 
 /**
  * Verifies the Russian ЕГЭ task counter arithmetic: 6 imported variants
- * (1, 14-18) × 27 tasks = 162 total, of which 10 remain `needs_review`
- * (each with its own documented, unresolved reason — see the audit2
- * reports) and 152 are `published`. A "why does it say 152" question
- * was raised during a UI audit; this test establishes, against the real
- * import pipeline (not a guess), that 152 is the correct published
- * count for exactly this reason, not a counting bug — so a future
- * change to this number is a real signal, not noise.
+ * (1, 14-18) × 27 tasks = 162 total. A full-base re-audit (covering all
+ * 18 variants, this slice included) resolved variant 16 task 18 and most
+ * of variant 17/18's remaining items (17:10, 17:18, 17:26, 18:5, 18:10,
+ * 18:18) via independent re-verification against source page images;
+ * only variant 15's tasks 6 and 8, and variant 17's task 8, remain
+ * `needs_review` within this 6-variant slice, each with its own
+ * documented, unresolved reason (three independent audit passes each
+ * found no confirmable answer). 159 of 162 tasks in this slice are
+ * `published`. A "why does it say N" question was raised during a UI
+ * audit; this test establishes, against the real import pipeline (not a
+ * guess), that this count is correct for exactly this reason, not a
+ * counting bug — so a future change to this number is a real signal, not
+ * noise.
  */
-describe('Russian ЕГЭ task counts (162 total / 152 published / 10 needs_review)', () => {
+describe('Russian ЕГЭ task counts (162 total / 159 published / 3 needs_review)', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
 
   beforeAll(async () => {
@@ -51,17 +57,17 @@ describe('Russian ЕГЭ task counts (162 total / 152 published / 10 needs_revie
     }
   });
 
-  it('152 published + 10 needs_review = 162 — the "152" the UI shows is correct, not a bug', async () => {
+  it('159 published + 3 needs_review = 162', async () => {
     const { db } = testDb;
     const rows = await db.select().from(schema.tasks).where(eq(schema.tasks.subjectId, 'russian'));
     const published = rows.filter((r) => r.status === 'published');
     const needsReview = rows.filter((r) => r.status === 'needs_review');
-    expect(published).toHaveLength(152);
-    expect(needsReview).toHaveLength(10);
+    expect(published).toHaveLength(159);
+    expect(needsReview).toHaveLength(3);
     expect(published.length + needsReview.length).toBe(rows.length);
   });
 
-  it('every needs_review task is one of the 10 documented, audited ones — nothing unexpectedly unpublished', async () => {
+  it('every needs_review task is one of the 3 documented, audited ones — nothing unexpectedly unpublished', async () => {
     const { db } = testDb;
     const rows = await db.select().from(schema.tasks).where(eq(schema.tasks.subjectId, 'russian'));
     const needsReview = rows
@@ -69,19 +75,8 @@ describe('Russian ЕГЭ task counts (162 total / 152 published / 10 needs_revie
       .map((r) => `${r.sourceVariant}:${r.taskNumber}`)
       .sort();
     // Essay task 27 publishes with a sample in every variant now, so
-    // none of it shows up here — exactly the 10 non-essay items.
-    const expected = [
-      '15:6',
-      '15:8',
-      '16:18',
-      '17:8',
-      '17:10',
-      '17:18',
-      '17:26',
-      '18:5',
-      '18:10',
-      '18:18',
-    ].sort();
+    // none of it shows up here — exactly the 3 non-essay items.
+    const expected = ['15:6', '15:8', '17:8'].sort();
     expect(needsReview).toEqual(expected);
   });
 });
