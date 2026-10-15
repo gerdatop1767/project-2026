@@ -228,6 +228,65 @@ describe('Russian Вариант 1 is browsable through the real API (not just i
     expect(otherUserRes.json().essayAcknowledged).toBe(false);
   });
 
+  it('"Я решил" registers exactly once in the existing progress system (attempts), never duplicated by repeat clicks, never graded as correctness feedback', async () => {
+    const [task27] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.subjectId, 'russian'),
+          eq(schema.tasks.sourceVariant, 1),
+          eq(schema.tasks.taskNumber, 27),
+        ),
+      );
+    const anonId = randomUUID(); // users.id IS the anon id — see apps/api/src/plugins/anonUser.ts
+
+    const beforeAttempts = await testDb.db
+      .select()
+      .from(schema.attempts)
+      .where(and(eq(schema.attempts.userId, anonId), eq(schema.attempts.taskId, task27!.id)));
+    expect(beforeAttempts).toHaveLength(0);
+
+    const firstAck = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tasks/${task27!.id}/essay-ack`,
+      headers: { 'x-anon-id': anonId },
+    });
+    expect(firstAck.statusCode).toBe(200);
+    // Not a graded-attempt response shape — no `correct`/score field, matching
+    // "никогда не выводи «Ответ правильный» и не присваивай баллы" for essays.
+    expect(firstAck.json()).toEqual({ acknowledged: true });
+    expect(firstAck.json()).not.toHaveProperty('correct');
+
+    const afterFirstAck = await testDb.db
+      .select()
+      .from(schema.attempts)
+      .where(and(eq(schema.attempts.userId, anonId), eq(schema.attempts.taskId, task27!.id)));
+    expect(afterFirstAck).toHaveLength(1);
+    expect(afterFirstAck[0]!.isCorrect).toBe(true);
+
+    // Second click: still "ok", but no second attempts row — idempotent progress.
+    const secondAck = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tasks/${task27!.id}/essay-ack`,
+      headers: { 'x-anon-id': anonId },
+    });
+    expect(secondAck.statusCode).toBe(200);
+
+    const afterSecondAck = await testDb.db
+      .select()
+      .from(schema.attempts)
+      .where(and(eq(schema.attempts.userId, anonId), eq(schema.attempts.taskId, task27!.id)));
+    expect(afterSecondAck).toHaveLength(1);
+
+    // Never pollutes "Мои ошибки" — essay completion is never a mistake.
+    const mistakes = await testDb.db
+      .select()
+      .from(schema.mistakes)
+      .where(and(eq(schema.mistakes.userId, anonId), eq(schema.mistakes.taskId, task27!.id)));
+    expect(mistakes).toHaveLength(0);
+  });
+
   it('any attempt against task 27 is rejected with 400 essay_not_gradable, never served as correct/incorrect', async () => {
     const [task27] = await testDb.db
       .select()
