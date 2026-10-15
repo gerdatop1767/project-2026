@@ -38,8 +38,10 @@ import * as schema from './schema.js';
  * (А.И. Солженицын, об искусстве и стиле). See the per-variant audit
  * reports in the scratchpad for full detail. No equivalent corruption was found in this variant's passages (both were checked literally against the task text that quotes them and against the original page scans).
  *
- * 4 of 27 tasks remain `needs_review` after two audit
- * passes: 5, 10, 18, 27 (27 is the essay — always needs_review here; essays are never auto-graded regardless of status, but this repo's Variant 1 precedent only marks an essay task `published` once it carries a genuine `sampleEssayMd`, which was not authored for this variant in this pass, so it honestly stays `needs_review`).
+ * 3 of 27 tasks remain `needs_review` after a third audit pass:
+ * 5, 10, 18. Task 27 (essay) was resolved this pass by authoring a
+ * genuine, clearly-labelled example essay (`sampleEssayMd`) — same
+ * threshold Variant 1 uses to mark an essay task `published`.
  * None of these were guessed to reduce the count — each remaining item is
  * documented with the specific reason it couldn't be confirmed (ambiguous
  * source text, multiple structurally valid candidates, or a result
@@ -608,11 +610,13 @@ const importTasks: readonly ImportTask[] = [
     answerType: 'essay',
     correctAnswer: '',
     explanationMd:
-      'Сочинение не проверяется автоматически. Критерии К1-К12 — см. справочный документ `ESSAY-CRITERIA-K1-K12-CHECKLIST.md`.',
+      'Сочинение не проверяется автоматически (`EssayNotGradableError` — см. `apps/api/src/modules/tasks/service.ts`). Общий справочный чек-лист критериев К1-К12 (структура из официальной методики ФИПИ, НЕ заполненный под этот конкретный текст, НЕ официальная оценка) — см. `docs/imports/ege-russian-essay-criteria-k1-k12-checklist.md`.',
     hintMd:
       'Опирайтесь на эпизод с надписью на памятнике 1812 года и реакцию фашистских солдат (30)-(54) при построении комментария.',
     solutionSteps: [],
-    status: 'needs_review',
+    sampleEssayMd:
+      '*Это пример одного из возможных сочинений по данному тексту — не эталон и не единственно верный вариант. Написан специально для этого задания, опирается на текст С.П. Алексеева (задания 23-26), приведённый выше.*\n\n**Позиция автора**\n\nМоральное состояние солдат на войне во многом зависит от исторической памяти и осознания силы противника, которому они противостоят, — даже грозное, уверенное в себе войско может дрогнуть, столкнувшись с напоминанием о прошлом поражении.\n\n**Комментарий**\n\nВо-первых, автор показывает, как фашистские солдаты, довольные захватом нового рубежа у Студянки (9-10), сталкиваются с надписью на памятнике и узнают, что именно здесь, на Березине, в 1812 году «русская армия... окончательно разгромила полчища» Наполеона (31-32). Этот пример показывает момент столкновения самоуверенности завоевателей с историческим фактом их же поражения на этой земле.\n\nВо-вторых, автор прослеживает, как это знание меняет их поведение: сначала солдаты пытаются отшутиться («не та сила у Наполеона тогда была» (42)), но дальше «песня теперь не песня... вот и вовсе замолкла песня» (46-50), а слово «Березина» становится для них «колючим» (54). Этот пример продолжает первый: исторический факт из простого знания превращается в реально ощутимую тревогу, подтачивающую боевой дух.\n\nОба примера связаны причинно-следственно: знание о прошлом поражении на этой же земле порождает у солдат сомнение в собственной судьбе, и это сомнение прямо отражается на их настроении и поведении.\n\n**Своя позиция**\n\nЯ согласен с автором: историческая память — мощный фактор морального состояния на войне. Подтверждение этому можно найти в истории Сталинградской битвы, где немецкие солдаты, зная о масштабах потерь предыдущих армий в России, также испытывали всё более сильный психологический надлом по мере продвижения вглубь страны.\n\n**Вывод**\n\nТаким образом, моральное состояние солдат зависит не только от текущего хода боёв, но и от того, как история отзывается в настоящем, напоминая о цене прежних завоевательных походов.',
+    status: 'published',
   },
 ];
 

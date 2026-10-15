@@ -37,7 +37,7 @@ describe('importRussianVariant14', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks exactly 26 of 27 tasks published, 1 needs_review (27)', async () => {
+  it('marks exactly 27 of 27 tasks published, 0 needs_review (none)', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -47,11 +47,11 @@ describe('importRussianVariant14', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([27]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(26);
+    expect(needsReviewNumbers).toEqual([]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(27);
   });
 
-  it('task 27 is an essay task with empty correctAnswer, never auto-graded', async () => {
+  it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {
     const { db } = testDb;
     const [task27] = await db
       .select()
@@ -66,8 +66,10 @@ describe('importRussianVariant14', () => {
     expect(task27).toBeDefined();
     expect(task27!.answerType).toBe('essay');
     expect(task27!.correctAnswer).toBe('');
-    expect(task27!.status).toBe('needs_review');
+    expect(task27!.status).toBe('published');
     expect(task27!.passageId).not.toBeNull();
+    expect(task27!.sampleEssayMd).toBeTruthy();
+    expect(task27!.sampleEssayMd).toContain('пример');
   });
 
   it('every published task has a non-empty correctAnswer and explanationMd', async () => {
@@ -78,7 +80,10 @@ describe('importRussianVariant14', () => {
       .where(and(eq(schema.tasks.subjectId, 'russian'), eq(schema.tasks.sourceVariant, 14)));
     for (const row of rows) {
       if (row.status !== 'published') continue;
-      expect(row.correctAnswer.length).toBeGreaterThan(0);
+      // Essay tasks intentionally carry an empty correctAnswer — never graded (EssayNotGradableError).
+      if (row.answerType !== 'essay') {
+        expect(row.correctAnswer.length).toBeGreaterThan(0);
+      }
       expect(row.explanationMd.length).toBeGreaterThan(0);
       expect(row.hintMd?.length ?? 0).toBeGreaterThan(0);
     }
