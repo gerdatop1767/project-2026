@@ -125,6 +125,15 @@ describe('ResultMobile — correct state', () => {
     expect(screen.getByText(EXPLANATION)).toBeInTheDocument();
   });
 
+  it('still reveals the explanation when solutionSteps is [] (not just undefined/null) — Дощинский вариант 14-18 bugfix', async () => {
+    vi.mocked(api.getTask).mockResolvedValue({ ...taskWithSolution, solutionSteps: [] });
+    const user = userEvent.setup();
+    renderResult(true);
+    await screen.findByText('Правильно!');
+    await user.click(screen.getByRole('button', { name: /Показать решение/ }));
+    expect(screen.getByText(EXPLANATION)).toBeInTheDocument();
+  });
+
   it('(J) does not render the canonical solution block for a task without one — existing flow unchanged', async () => {
     const user = userEvent.setup();
     renderResult(true);
