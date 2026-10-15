@@ -6,11 +6,12 @@ import { createTestDb } from './testing.js';
 
 /**
  * Verifies the Вариант 18 Russian import in isolation, mirroring
- * importRussianDoshchinsky2027Variant1.test.ts. 4 of 27 tasks are
- * intentionally `needs_review` (5, 10, 18, 27) — genuine unresolved
- * derivation questions (and the essay task 27, which this variant does not
- * carry a sampleEssayMd for), not guessed to inflate the published count.
- * See variant18-audit2-report.md for the full per-task reasoning.
+ * importRussianDoshchinsky2027Variant1.test.ts. Tasks 5, 10 and 18 were
+ * resolved during a third audit pass (confirmed against the source page
+ * images: task 5's real paronym error, task 10's genuine row3 match via
+ * "проатлантическая" read as "pro-Atlantic policy", and task 18's two
+ * parallel "Знаешь" + elliptical что-clause constructions). All 27 tasks
+ * are now `published`.
  */
 describe('importRussianVariant18', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
@@ -37,7 +38,7 @@ describe('importRussianVariant18', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks exactly 24 of 27 tasks published, 3 needs_review (5, 10, 18)', async () => {
+  it('marks all 27 tasks published, 0 needs_review', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -47,8 +48,8 @@ describe('importRussianVariant18', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([5, 10, 18]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(24);
+    expect(needsReviewNumbers).toEqual([]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(27);
   });
 
   it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {
