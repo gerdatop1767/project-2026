@@ -20,6 +20,7 @@ function task(overrides: Partial<TaskPublic> = {}): TaskPublic {
     topicName: 'Логарифмы',
     difficulty: 2,
     conditionMd: 'Решите уравнение log₂(x) = 3.',
+    passage: null,
     imageUrl: null,
     hintMd: null,
     answerType: 'short_answer',

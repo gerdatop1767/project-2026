@@ -69,6 +69,7 @@ export interface VariantTaskRow {
   position: number;
   task: typeof schema.tasks.$inferSelect;
   topicName: string | null;
+  passage: typeof schema.passages.$inferSelect | null;
 }
 
 /** Ordered by `position` — the exam's own order, never shuffled. Excludes
@@ -81,10 +82,12 @@ export async function listVariantTasks(db: Database, variantId: string): Promise
       position: schema.variantTasks.position,
       task: schema.tasks,
       topicName: schema.topics.name,
+      passage: schema.passages,
     })
     .from(schema.variantTasks)
     .innerJoin(schema.tasks, eq(schema.variantTasks.taskId, schema.tasks.id))
     .leftJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
+    .leftJoin(schema.passages, eq(schema.tasks.passageId, schema.passages.id))
     .where(and(eq(schema.variantTasks.variantId, variantId), eq(schema.tasks.status, 'published')))
     .orderBy(asc(schema.variantTasks.position));
 }

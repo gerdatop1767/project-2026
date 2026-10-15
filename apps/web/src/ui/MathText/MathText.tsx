@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import katex from 'katex';
 import { tokenizeMathText } from './mathTokenizer.js';
+import { parseEmphasis } from './emphasis.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MathText.module.css';
 
@@ -14,12 +15,35 @@ import styles from './MathText.module.css';
  * paragraphs (matches how the source content already uses them to
  * separate "Шаг 1. ...\n\nШаг 2. ...").
  */
-export function MathText({ text, className }: { text: string; className?: string }) {
+export function MathText({
+  text,
+  className,
+  separateInstruction,
+}: {
+  text: string;
+  className?: string;
+  /** Adds extra space below the first paragraph, when there's more
+   * than one. EGE task conditions commonly store a plain instruction
+   * sentence ("Запишите номера ответов.") as the opening paragraph,
+   * immediately followed by the numbered condition itself — the
+   * source content has no separate "instruction" field to split on,
+   * so without this the two read as one unbroken block of text. Pass
+   * this only where that reads as instruction-then-condition (task
+   * conditions); other multi-paragraph content (a passage, an essay
+   * explanation) has no such opening sentence and shouldn't get it. */
+  separateInstruction?: boolean;
+}) {
   const paragraphs = useMemo(() => text.split(/\n{2,}/), [text]);
   return (
     <>
       {paragraphs.map((paragraph, i) => (
-        <p key={i} className={className}>
+        <p
+          key={i}
+          className={clsx(
+            className,
+            separateInstruction && i === 0 && paragraphs.length > 1 && styles.instructionGap,
+          )}
+        >
           <MathLine text={paragraph} />
         </p>
       ))}
@@ -50,12 +74,26 @@ function MathLine({ text }: { text: string }) {
           <Fragment key={i}>
             {lines.map((line, j) => (
               <Fragment key={j}>
-                {line}
+                <EmphasisLine text={line} />
                 {j < lines.length - 1 && <br />}
               </Fragment>
             ))}
           </Fragment>
         );
+      })}
+    </>
+  );
+}
+
+/** Renders one plain-text line with `**bold**`/`*italic*` spans as real `<strong>`/`<em>` — see `parseEmphasis`'s doc comment. */
+function EmphasisLine({ text }: { text: string }) {
+  const tokens = useMemo(() => parseEmphasis(text), [text]);
+  return (
+    <>
+      {tokens.map((token, i) => {
+        if (token.type === 'bold') return <strong key={i}>{token.value}</strong>;
+        if (token.type === 'italic') return <em key={i}>{token.value}</em>;
+        return <Fragment key={i}>{token.value}</Fragment>;
       })}
     </>
   );

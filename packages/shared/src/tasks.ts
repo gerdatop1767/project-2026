@@ -28,6 +28,24 @@ export const taskStatusSchema = z.enum(['draft', 'published', 'archived', 'needs
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 
 /**
+ * A shared reading passage (see `packages/db/src/schema.ts`'s
+ * `passages` table doc comment) — the material a task's `conditionMd`
+ * refers to ("Прочитайте текст и выполните задание") but doesn't
+ * repeat. Sent alongside the task it belongs to, same "before the
+ * attempt" visibility as `conditionMd` (it's condition material, not
+ * the answer) — never gated behind an attempt.
+ */
+export const passageSchema = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string().nullable(),
+  bodyMd: z.string(),
+  sourceAuthor: z.string().nullable(),
+  sourceNote: z.string().nullable(),
+});
+export type Passage = z.infer<typeof passageSchema>;
+
+/**
  * A task as sent to the client BEFORE that user has an attempt on
  * record for it — never `correctAnswer` or `explanation`
  * (docs/ARCHITECTURE.md §4: "never sent to the client before the
@@ -41,6 +59,8 @@ export const taskPublicSchema = z.object({
   topicName: z.string().nullable(),
   difficulty: z.number().int().min(1).max(3),
   conditionMd: z.string(),
+  /** The shared text this task reads, if any — null for a self-contained task. */
+  passage: passageSchema.nullable(),
   imageUrl: z.string().nullable(),
   /** A short, task-specific nudge — same "before the attempt" visibility
    * as `conditionMd`, never the answer. Null when the task doesn't have
@@ -91,8 +111,29 @@ export const taskWithSolutionSchema = taskPublicSchema.extend({
    * never assume this field exists.
    */
   canonicalSolution: canonicalSolutionDtoSchema.optional(),
+  /**
+   * A genuine, authored example essay for an `essay`-type task (e.g.
+   * EGE Russian 27) — grounded in that task's own passage, never a
+   * generic template. `null` when no sample has been prepared yet
+   * (the client must say so explicitly, never fabricate one). Absent
+   * (not present at all) for every non-essay task.
+   */
+  sampleEssayMd: z.string().nullable().optional(),
+  /**
+   * Whether the current user has marked this essay task as "Я решил"
+   * (see `essay_acknowledgements` table) — distinct from a graded
+   * attempt, which essay tasks never have (`EssayNotGradableError`).
+   * Present only alongside `sampleEssayMd`, i.e. only for essay tasks.
+   */
+  essayAcknowledged: z.boolean().optional(),
 });
 export type TaskWithSolution = z.infer<typeof taskWithSolutionSchema>;
+
+/** Response for POST /tasks/:id/essay-ack. */
+export const essayAckResponseSchema = z.object({
+  acknowledged: z.literal(true),
+});
+export type EssayAckResponse = z.infer<typeof essayAckResponseSchema>;
 
 export const taskListQuerySchema = z.object({
   subject: z.string().optional(),

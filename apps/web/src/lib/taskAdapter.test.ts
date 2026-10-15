@@ -5,7 +5,7 @@ import {
   splitMultiPartExplanation,
   toSampleTask,
 } from './taskAdapter.js';
-import type { TaskWithSolution } from '@zybrilka/shared';
+import type { TaskPublic, TaskWithSolution } from '@zybrilka/shared';
 
 describe('splitMultiPartExplanation', () => {
   it('splits on ### headings, trimming heading and body', () => {
@@ -139,6 +139,7 @@ describe('toSampleTask — otherVariants preview (Similar Tasks raw-LaTeX bugfix
     topicName: null,
     difficulty: 3,
     conditionMd: 'Условие основного задания.',
+    passage: null,
     imageUrl: null,
     hintMd: null,
     answerType: 'short_answer',
@@ -170,5 +171,56 @@ describe('toSampleTask — otherVariants preview (Similar Tasks raw-LaTeX bugfix
     const sample = toSampleTask(task, [task, sibling]);
     const dollarCount = (sample.otherVariants[0]!.preview.match(/\$/g) ?? []).length;
     expect(dollarCount % 2).toBe(0);
+  });
+
+  it('passes a task.passage through to sample.passage unchanged', () => {
+    const passage = {
+      id: 'passage-1',
+      slug: 'text-a',
+      title: 'Заголовок',
+      bodyMd: '(1)Текст. (2)Ещё текст.',
+      sourceAuthor: 'Автор',
+      sourceNote: null,
+    };
+    const sample = toSampleTask({ ...task, passage }, []);
+    expect(sample.passage).toEqual(passage);
+  });
+
+  it('maps sampleEssayMd/essayAcknowledged only when the task has a solution (TaskWithSolution)', () => {
+    const essayTask = {
+      ...task,
+      answerType: 'essay' as const,
+      sampleEssayMd: 'Пример сочинения.',
+      essayAcknowledged: true,
+    };
+    const sample = toSampleTask(essayTask, []);
+    expect(sample.sampleEssay).toBe('Пример сочинения.');
+    expect(sample.essayAcknowledged).toBe(true);
+  });
+
+  it('a TaskPublic (no solution yet) never surfaces sampleEssay/essayAcknowledged', () => {
+    const publicTask: TaskPublic = {
+      id: task.id,
+      subjectId: task.subjectId,
+      taskNumber: task.taskNumber,
+      topicId: task.topicId,
+      topicName: task.topicName,
+      difficulty: task.difficulty,
+      conditionMd: task.conditionMd,
+      passage: task.passage,
+      imageUrl: task.imageUrl,
+      hintMd: task.hintMd,
+      answerType: task.answerType,
+      answerOptions: task.answerOptions,
+      answerParts: task.answerParts,
+      source: task.source,
+      sourceUrl: task.sourceUrl,
+      sourceYear: task.sourceYear,
+      tags: task.tags,
+      status: task.status,
+    };
+    const sample = toSampleTask(publicTask, []);
+    expect(sample.sampleEssay).toBeUndefined();
+    expect(sample.essayAcknowledged).toBeUndefined();
   });
 });

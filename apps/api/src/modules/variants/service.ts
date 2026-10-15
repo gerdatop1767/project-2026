@@ -71,7 +71,7 @@ async function buildVariantDetail(
     collection: toCollectionPublic(row.collection),
     tasks: taskRows.map((t) => ({
       position: t.position,
-      task: toPublicTask({ task: t.task, topicName: t.topicName }),
+      task: toPublicTask({ task: t.task, topicName: t.topicName, passage: t.passage }),
     })),
   };
 }

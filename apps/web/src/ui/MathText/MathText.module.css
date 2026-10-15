@@ -102,3 +102,11 @@
 .scrollWrap[data-scrollable='true']:not([data-at-end='true'])::after {
   opacity: 1;
 }
+
+/* Extra breathing room below a task condition's opening instruction
+   sentence, before its numbered/main content — see MathText's
+   `separateInstruction` prop. ~1.5 lines of task-text line-height
+   (28px), reading as a clear break without a visible divider. */
+.instructionGap {
+  margin-bottom: var(--space-10);
+}

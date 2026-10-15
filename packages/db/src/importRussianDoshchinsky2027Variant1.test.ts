@@ -112,6 +112,20 @@ describe('importRussianVariant1 (experimental pilot)', () => {
     expect(osorginPassage!.slug).toContain('osorgin');
   });
 
+  it('task 27 has a genuine sampleEssayMd grounded in the Osorgin text — every other task has sampleEssayMd null', async () => {
+    const { db } = testDb;
+    const rows = await db
+      .select({ taskNumber: schema.tasks.taskNumber, sampleEssayMd: schema.tasks.sampleEssayMd })
+      .from(schema.tasks)
+      .where(and(eq(schema.tasks.subjectId, 'russian'), eq(schema.tasks.sourceVariant, 1)));
+    const byNumber = new Map(rows.map((r) => [r.taskNumber, r.sampleEssayMd]));
+    expect(byNumber.get(27)).toBeTruthy();
+    expect(byNumber.get(27)).toContain('Татьяна Егоровна');
+    for (const [taskNumber, sampleEssayMd] of byNumber) {
+      if (taskNumber !== 27) expect(sampleEssayMd).toBeNull();
+    }
+  });
+
   it('links tasks 1-3 to the shared "train ticket" passage and 23-26 to the shared Osorgin passage', async () => {
     const { db } = testDb;
     const rows = await db
