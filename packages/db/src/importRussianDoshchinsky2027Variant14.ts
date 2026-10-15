@@ -38,8 +38,10 @@ import * as schema from './schema.js';
  * (А.И. Солженицын, об искусстве и стиле). See the per-variant audit
  * reports in the scratchpad for full detail.
  *
- * 1 of 27 tasks remain `needs_review` after two audit
- * passes: 27 (27 is the essay — always needs_review here; essays are never auto-graded regardless of status, but this repo's Variant 1 precedent only marks an essay task `published` once it carries a genuine `sampleEssayMd`, which was not authored for this variant in this pass, so it honestly stays `needs_review`).
+ * None of 27 tasks remain `needs_review` after a third audit pass that
+ * resolved task 27 (essay) by authoring a genuine, clearly-labelled example
+ * essay (`sampleEssayMd`) — same threshold Variant 1 uses to mark an essay
+ * task `published`.
  * None of these were guessed to reduce the count — each remaining item is
  * documented with the specific reason it couldn't be confirmed (ambiguous
  * source text, multiple structurally valid candidates, or a result
@@ -609,11 +611,13 @@ const importTasks: readonly ImportTask[] = [
     answerType: 'essay',
     correctAnswer: '',
     explanationMd:
-      'Сочинение не проверяется автоматически. Критерии К1-К12 — см. справочный документ `ESSAY-CRITERIA-K1-K12-CHECKLIST.md`.',
+      'Сочинение не проверяется автоматически (`EssayNotGradableError` — см. `apps/api/src/modules/tasks/service.ts`). Общий справочный чек-лист критериев К1-К12 (структура из официальной методики ФИПИ, НЕ заполненный под этот конкретный текст, НЕ официальная оценка) — см. `docs/imports/ege-russian-essay-criteria-k1-k12-checklist.md`.',
     hintMd:
       'Опирайтесь на предложения (4), (6), (12), (19), (21) текста Л.Н. Толстого при построении комментария.',
     solutionSteps: [],
-    status: 'needs_review',
+    sampleEssayMd:
+      '*Это пример одного из возможных сочинений по данному тексту — не эталон и не единственно верный вариант. Написан специально для этого задания, опирается на текст Л.Н. Толстого (задания 23-26), приведённый выше.*\n\n**Позиция автора**\n\nСуть учения о непротивлении злу насилием, по Толстому, не в пассивности перед злом, а в отказе бороться со злом его же средствами: единственный способ улучшить общую жизнь людей — это внутреннее совершенствование каждого человека, а не насилие над другими.\n\n**Комментарий**\n\nВо-первых, автор прямо пишет, что человеку «дана власть только над самим собою» (12) и что устраивать чужую жизнь человек не может, как бы ни старался (10). Этот пример показывает: попытки изменить мир через давление на других обречены, потому что направлены не на ту область, где у человека вообще есть реальная власть.\n\nВо-вторых, Толстой даёт прямое наставление: «Делай своё дело жизни, совершенствуя и улучшая свою душу... только этим путём ты будешь содействовать улучшению общей жизни» (20). Этот пример продолжает первый: раз власть человека ограничена им самим, то и единственный путь к лучшему миру — это путь через себя, а не через других.\n\nОба примера связаны причинно: первый объясняет ГРАНИЦУ человеческой власти, второй — что из этой границы СЛЕДУЕТ (единственно возможный путь изменений — самосовершенствование).\n\n**Своя позиция**\n\nЯ согласен с автором: попытки «причинить добро» силой почти всегда дают обратный эффект. Похожая мысль встречается и в русской литературе — например, у Достоевского в «Преступлении и наказании» Раскольников пытается исправить несправедливость мира насилием и приходит не к улучшению, а к собственному разрушению, что подтверждает мысль Толстого на другом материале.\n\n**Вывод**\n\nТаким образом, учение о непротивлении злу насилием — это призыв искать источник перемен не во власти над другими, а в работе над собой.',
+    status: 'published',
   },
 ];
 

@@ -38,8 +38,10 @@ import * as schema from './schema.js';
  * (А.И. Солженицын, об искусстве и стиле). See the per-variant audit
  * reports in the scratchpad for full detail. No equivalent corruption was found in this variant's passages (both were checked literally against the task text that quotes them and against the original page scans).
  *
- * 3 of 27 tasks remain `needs_review` after two audit
- * passes: 6, 8, 27 (27 is the essay — always needs_review here; essays are never auto-graded regardless of status, but this repo's Variant 1 precedent only marks an essay task `published` once it carries a genuine `sampleEssayMd`, which was not authored for this variant in this pass, so it honestly stays `needs_review`).
+ * 2 of 27 tasks remain `needs_review` after a third audit pass:
+ * 6, 8. Task 27 (essay) was resolved this pass by authoring a
+ * genuine, clearly-labelled example essay (`sampleEssayMd`) — same
+ * threshold Variant 1 uses to mark an essay task `published`.
  * None of these were guessed to reduce the count — each remaining item is
  * documented with the specific reason it couldn't be confirmed (ambiguous
  * source text, multiple structurally valid candidates, or a result
@@ -613,11 +615,13 @@ const importTasks: readonly ImportTask[] = [
     answerType: 'essay',
     correctAnswer: '',
     explanationMd:
-      'Сочинение не проверяется автоматически. Критерии К1-К12 — см. справочный документ `ESSAY-CRITERIA-K1-K12-CHECKLIST.md`.',
+      'Сочинение не проверяется автоматически (`EssayNotGradableError` — см. `apps/api/src/modules/tasks/service.ts`). Общий справочный чек-лист критериев К1-К12 (структура из официальной методики ФИПИ, НЕ заполненный под этот конкретный текст, НЕ официальная оценка) — см. `docs/imports/ege-russian-essay-criteria-k1-k12-checklist.md`.',
     hintMd:
       'Опирайтесь на образ наступающего лесопункта и реакцию Анискина при построении комментария.',
     solutionSteps: [],
-    status: 'needs_review',
+    sampleEssayMd:
+      '*Это пример одного из возможных сочинений по данному тексту — не эталон и не единственно верный вариант. Написан специально для этого задания, опирается на текст В.В. Липатова (задания 23-26), приведённый выше.*\n\n**Позиция автора**\n\nАвтор показывает, что губительное вмешательство человека в природу разрушает не только сам лес, но и привычный, веками сложившийся уклад жизни людей рядом с ним — тишину, чистоту, целостность места, которые уже не восстановить.\n\n**Комментарий**\n\nВо-первых, автор подробно описывает, как лесопункт «наступает на деревню с юга» (18): круглые сутки воют моторы, с рассвета до темноты валятся деревья, а в снежном кедраче «уже прореживается серая полоса: пеньки, грязь, ямы да зола» (21). Этот пример показывает физическое, необратимое разрушение природы — на месте живого кедрача остаётся пустошь.\n\nВо-вторых, реакция Анискина — «Вот от такого безобразия тоже можно заболеть!.. И тишины не стало, и воздух тяжёлый...» (22-23) — показывает, что потеря касается не только леса, но и человека: привычная тишина и чистый воздух деревни тоже оказываются жертвой этого вторжения.\n\nОба примера связаны: первый — это физическое последствие (уничтожение леса), второй — его человеческое, ощущаемое следствие (потеря покоя и чистоты для живущих рядом людей).\n\n**Своя позиция**\n\nЯ согласен с автором: бездумное вторжение в природу всегда оборачивается потерями и для самого человека. Похожий пример даёт история Аральского моря, обмелевшего из-за неконтролируемого забора воды на орошение, — целый регион лишился не только воды, но и привычного климата и образа жизни.\n\n**Вывод**\n\nТаким образом, губительное отношение к природе оборачивается не только утратой леса или воды, но и разрушением того привычного мира, в котором живёт сам человек.',
+    status: 'published',
   },
 ];
 

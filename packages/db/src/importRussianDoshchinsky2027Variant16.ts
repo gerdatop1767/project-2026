@@ -38,8 +38,10 @@ import * as schema from './schema.js';
  * (А.И. Солженицын, об искусстве и стиле). See the per-variant audit
  * reports in the scratchpad for full detail. No equivalent corruption was found in this variant's passages (both were checked literally against the task text that quotes them and against the original page scans).
  *
- * 2 of 27 tasks remain `needs_review` after two audit
- * passes: 18, 27 (27 is the essay — always needs_review here; essays are never auto-graded regardless of status, but this repo's Variant 1 precedent only marks an essay task `published` once it carries a genuine `sampleEssayMd`, which was not authored for this variant in this pass, so it honestly stays `needs_review`).
+ * 1 of 27 tasks remain `needs_review` after a third audit pass:
+ * 18. Task 27 (essay) was resolved this pass by authoring a
+ * genuine, clearly-labelled example essay (`sampleEssayMd`) — same
+ * threshold Variant 1 uses to mark an essay task `published`.
  * None of these were guessed to reduce the count — each remaining item is
  * documented with the specific reason it couldn't be confirmed (ambiguous
  * source text, multiple structurally valid candidates, or a result
@@ -612,11 +614,13 @@ const importTasks: readonly ImportTask[] = [
     answerType: 'essay',
     correctAnswer: '',
     explanationMd:
-      'Сочинение не проверяется автоматически. Критерии К1-К12 — см. справочный документ `ESSAY-CRITERIA-K1-K12-CHECKLIST.md`.',
+      'Сочинение не проверяется автоматически (`EssayNotGradableError` — см. `apps/api/src/modules/tasks/service.ts`). Общий справочный чек-лист критериев К1-К12 (структура из официальной методики ФИПИ, НЕ заполненный под этот конкретный текст, НЕ официальная оценка) — см. `docs/imports/ege-russian-essay-criteria-k1-k12-checklist.md`.',
     hintMd:
       'Опирайтесь на музыкальную метафору оркестра (28)-(32) и полёт с цаплей (38)-(45) при построении комментария.',
     solutionSteps: [],
-    status: 'needs_review',
+    sampleEssayMd:
+      '*Это пример одного из возможных сочинений по данному тексту — не эталон и не единственно верный вариант. Написан специально для этого задания, опирается на текст И.В. Карлова (задания 23-26), приведённый выше.*\n\n**Позиция автора**\n\nПрирода способна не просто вызывать эстетическое удовольствие, а полностью преображать внутреннее состояние человека — дарить ощущение полёта, свободы и единения с миром, недоступное в обычной жизни.\n\n**Комментарий**\n\nВо-первых, автор разворачивает развёрнутую метафору: тишина Бежина луга рождает звуки целого оркестра — «струнные вибрируют... медные духовые инструменты и литавры мощно вступают... арфы переливами своих солнечных струн ведут неведомую мелодию» (28-32). Этот пример показывает, что для героя природа — не молчаливый фон, а живая, звучащая сила, которая сама обращается к человеку.\n\nВо-вторых, наблюдая за полётом цапли, герой переживает почти физическое ощущение собственного полёта: «мы с цаплей парим, делаем круги, любуемся миром и радуемся воле... мнится, что плывёшь ты над землёй» (41-44). Этот пример продолжает первый: от звукового переживания природы герой переходит к ощущению телесной свободы, слитности с ней.\n\nОба примера связаны: оба показывают, как природа стирает границу между наблюдателем и собой — сначала через звук, затем через движение, превращая созерцание в почти физическое переживание.\n\n**Своя позиция**\n\nЯ согласен с автором: природа действительно обладает способностью менять внутреннее состояние человека сильнее многих искусственных впечатлений. Вспоминается, как в литературе путешественники и исследователи (например, герои очерков о путешествиях) неоднократно описывали подобные моменты единения с ландшафтом как переломные для своего мировосприятия.\n\n**Вывод**\n\nТаким образом, сила воздействия природы на человека — в её способности не просто радовать глаз, а преображать само ощущение себя в мире.',
+    status: 'published',
   },
 ];
 

@@ -38,8 +38,10 @@ import * as schema from './schema.js';
  * (А.И. Солженицын, об искусстве и стиле). See the per-variant audit
  * reports in the scratchpad for full detail. No equivalent corruption was found in this variant's passages (both were checked literally against the task text that quotes them and against the original page scans).
  *
- * 5 of 27 tasks remain `needs_review` after two audit
- * passes: 8, 10, 18, 26, 27 (27 is the essay — always needs_review here; essays are never auto-graded regardless of status, but this repo's Variant 1 precedent only marks an essay task `published` once it carries a genuine `sampleEssayMd`, which was not authored for this variant in this pass, so it honestly stays `needs_review`).
+ * 4 of 27 tasks remain `needs_review` after a third audit pass:
+ * 8, 10, 18, 26. Task 27 (essay) was resolved this pass by authoring a
+ * genuine, clearly-labelled example essay (`sampleEssayMd`) — same
+ * threshold Variant 1 uses to mark an essay task `published`.
  * None of these were guessed to reduce the count — each remaining item is
  * documented with the specific reason it couldn't be confirmed (ambiguous
  * source text, multiple structurally valid candidates, or a result
@@ -611,11 +613,13 @@ const importTasks: readonly ImportTask[] = [
     answerType: 'essay',
     correctAnswer: '',
     explanationMd:
-      'Сочинение не проверяется автоматически. Критерии К1-К12 — см. справочный документ `ESSAY-CRITERIA-K1-K12-CHECKLIST.md`.',
+      'Сочинение не проверяется автоматически (`EssayNotGradableError` — см. `apps/api/src/modules/tasks/service.ts`). Общий справочный чек-лист критериев К1-К12 (структура из официальной методики ФИПИ, НЕ заполненный под этот конкретный текст, НЕ официальная оценка) — см. `docs/imports/ege-russian-essay-criteria-k1-k12-checklist.md`.',
     hintMd:
       'Опирайтесь на сцену ночной игры Крендылькова (53)-(66) и сближение героев через музыку при построении комментария.',
     solutionSteps: [],
-    status: 'needs_review',
+    sampleEssayMd:
+      '*Это пример одного из возможных сочинений по данному тексту — не эталон и не единственно верный вариант. Написан специально для этого задания, опирается на текст Н.С. Дашевской (задания 23-26), приведённый выше.*\n\n**Позиция автора**\n\nМузыка способна раскрыть в человеке то, что скрыто за внешностью и привычными ролями, и тем самым разрушить предвзятость, изменить отношение к другому человеку.\n\n**Комментарий**\n\nВо-первых, до момента, когда Тимка случайно слышит ночную игру Крендылькова, он видит в нём только нелепого, смешного учителя — «невзлюбил... всё, от дурацкой майки до очков» (30). Но услышав, как Крендельков играет Баха в пустом классе, Тимка впервые видит его иначе: «Без очков он выглядел старше... Такой, какого Тимка никогда не видел» (62-65). Этот пример показывает, что музыка открывает в человеке глубину, незаметную в повседневном общении.\n\nВо-вторых, после этой сцены между героями происходит настоящий разговор, и Тимка чувствует, как «стенка... трещит по всем швам» (86), а затем и вовсе рушится (99). Этот пример продолжает первый: пережитое вместе музыкальное впечатление становится мостом к доверию и человеческой близости, которых не было раньше.\n\nОба примера связаны причинно: сначала музыка меняет ВОСПРИЯТИЕ одного человека другим, а затем это новое восприятие делает возможным настоящий, честный разговор между ними.\n\n**Своя позиция**\n\nЯ согласен с автором: музыка нередко становится точкой, где случайные, формальные отношения превращаются в настоящие. Похожий сюжет — в фильмах и книгах о музыкантах, где совместное исполнение или просто совместное слушание музыки сближает людей быстрее любых слов.\n\n**Вывод**\n\nТаким образом, музыка влияет на человека не только эмоционально, но и меняет его отношения с другими людьми, открывая то, что обычная повседневность скрывает.',
+    status: 'published',
   },
 ];
 

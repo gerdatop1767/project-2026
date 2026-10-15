@@ -503,6 +503,42 @@ describe('TaskMobile', () => {
         ),
       ).toBeInTheDocument();
     });
+
+    it('never shows a correctness message for an essay — no "Ответ правильный", no score, after "Я решил"', async () => {
+      const user = userEvent.setup();
+      renderTask();
+      await screen.findByText(CONDITION);
+      await user.click(screen.getByRole('button', { name: /Я решил/ }));
+      await waitFor(() => expect(api.acknowledgeEssay).toHaveBeenCalledWith(TASK_ID));
+      expect(screen.queryByText(/Ответ правильный/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Правильно!/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/баллов/i)).not.toBeInTheDocument();
+    });
+
+    it('still lets the user finish the task when no sample essay was prepared, honestly saying so', async () => {
+      vi.mocked(api.getTask).mockResolvedValue({ ...essayTask, sampleEssayMd: null });
+      const user = userEvent.setup();
+      renderTask();
+      await screen.findByText(CONDITION);
+
+      await user.click(screen.getByRole('button', { name: /Я решил/ }));
+      await waitFor(() => expect(api.acknowledgeEssay).toHaveBeenCalledWith(TASK_ID));
+      expect(await screen.findByText('Отмечено как решённое')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Пример решения' }));
+      expect(
+        await screen.findByText('Пример сочинения для этого задания пока не подготовлен.'),
+      ).toBeInTheDocument();
+    });
+
+    it('reopening the task (server already has essayAcknowledged: true) shows it as done without a second click', async () => {
+      vi.mocked(api.getTask).mockResolvedValue({ ...essayTask, essayAcknowledged: true });
+      renderTask();
+      await screen.findByText(CONDITION);
+      expect(await screen.findByText('Отмечено как решённое')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Я решил$/ })).not.toBeInTheDocument();
+      expect(api.acknowledgeEssay).not.toHaveBeenCalled();
+    });
   });
 
   describe('Пропустить (skip)', () => {

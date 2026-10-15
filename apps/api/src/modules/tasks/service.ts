@@ -157,8 +157,18 @@ export class NotAnEssayTaskError extends Error {
 /**
  * Records "Я решил" for an essay task — deliberately NOT a graded
  * attempt (essay tasks are never auto-graded, see
- * `EssayNotGradableError`): just "the user says they wrote it",
- * idempotent across repeat clicks (see `repo.acknowledgeEssay`).
+ * `EssayNotGradableError`): no correctness is decided, no points are
+ * assigned, no mistake/skill-statistics/error-signature machinery
+ * (all built around objectively right/wrong answers) is touched.
+ *
+ * It still needs to register as "task completed" in the existing
+ * progress system rather than a parallel one, so on the FIRST ack for
+ * this user+task only (see `repo.acknowledgeEssay`'s return value —
+ * false on every repeat click, so this block never runs twice) it
+ * writes one plain `attempts` row (`isCorrect: true` — "done", not a
+ * quality grade) and records daily activity for the streak, exactly
+ * like `submitAttempt` would for a gradable task. Idempotent across
+ * repeat clicks: a second "Я решил" is a no-op, no duplicate progress.
  */
 export async function acknowledgeEssay(
   db: Database,
@@ -168,7 +178,19 @@ export async function acknowledgeEssay(
   const row = await repo.getTaskById(db, taskId);
   if (!row) return 'not_found';
   if (row.task.answerType !== 'essay') throw new NotAnEssayTaskError();
-  await repo.acknowledgeEssay(db, userId, taskId);
+
+  await db.transaction(async (tx) => {
+    const isFirstAck = await repo.acknowledgeEssay(tx, userId, taskId);
+    if (!isFirstAck) return;
+    const attempt = await repo.createAttempt(tx, {
+      userId,
+      taskId,
+      answerRaw: '',
+      isCorrect: true,
+    });
+    await repo.recordDailyActivity(tx, userId, toMoscowDateString(attempt.createdAt));
+  });
+
   return 'ok';
 }
 
