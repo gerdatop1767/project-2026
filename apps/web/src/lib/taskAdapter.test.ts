@@ -224,3 +224,67 @@ describe('toSampleTask — otherVariants preview (Similar Tasks raw-LaTeX bugfix
     expect(sample.essayAcknowledged).toBeUndefined();
   });
 });
+
+/**
+ * Bugfix: a task whose `solutionSteps` is an empty array (present, just
+ * empty — not null) used to render NO solution at all, because
+ * `task.solutionSteps?.map(...) ?? fallback` only falls back on
+ * null/undefined, and `[].map(...)` is `[]`, which is not nullish. This
+ * silently hid every explanation for every Дощинский ЕГЭ 2027 русский
+ * язык вариант 14-18 task (all 135 of them import with
+ * `solutionSteps: []`, real content living only in `explanationMd`) —
+ * the user saw an answer with zero explanation text anywhere on the
+ * Result screen. `steps` must fall back to one block holding
+ * `explanationMd` whenever `solutionSteps` is null OR empty, matching
+ * what already happens for `solutionSteps: null`.
+ */
+describe('toSampleTask — steps fallback for empty solutionSteps (variant 14-18 bugfix)', () => {
+  const baseTask: TaskWithSolution = {
+    id: 'task-empty-steps',
+    subjectId: 'russian',
+    taskNumber: 1,
+    topicId: null,
+    topicName: null,
+    difficulty: 2,
+    conditionMd: 'Условие.',
+    passage: null,
+    imageUrl: null,
+    hintMd: null,
+    answerType: 'short_answer',
+    answerOptions: null,
+    answerParts: null,
+    source: 'Дощинский',
+    sourceUrl: null,
+    sourceYear: 2027,
+    tags: [],
+    status: 'published',
+    correctAnswer: 'это',
+    correctAnswerDisplay: null,
+    explanationMd: 'Полное объяснение: почему именно это слово подходит по контексту.',
+    solutionSteps: [],
+  };
+
+  it('falls back to one step holding explanationMd when solutionSteps is [] (not just null)', () => {
+    const sample = toSampleTask(baseTask, []);
+    expect(sample.steps).toEqual([
+      { text: 'Полное объяснение: почему именно это слово подходит по контексту.' },
+    ]);
+  });
+
+  it('still uses the real named steps when solutionSteps is actually populated', () => {
+    const withSteps = {
+      ...baseTask,
+      solutionSteps: [{ title: 'Шаг 1', explanation: 'Делаем так.' }],
+    };
+    const sample = toSampleTask(withSteps, []);
+    expect(sample.steps).toEqual([{ title: 'Шаг 1', text: 'Делаем так.' }]);
+  });
+
+  it('still falls back correctly when solutionSteps is null', () => {
+    const withNull = { ...baseTask, solutionSteps: null };
+    const sample = toSampleTask(withNull, []);
+    expect(sample.steps).toEqual([
+      { text: 'Полное объяснение: почему именно это слово подходит по контексту.' },
+    ]);
+  });
+});

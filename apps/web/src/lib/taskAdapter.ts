@@ -68,10 +68,18 @@ export function toSampleTask(
     correctAnswerDisplay: hasSolution ? task.correctAnswerDisplay : null,
     explanation: hasSolution ? task.explanationMd : '',
     hint: task.hintMd ?? '',
+    // `?? fallback` alone misses this: an imported task can carry
+    // `solutionSteps: []` (present, just empty — not null/undefined),
+    // e.g. every Дощинский ЕГЭ 2027 русский язык variant 14-18 task,
+    // where the real explanation lives in `explanationMd` alone and
+    // was never broken into named steps. `?? []` would then win over
+    // the fallback and silently render NO solution at all — exactly
+    // the bug reported for variants 14-18 (answer shown, explanation
+    // never rendered even though it's fully present in the data).
     steps: hasSolution
-      ? (task.solutionSteps?.map((s) => ({ title: s.title, text: s.explanation })) ?? [
-          { text: task.explanationMd },
-        ])
+      ? task.solutionSteps && task.solutionSteps.length > 0
+        ? task.solutionSteps.map((s) => ({ title: s.title, text: s.explanation }))
+        : [{ text: task.explanationMd }]
       : [],
     canonicalSolution: hasSolution ? task.canonicalSolution : undefined,
     sampleEssay: hasSolution ? task.sampleEssayMd : undefined,
