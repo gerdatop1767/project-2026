@@ -101,6 +101,12 @@ describe('ResultDesktop — correct state', () => {
     expect(screen.queryByRole('button', { name: 'Краткое решение' })).not.toBeInTheDocument();
   });
 
+  it('still shows the explanation when solutionSteps is [] (not just undefined/null) — Дощинский вариант 14-18 bugfix', async () => {
+    vi.mocked(api.getTask).mockResolvedValue({ ...taskWithSolution, solutionSteps: [] });
+    renderResult(true);
+    expect(await screen.findByText(EXPLANATION)).toBeInTheDocument();
+  });
+
   it('(J) does not render the canonical solution block for a task without one — existing flow unchanged', async () => {
     renderResult(true);
     await screen.findByText(EXPLANATION);
