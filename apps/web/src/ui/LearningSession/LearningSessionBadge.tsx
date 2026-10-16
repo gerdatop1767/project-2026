@@ -12,9 +12,7 @@ export function LearningSessionBadge({
 }: {
   session: Extract<LearningSessionState, { status: 'active' }>;
 }) {
-  const label = session.variant
-    ? `Вариант ${session.variant.variantNumber}`
-    : 'Тренировка';
+  const label = session.variant ? `Вариант ${session.variant.variantNumber}` : 'Тренировка';
   return (
     <Chip selected icon={session.variant ? 'variant' : 'smart'}>
       {label} · {session.position} из {session.total}

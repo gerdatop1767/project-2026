@@ -158,7 +158,11 @@ export function StatisticsMobile() {
   // itself is correctly null-until-loaded, but collapsing it to 0 here
   // threw that honesty away for the UI).
   const solvedTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
-  const accuracyPercent = subjectRow ? Math.round(subjectRow.accuracyPercent) : realProgress ? 0 : null;
+  const accuracyPercent = subjectRow
+    ? Math.round(subjectRow.accuracyPercent)
+    : realProgress
+      ? 0
+      : null;
   // Real published-task count for this subject — same `total` the
   // by-task-number grid below is built from (never the static
   // `subject.taskCount` demo field, which no longer reflects the real
@@ -275,7 +279,10 @@ export function StatisticsMobile() {
             <div className={styles.cardHeaderRow}>
               <p className="text-h3">Задания по номерам</p>
             </div>
-            <p className="text-body-sm text-secondary" style={{ marginTop: 'calc(var(--space-2) * -1)' }}>
+            <p
+              className="text-body-sm text-secondary"
+              style={{ marginTop: 'calc(var(--space-2) * -1)' }}
+            >
               Нажми на номер задания, чтобы посмотреть подробную статистику
             </p>
             <TaskNumberGrid rows={taskNumberProgress} onSelect={openDetail} />

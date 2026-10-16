@@ -169,7 +169,11 @@ export function StatisticsDesktop() {
   // (same mobile-flash bug fixed in Subject/Profile/StatisticsMobile).
   const solvedTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
   const correctTotal = subjectRow?.correct ?? 0;
-  const correctPercent = subjectRow ? Math.round(subjectRow.accuracyPercent) : realProgress ? 0 : null;
+  const correctPercent = subjectRow
+    ? Math.round(subjectRow.accuracyPercent)
+    : realProgress
+      ? 0
+      : null;
 
   const taskNumberProgress = useMemo(
     () => toTaskNumberProgress(taskNumberItems),

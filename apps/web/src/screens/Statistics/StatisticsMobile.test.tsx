@@ -173,7 +173,17 @@ describe('StatisticsMobile', () => {
 
   it('every task-number card is a real tappable button', async () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 1, total: 4, completed: 3, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 1,
+          total: 4,
+          completed: 3,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     const user = userEvent.setup();
     renderWithNav();
@@ -196,8 +206,24 @@ describe('StatisticsMobile — real progress data', () => {
   it('shows real per-task-number completion once the API responds, including untried numbers', async () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
       items: [
-        { subjectId: 'math', taskNumber: 1, total: 4, completed: 3, correct: 0, incorrect: 0, accuracyPercent: null },
-        { subjectId: 'math', taskNumber: 2, total: 5, completed: 0, correct: 0, incorrect: 0, accuracyPercent: null },
+        {
+          subjectId: 'math',
+          taskNumber: 1,
+          total: 4,
+          completed: 3,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+        {
+          subjectId: 'math',
+          taskNumber: 2,
+          total: 5,
+          completed: 0,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
       ],
     });
     const user = userEvent.setup();
@@ -216,7 +242,9 @@ describe('StatisticsMobile — real progress data', () => {
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
-      bySubject: [{ subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 }],
+      bySubject: [
+        { subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],
@@ -247,7 +275,9 @@ describe('StatisticsMobile — real progress data', () => {
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
-      bySubject: [{ subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 }],
+      bySubject: [
+        { subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],
@@ -284,7 +314,17 @@ describe('StatisticsMobile — real progress data', () => {
 describe('StatisticsMobile — По номерам detail (Statistics 2.0)', () => {
   it('tapping a task number opens a full-screen detail with real data and a working back button', async () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 5, total: 4, completed: 3, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 5,
+          total: 4,
+          completed: 3,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     vi.mocked(api.getTaskNumberStatisticsDetail).mockResolvedValue({
       subjectId: 'math',

@@ -120,7 +120,11 @@ describe('GET /api/v1/progress/streak', () => {
     await seedActivity(userB, [daysAgoMoscow(0), daysAgoMoscow(1), daysAgoMoscow(2)]);
     await ensureUser(userA);
     const res = await streak(userA);
-    expect(res.json()).toMatchObject({ currentStreak: 0, isActiveToday: false, lastActiveDate: null });
+    expect(res.json()).toMatchObject({
+      currentStreak: 0,
+      isActiveToday: false,
+      lastActiveDate: null,
+    });
   });
 
   it('resolves "today" using Europe/Moscow, never the server/browser local timezone', async () => {

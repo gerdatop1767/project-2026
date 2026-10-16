@@ -316,7 +316,9 @@ export function SubjectMobile({ subjectId, collectionSlug, initialMode }: Subjec
             <p className="text-h3">Твой прогресс</p>
             <div className={styles.progressRing}>
               <CircularProgress value={accuracyPercent ?? 0} size={96} strokeWidth={9}>
-                <span className="text-h2">{accuracyPercent !== null ? `${accuracyPercent}%` : '···'}</span>
+                <span className="text-h2">
+                  {accuracyPercent !== null ? `${accuracyPercent}%` : '···'}
+                </span>
               </CircularProgress>
             </div>
             <p className="text-body-sm text-secondary" style={{ textAlign: 'center' }}>
