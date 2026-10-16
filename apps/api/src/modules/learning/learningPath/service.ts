@@ -176,9 +176,7 @@ export async function getLearningPath(
   // same spirit as the correctly-attempted fallback just above.
   let pool = fallbackPool;
   if (context.unseenOnly) {
-    const attempted = new Set(
-      await recommendationRepo.getAttemptedTaskIds(db, userId, subjectId),
-    );
+    const attempted = new Set(await recommendationRepo.getAttemptedTaskIds(db, userId, subjectId));
     const neverAttempted = fallbackPool.filter((c) => !attempted.has(c.taskId));
     if (neverAttempted.length > 0) pool = neverAttempted;
   }
@@ -188,9 +186,7 @@ export async function getLearningPath(
   // everything else in the subject is also already solved/attempted.
   const excludeTaskIdSet = new Set(context.excludeTaskIds ?? []);
   const candidates =
-    excludeTaskIdSet.size > 0
-      ? pool.filter((c) => !excludeTaskIdSet.has(c.taskId))
-      : pool;
+    excludeTaskIdSet.size > 0 ? pool.filter((c) => !excludeTaskIdSet.has(c.taskId)) : pool;
 
   const [
     masteryRows,
@@ -344,7 +340,9 @@ export async function getLearningPath(
 
     scoredRemaining.sort(compareLearningPathCandidates);
     const chosen = context.randomizeTopTier
-      ? scoredRemaining[Math.floor(Math.random() * Math.min(RANDOMIZE_TOP_TIER_SIZE, scoredRemaining.length))]!
+      ? scoredRemaining[
+          Math.floor(Math.random() * Math.min(RANDOMIZE_TOP_TIER_SIZE, scoredRemaining.length))
+        ]!
       : scoredRemaining[0]!;
     selectedSteps.push({
       position,

@@ -519,11 +519,7 @@ export function Training() {
               <Chip icon="dice" selected={smartRandom} onClick={() => setSmartRandom((v) => !v)}>
                 Случайное
               </Chip>
-              <Chip
-                icon="retry"
-                selected={smartUnseen}
-                onClick={() => setSmartUnseen((v) => !v)}
-              >
+              <Chip icon="retry" selected={smartUnseen} onClick={() => setSmartUnseen((v) => !v)}>
                 Только нерешённые
               </Chip>
             </div>

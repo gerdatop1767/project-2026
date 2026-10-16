@@ -3,11 +3,7 @@ import { schema } from '@zybrilka/db';
 import { createImportedTestDb } from '@zybrilka/db/testing';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-  advanceLearningSession,
-  getVariantProgress,
-  startVariantSession,
-} from './service.js';
+import { advanceLearningSession, getVariantProgress, startVariantSession } from './service.js';
 import { submitAttempt } from '../../tasks/service.js';
 import * as tasksRepo from '../../tasks/repo.js';
 

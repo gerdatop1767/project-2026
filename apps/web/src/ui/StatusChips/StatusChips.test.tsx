@@ -108,8 +108,16 @@ describe('StatusChips — streak-increase animation', () => {
 
   it('pulses only when a refresh genuinely raises the known streak value', async () => {
     vi.mocked(api.getStreak)
-      .mockResolvedValueOnce({ currentStreak: 5, lastActiveDate: '2026-10-02', isActiveToday: false })
-      .mockResolvedValueOnce({ currentStreak: 6, lastActiveDate: '2026-10-03', isActiveToday: true });
+      .mockResolvedValueOnce({
+        currentStreak: 5,
+        lastActiveDate: '2026-10-02',
+        isActiveToday: false,
+      })
+      .mockResolvedValueOnce({
+        currentStreak: 6,
+        lastActiveDate: '2026-10-03',
+        isActiveToday: true,
+      });
     const user = userEvent.setup();
     render(
       <StreakProvider>
