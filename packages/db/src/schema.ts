@@ -1,5 +1,6 @@
 import {
   boolean,
+  customType,
   date,
   index,
   integer,
@@ -27,6 +28,9 @@ export const appSettings = pgTable('app_settings', {
  * this is not an auth system, it's the FK target auth will attach to
  * later (`auth_identities` etc.), added when S3 actually lands.
  */
+/** Providers that can supply a display profile (email carries none). */
+export const profileSources = ['vk', 'telegram'] as const;
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -40,9 +44,23 @@ export const users = pgTable('users', {
   firstName: text('first_name'),
   lastName: text('last_name'),
   avatarUrl: text('avatar_url'),
+  /**
+   * Manual override typed by the user in the profile. Never written by a
+   * sign-in: while it is set it wins over `firstName`/`lastName`, and
+   * clearing it (null) falls back to the provider's name. Kept apart from
+   * the provider fields on purpose so the two can never be confused.
+   */
+  displayName: text('display_name'),
+  /**
+   * Which provider last filled `firstName`/`lastName`/`avatarUrl`.
+   * A refresh at sign-in is accepted from that provider (or into empty
+   * fields), so a user holding both VK and Telegram does not see their
+   * name flip with every login. Null = nothing filled yet.
+   */
+  profileSource: text('profile_source', { enum: profileSources }),
 });
 
-export const authProviders = ['email', 'vk'] as const;
+export const authProviders = ['email', 'vk', 'telegram'] as const;
 
 /**
  * Identity an authenticated user signs in with — email (magic link) or
@@ -66,6 +84,45 @@ export const authIdentities = pgTable(
   (table) => [
     uniqueIndex('auth_identities_provider_user_idx').on(table.provider, table.providerUserId),
   ],
+);
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+/** Where a locally stored avatar image came from. */
+export const avatarSources = ['user', 'telegram'] as const;
+
+/**
+ * Locally stored avatar images — at most one per (user, source): an image
+ * the user uploaded themselves (`user`, always wins) and one downloaded
+ * through the Telegram bot as a fallback when Mini App data carried no
+ * photo URL (`telegram`). Bytes live in Postgres on purpose: avatars are
+ * small (the API caps uploads at 1 MiB), the stack has no object storage,
+ * and a single database keeps backup/restore one step. Only the owner can
+ * read them (apps/api serves them behind the session check).
+ */
+export const userAvatars = pgTable(
+  'user_avatars',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    source: text('source', { enum: avatarSources }).notNull(),
+    contentType: text('content_type').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    /** Hex SHA-256 of `data`; its prefix versions the avatar URL for caching. */
+    sha256: text('sha256').notNull(),
+    data: bytea('data').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('user_avatars_user_source_idx').on(table.userId, table.source)],
 );
 
 /**

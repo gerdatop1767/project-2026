@@ -167,7 +167,10 @@ describe('auth (magic-link + VK ID + session)', () => {
         email,
         firstName: null,
         lastName: null,
+        customName: null,
+        displayName: null,
         avatarUrl: null,
+        hasCustomAvatar: false,
         onboardingCompleted: false,
       },
     });
