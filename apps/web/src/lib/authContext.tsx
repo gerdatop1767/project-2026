@@ -9,7 +9,14 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthUser } from '@zybrilka/shared';
-import { getCurrentUser, logout as apiLogout, onUnauthorized } from './api.js';
+import {
+  ApiError,
+  getCurrentUser,
+  loginWithTelegram,
+  logout as apiLogout,
+  onUnauthorized,
+} from './api.js';
+import { getTelegramInitData, prepareTelegramApp } from './telegramMiniApp.js';
 import { resetPrivateCaches } from './privateCaches.js';
 
 /**
@@ -37,13 +44,41 @@ interface AuthContextValue {
    * be told, instead of pretending to sign out while the real session
    * stays alive. */
   readonly logout: () => Promise<void>;
+  /** Replaces the signed-in user with a fresher copy the server just
+   * returned (name/avatar edits, linking) so every screen updates at once,
+   * without another `/auth/me` round trip. Same account only. */
+  readonly updateUser: (user: AuthUser) => void;
+  /** Why the automatic Telegram sign-in failed (`null` = not attempted or
+   * fine). A short server code such as `telegram_data_expired`. */
+  readonly telegramError: string | null;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
   user: undefined,
   refresh: async () => {},
   logout: async () => {},
+  updateUser: () => {},
+  telegramError: null,
 });
+
+/** After an explicit sign-out inside Telegram, don't sign straight back in
+ * on the reload. Per WebView session only. */
+const TG_OPT_OUT_KEY = 'zybrilka_tg_signed_out';
+function telegramOptedOut(): boolean {
+  try {
+    return window.sessionStorage.getItem(TG_OPT_OUT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function setTelegramOptOut(value: boolean) {
+  try {
+    if (value) window.sessionStorage.setItem(TG_OPT_OUT_KEY, '1');
+    else window.sessionStorage.removeItem(TG_OPT_OUT_KEY);
+  } catch {
+    // storage unavailable — worst case the user is signed in again on reload
+  }
+}
 
 /** After a real logout, replace the whole document: it drops every
  * in-memory cache (progress, streak, learning session, favorites, open
@@ -67,6 +102,7 @@ export function AuthProvider({
   // check resolves) — lets `applyUser` tell "same user re-checked" from
   // "signed out / switched account".
   const currentUserId = useRef<string | null | undefined>(undefined);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
 
   const applyUser = useCallback((next: AuthUser | null) => {
     const previousId = currentUserId.current;
@@ -80,18 +116,40 @@ export function AuthProvider({
     setUser(next);
   }, []);
 
+  /** Inside a Telegram Mini App with no session yet: sign in (or register)
+   * with the signed launch data. The server verifies it; any failure just
+   * leaves the normal login screen in place. */
+  const signInWithTelegram = useCallback(async (): Promise<AuthUser | null> => {
+    const initData = getTelegramInitData();
+    if (!initData || telegramOptedOut()) return null;
+    try {
+      const res = await loginWithTelegram(initData);
+      setTelegramError(null);
+      return res.user;
+    } catch (error) {
+      const code =
+        error instanceof ApiError && (error.body as { error?: unknown } | undefined)?.error;
+      setTelegramError(typeof code === 'string' ? code : 'telegram_unavailable');
+      return null;
+    }
+  }, []);
+
   const refresh = useCallback(
     () =>
       getCurrentUser()
-        .then((res) => applyUser(res.user))
+        .then(async (res) => applyUser(res.user ?? (await signInWithTelegram())))
         .catch(() => {
           // No backend / offline — treat as signed out rather than
           // leaving the UI stuck on "checking". Private data is
           // unreachable anyway.
           applyUser(null);
         }),
-    [applyUser],
+    [applyUser, signInWithTelegram],
   );
+
+  useEffect(() => {
+    prepareTelegramApp();
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -104,13 +162,23 @@ export function AuthProvider({
 
   const logout = useCallback(async () => {
     await apiLogout();
+    if (getTelegramInitData()) setTelegramOptOut(true);
     applyUser(null);
     onSignedOut();
   }, [applyUser, onSignedOut]);
 
+  const updateUser = useCallback(
+    (next: AuthUser) => {
+      // A profile response always belongs to the signed-in account; ignore
+      // one that doesn't (e.g. a late response after switching accounts).
+      if (currentUserId.current === next.id) applyUser(next);
+    },
+    [applyUser],
+  );
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, refresh, logout }),
-    [user, refresh, logout],
+    () => ({ user, refresh, logout, updateUser, telegramError }),
+    [user, refresh, logout, updateUser, telegramError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

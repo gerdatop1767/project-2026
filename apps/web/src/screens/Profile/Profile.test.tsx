@@ -9,6 +9,13 @@ import * as api from '../../lib/api.js';
 vi.mock('../../lib/api.js', () => ({
   getProgressSummary: vi.fn(),
   getLearningProfile: vi.fn(),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
 }));
 
 function OverlayMarker() {

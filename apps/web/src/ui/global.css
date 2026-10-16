@@ -11,6 +11,27 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Safe-area insets in one place. Outside Telegram these are just the
+   device's own insets; inside a Mini App (lib/telegramMiniApp.ts sets
+   data-telegram) Telegram's header/fullscreen insets are taken into account
+   too. Use var(--safe-*) instead of env(safe-area-inset-*). */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+:root[data-telegram='true'] {
+  --safe-top: max(
+    env(safe-area-inset-top, 0px),
+    calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px))
+  );
+  --safe-right: max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+  --safe-left: max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px));
+}
+
 html,
 body {
   height: 100%;

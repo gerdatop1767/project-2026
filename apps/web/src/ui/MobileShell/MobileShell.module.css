@@ -30,7 +30,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-screen-margin) var(--space-2);
-  padding-top: calc(var(--space-3) + env(safe-area-inset-top, 0));
+  padding-top: calc(var(--space-3) + var(--safe-top));
 }
 
 .content {
@@ -40,7 +40,7 @@
   padding: var(--space-4) var(--space-screen-margin);
   /* Every screen's last element must clear the iOS home-indicator
      safe area, whether or not BottomNav is showing. */
-  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
+  padding-bottom: calc(var(--space-4) + var(--safe-bottom));
 }
 
 /* A screen with the header (above) needs no extra top padding of its
@@ -48,14 +48,14 @@
    screens WITHOUT it (Task/Result/Onboarding) still need their own
    safe-area-top clearance since nothing else provides it. */
 .contentNoHeader {
-  padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0));
+  padding-top: calc(var(--space-4) + var(--safe-top));
 }
 
 /* Screens with BottomNav additionally reserve its full rendered height
    (nav content + its own safe-area padding) so the fixed bar can never
    cover the last card/button, on any content length. */
 .contentWithNav {
-  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0) + var(--space-4));
+  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom) + var(--space-4));
 }
 
 .nav {

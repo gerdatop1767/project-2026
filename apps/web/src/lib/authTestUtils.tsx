@@ -30,11 +30,19 @@ export function TestAuthProvider({
   children,
   logout = async () => {},
   refresh = async () => {},
+  updateUser = () => {},
+  telegramError = null,
 }: {
   user: AuthUser | null | undefined;
   children: ReactNode;
   logout?: () => Promise<void>;
   refresh?: () => Promise<void>;
+  updateUser?: (user: AuthUser) => void;
+  telegramError?: string | null;
 }) {
-  return <AuthContext.Provider value={{ user, logout, refresh }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, logout, refresh, updateUser, telegramError }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

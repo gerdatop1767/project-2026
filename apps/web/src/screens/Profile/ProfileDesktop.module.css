@@ -61,10 +61,6 @@
   font-weight: var(--font-weight-bold);
 }
 
-.editButton {
-  margin-top: var(--space-3);
-}
-
 .columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
