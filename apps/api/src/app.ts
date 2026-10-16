@@ -35,10 +35,20 @@ export interface AppOptions {
    * (no auth routes, no cookie plugin, `request.userId` behaves
    * exactly as before). */
   authConfig?: Config;
+  /** Forwarded to Fastify. Needed behind a reverse proxy so `request.ip`
+   * (what the auth rate limits key on) is the real client, not the proxy. */
+  trustProxy?: boolean;
 }
 
-export function buildApp({ logger = false, version, checkDb, db, authConfig }: AppOptions) {
-  const app = Fastify({ logger });
+export function buildApp({
+  logger = false,
+  version,
+  checkDb,
+  db,
+  authConfig,
+  trustProxy,
+}: AppOptions) {
+  const app = Fastify({ logger, trustProxy });
   app.register(healthRoutes, { version, checkDb });
 
   if (db) {

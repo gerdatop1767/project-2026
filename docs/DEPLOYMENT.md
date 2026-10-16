@@ -320,6 +320,12 @@ $C exec api node -e "fetch('http://127.0.0.1:3000/api/v1/auth/vk/start',{redirec
 curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://zybrilka.ru/auth/vk/start
 ```
 
+Check 4 answering **404** means the running `api` image predates the
+auth module (or was built without `authConfig` wiring — fixed by
+`apps/api/src/createApp.ts`): rebuild it with
+`$C up -d --build --no-deps api`; `--build` matters here because `api`,
+unlike `caddy`, is built from this repo.
+
 Expected: 302 (or 503 `vk_not_configured` if VK_* are unset) from the
 API and from the edge — `200 text/html` from the edge means Caddy is
 still serving the SPA for that path.
