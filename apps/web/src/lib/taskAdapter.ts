@@ -173,3 +173,32 @@ export function explanationForPart(
   const match = sections.find((s) => s.heading.toLowerCase().includes(partLabel.toLowerCase()));
   return match ? match.text : sections.map((s) => s.text).join('\n\n');
 }
+
+/**
+ * True when `task.explanation` carries real content beyond what
+ * `task.steps` already shows — the Result screens' detailed-solution
+ * view uses this to prefer the full prose explanation over `steps`,
+ * which can be a short per-row/per-part summary authored separately
+ * from (and much terser than) `explanationMd` (e.g. every Дощинский ЕГЭ
+ * 2027 Вариант 2-18 орфография/пунктуация task: `solutionSteps` is a
+ * 1-2 line recap like "Во всех четырёх рядах буква одна и та же", while
+ * `explanationMd` has the full per-word rule-by-rule reasoning — see
+ * russianExplanationDisplay bugfix). Returns false (no separate
+ * explanation to show) in the one case where showing both would
+ * literally duplicate the same text: `steps` is exactly the
+ * single-block `[{ text: explanationMd }]` fallback `toSampleTask`
+ * itself uses when a task has no (or empty) `solutionSteps` — there
+ * `steps` already IS the explanation. Also false when `explanation` is
+ * empty, so callers always have a steps-based fallback to render.
+ */
+export function hasDetailedExplanation(task: Pick<SampleTask, 'explanation' | 'steps'>): boolean {
+  if (!task.explanation.trim()) return false;
+  if (
+    task.steps.length === 1 &&
+    !task.steps[0]!.title &&
+    task.steps[0]!.text === task.explanation
+  ) {
+    return false;
+  }
+  return true;
+}

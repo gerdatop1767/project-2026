@@ -5,6 +5,7 @@ import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
   buildSessionProgress,
   explanationForPart,
+  hasDetailedExplanation,
   splitMultiPartExplanation,
   toSampleTask,
 } from '../../lib/taskAdapter.js';
@@ -321,31 +322,39 @@ export function ResultMobile({
         </Button>
         <Collapse open={solutionOpen}>
           <div className={styles.solutionSteps}>
-            {multiPartGrade && explanationSections
-              ? multiPartGrade.parts.map((part, i) => (
-                  <div key={part.id} className={styles.solutionStep}>
-                    <span className={styles.solutionStepIndex}>{i + 1}</span>
-                    <p className={clsx('text-body-sm', styles.solutionStepBody)}>
-                      <strong>{part.label}) </strong>
-                      <InlineMathText text={explanationForPart(explanationSections, part.label)} />
+            {multiPartGrade && explanationSections ? (
+              multiPartGrade.parts.map((part, i) => (
+                <div key={part.id} className={styles.solutionStep}>
+                  <span className={styles.solutionStepIndex}>{i + 1}</span>
+                  <p className={clsx('text-body-sm', styles.solutionStepBody)}>
+                    <strong>{part.label}) </strong>
+                    <InlineMathText text={explanationForPart(explanationSections, part.label)} />
+                  </p>
+                </div>
+              ))
+            ) : hasDetailedExplanation(task) ? (
+              <div className={styles.solutionStep}>
+                <div className={styles.solutionStepBody}>
+                  <MathText text={task.explanation} className="text-body-sm" />
+                </div>
+              </div>
+            ) : (
+              task.steps.map((step, i) => (
+                <div key={i} className={styles.solutionStep}>
+                  <span className={styles.solutionStepIndex}>{i + 1}</span>
+                  <div className={styles.solutionStepBody}>
+                    {step.title && (
+                      <p className="text-body-sm" style={{ fontWeight: 700 }}>
+                        <InlineMathText text={step.title} />
+                      </p>
+                    )}
+                    <p className="text-body-sm">
+                      <InlineMathText text={step.text} />
                     </p>
                   </div>
-                ))
-              : task.steps.map((step, i) => (
-                  <div key={i} className={styles.solutionStep}>
-                    <span className={styles.solutionStepIndex}>{i + 1}</span>
-                    <div className={styles.solutionStepBody}>
-                      {step.title && (
-                        <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                          <InlineMathText text={step.title} />
-                        </p>
-                      )}
-                      <p className="text-body-sm">
-                        <InlineMathText text={step.text} />
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                </div>
+              ))
+            )}
           </div>
           {task.canonicalSolution && (
             <div className={styles.canonicalSolutionWrap}>

@@ -5,6 +5,7 @@ import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
   buildSessionProgress,
   explanationForPart,
+  hasDetailedExplanation,
   splitMultiPartExplanation,
   toSampleTask,
 } from '../../lib/taskAdapter.js';
@@ -380,25 +381,33 @@ export function ResultDesktop({
                   )}
                 </div>
                 <div className={styles.steps}>
-                  {(correct || detailedSolution ? task.steps : task.steps.slice(-1)).map(
-                    (step, i) => {
-                      const stepNumber = correct || detailedSolution ? i + 1 : task.steps.length;
-                      return (
-                        <div key={stepNumber} className={styles.step}>
-                          <span className={styles.stepIndex}>{stepNumber}</span>
-                          <div className={styles.stepBody}>
-                            {step.title && (
-                              <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                                <InlineMathText text={step.title} />
+                  {(correct || detailedSolution) && hasDetailedExplanation(task) ? (
+                    <div className={styles.step}>
+                      <div className={styles.stepBody}>
+                        <MathText text={task.explanation} className="text-body-sm" />
+                      </div>
+                    </div>
+                  ) : (
+                    (correct || detailedSolution ? task.steps : task.steps.slice(-1)).map(
+                      (step, i) => {
+                        const stepNumber = correct || detailedSolution ? i + 1 : task.steps.length;
+                        return (
+                          <div key={stepNumber} className={styles.step}>
+                            <span className={styles.stepIndex}>{stepNumber}</span>
+                            <div className={styles.stepBody}>
+                              {step.title && (
+                                <p className="text-body-sm" style={{ fontWeight: 700 }}>
+                                  <InlineMathText text={step.title} />
+                                </p>
+                              )}
+                              <p className="text-body-sm">
+                                <InlineMathText text={step.text} />
                               </p>
-                            )}
-                            <p className="text-body-sm">
-                              <InlineMathText text={step.text} />
-                            </p>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    },
+                        );
+                      },
+                    )
                   )}
                 </div>
               </>

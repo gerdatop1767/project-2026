@@ -232,6 +232,64 @@ describe('ResultDesktop — incorrect state', () => {
   });
 });
 
+/**
+ * Bugfix: `solutionSteps` can be authored as a short per-row/per-part
+ * recap, much terser than `explanationMd` — e.g. most Дощинский ЕГЭ
+ * 2027 Вариант 2-13 орфография/пунктуация tasks. "Подробное решение"
+ * must show the full `explanationMd` in that case, not the terse steps
+ * (see taskAdapter.ts's `hasDetailedExplanation`).
+ */
+describe('ResultDesktop — full explanationMd shown over terse solutionSteps (detailed solution)', () => {
+  const FULL_EXPLANATION =
+    'Ряд 1: слово1 (корень X, буква А — проверочное слово Y), слово2 (словарное, буква А). Везде А, ряд подходит.';
+  const terseTask = {
+    ...taskWithSolution,
+    explanationMd: FULL_EXPLANATION,
+    solutionSteps: [
+      { title: 'Проверяем ряд 1', explanation: 'Буквы совпадают: А, А.' },
+      { title: 'Проверяем ряд 2', explanation: 'Буквы не совпадают.' },
+    ],
+  };
+
+  it('"Подробное решение" shows the full explanationMd, not the terse per-step summaries', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getTask).mockResolvedValue(terseTask);
+    renderResult(false);
+    await user.click(await screen.findByRole('button', { name: 'Подробное решение' }));
+    expect(await screen.findByText(FULL_EXPLANATION)).toBeInTheDocument();
+    expect(screen.queryByText('Буквы совпадают: А, А.')).not.toBeInTheDocument();
+  });
+
+  it('"Краткое решение" keeps the existing last-step behavior unchanged', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getTask).mockResolvedValue(terseTask);
+    renderResult(false);
+    await user.click(await screen.findByRole('button', { name: 'Краткое решение' }));
+    expect(await screen.findByText('Буквы не совпадают.')).toBeInTheDocument();
+    expect(screen.queryByText(FULL_EXPLANATION)).not.toBeInTheDocument();
+  });
+
+  it('a correct answer (always "detailed") shows the full explanationMd too, not the terse steps', async () => {
+    vi.mocked(api.getTask).mockResolvedValue(terseTask);
+    renderResult(true);
+    expect(await screen.findByText(FULL_EXPLANATION)).toBeInTheDocument();
+    expect(screen.queryByText('Буквы совпадают: А, А.')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the real steps when explanationMd is empty, even with solutionSteps present', async () => {
+    vi.mocked(api.getTask).mockResolvedValue({ ...terseTask, explanationMd: '' });
+    renderResult(true);
+    expect(await screen.findByText('Буквы совпадают: А, А.')).toBeInTheDocument();
+    expect(await screen.findByText('Буквы не совпадают.')).toBeInTheDocument();
+  });
+
+  it('never shows the explanation twice when steps is just the explanation fallback (no real solutionSteps)', async () => {
+    renderResult(true); // taskWithSolution: no solutionSteps, EXPLANATION only
+    const matches = await screen.findAllByText(EXPLANATION);
+    expect(matches).toHaveLength(1);
+  });
+});
+
 describe('ResultDesktop — correct answer goes through MathText (audit Block 7)', () => {
   it('renders real KaTeX for a correctAnswer using $...$ notation', async () => {
     vi.mocked(api.getTask).mockResolvedValue({
