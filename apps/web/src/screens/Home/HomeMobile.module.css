@@ -4,20 +4,6 @@
   gap: var(--space-5);
 }
 
-.topRow {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.loginLink {
-  border: none;
-  background: transparent;
-  padding: var(--space-2) var(--space-3);
-  color: var(--color-accent-secondary);
-  font-size: var(--font-size-body-sm);
-  font-weight: var(--font-weight-medium);
-}
-
 /* ---- Hero: "Готов к новой тренировке?" ---- */
 
 .hero {

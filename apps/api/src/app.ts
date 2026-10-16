@@ -1,5 +1,6 @@
 import type { Database } from '@zybrilka/db';
 import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyServerOptions } from 'fastify';
 import type { Config } from './config.js';
 import { healthRoutes } from './routes/health.js';
@@ -50,6 +51,14 @@ export function buildApp({ logger = false, version, checkDb, db, authConfig }: A
       // parsing is fully wired up before authSession's hook is added.
       app.register(cookie);
       app.register(async (instance) => {
+        // `global: false` — this plugin only throttles the specific
+        // auth routes that opt in via their own `config.rateLimit`
+        // (see modules/auth/routes.ts), never any other route in the
+        // app, and it's registered before `authRoutes` for the same
+        // avvio sequential-loading reason as `cookie`/`authSession`
+        // above: its `onRoute` hook must already be active before the
+        // throttled routes are added.
+        await instance.register(rateLimit, { global: false });
         await registerAuthSession(instance, db);
         instance.register(authRoutes, { db, config: authConfig, prefix: '/api/v1' });
       });

@@ -31,17 +31,17 @@ describe('HomeDesktop', () => {
     expect(screen.getByText('заданий')).toBeInTheDocument();
   });
 
-  it('navigates to Учебный центр from the primary CTA', async () => {
+  it('renders a single "Начать бесплатно" CTA — no separate "О проекте" or "Войти"', () => {
+    renderHome();
+    expect(screen.getByRole('button', { name: /Начать бесплатно/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /О проекте/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Войти' })).not.toBeInTheDocument();
+  });
+
+  it('"Начать бесплатно" opens the unified auth screen', async () => {
     const user = userEvent.setup();
     renderHome();
     await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('learningCenter');
-  });
-
-  it('navigates to About from the secondary CTA', async () => {
-    const user = userEvent.setup();
-    renderHome();
-    await user.click(screen.getByRole('button', { name: /О проекте/ }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('about');
+    expect(screen.getByTestId('overlay')).toHaveTextContent('login');
   });
 });

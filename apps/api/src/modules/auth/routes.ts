@@ -36,39 +36,50 @@ function cookieOptions(config: Config, maxAgeSeconds: number) {
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { db, config }) => {
   // Always the same response shape whether or not `email` has an
   // account — never reveals which, to prevent email enumeration (see
-  // service.ts's requestMagicLink doc comment).
-  app.post('/auth/magic-link', async (request, reply) => {
-    const body = magicLinkRequestSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
-    }
-    try {
-      await service.requestMagicLink(db, config, body.data.email);
-    } catch (error) {
-      if (error instanceof service.EmailNotConfiguredError) {
-        return reply.code(503).send({ error: 'email_not_configured' });
+  // service.ts's requestMagicLink doc comment). Rate-limited per IP —
+  // sending email is the one real cost/abuse surface here.
+  app.post(
+    '/auth/magic-link',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = magicLinkRequestSchema.safeParse(request.body);
+      if (!body.success) {
+        return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
       }
-      throw error;
-    }
-    return reply.code(200).send({ ok: true });
-  });
+      try {
+        await service.requestMagicLink(db, config, body.data.email);
+      } catch (error) {
+        if (error instanceof service.EmailNotConfiguredError) {
+          return reply.code(503).send({ error: 'email_not_configured' });
+        }
+        throw error;
+      }
+      return reply.code(200).send({ ok: true });
+    },
+  );
 
-  app.post('/auth/verify', async (request, reply) => {
-    const body = verifyMagicLinkRequestSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
-    }
-    try {
-      const { sessionId, user } = await service.verifyMagicLink(db, body.data.token);
-      reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
-      return reply.code(200).send({ user });
-    } catch (error) {
-      if (error instanceof service.InvalidMagicLinkError) {
-        return reply.code(400).send({ error: 'invalid_or_expired_token' });
+  // Rate-limited per IP — a 256-bit token is already infeasible to
+  // guess, but this still caps plain error-spam/abuse against the route.
+  app.post(
+    '/auth/verify',
+    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = verifyMagicLinkRequestSchema.safeParse(request.body);
+      if (!body.success) {
+        return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
       }
-      throw error;
-    }
-  });
+      try {
+        const { sessionId, user } = await service.verifyMagicLink(db, body.data.token);
+        reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
+        return reply.code(200).send({ user });
+      } catch (error) {
+        if (error instanceof service.InvalidMagicLinkError) {
+          return reply.code(400).send({ error: 'invalid_or_expired_token' });
+        }
+        throw error;
+      }
+    },
+  );
 
   app.get('/auth/vk/start', async (request, reply) => {
     if (!isVkConfigured(config)) {

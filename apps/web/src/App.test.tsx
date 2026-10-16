@@ -135,7 +135,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     expect(screen.getByRole('navigation', { name: 'Zybrilka' })).toBeInTheDocument();
     restore();
   });
@@ -144,7 +144,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     const dialog = screen.getByRole('dialog', { name: 'Меню' });
     expect(dialog).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     await user.click(screen.getByRole('button', { name: 'Помощь' }));
     expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
@@ -172,7 +172,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     expect(screen.queryByRole('button', { name: 'Моя статистика' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Настройки' })).not.toBeInTheDocument();
@@ -183,7 +183,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'О проекте' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     await user.click(screen.getByRole('button', { name: 'Профиль' }));
@@ -199,7 +199,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     await user.click(screen.getByRole('button', { name: 'Помощь' }));
     expect(screen.getByText('Нужна')).toBeInTheDocument();
@@ -214,7 +214,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     // Switch the underlying tab away from Home first — this is exactly
     // the scenario that used to leak the wrong tab's name into these
     // screens' Back button ("Достижения" instead of "Главная").
@@ -260,7 +260,7 @@ describe('App — first-login gate (Learning Profile, Phase 1)', () => {
     expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
   });
 
-  it('"Начать бесплатно" on the landing is what actually starts onboarding', async () => {
+  it('"Начать бесплатно" on the landing opens the unified auth screen, not onboarding directly', async () => {
     vi.mocked(api.getLearningProfile).mockResolvedValue({
       onboardingCompleted: false,
       subjects: [],
@@ -269,8 +269,8 @@ describe('App — first-login gate (Learning Profile, Phase 1)', () => {
     renderApp();
     await screen.findByText(/ЕГЭ становится проще/);
     await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
-    expect(screen.getByText('Добро пожаловать в Zybrilka!')).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/onboarding');
+    expect(screen.getByText('Войти или создать аккаунт')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/login');
   });
 
   it('shows the desktop landing (not the normal marketing Home) for a brand-new user', async () => {
@@ -373,7 +373,7 @@ describe('App — URL routing is the source of truth', () => {
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     expect(window.location.pathname).toBe('/learning');
 
     await user.click(screen.getByRole('button', { name: 'Предметы' }));
