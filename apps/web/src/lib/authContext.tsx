@@ -4,11 +4,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import type { AuthUser } from '@zybrilka/shared';
 import { getCurrentUser, logout as apiLogout, onUnauthorized } from './api.js';
+import { resetPrivateCaches } from './privateCaches.js';
 
 /**
  * The one real source of "is anyone signed in" (S3 auth — magic-link +
@@ -61,18 +63,34 @@ export function AuthProvider({
   onSignedOut?: () => void;
 }) {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
+  // The account id the app last settled on (`undefined` until the first
+  // check resolves) — lets `applyUser` tell "same user re-checked" from
+  // "signed out / switched account".
+  const currentUserId = useRef<string | null | undefined>(undefined);
+
+  const applyUser = useCallback((next: AuthUser | null) => {
+    const previousId = currentUserId.current;
+    const nextId = next?.id ?? null;
+    // Leaving a signed-in identity (sign-out, lost session, or another
+    // account appearing) must not leave that account's cached/private
+    // data around for whoever uses this tab next. A same-user re-check
+    // (refresh, finishing onboarding) keeps everything, e.g. the canvas.
+    if (previousId && previousId !== nextId) resetPrivateCaches();
+    currentUserId.current = nextId;
+    setUser(next);
+  }, []);
 
   const refresh = useCallback(
     () =>
       getCurrentUser()
-        .then((res) => setUser(res.user))
+        .then((res) => applyUser(res.user))
         .catch(() => {
           // No backend / offline — treat as signed out rather than
           // leaving the UI stuck on "checking". Private data is
           // unreachable anyway.
-          setUser(null);
+          applyUser(null);
         }),
-    [],
+    [applyUser],
   );
 
   useEffect(() => {
@@ -82,13 +100,13 @@ export function AuthProvider({
   // Any private endpoint answering 401 means the session ended behind
   // our back (expiry, revoked, deleted) — drop signed-in state so the
   // app closes the private screens instead of showing a broken trainer.
-  useEffect(() => onUnauthorized(() => setUser(null)), []);
+  useEffect(() => onUnauthorized(() => applyUser(null)), [applyUser]);
 
   const logout = useCallback(async () => {
     await apiLogout();
-    setUser(null);
+    applyUser(null);
     onSignedOut();
-  }, [onSignedOut]);
+  }, [applyUser, onSignedOut]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ user, refresh, logout }),

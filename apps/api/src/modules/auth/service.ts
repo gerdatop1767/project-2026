@@ -5,10 +5,10 @@ import type { Config } from '../../config.js';
 import * as repo from './repo.js';
 import { isEmailConfigured, sendMagicLinkEmail, EmailNotConfiguredError } from './email.js';
 import { isOnboardingCompleted } from '../learningProfile/repo.js';
-import { exchangeVkCode, fetchVkProfile } from './vk.js';
+import { exchangeVkCode, fetchVkProfile, type VkLogger } from './vk.js';
 
 export { EmailNotConfiguredError } from './email.js';
-export { VkNotConfiguredError, isVkConfigured } from './vk.js';
+export { VkNotConfiguredError, VkRequestError, isVkConfigured } from './vk.js';
 
 const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -91,12 +91,13 @@ export async function completeVkLogin(
   code: string,
   deviceId: string,
   codeVerifier: string,
+  log?: VkLogger,
 ): Promise<LoginResult> {
   const { vkUserId, accessToken } = await exchangeVkCode(config, code, deviceId, codeVerifier);
   const { userId, created } = await repo.findOrCreateUserByIdentity(db, 'vk', vkUserId);
 
   if (accessToken) {
-    await repo.updateUserProfile(db, userId, await fetchVkProfile(config, accessToken));
+    await repo.updateUserProfile(db, userId, await fetchVkProfile(config, accessToken, log));
   }
 
   const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);

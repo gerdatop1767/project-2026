@@ -1,4 +1,5 @@
 import { initialCanvasState, type CanvasState } from './canvasEngine.js';
+import { registerPrivateCacheReset } from './privateCaches.js';
 
 /**
  * Session-scoped canvas persistence, keyed by taskId (Task Workspace
@@ -21,6 +22,11 @@ import { initialCanvasState, type CanvasState } from './canvasEngine.js';
  * with an empty canvas" boundary the spec also asks for.
  */
 const store = new Map<string, CanvasState>();
+
+// A drawing is the previous account's scratch work: drop every draft when
+// the signed-in identity ends or changes (NOT on refresh / same-user
+// re-checks — see privateCaches.ts).
+registerPrivateCacheReset(() => store.clear());
 
 export function getCanvasState(taskId: string): CanvasState {
   return store.get(taskId) ?? initialCanvasState();

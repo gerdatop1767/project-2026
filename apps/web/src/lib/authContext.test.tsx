@@ -1,15 +1,20 @@
 import { useEffect } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './authContext.js';
 import * as api from './api.js';
 import type * as ApiModule from './api.js';
 import { makeAuthUser } from './authTestUtils.js';
+import { getCanvasState, setCanvasState } from './canvasSessionStore.js';
+import { initialCanvasState } from './canvasEngine.js';
+import { resetFavoritesCacheForTests, useFavorite } from './useFavorite.js';
+import { LearningSessionProvider, useLearningSessionContext } from './learningSessionContext.js';
 
 vi.mock('./api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
   getCurrentUser: vi.fn(),
   logout: vi.fn(),
+  listFavoriteTaskIds: vi.fn(),
 }));
 
 let latest: ReturnType<typeof useAuth>;
@@ -119,5 +124,148 @@ describe('api 401 handling', () => {
     expect(listener).not.toHaveBeenCalled();
     off();
     vi.unstubAllGlobals();
+  });
+});
+
+describe('private caches follow the signed-in identity', () => {
+  const USER_A = makeAuthUser({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', firstName: 'Анна' });
+  const USER_B = makeAuthUser({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', firstName: 'Борис' });
+  const drawnCanvas = () =>
+    ({ ...initialCanvasState(), strokes: [{ id: 's', points: [] }] }) as never;
+  const hasDrawing = (taskId: string) =>
+    JSON.stringify(getCanvasState(taskId)) !== JSON.stringify(initialCanvasState());
+
+  beforeEach(() => {
+    resetFavoritesCacheForTests();
+  });
+  afterEach(() => {
+    setCanvasState('task-1', initialCanvasState());
+  });
+
+  it('keeps the canvas when the SAME user is re-checked (refresh, onboarding finished)', async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: USER_A });
+    renderProvider();
+    await screen.findByText('Анна');
+    setCanvasState('task-1', drawnCanvas());
+
+    await act(async () => {
+      await latest.refresh();
+    });
+    expect(hasDrawing('task-1')).toBe(true);
+  });
+
+  it('wipes the canvas, favorites and learning session when the session is lost (401) — before anyone else can sign in', async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: USER_A });
+    vi.mocked(api.listFavoriteTaskIds).mockResolvedValue({ taskIds: ['fav-of-A'] });
+    function Both() {
+      const fav = useFavorite('fav-of-A');
+      const { session, setSession } = useLearningSessionContext();
+      return (
+        <>
+          <p>fav:{String(fav.isFavorite)}</p>
+          <p>session:{session ? session.sessionId : 'none'}</p>
+          <button
+            onClick={() =>
+              setSession({
+                status: 'active',
+                sessionId: 'A-session',
+                subjectId: 'math',
+                currentTaskId: 't',
+                currentTaskNumber: 1,
+                position: 1,
+                total: 5,
+              })
+            }
+          >
+            start
+          </button>
+        </>
+      );
+    }
+    render(
+      <AuthProvider onSignedOut={vi.fn()}>
+        <LearningSessionProvider>
+          <Probe />
+          <Both />
+        </LearningSessionProvider>
+      </AuthProvider>,
+    );
+    await screen.findByText('fav:true');
+    act(() => screen.getByText('start').click());
+    expect(screen.getByText('session:A-session')).toBeInTheDocument();
+    setCanvasState('task-1', drawnCanvas());
+
+    // Session ends behind our back.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 401 })),
+    );
+    const real = await vi.importActual<typeof ApiModule>('./api.js');
+    await expect(real.getProgressSummary()).rejects.toBeInstanceOf(real.ApiError);
+    vi.unstubAllGlobals();
+
+    await waitFor(() => expect(screen.getByText('session:none')).toBeInTheDocument());
+    expect(hasDrawing('task-1')).toBe(false);
+
+    // The next account must get a fresh favorites fetch, not A's cached set.
+    vi.mocked(api.listFavoriteTaskIds).mockClear();
+    vi.mocked(api.listFavoriteTaskIds).mockResolvedValue({ taskIds: [] });
+    const { result } = renderHook(() => useFavorite('fav-of-A'));
+    await waitFor(() => expect(result.current.isFavorite).toBe(false));
+    expect(api.listFavoriteTaskIds).toHaveBeenCalledTimes(1);
+  });
+
+  it("user A -> user B in the same tab: B never sees A's drawing or favorites", async () => {
+    vi.mocked(api.getCurrentUser)
+      .mockResolvedValueOnce({ user: USER_A })
+      .mockResolvedValueOnce({ user: USER_B });
+    vi.mocked(api.listFavoriteTaskIds).mockResolvedValueOnce({ taskIds: ['t-fav'] });
+    renderProvider();
+    await screen.findByText('Анна');
+    const first = renderHook(() => useFavorite('t-fav'));
+    await waitFor(() => expect(first.result.current.isFavorite).toBe(true));
+    setCanvasState('task-1', drawnCanvas());
+
+    await act(async () => {
+      await latest.refresh();
+    });
+    expect(screen.getByText('Борис')).toBeInTheDocument();
+    expect(hasDrawing('task-1')).toBe(false);
+
+    vi.mocked(api.listFavoriteTaskIds).mockResolvedValueOnce({ taskIds: [] });
+    const second = renderHook(() => useFavorite('t-fav'));
+    await waitFor(() => expect(second.result.current.isFavorite).toBe(false));
+  });
+
+  it('real logout clears the caches too', async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: USER_A });
+    vi.mocked(api.logout).mockResolvedValue(undefined);
+    renderProvider();
+    await screen.findByText('Анна');
+    setCanvasState('task-1', drawnCanvas());
+    await act(async () => {
+      await latest.logout();
+    });
+    expect(hasDrawing('task-1')).toBe(false);
+  });
+
+  it("a FAILED logout (server unreachable) keeps the session AND the user's data", async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: USER_A });
+    vi.mocked(api.logout).mockRejectedValue(new Error('network'));
+    renderProvider();
+    await screen.findByText('Анна');
+    setCanvasState('task-1', drawnCanvas());
+    await act(async () => {
+      await expect(latest.logout()).rejects.toThrow();
+    });
+    expect(hasDrawing('task-1')).toBe(true);
+  });
+
+  it('the very first successful check (nobody signed in before) clears nothing', async () => {
+    setCanvasState('task-1', drawnCanvas());
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: USER_A });
+    renderProvider();
+    await screen.findByText('Анна');
+    expect(hasDrawing('task-1')).toBe(true);
   });
 });
