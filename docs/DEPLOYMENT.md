@@ -166,20 +166,27 @@ it only exists locally, never pushed anywhere.
   Docker build). Both Dockerfiles already pass `--legacy` to `deploy`
   for exactly this reason — if you see this error, check that flag
   wasn't dropped from `apps/api/Dockerfile` / `apps/worker/Dockerfile`.
-- **`https://zybrilka.ru/health` (or `/api/*`) returns the website
-  instead of the API response, even though `infra/Caddyfile` routes it
-  correctly** — the running `caddy` container is still serving an
-  older in-memory config from before that routing existed.
-  `infra/Caddyfile` is bind-mounted, not baked into the image, so a
-  plain `docker compose up -d` never notices its contents changed and
-  never restarts a `caddy` container whose own service definition
-  didn't change. The `caddy` service runs with `--watch` (see
-  **Caddy** above) specifically so this can't happen again once it's
-  running with that flag; if it's still happening, confirm the running
-  container's command actually includes `--watch`
-  (`docker compose -f infra/docker-compose.yml exec caddy pgrep -fa caddy`)
-  and if not, `docker compose -f infra/docker-compose.yml up -d caddy`
-  once to pick it up.
+- **`https://zybrilka.ru/health`, `/api/*` or `/auth/vk/start` returns the
+  website instead of the API response, even though
+  `infra/caddy/Caddyfile` routes it correctly** — the running `caddy`
+  container is still serving an older config. Historically the
+  Caddyfile was bind-mounted as a *single file*: Docker pins that
+  file's inode when the container is created, `git pull` replaces a
+  changed file with a new inode, so the container keeps the old content
+  and neither `up -d` (service definition unchanged → no recreate;
+  `--build` does nothing for the image-only `caddy` service) nor
+  `--watch` (watches the stale in-container file) ever sees the change.
+  The compose file now mounts the *directory* `infra/caddy/`, which
+  avoids this; the container that predates this change must be
+  recreated **once**:
+
+  ```bash
+  docker compose --env-file infra/.env -f infra/docker-compose.yml \
+    up -d --force-recreate --no-deps caddy
+  ```
+
+  See **Verify the edge** under **Caddy** to confirm what is actually
+  loaded.
 
 ## Stop
 
@@ -258,34 +265,64 @@ docker compose -f infra/docker-compose.yml up -d --build web
 
 ## Caddy
 
-`infra/Caddyfile` defines both hosts:
+`infra/caddy/Caddyfile` defines both hosts:
 
 - `www.zybrilka.ru` — permanent redirect to the apex domain.
 - `zybrilka.ru` — `/api/*` and `/health` reverse-proxy to `api:3000`
   with no path stripping (the API already registers those exact paths
-  itself, see `apps/api/src/app.ts`); everything else reverse-proxies
-  to `web:80`, with gzip/zstd encoding. Client-side route fallback
+  itself, see `apps/api/src/app.ts`); the unprefixed VK OAuth aliases
+  `/auth/vk/start` and `/auth/vk/callback` are rewritten to
+  `/api/v1/auth/vk/...` first; everything else reverse-proxies to
+  `web:80`, with gzip/zstd encoding. Client-side route fallback
   (unknown paths → `index.html`) is handled by `web`'s own nginx
   config, not by Caddy.
 
 Validate the file without starting anything:
 
 ```bash
-docker run --rm -v "$(pwd)/infra/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine \
-  caddy validate --config /etc/caddy/Caddyfile
+docker run --rm -v "$(pwd)/infra/caddy:/etc/caddy:ro" caddy:2-alpine \
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-`caddy`'s compose service runs with `--watch`, so once it's running
-with that flag it reloads automatically whenever `infra/Caddyfile`
-changes on disk — no container restart needed for a routing change to
-take effect (see the comment on that service in
-`infra/docker-compose.yml` for why this matters: it's a bind-mounted
-file, and `docker compose up -d` alone never notices its contents
-changed). If you're updating an existing deployment whose `caddy`
-container predates `--watch`, `docker compose up -d` still picks it up
-correctly on that one deploy — a `command:` change is a service
-definition change, so compose recreates the container for it exactly
-like it would for a new image tag.
+The `caddy` service bind-mounts the **directory** `infra/caddy/` (not
+the single file) and runs with `--watch`, so a `git pull` that changes
+the Caddyfile is picked up by the running container and Caddy reloads
+it without a restart. A single-file mount would NOT work: it pins the
+old inode and `git pull` swaps the file for a new one (see the
+troubleshooting entry about `/health` returning the website). Never
+mount `infra/` itself into the container — it contains `infra/.env`.
+
+### Verify the edge
+
+Safe checks (no secrets, no OAuth parameters printed):
+
+```bash
+C="docker compose --env-file infra/.env -f infra/docker-compose.yml"
+
+# 1. Which Caddyfile does the RUNNING container see? (expect the
+#    vkAuthAlias block; its absence means a stale mount.)
+$C exec caddy grep -c vkAuthAlias /etc/caddy/Caddyfile
+
+# 2. Same file as on the host? Compare checksums.
+sha256sum infra/caddy/Caddyfile
+$C exec caddy sha256sum /etc/caddy/Caddyfile
+
+# 3. What config did Caddy actually load? (expect a rewrite to
+#    /api/v1... for /auth/vk/start in the output.)
+$C exec caddy wget -qO- http://localhost:2019/config/ | grep -c 'api/v1'
+
+# 4. Is the API reachable from inside the infrastructure, and does the
+#    route redirect? Prints only the status code and the Location
+#    origin+path (never the query string, which carries the OAuth params).
+$C exec api node -e "fetch('http://127.0.0.1:3000/api/v1/auth/vk/start',{redirect:'manual'}).then(r=>{const l=r.headers.get('location');console.log(r.status,l?new URL(l).origin+new URL(l).pathname:'')})"
+
+# 5. Through the public edge (status and server only).
+curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://zybrilka.ru/auth/vk/start
+```
+
+Expected: 302 (or 503 `vk_not_configured` if VK_* are unset) from the
+API and from the edge — `200 text/html` from the edge means Caddy is
+still serving the SPA for that path.
 
 ## DNS requirements
 
