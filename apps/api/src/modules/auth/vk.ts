@@ -37,6 +37,7 @@ import type { Config } from '../../config.js';
  */
 const VK_AUTHORIZE_URL = 'https://id.vk.ru/authorize';
 const VK_TOKEN_URL = 'https://id.vk.ru/oauth2/auth';
+const VK_USER_INFO_URL = 'https://id.vk.ru/oauth2/user_info';
 
 export class VkNotConfiguredError extends Error {
   constructor() {
@@ -91,7 +92,7 @@ export async function exchangeVkCode(
   code: string,
   deviceId: string,
   codeVerifier: string,
-): Promise<{ vkUserId: string }> {
+): Promise<{ vkUserId: string; accessToken?: string }> {
   if (!isVkConfigured(config)) throw new VkNotConfiguredError();
   const response = await fetch(VK_TOKEN_URL, {
     method: 'POST',
@@ -109,9 +110,83 @@ export async function exchangeVkCode(
   if (!response.ok) {
     throw new Error(`VK token exchange failed: ${response.status} ${await response.text()}`);
   }
-  const data = (await response.json()) as { user_id?: number | string };
+  const data = (await response.json()) as {
+    user_id?: number | string;
+    access_token?: string;
+  };
   if (data.user_id === undefined) {
     throw new Error('VK token response missing user_id');
   }
-  return { vkUserId: String(data.user_id) };
+  return {
+    vkUserId: String(data.user_id),
+    accessToken: typeof data.access_token === 'string' ? data.access_token : undefined,
+  };
+}
+
+/** Display profile VK knows about the user. Every field is optional —
+ * VK may omit any of them and the caller must never treat a missing one
+ * as "clear what we have". */
+export interface VkProfile {
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+}
+
+const MAX_NAME_LENGTH = 100;
+const MAX_AVATAR_URL_LENGTH = 1000;
+
+function cleanName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, MAX_NAME_LENGTH);
+}
+
+/** Only absolute https URLs are kept — the value ends up in an
+ * `<img src>` for the user's own profile, so anything else (javascript:,
+ * data:, plain http, garbage) is dropped rather than stored. */
+function cleanAvatarUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > MAX_AVATAR_URL_LENGTH) return undefined;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Best-effort profile lookup with the access token VK just issued for
+ * THIS authorization code (server-to-server, never anything the browser
+ * supplied). Never throws: a failed or malformed lookup yields `{}` so
+ * the sign-in itself still succeeds with the stable VK id and the
+ * profile simply isn't updated this time.
+ *
+ * Request/response shape (`POST id.vk.ru/oauth2/user_info` with form
+ * fields `access_token` + `client_id` → `{ user: { user_id, first_name,
+ * last_name, avatar, ... } }`) comes from third-party client libraries
+ * (django-allauth, omniauth-vk_id) — VK's own docs were unreachable from
+ * this environment, so confirm with one real login. A wrong shape
+ * degrades to "no profile data", never to a failed login.
+ */
+export async function fetchVkProfile(config: Config, accessToken: string): Promise<VkProfile> {
+  if (!isVkConfigured(config)) return {};
+  try {
+    const response = await fetch(VK_USER_INFO_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ access_token: accessToken, client_id: config.VK_CLIENT_ID! }),
+    });
+    if (!response.ok) return {};
+    const data = (await response.json()) as { user?: Record<string, unknown> };
+    const user = data.user;
+    if (!user || typeof user !== 'object') return {};
+    return {
+      firstName: cleanName(user.first_name),
+      lastName: cleanName(user.last_name),
+      avatarUrl: cleanAvatarUrl(user.avatar),
+    };
+  } catch {
+    return {};
+  }
 }

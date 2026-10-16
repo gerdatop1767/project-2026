@@ -22,10 +22,23 @@ export const verifyMagicLinkRequestSchema = z.object({
 });
 export type VerifyMagicLinkRequest = z.infer<typeof verifyMagicLinkRequestSchema>;
 
-/** The authenticated user, as returned by /auth/verify, /auth/vk/callback and /auth/me. */
+/**
+ * The authenticated user, as returned by /auth/verify, /auth/vk/callback
+ * and /auth/me. Everything here is server truth:
+ * - `firstName`/`lastName`/`avatarUrl` come from the identity provider
+ *   (VK ID) and are `null` when it never supplied them (e.g. email-only
+ *   accounts);
+ * - `onboardingCompleted` is derived from the saved learning profile in
+ *   the database — the client uses it to decide between onboarding and
+ *   the main menu, never localStorage or a URL parameter.
+ */
 export const authUserSchema = z.object({
   id: z.uuid(),
   email: z.email().nullable(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  onboardingCompleted: z.boolean(),
 });
 export type AuthUser = z.infer<typeof authUserSchema>;
 

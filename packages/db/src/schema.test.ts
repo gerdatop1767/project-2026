@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from './schema.js';
@@ -270,5 +272,54 @@ describe('collections / variants / variant_tasks (S3.2)', () => {
         .insert(schema.collections)
         .values({ subjectId: 'math', slug: 'dup-slug', title: 'Second' }),
     ).rejects.toThrow();
+  });
+});
+
+describe('users display profile columns (migration 0021)', () => {
+  let testDb: Awaited<ReturnType<typeof createTestDb>>;
+
+  beforeAll(async () => {
+    testDb = await createTestDb();
+  });
+
+  afterAll(async () => {
+    await testDb.close();
+  });
+
+  it('adds first_name / last_name / avatar_url as nullable text, so pre-existing users stay valid', async () => {
+    const { rows } = (await testDb.db.execute(
+      `select column_name, data_type, is_nullable from information_schema.columns
+       where table_name = 'users' and column_name in ('first_name', 'last_name', 'avatar_url')
+       order by column_name`,
+    )) as unknown as { rows: { column_name: string; data_type: string; is_nullable: string }[] };
+    expect(rows).toEqual([
+      { column_name: 'avatar_url', data_type: 'text', is_nullable: 'YES' },
+      { column_name: 'first_name', data_type: 'text', is_nullable: 'YES' },
+      { column_name: 'last_name', data_type: 'text', is_nullable: 'YES' },
+    ]);
+  });
+
+  it('a user created the old way (id only) reads back with null profile fields; updates keep other columns', async () => {
+    const { db } = testDb;
+    const [user] = await db.insert(schema.users).values({}).returning();
+    expect(user).toMatchObject({ firstName: null, lastName: null, avatarUrl: null });
+
+    await db.update(schema.users).set({ firstName: 'Иван' }).where(eq(schema.users.id, user!.id));
+    const [after] = await db.select().from(schema.users).where(eq(schema.users.id, user!.id));
+    expect(after).toMatchObject({ firstName: 'Иван', lastName: null, createdAt: user!.createdAt });
+  });
+
+  it('the migration is purely additive: only ADD COLUMN, no drops / NOT NULL / data rewrites', () => {
+    const dir = fileURLToPath(new URL('../migrations/', import.meta.url));
+    const file = readdirSync(dir).find((name) => name.startsWith('0021_'))!;
+    const sql = readFileSync(`${dir}${file}`, 'utf-8');
+    const statements = sql
+      .split('--> statement-breakpoint')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    expect(statements).toHaveLength(3);
+    for (const statement of statements) {
+      expect(statement).toMatch(/^ALTER TABLE "users" ADD COLUMN "\w+" text;?$/);
+    }
   });
 });

@@ -188,6 +188,37 @@ it only exists locally, never pushed anywhere.
   See **Verify the edge** under **Caddy** to confirm what is actually
   loaded.
 
+## Sign-in, profile data and access control
+
+How the trainer decides who may do what (all server-side, in `apps/api`):
+
+- Every `/api/v1/*` route except `/api/v1/auth/*` (and `/health`) answers
+  **401** without a valid `session_id` cookie. The old anonymous
+  `x-anon-id` header is ignored when auth is configured (it is only still
+  honored by the pre-auth test setups).
+- First sign-in (VK ID or email) creates one account per
+  `(provider, provider user id)`; a repeat sign-in or a replayed callback
+  resolves to the same account.
+- After VK sign-in the API calls VK's `user_info` endpoint server-to-server
+  with the access token VK issued for that authorization code and stores
+  `first_name`, `last_name`, `avatar` on `users` (migration `0021`).
+  A missing/blank field never overwrites a stored value; a failed lookup
+  never fails the login. **That endpoint and its response shape come from
+  third-party client libraries, not VK's own docs — confirm with one real
+  login** (`users.first_name/last_name/avatar_url` filled in the DB).
+- "Onboarding finished" is `user_subject_profiles.onboarding_completed_at`
+  (set by `PUT /me/learning-profile`). `/auth/me` returns it as
+  `onboardingCompleted`; the VK callback redirects an unfinished account to
+  `/onboarding` and a finished one to the main menu. There is no separate
+  diagnostic test yet — onboarding (subjects → level → target) is the
+  existing first-run flow.
+- Logout deletes the `auth_sessions` row and expires the cookie with the
+  same attributes it was set with.
+
+Deploy note: migration `0021_*` only adds three nullable `text` columns to
+`users` and is applied by the existing `migrate` service on the next
+`up -d`; it needs no manual step and keeps every existing row.
+
 ## Stop
 
 ```bash

@@ -1,6 +1,6 @@
 import type { Database } from '@zybrilka/db';
 import { magicLinkRequestSchema, verifyMagicLinkRequestSchema } from '@zybrilka/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import * as service from './service.js';
@@ -23,14 +23,24 @@ const vkCallbackQuerySchema = z.object({
   state: z.string().min(1),
 });
 
-function cookieOptions(config: Config, maxAgeSeconds: number) {
+function baseCookieOptions(config: Config) {
   return {
     httpOnly: true,
     sameSite: 'lax' as const,
     secure: config.NODE_ENV === 'production',
     path: '/',
-    maxAge: maxAgeSeconds,
   };
+}
+
+function cookieOptions(config: Config, maxAgeSeconds: number) {
+  return { ...baseCookieOptions(config), maxAge: maxAgeSeconds };
+}
+
+/** Expires the session cookie with exactly the attributes it was set
+ * with (Path, Secure, HttpOnly, SameSite) — a deletion whose Path
+ * differs from the original is silently ignored by browsers. */
+function clearSessionCookie(reply: FastifyReply, config: Config) {
+  reply.clearCookie(SESSION_COOKIE, baseCookieOptions(config));
 }
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { db, config }) => {
@@ -109,7 +119,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       return reply.code(400).send({ error: 'invalid_state' });
     }
     try {
-      const { sessionId } = await service.completeVkLogin(
+      const { sessionId, user } = await service.completeVkLogin(
         db,
         config,
         query.data.code,
@@ -117,7 +127,15 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         saved.data.codeVerifier,
       );
       reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
-      return reply.redirect(config.WEB_BASE_URL);
+      // Server-decided landing: an account whose saved learning profile
+      // is not complete (brand-new, or an earlier onboarding left
+      // unfinished) goes straight to onboarding; everyone else to the
+      // main menu. Not a query parameter the browser could forge — the
+      // client re-derives the same answer from /auth/me.
+      const landing = user.onboardingCompleted
+        ? config.WEB_BASE_URL
+        : new URL('/onboarding', config.WEB_BASE_URL).toString();
+      return reply.redirect(landing);
     } catch (error) {
       if (error instanceof service.VkNotConfiguredError) {
         return reply.code(503).send({ error: 'vk_not_configured' });
@@ -131,13 +149,16 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     const sessionId = request.cookies[SESSION_COOKIE];
     if (!sessionId) return reply.code(200).send({ user: null });
     const user = await service.getCurrentUser(db, sessionId);
+    // A cookie that no longer maps to a live session (expired, revoked,
+    // deleted) is dropped so the browser stops sending it.
+    if (!user) clearSessionCookie(reply, config);
     return reply.code(200).send({ user });
   });
 
   app.post('/auth/logout', async (request, reply) => {
     const sessionId = request.cookies[SESSION_COOKIE];
     if (sessionId) await service.logout(db, sessionId);
-    reply.clearCookie(SESSION_COOKIE, { path: '/' });
+    clearSessionCookie(reply, config);
     return reply.code(204).send();
   });
 };

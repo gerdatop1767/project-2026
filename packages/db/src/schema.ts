@@ -31,6 +31,15 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  /**
+   * Display profile, filled from the identity provider (VK ID) on sign-in.
+   * All nullable: email sign-in has none of it, and VK may omit any
+   * field. A sign-in only ever overwrites a column with a non-empty value
+   * from the provider — never with null/empty (see modules/auth/repo.ts).
+   */
+  firstName: text('first_name'),
+  lastName: text('last_name'),
+  avatarUrl: text('avatar_url'),
 });
 
 export const authProviders = ['email', 'vk'] as const;

@@ -4,37 +4,89 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 /** Finds the user already linked to this (provider, providerUserId)
  * identity, or creates a fresh `users` row and links it — the usual
- * "find or create" for a first-time VK/email sign-in. */
+ * "find or create" for a first-time VK/email sign-in. `created` is true
+ * only for the request that actually created the account (server-side
+ * truth for "first registration"). Safe against two concurrent
+ * first sign-ins for the same identity (double-clicked callback, two
+ * tabs): the unique (provider, providerUserId) index lets exactly one
+ * insert win; the loser removes its own just-created, still-unreferenced
+ * `users` row and resolves to the winner's account — never a duplicate
+ * account, never a leftover orphan. */
 export async function findOrCreateUserByIdentity(
   db: Database,
   provider: (typeof schema.authProviders)[number],
   providerUserId: string,
-): Promise<string> {
-  const [existing] = await db
-    .select({ userId: schema.authIdentities.userId })
-    .from(schema.authIdentities)
-    .where(
-      and(
-        eq(schema.authIdentities.provider, provider),
-        eq(schema.authIdentities.providerUserId, providerUserId),
-      ),
-    );
-  if (existing) return existing.userId;
+): Promise<{ userId: string; created: boolean }> {
+  const find = async (executor: Pick<Database, 'select'>) => {
+    const [row] = await executor
+      .select({ userId: schema.authIdentities.userId })
+      .from(schema.authIdentities)
+      .where(
+        and(
+          eq(schema.authIdentities.provider, provider),
+          eq(schema.authIdentities.providerUserId, providerUserId),
+        ),
+      );
+    return row?.userId;
+  };
 
-  const [user] = await db.insert(schema.users).values({}).returning({ id: schema.users.id });
-  await db
-    .insert(schema.authIdentities)
-    .values({ userId: user!.id, provider, providerUserId })
-    // Guards a race between two concurrent first-sign-ins for the same
-    // identity (two tabs clicking the same magic link at once) — the
-    // loser's insert is a no-op, both callers end up pointing at the
-    // same user via the SELECT above on any retry. Fine to not retry
-    // here: the (rare) loser simply gets its own extra `users` row this
-    // one time, never a duplicate identity row.
-    .onConflictDoNothing({
-      target: [schema.authIdentities.provider, schema.authIdentities.providerUserId],
-    });
-  return user!.id;
+  const existing = await find(db);
+  if (existing) return { userId: existing, created: false };
+
+  return db.transaction(async (tx) => {
+    const [user] = await tx.insert(schema.users).values({}).returning({ id: schema.users.id });
+    const [identity] = await tx
+      .insert(schema.authIdentities)
+      .values({ userId: user!.id, provider, providerUserId })
+      .onConflictDoNothing({
+        target: [schema.authIdentities.provider, schema.authIdentities.providerUserId],
+      })
+      .returning({ id: schema.authIdentities.id });
+    if (identity) return { userId: user!.id, created: true };
+
+    await tx.delete(schema.users).where(eq(schema.users.id, user!.id));
+    const winner = await find(tx);
+    if (!winner) throw new Error('auth identity vanished during find-or-create');
+    return { userId: winner, created: false };
+  });
+}
+
+export interface ProfileUpdate {
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+}
+
+/** Applies provider-supplied display data. Only fields that actually
+ * have a non-empty value are written: a sign-in where VK omitted (or
+ * blanked) a field leaves what is already stored untouched. Never
+ * touches settings, learning profile, progress or anything else. */
+export async function updateUserProfile(
+  db: Database,
+  userId: string,
+  profile: ProfileUpdate,
+): Promise<void> {
+  const set: Partial<typeof schema.users.$inferInsert> = {};
+  if (profile.firstName) set.firstName = profile.firstName;
+  if (profile.lastName) set.lastName = profile.lastName;
+  if (profile.avatarUrl) set.avatarUrl = profile.avatarUrl;
+  if (Object.keys(set).length === 0) return;
+  await db.update(schema.users).set(set).where(eq(schema.users.id, userId));
+}
+
+export async function getUserProfile(
+  db: Database,
+  userId: string,
+): Promise<{ firstName: string | null; lastName: string | null; avatarUrl: string | null }> {
+  const [row] = await db
+    .select({
+      firstName: schema.users.firstName,
+      lastName: schema.users.lastName,
+      avatarUrl: schema.users.avatarUrl,
+    })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId));
+  return row ?? { firstName: null, lastName: null, avatarUrl: null };
 }
 
 export async function getUserEmail(db: Database, userId: string): Promise<string | null> {
@@ -104,7 +156,12 @@ export async function createSession(
   return row!.id;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getSessionUserId(db: Database, sessionId: string): Promise<string | null> {
+  // The id column is a uuid: a cookie that isn't one (tampered, truncated)
+  // must read as "no session", not reach Postgres and surface as a 500.
+  if (!UUID_PATTERN.test(sessionId)) return null;
   const [row] = await db
     .select({ userId: schema.authSessions.userId, expiresAt: schema.authSessions.expiresAt })
     .from(schema.authSessions)
@@ -115,5 +172,6 @@ export async function getSessionUserId(db: Database, sessionId: string): Promise
 }
 
 export async function deleteSession(db: Database, sessionId: string): Promise<void> {
+  if (!UUID_PATTERN.test(sessionId)) return;
   await db.delete(schema.authSessions).where(eq(schema.authSessions.id, sessionId));
 }
