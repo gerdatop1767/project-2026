@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getLearningProfile } from './lib/api.js';
+import { useAuth } from './lib/authContext.js';
 import { useNavigation } from './lib/navigation.js';
 import { useIsDesktop } from './lib/useIsDesktop.js';
 import { useToast } from './ui/Toast/ToastProvider.js';
@@ -18,6 +19,7 @@ export function App() {
   const { tab, overlay } = useNavigation();
   const { clear } = useToast();
   const isDesktop = useIsDesktop();
+  const { user } = useAuth();
 
   // A toast from the previous screen renders in the same top-of-screen
   // spot as an overlay's back button — never let it survive a
@@ -57,7 +59,13 @@ export function App() {
     return <Login />;
   }
 
-  const showLanding = onboardingCompleted === false && tab === 'home' && overlay === null;
+  // A signed-in visitor never sees the public landing again, even if
+  // their (per-account) learning profile has no diagnostic yet — the
+  // auth funnel now comes before onboarding, and "Начать бесплатно"
+  // sends them to /login rather than onboarding directly (see
+  // LandingDesktop/Mobile), so after a real sign-in they must land on
+  // Home/the trainer, not bounce back to this anonymous-visitor gate.
+  const showLanding = !user && onboardingCompleted === false && tab === 'home' && overlay === null;
   if (showLanding) {
     return isDesktop ? <LandingDesktop /> : <LandingMobile />;
   }

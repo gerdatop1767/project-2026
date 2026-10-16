@@ -1,5 +1,4 @@
 import { useNavigation } from '../../lib/navigation.js';
-import { useAuth } from '../../lib/authContext.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { FadeIn } from '../../ui/motion/motion.js';
@@ -23,7 +22,6 @@ const features = [
  */
 export function LandingMobile() {
   const { navigate } = useNavigation();
-  const { user } = useAuth();
 
   return (
     <FadeIn className={styles.stack}>
@@ -44,17 +42,9 @@ export function LandingMobile() {
       </p>
 
       <div className={styles.actions}>
-        <Button variant="primary" fullWidth onClick={() => navigate({ screen: 'onboarding' })}>
+        <Button variant="primary" fullWidth onClick={() => navigate({ screen: 'login' })}>
           Начать бесплатно <Icon name="arrowRight" size={18} />
         </Button>
-        <Button variant="secondary" fullWidth onClick={() => navigate({ screen: 'about' })}>
-          <Icon name="play" size={18} /> О проекте
-        </Button>
-        {!user && (
-          <Button variant="ghost" fullWidth onClick={() => navigate({ screen: 'login' })}>
-            Войти
-          </Button>
-        )}
       </div>
 
       <div className={styles.features}>

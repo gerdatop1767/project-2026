@@ -1,5 +1,4 @@
 import { useNavigation } from '../../lib/navigation.js';
-import { useAuth } from '../../lib/authContext.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -25,14 +24,15 @@ const loopSteps = [
  * to zybrilka.ru sees, shown outside the normal app shell (no bottom
  * nav/sidebar) while `onboardingCompleted` is false (see App.tsx).
  * Same copy/mascot/features as the existing HomeDesktop marketing hero
- * (desktop/01_home.png) — HomeDesktop itself is left untouched so an
- * already-onboarded user's Home keeps behaving exactly as before;
- * this is only the pre-onboarding gate, with "Начать бесплатно"
- * leading into onboarding instead of straight into the app.
+ * (desktop/01_home.png) — this is only the pre-onboarding gate.
+ * "Начать бесплатно" opens the unified auth screen (not onboarding
+ * directly): sign-up/sign-in comes first, the diagnostic can follow
+ * from Profile afterward (see App.tsx's `showLanding`, which now also
+ * checks `!user` so a freshly authenticated visitor lands on Home
+ * instead of bouncing back here).
  */
 export function LandingDesktop() {
   const { navigate } = useNavigation();
-  const { user } = useAuth();
 
   return (
     <div className={styles.page}>
@@ -49,17 +49,9 @@ export function LandingDesktop() {
               Задания, тренировки, объяснения и статистика — всё для подготовки к ЕГЭ в одном месте.
             </p>
             <div className={styles.actions}>
-              <Button variant="primary" onClick={() => navigate({ screen: 'onboarding' })}>
+              <Button variant="primary" onClick={() => navigate({ screen: 'login' })}>
                 Начать бесплатно <Icon name="arrowRight" size={18} />
               </Button>
-              <Button variant="secondary" onClick={() => navigate({ screen: 'about' })}>
-                <Icon name="play" size={18} /> О проекте
-              </Button>
-              {!user && (
-                <Button variant="ghost" onClick={() => navigate({ screen: 'login' })}>
-                  Войти
-                </Button>
-              )}
             </div>
             <div className={styles.features}>
               {features.map((feature) => (
