@@ -35,8 +35,25 @@ const configSchema = z
 
 export type Config = z.infer<typeof configSchema>;
 
+/** Treats an env var set to the empty string the same as one left
+ * unset entirely, so `.default(...)`/`.optional()` above behave
+ * correctly regardless of how the empty value got there — Docker
+ * Compose's `${VAR}` substitutes an *empty string* (not an absent
+ * key) for an unset variable, and a `z.url()`/`z.coerce.number()`
+ * field would otherwise reject that empty string as invalid input
+ * instead of falling back to its default (e.g. `WEB_BASE_URL` or
+ * `SMTP_PORT`), crashing the whole app at startup over an *optional*
+ * feature simply not being configured yet. */
+function stripEmptyStrings(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const result: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== '') result[key] = value;
+  }
+  return result;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const result = configSchema.safeParse(env);
+  const result = configSchema.safeParse(stripEmptyStrings(env));
   if (!result.success) {
     throw new Error(`Invalid configuration:\n${z.prettifyError(result.error)}`);
   }

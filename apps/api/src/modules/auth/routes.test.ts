@@ -194,13 +194,27 @@ describe('auth (magic-link + VK ID + session)', () => {
     await unconfigured.close();
   });
 
-  it('VK start redirects to id.vk.com with a PKCE challenge and sets a short-lived state cookie', async () => {
+  it('VK start redirects to id.vk.ru/authorize with the full documented parameter set, and sets a short-lived state cookie', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/auth/vk/start' });
     expect(res.statusCode).toBe(302);
     const location = new URL(res.headers.location as string);
-    expect(location.origin).toBe('https://id.vk.com');
+    expect(location.origin).toBe('https://id.vk.ru');
+    expect(location.pathname).toBe('/authorize');
+    expect(location.searchParams.get('response_type')).toBe('code');
+    expect(location.searchParams.get('client_id')).toBe('vk-client');
+    expect(location.searchParams.get('redirect_uri')).toBe(
+      'http://localhost:5173/auth/vk/callback',
+    );
     expect(location.searchParams.get('code_challenge_method')).toBe('S256');
-    expect(parseSetCookie(res.headers['set-cookie'], 'vk_pkce')).toBeTruthy();
+    expect(location.searchParams.get('code_challenge')).toBeTruthy();
+    expect(location.searchParams.get('state')).toBeTruthy();
+    const pkceCookie = parseSetCookie(res.headers['set-cookie'], 'vk_pkce');
+    expect(pkceCookie).toBeTruthy();
+    // The cookie carries the exact code_verifier the state belongs to
+    // — not just "a" cookie — so the later exchange uses the right one.
+    const saved = JSON.parse(decodeURIComponent(pkceCookie!));
+    expect(saved.state).toBe(location.searchParams.get('state'));
+    expect(saved.codeVerifier).toBeTruthy();
   });
 
   it('VK callback 400s when the PKCE cookie is missing', async () => {
@@ -242,7 +256,29 @@ describe('auth (magic-link + VK ID + session)', () => {
       headers: { cookie: `vk_pkce=${pkceCookie}` },
     });
     expect(callbackRes.statusCode).toBe(302);
+    expect(callbackRes.headers.location).toBe('http://localhost:5173');
     const sessionId = parseSetCookie(callbackRes.headers['set-cookie'], 'session_id')!;
+
+    // The token-exchange request itself — not just that fetch was
+    // called, but that it carries exactly the documented VK ID
+    // parameters (grant_type, code, code_verifier, device_id,
+    // redirect_uri, client credentials), to the right endpoint.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [exchangeUrl, exchangeInit] = fetchMock.mock.calls[0]!;
+    expect(exchangeUrl).toBe('https://id.vk.ru/oauth2/auth');
+    expect(exchangeInit.method).toBe('POST');
+    const sentParams = new URLSearchParams(exchangeInit.body as string);
+    expect(sentParams.get('grant_type')).toBe('authorization_code');
+    expect(sentParams.get('code')).toBe('abc');
+    expect(sentParams.get('device_id')).toBe('dev-1');
+    expect(sentParams.get('client_id')).toBe('vk-client');
+    expect(sentParams.get('client_secret')).toBe('vk-secret');
+    expect(sentParams.get('redirect_uri')).toBe('http://localhost:5173/auth/vk/callback');
+    // The verifier sent must be the SAME one generated in /vk/start,
+    // round-tripped through the httpOnly cookie — never a fresh or
+    // client-supplied value.
+    const savedChallenge = JSON.parse(decodeURIComponent(pkceCookie));
+    expect(sentParams.get('code_verifier')).toBe(savedChallenge.codeVerifier);
 
     const meRes = await app.inject({
       method: 'GET',
