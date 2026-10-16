@@ -10,12 +10,15 @@
 - Не выводите `infra/.env` (`cat`, `env`, `docker inspect`, `docker compose config`) — там пароли. Раздел 1 показывает только «задано / не задано».
 - Не отправляйте скриншоты с адресной строкой VK и страницей согласия, где видны `state`/`code`.
 
-Во всех командах ниже:
+Во всех командах ниже (bash; выполняйте из каталога репозитория на VPS, где лежит `infra/docker-compose.yml`):
 
 ```bash
-cd <каталог репозитория на VPS>          # где лежит infra/docker-compose.yml
-C="docker compose --env-file infra/.env -f infra/docker-compose.yml"
+dc() { docker compose --env-file infra/.env -f infra/docker-compose.yml "$@"; }
 ```
+
+`dc` — это та же команда, которой уже разворачивался стек (проект Compose называется `infra` по имени каталога compose-файла). Перед любым ✏️-шагом убедитесь, что вы в нужном проекте: `docker ps --format '{{.Names}}' | grep '^zybrilka-'` должен показать работающие `zybrilka-postgres`, `zybrilka-api`, `zybrilka-web`, `zybrilka-caddy`. Если список пуст — вы не в том каталоге: **стоп**, ничего не запускать (иначе Compose попытается создать второй стек).
+
+Блоки со словами «в подоболочке» (`( set -euo pipefail … )`) завершаются на первой же ошибке и не трогают вашу сессию; **успехом считается только строка `… OK` в конце вывода**, а не отсутствие красного текста.
 
 ## 0. Что именно проверяется (по коду)
 
@@ -44,7 +47,7 @@ C="docker compose --env-file infra/.env -f infra/docker-compose.yml"
 ```bash
 git rev-parse --short HEAD && git status -sb | head -3
 
-$C exec -T api node -e '
+dc exec -T api node -e '
 const e = process.env, st = (k) => (e[k] ? "set" : "MISSING");
 console.log("NODE_ENV =", e.NODE_ENV);
 for (const k of ["VK_CLIENT_ID", "VK_CLIENT_SECRET", "SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"]) console.log(k, "=", st(k));
@@ -62,7 +65,7 @@ console.log("SMTP_HOST =", e.SMTP_HOST || "-", "| SMTP_PORT =", e.SMTP_PORT, "| 
 - `WEB_BASE_URL = "https://zybrilka.ru"`;
 - если рассчитываете на вход по почте: `SMTP_HOST/SMTP_USER/SMTP_PASSWORD` = `set` (достаточно любого пропущенного значения, чтобы почта вернула 503).
 
-Если что-то `MISSING`: значения не дошли до контейнера. Они читаются из `infra/.env` при создании контейнера; после правки файла нужно ✏️ `$C up -d --no-deps api` (контейнер пересоздастся сам, потому что env изменился). Сам `.env` не печатайте.
+Если что-то `MISSING`: значения не дошли до контейнера. Они читаются из `infra/.env` при создании контейнера; после правки файла нужно ✏️ `dc up -d --no-deps api` (контейнер пересоздастся сам, потому что env изменился). Сам `.env` не печатайте.
 
 Вручную сверьте в консоли VK ID (раздел приложения): «Доверенный Redirect URL» совпадает с `VK_REDIRECT_URI` посимвольно, базовый домен — `zybrilka.ru`, приложение включено, ID приложения совпадает с `VK_CLIENT_ID`. Разрешённые данные: имя, фамилия, аватар (и email — запрашивается как `scope=email`).
 
@@ -96,12 +99,12 @@ curl -sS -w '  -> %{http_code}\n' https://zybrilka.ru/api/v1/auth/vk/callback
 curl -sS -o /dev/null -w '/onboarding %{http_code}\n' https://zybrilka.ru/onboarding
 
 # 2.7 сеть VPS -> VK (только код ответа)
-$C exec -T api node -e 'fetch("https://id.vk.ru/", { method: "HEAD", signal: AbortSignal.timeout(5000) }).then((r) => console.log("id.vk.ru ->", r.status)).catch((e) => console.log("id.vk.ru UNREACHABLE:", e.name))'
+dc exec -T api node -e 'fetch("https://id.vk.ru/", { method: "HEAD", signal: AbortSignal.timeout(5000) }).then((r) => console.log("id.vk.ru ->", r.status)).catch((e) => console.log("id.vk.ru UNREACHABLE:", e.name))'
 ```
 
 | Шаг | Ожидается                                                                                         | Если иначе                                                                                                                                                                                                                                       |
 | --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2.1 | `200`                                                                                             | `502/504` — api не поднялся: `$C ps`, `$C logs --tail 30 api` (в этих логах нет callback-параметров, пока вы не открывали вход)                                                                                                                    |
+| 2.1 | `200`                                                                                             | `502/504` — api не поднялся: `dc ps`, `dc logs --tail 30 api` (в этих логах нет callback-параметров, пока вы не открывали вход)                                                                                                                    |
 | 2.2 | `200` и `{"user":null}`                                                                           | `404` — работает старый образ api (без маршрутов входа): пересоберите (раздел 6)                                                                                                                                                                   |
 | 2.3 | оба `401`                                                                                         | `200` — защита не включена (старый образ)                                                                                                                                                                                                         |
 | 2.4 | `302 https://id.vk.ru/authorize`, `redirect_uri` равен значению из раздела 1, `scope = ['email']` | `503` — `vk_not_configured` (раздел 1); `redirect_uri` другой — поправьте `VK_REDIRECT_URI`; вместо `302` HTML сайта — Caddy отдаёт устаревший файл, см. `docs/DEPLOYMENT.md` («Verify the edge»)                                                |
@@ -255,53 +258,164 @@ curl -sS -w '  -> %{http_code}\n' -X POST https://zybrilka.ru/api/v1/auth/magic-
 
 ## 6. ✏️ Действия, которые меняют состояние
 
-Для проверки нужна сборка PR #60 на VPS (отдельного стенда нет): до слияния её придётся запускать **на production**. Пока вход не подтверждён, это риск блокировки входа для всех, поэтому — только с откатом.
+Для проверки нужна сборка PR #60 на VPS (отдельного стенда нет): до слияния её придётся запускать **на production**. Пока вход не подтверждён, это риск блокировки входа для всех, поэтому — только с откатом. Каждый шаг этого раздела требует вашего подтверждения (см. раздел 9). Порядок строгий: 6.0 → 6.1 → 6.2 → 6.3 → 6.4.
 
-**6.1 Резервная копия БД** (персональные данные внутри — храните вне репозитория, права `600`):
+Как устроен стек (по `infra/docker-compose.yml`), и почему не используется `up -d --build` без списка сервисов:
 
-```bash
-umask 077
-$C exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
-  > ~/zybrilka-pre-auth-$(date +%Y%m%d-%H%M%S).dump
-ls -l ~/zybrilka-pre-auth-*.dump
-$C exec -T postgres pg_restore -l < "$(ls -t ~/zybrilka-pre-auth-*.dump | head -1)" | head -3
+```text
+postgres ──► migrate ──► sync-subjects ──► sync-content ──► api
+                                                       └──► worker
+web ──► caddy
 ```
 
-(Команда в `docs/DEPLOYMENT.md` без `-T` и с переменными хоста может дать пустой/испорченный файл — используйте вариант выше; последняя строка проверяет, что дамп читается.)
+- `migrate`, `sync-subjects`, `sync-content` — одноразовые (`restart: 'no'`). Образ у них общий с `api`: `zybrilka-api:latest`. `sync-content` прогоняет все импортёры контента (10 по математике + 18 по русскому).
+- `dc up -d --build` без имён сервисов пересобирает **все** образы, запускает всю цепочку одноразовых сервисов и перезапускает `worker` и `caddy` — для проверки входа это лишнее и не нужно. Так же ведёт себя `dc up -d api` без `--no-deps`: он потянет `migrate → sync-subjects → sync-content`.
+- Для этой проверки миграция `0021` нужна, а синхронизация контента — нет: PR #60 не меняет содержимого заданий (изменения в файлах импортёров — только форматирование Prettier из PR #62). Поэтому порядок такой: собрать только `api` и `web` → явно выполнить только `migrate` → пересоздать только `api` и `web` с `--no-deps --no-build`. `postgres`, `worker`, `caddy` не трогаются.
+- Образы выбираются по имени и тегу из compose-файла: `zybrilka-api:latest` (сервисы `api`, `migrate`, `sync-*`), `zybrilka-web:latest` (сервис `web`). `dc build` перетегирует `:latest` на новый образ только после успешной сборки; уже запущенные контейнеры продолжают работать на старом образе, пока их не пересоздали. При `up --no-build` Compose берёт образ по тегу `:latest` и пересоздаёт контейнер, если ID образа отличается от того, на котором он запущен. Это же даёт откат (6.5).
 
-**6.2 Сохранить текущие образы для отката:**
-
-```bash
-docker tag zybrilka-api:latest zybrilka-api:pre-auth
-docker tag zybrilka-web:latest zybrilka-web:pre-auth
-docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'zybrilka-(api|web):pre-auth'
-```
-
-**6.3 Выкатить сборку из PR #60:**
+**6.0 🔒 Предусловия.** Всё должно совпасть, иначе дальше не идти:
 
 ```bash
-git remote                                  # имена remotes (без URL); дальше <remote> — тот, что указывает на репозиторий проекта
-git fetch <remote> feat/auth-profile-onboarding
-git switch --detach <remote>/feat/auth-profile-onboarding
-git rev-parse --short HEAD                  # сверить с SHA обновлённого PR #60 (последний: 31b8932)
-$C up -d --build                            # применит миграцию 0021 через сервис migrate
-$C ps
+docker ps --format '{{.Names}}' | grep '^zybrilka-'        # postgres, api, web, caddy (и worker) работают
+git status --short                                           # ДОЛЖНО быть пусто. Если нет — стоп: не делайте stash/reset/clean, спросите
+git rev-parse --short HEAD; git symbolic-ref -q --short HEAD || echo "(detached HEAD)"
+docker compose version                                      # нужен Compose v2 (флаг --wait)
+df -h . /var/lib/docker | cat                                # нужно свободное место под дамп и две сборки (порядка нескольких ГБ)
+dc ps -a --format '{{.Service}} {{.State}}' | cat            # migrate/sync-*: exited — нормально
 ```
 
-Ожидается: `migrate` и `sync-*` завершились с кодом 0, `api`, `web` — `Up`; затем проходит раздел 2.
-
-**6.4 Откат (если вход не работает и быстро не чинится):**
+**6.1 ✏️ Резервная копия БД** (персональные данные внутри; файл остаётся в домашнем каталоге VPS, не в репозитории, права `600`). Блок прерывается при любой ошибке; указатель на дамп создаётся только после успешной проверки, поэтому прежний дамп не может сойти за свежий:
 
 ```bash
-docker tag zybrilka-api:pre-auth zybrilka-api:latest
-docker tag zybrilka-web:pre-auth zybrilka-web:latest
-$C up -d --no-build --no-deps api web
-curl -sS -o /dev/null -w '%{http_code}\n' https://zybrilka.ru/health
+(
+  set -euo pipefail
+  umask 077
+  PTR="$HOME/zybrilka-pre-auth.dump.path"
+  rm -f -- "$PTR"                                   # убираем указатель на прошлый дамп (сам прошлый файл не удаляем)
+  OUT="$HOME/zybrilka-pre-auth-$(date +%Y%m%d-%H%M%S).dump"
+  PART="$OUT.partial"
+  [ ! -e "$OUT" ] && [ ! -e "$PART" ] || { echo "FAIL: $OUT already exists"; exit 1; }
+  trap 'rm -f -- "$PART" "$PART.list"' EXIT         # удаляет только временные файлы ЭТОГО запуска
+  dc exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > "$PART"
+  [ -s "$PART" ] || { echo "FAIL: dump is empty"; exit 1; }
+  dc exec -T postgres pg_restore -l < "$PART" > "$PART.list"              # архив читается?
+  grep -q 'TABLE DATA public users ' "$PART.list" || { echo "FAIL: dump has no data for table users"; exit 1; }
+  grep -q 'TABLE DATA public attempts ' "$PART.list" || { echo "FAIL: dump has no data for table attempts"; exit 1; }
+  mv -- "$PART" "$OUT"
+  printf '%s\n' "$OUT" > "$PTR"
+  ls -l -- "$OUT"
+  echo "DUMP OK: $OUT"
+)
+echo "exit code: $?"          # должно быть 0, и в выводе выше должна быть строка «DUMP OK»
 ```
 
-Миграция `0021` остаётся в БД — это три пустых nullable-столбца, старый код их не замечает. Возврат дампа (`docs/DEPLOYMENT.md`, «Restore») нужен только если что-то повредило данные — для этого шага не требуется. После отката верните репозиторий на `main`: `git switch main && git pull --ff-only <remote> main`.
+Если не `DUMP OK` или код не `0` — дальше не идти; возможные причины: нет места (`df -h`), `postgres` не запущен, неверный каталог (6.0).
 
-**6.5 Перезапуск только api после правки `infra/.env`:** `$C up -d --no-deps api` (контейнер пересоздаётся сам).
+**6.2 ✏️ Зафиксировать то, на чём сейчас работает production** (код и образы, которые реально запущены, а не просто тег `:latest`). Блок отказывается перезаписать уже существующий снимок — повторный запуск после выкатки затёр бы точку отката:
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  STATE="$HOME/zybrilka-pre-auth.state"
+  if [ -e "$STATE" ]; then echo "FAIL: $STATE already exists - a snapshot was already taken. Do NOT re-run this step after deploying."; exit 1; fi
+  for img in zybrilka-api zybrilka-web; do
+    if docker image inspect "$img:pre-auth" >/dev/null 2>&1; then echo "FAIL: $img:pre-auth already exists - refusing to overwrite the rollback image"; exit 1; fi
+  done
+  if [ -n "$(git status --porcelain)" ]; then echo "FAIL: working tree is not clean"; exit 1; fi
+  API_ID=$(docker inspect -f '{{.Image}}' zybrilka-api)       # ID образа, на котором запущен контейнер
+  WEB_ID=$(docker inspect -f '{{.Image}}' zybrilka-web)
+  docker tag "$API_ID" zybrilka-api:pre-auth
+  docker tag "$WEB_ID" zybrilka-web:pre-auth
+  {
+    echo "git_sha=$(git rev-parse HEAD)"
+    echo "git_ref=$(git symbolic-ref -q --short HEAD || echo DETACHED)"
+    echo "api_image=$API_ID"
+    echo "web_image=$WEB_ID"
+  } > "$STATE"
+  cat "$STATE"
+  echo "SNAPSHOT OK"
+)
+echo "exit code: $?"
+```
+
+Файл состояния хранит только SHA коммита, имя ветки и ID образов — секретов в нём нет. Теги `pre-auth` не дают очистке Docker удалить старые образы, но `docker image prune -a` и `docker system prune -a` их удалят — **не запускайте prune ни в каком виде, пока проверка не закончена**.
+
+**6.3 ✏️ Выкатить сборку PR #60 (только `api` и `web`).** Сначала задайте имя remote, который указывает на репозиторий проекта (`git remote` покажет имена без URL; в документации проекта он называется `new-origin`, на VPS мог быть `origin`):
+
+```bash
+REMOTE=<имя remote>        # например: new-origin
+(
+  set -euo pipefail
+  STATE="$HOME/zybrilka-pre-auth.state"; PTR="$HOME/zybrilka-pre-auth.dump.path"
+  [ -s "$STATE" ] || { echo "FAIL: step 6.2 was not completed"; exit 1; }
+  [ -s "$PTR" ] || { echo "FAIL: no dump pointer - step 6.1 was not completed"; exit 1; }
+  DUMP=$(cat "$PTR")
+  [ -s "$DUMP" ] && [ -n "$(find "$DUMP" -mmin -60)" ] || { echo "FAIL: dump is missing or older than 60 minutes - redo 6.1"; exit 1; }
+  [ -z "$(git status --porcelain)" ] || { echo "FAIL: working tree is not clean"; exit 1; }
+  docker ps --format '{{.Names}}' | grep -qx zybrilka-postgres || { echo "FAIL: zybrilka-postgres is not running"; exit 1; }
+  trap 'rc=$?; [ "$rc" -eq 0 ] || echo "DEPLOY FAILED (exit $rc). Check the state with 6.4; run 6.5 to return code and images to the recorded state (safe to run even if nothing was replaced)."' EXIT
+
+  git fetch "$REMOTE" feat/auth-profile-onboarding
+  git switch --detach FETCH_HEAD
+  echo "code is now at: $(git rev-parse --short HEAD)   <- сверьте с SHA в PR #60"
+
+  dc build api web                                   # 1. только эти два образа; ничего не запущено заново
+  dc run --rm --no-deps -T migrate                   # 2. только миграции (добавляет 3 nullable-столбца в users)
+  dc up -d --no-deps --no-build --wait --wait-timeout 120 api web    # 3. пересоздать только api и web
+  dc ps api web
+  echo "DEPLOY OK"
+)
+echo "exit code: $?"
+```
+
+Что произойдёт и чего не произойдёт:
+
+- Если упал любой шаг — выполните 6.5: он вернёт код и образы на записанное состояние и безопасен, даже если ничего заменено не было (при падении сборки контейнеры и теги `:latest` не менялись, но рабочее дерево уже на коде PR).
+- Шаг 2 запускает ровно один одноразовый контейнер `migrate` (код выхода команды = код миграции). Старый `api` в это время продолжает работать: миграция только добавляет пустые nullable-столбцы.
+- Шаг 3 пересоздаёт `api` и `web` (несколько секунд недоступности); `postgres`, `worker`, `caddy` и одноразовые `sync-*` не запускаются. `--wait` дожидается healthcheck обоих образов; по таймауту команда вернёт ошибку.
+- Синхронизация контента (`sync-subjects`, `sync-content`) **не выполняется** — для проверки входа она не нужна. Обычный полный деплой после слияния делайте по `docs/DEPLOYMENT.md` (раздел «Update from Git»), это отдельное решение владельца.
+
+**6.4 🔒 Проверка после выкатки:** повторите раздел 2 (маршруты) и убедитесь, что запущены именно новые образы:
+
+```bash
+. ~/zybrilka-pre-auth.state
+[ "$(docker inspect -f '{{.Image}}' zybrilka-api)" != "$api_image" ] && echo "api: new image running" || echo "api: STILL the old image"
+[ "$(docker inspect -f '{{.Image}}' zybrilka-web)" != "$web_image" ] && echo "web: new image running" || echo "web: STILL the old image"
+```
+
+Если `STILL the old image` — выкатка не произошла, проверьте вывод 6.3; не переходите к браузерному тесту.
+
+**6.5 ✏️ Откат (если вход не работает и быстро не чинится).** Возвращает **и образы, и код** к состоянию, записанному в 6.2, и сам проверяет результат. Дамп БД автоматически не восстанавливается — он не нужен: миграция `0021` только добавила пустые nullable-столбцы, старый код их не замечает:
+
+```bash
+(
+  set -euo pipefail
+  STATE="$HOME/zybrilka-pre-auth.state"
+  [ -s "$STATE" ] || { echo "FAIL: no state file - cannot roll back automatically"; exit 1; }
+  . "$STATE"                     # git_sha, git_ref, api_image, web_image (файл создан шагом 6.2)
+  docker image inspect "$api_image" "$web_image" >/dev/null   # старые образы ещё на месте?
+  docker tag "$api_image" zybrilka-api:latest
+  docker tag "$web_image" zybrilka-web:latest
+  dc up -d --no-deps --no-build --wait --wait-timeout 120 api web
+  git switch --detach "$git_sha"
+  if [ "$git_ref" != DETACHED ] && [ "$(git rev-parse "$git_ref")" = "$git_sha" ]; then git switch "$git_ref"; fi
+  [ "$(docker inspect -f '{{.Image}}' zybrilka-api)" = "$api_image" ] || { echo "ROLLBACK MISMATCH: api"; exit 1; }
+  [ "$(docker inspect -f '{{.Image}}' zybrilka-web)" = "$web_image" ] || { echo "ROLLBACK MISMATCH: web"; exit 1; }
+  echo "code is now at: $(git rev-parse --short HEAD)"
+  echo "ROLLBACK OK: api and web run the recorded images, code is back at the recorded commit"
+)
+echo "exit code: $?"
+curl -sS -o /dev/null -w '/health %{http_code}\n' https://zybrilka.ru/health
+```
+
+Почему откат согласован: `docker tag <ID> :latest` возвращает тегу `:latest` именно тот образ, что работал до выкатки; `up --no-build` пересоздаёт контейнеры, потому что их образ отличается от текущего `:latest`; блок сравнивает ID запущенных образов с записанными и возвращает рабочее дерево на записанный коммит, чтобы следующая сборка не взяла код из PR. Образы из неудачной сборки остаются без тега (их можно изучить, пока не запущен prune).
+
+После окончания проверки (откат или успешное слияние и обычный деплой) теги `pre-auth` и файл состояния удаляются **вручную и осознанно**, только после подтверждения владельца: `docker rmi zybrilka-api:pre-auth zybrilka-web:pre-auth` (убирает теги, образ остаётся, пока на него ссылается контейнер) и `mv ~/zybrilka-pre-auth.state ~/zybrilka-pre-auth.state.old`.
+
+**6.6 ✏️ Перезапуск только api после правки `infra/.env`:** `dc up -d --no-deps api` — контейнер пересоздаётся сам, потому что env изменился (кратковременная недоступность API). Сам `.env` правит владелец; значения секретов в чат и логи не вставлять.
+
+**Чего не делать** (любое из этого может удалить данные, раскрыть секреты или перезапустить лишнее): `dc down`, `dc down -v` и `docker volume rm` (удаляют контейнеры/тома БД); `docker image prune`/`docker system prune` (с `-a` и без — пока идёт проверка); `git reset --hard`, `git clean`, `git stash` на VPS; `dc up -d --build` без списка сервисов; `dc config`, `cat infra/.env`, `env`, `docker inspect` контейнера целиком (печатают пароли); сырые `docker logs` (раздел 3); перезапуск `caddy`/`worker`/`postgres` без необходимости.
 
 ## 7. Пошаговый план проверки в браузере
 
@@ -317,7 +431,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://zybrilka.ru/health
 8. Снова «Продолжить через VK ID». **Критерий 7:** сразу в главное меню (без онбординга), те же имя и аватар, ошибки и избранное на месте.
 9. Выполните шаги из раздела 4 (4.1 и 4.2) и раздела 3 и сверьте с таблицей ожиданий.
 10. (Запасной вход) выполните проверку из раздела 5 на свой адрес.
-11. Вердикт: если критерии 1–7 выполнены — пришлите результаты (таблицу критериев, 4.1/4.2 и отфильтрованные строки логов) для решения о слиянии; если нет — откат из 6.4 и текст ошибки.
+11. Вердикт: если критерии 1–7 выполнены — пришлите результаты (таблицу критериев, 4.1/4.2 и отфильтрованные строки логов) для решения о слиянии; если нет — откат из 6.5 и текст ошибки.
 
 Только после успешных критериев 1–7 вход через VK можно считать проверенным; до этого он считается **непроверенным**.
 
@@ -369,3 +483,23 @@ SQL
 1. **Переходный режим с флагом** `AUTH_REQUIRED` (по умолчанию выключен): вход (VK/почта) доступен, но тренажёр пока работает и анонимно, как раньше. Даёт ещё и мгновенный «выключатель» без отката образов, и снимает блокировку при неработающем входе. Включается, когда вход подтверждён и решён вопрос переноса.
 2. **Перенос при первой регистрации** («усыновление»): `UPDATE user_id` по девяти таблицам в одной транзакции, только для только что созданного аккаунта без своих данных, одноразово, с ограничением частоты и журналом (подробно — в `docs/ANONYMOUS_PROGRESS.md`). Оценка 0,5–1 день + проверка безопасности. Подделка заголовка `x-anon-id` без этих ограничений позволяет присвоить чужую историю.
 3. **Только дамп** (6.1) и принять потерю: данные можно будет вернуть позже одним из вариантов выше.
+
+## 9. Что требует вашего подтверждения перед выполнением на production
+
+Ничего из раздела 6 нельзя выполнять «по инерции» — каждое из действий ниже должен явно разрешить владелец:
+
+| Действие                                                      | Почему нужно подтверждение                                                                                                                                                                                      |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6.1 Дамп БД                                                   | создаёт на VPS файл с персональными данными пользователей (место хранения, права, срок жизни — ваше решение); нагружает БД на время дампа                                                                         |
+| 6.2 Теги `pre-auth` и файл состояния                          | создаёт теги Docker и файл в `$HOME`; безопасно, но от них зависит откат                                                                                                                                         |
+| 6.3 Выкатка непринятой ветки PR #60                           | production начинает работать на несмерженном коде с обязательной авторизацией; применяется необратимая вперёд миграция `0021` к production-БД; `api` и `web` пересоздаются (короткий простой); сборка занимает CPU/диск |
+| 6.3 `git switch --detach` на VPS                              | меняет рабочее дерево production-репозитория                                                                                                                                                                     |
+| Вход через VK тестовым аккаунтом (раздел 7)                   | создаёт в production-БД настоящий аккаунт с вашими именем и аватаром VK; автоматической очистки в этом документе нет                                                                                             |
+| Запрос письма на почту (раздел 5)                             | пишет токен в `magic_link_tokens`, отправляет письмо через боевой SMTP                                                                                                                                           |
+| 6.5 Откат                                                     | пересоздаёт `api` и `web` (простой), возвращает код                                                                                                                                                              |
+| 6.6 Правка `infra/.env` и перезапуск `api`                    | меняет секреты/конфигурацию и перезапускает сервис                                                                                                                                                               |
+| Удаление тегов `pre-auth`, старых дампов                      | необратимо; делается только после окончания проверки                                                                                                                                                            |
+| Обычный полный деплой после слияния PR #60                    | отдельное решение: запускает `migrate` + `sync-subjects` + `sync-content` (все импортёры) и может перезапустить `worker`/`caddy`                                                                                  |
+| Слияние PR #60 в `main`                                       | только после критериев 1–7 из раздела 7                                                                                                                                                                          |
+
+Без подтверждения безопасны только 🔒-шаги (разделы 1–4, 6.0, 6.4, 8): они читают конфигурацию, маршруты, отфильтрованные логи и БД в режиме «только чтение».
