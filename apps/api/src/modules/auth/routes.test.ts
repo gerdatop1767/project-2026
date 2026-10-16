@@ -287,4 +287,63 @@ describe('auth (magic-link + VK ID + session)', () => {
     expect(res.statusCode).toBe(502);
     expect(res.json()).toEqual({ error: 'vk_login_failed' });
   });
+
+  describe('rate limiting (own app instance per test — own in-memory store, never affects the shared `app` above)', () => {
+    it('throttles repeated /auth/magic-link requests from the same IP with 429', async () => {
+      const authConfig = loadConfig({
+        NODE_ENV: 'test',
+        SMTP_HOST: 'smtp.test',
+        SMTP_USER: 'user',
+        SMTP_PASSWORD: 'pass',
+      });
+      const limited = buildApp({ version: 'test', db: testDb.db, authConfig });
+      try {
+        let last;
+        for (let i = 0; i < 10; i++) {
+          last = await limited.inject({
+            method: 'POST',
+            url: '/api/v1/auth/magic-link',
+            payload: { email: `rate-${i}@example.com` },
+          });
+          expect(last.statusCode).toBe(200);
+        }
+        const blocked = await limited.inject({
+          method: 'POST',
+          url: '/api/v1/auth/magic-link',
+          payload: { email: 'rate-11@example.com' },
+        });
+        expect(blocked.statusCode).toBe(429);
+      } finally {
+        await limited.close();
+      }
+    });
+
+    it('throttles repeated /auth/verify requests from the same IP with 429, independently of /auth/magic-link', async () => {
+      const authConfig = loadConfig({
+        NODE_ENV: 'test',
+        SMTP_HOST: 'smtp.test',
+        SMTP_USER: 'user',
+        SMTP_PASSWORD: 'pass',
+      });
+      const limited = buildApp({ version: 'test', db: testDb.db, authConfig });
+      try {
+        for (let i = 0; i < 30; i++) {
+          const res = await limited.inject({
+            method: 'POST',
+            url: '/api/v1/auth/verify',
+            payload: { token: 'not-a-real-token' },
+          });
+          expect(res.statusCode).toBe(400);
+        }
+        const blocked = await limited.inject({
+          method: 'POST',
+          url: '/api/v1/auth/verify',
+          payload: { token: 'not-a-real-token' },
+        });
+        expect(blocked.statusCode).toBe(429);
+      } finally {
+        await limited.close();
+      }
+    });
+  });
 });

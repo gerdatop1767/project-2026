@@ -10,14 +10,12 @@ import { VkIcon } from '../../ui/VkIcon/VkIcon.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './Login.module.css';
 
-type AuthTab = 'signup' | 'login';
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const tabs: { id: AuthTab; label: string }[] = [
-  { id: 'signup', label: 'Создать аккаунт' },
-  { id: 'login', label: 'Войти' },
-];
+// How long the "Готово!" success state shows before auto-redirecting
+// into the trainer — long enough to register as a real confirmation,
+// short enough that the redirect still feels automatic, not stalled.
+const SUCCESS_REDIRECT_DELAY_MS = 1200;
 
 const benefits = [
   '10 000+ заданий по всем предметам ЕГЭ',
@@ -25,27 +23,13 @@ const benefits = [
   'Прогресс и статистика сохраняются навсегда',
 ];
 
-const copyByTab: Record<
-  AuthTab,
-  { headline: string; headlineAccent: string; subtext: string; submitLabel: string }
-> = {
-  signup: {
-    headline: 'Создай аккаунт и начни',
-    headlineAccent: 'зубрить',
-    subtext:
-      'Бесплатная регистрация в один клик — без пароля, по ссылке на почту или через ВКонтакте.',
-    submitLabel: 'Продолжить',
-  },
-  login: {
-    headline: 'С возвращением —',
-    headlineAccent: 'продолжим?',
-    subtext: 'Войдите по ссылке на почту или через ВКонтакте — без пароля.',
-    submitLabel: 'Продолжить',
-  },
-};
-
 /**
- * Unified sign-up/sign-in screen (S3 auth) — email magic-link + VK ID.
+ * Unified sign-up/sign-in screen (S3 auth) — one flow for new and
+ * returning users alike (email magic-link + VK ID), matching the
+ * backend's own find-or-create identity resolution: there is no
+ * separate "create account" vs "log in" step server-side, so this
+ * screen doesn't pretend there is one either.
+ *
  * Rendered standalone (see App.tsx's `showLogin`), outside the normal
  * dark app shell: the approved reference is a dedicated light page,
  * not a dashboard screen, so this scopes its own light-theme token
@@ -62,20 +46,11 @@ export function Login() {
   const { navigate, back } = useNavigation();
   const { user, refresh } = useAuth();
 
-  const [tab, setTab] = useState<AuthTab>('signup');
   const [email, setEmail] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const tabRefs = useRef(new Map<AuthTab, HTMLButtonElement>());
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
-
-  useEffect(() => {
-    const el = tabRefs.current.get(tab);
-    if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
-  }, [tab]);
 
   // Magic-link verification: the user followed the emailed link back
   // here with ?token=... — a completely different mode of this same
@@ -96,9 +71,15 @@ export function Login() {
       .catch(() => setVerifyState('error'));
   }, [refresh]);
 
-  // Already signed in (e.g. opened this screen by mistake, or a second
-  // tab) — never show a sign-in form to someone already signed in.
+  // Confirmed sign-in (fresh verify, or already had a session) always
+  // ends the same way: straight into the trainer, using the real
+  // server session that was just set/confirmed — never a second,
+  // parallel notion of "logged in" on the client.
   useEffect(() => {
+    if (verifyState === 'done') {
+      const id = window.setTimeout(() => navigate({ screen: 'home' }), SUCCESS_REDIRECT_DELAY_MS);
+      return () => window.clearTimeout(id);
+    }
     if (user && verifyState === 'idle') {
       navigate({ screen: 'home' });
     }
@@ -121,8 +102,10 @@ export function Login() {
     } catch (error) {
       if (error instanceof ApiError && error.status === 503) {
         setFormError(
-          'Отправка писем сейчас недоступна — попробуйте позже или войдите через ВКонтакте.',
+          'Отправка писем сейчас недоступна — попробуйте позже или войдите через VK ID.',
         );
+      } else if (error instanceof ApiError && error.status === 429) {
+        setFormError('Слишком много попыток. Подождите немного и попробуйте снова.');
       } else {
         setFormError('Не удалось отправить письмо. Проверьте email и попробуйте снова.');
       }
@@ -155,11 +138,10 @@ export function Login() {
 
           {verifyState === 'idle' && (
             <>
-              <h1 className={styles.headline}>
-                {copyByTab[tab].headline}{' '}
-                <span className={styles.headlineAccent}>{copyByTab[tab].headlineAccent}</span>
-              </h1>
-              <p className={styles.subtext}>{copyByTab[tab].subtext}</p>
+              <h1 className={styles.headline}>Войти или создать аккаунт</h1>
+              <p className={styles.subtext}>
+                Без пароля: продолжите через VK ID или получите ссылку для входа на почту.
+              </p>
               <ul className={styles.benefits}>
                 {benefits.map((benefit) => (
                   <li key={benefit} className={styles.benefit}>
@@ -212,9 +194,9 @@ export function Login() {
             <div className={styles.statePanel}>
               <Icon name="success" size={40} className={styles.stateIconSuccess} />
               <p className={clsx('text-h3', styles.stateTitle)}>Готово!</p>
-              <p className={styles.stateText}>Вы вошли в Zybrilka.</p>
+              <p className={styles.stateText}>Вы вошли в Zybrilka. Переходим в тренажёр…</p>
               <Button fullWidth onClick={() => navigate({ screen: 'home' })}>
-                На главную
+                Перейти сейчас
               </Button>
             </div>
           )}
@@ -243,8 +225,8 @@ export function Login() {
               <Icon name="mail" size={40} className={styles.stateIconSuccess} />
               <p className={clsx('text-h3', styles.stateTitle)}>Проверьте почту</p>
               <p className={styles.stateText}>
-                Мы отправили ссылку для входа на <strong>{email.trim()}</strong>. Ссылка действует
-                15 минут.
+                Мы отправили на <strong>{email.trim()}</strong> письмо со ссылкой для входа — это
+                ссылка, не код: просто откройте её, чтобы войти. Ссылка действует 15 минут.
               </p>
               <Button variant="secondary" fullWidth onClick={() => setSent(false)}>
                 Отправить другое письмо
@@ -254,44 +236,13 @@ export function Login() {
 
           {verifyState === 'idle' && !sent && (
             <>
-              <div className={styles.tabs} role="tablist" aria-label="Вход или регистрация">
-                <span
-                  className={styles.tabIndicator}
-                  style={{
-                    transform: `translateX(${indicator.left}px)`,
-                    width: `${indicator.width}px`,
-                  }}
-                  aria-hidden="true"
-                />
-                {tabs.map((item) => (
-                  <button
-                    key={item.id}
-                    ref={(el) => {
-                      if (el) tabRefs.current.set(item.id, el);
-                      else tabRefs.current.delete(item.id);
-                    }}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === item.id}
-                    className={styles.tab}
-                    onClick={() => {
-                      setTab(item.id);
-                      setFormError(null);
-                      setFieldError(null);
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-
               <Button
                 variant="secondary"
                 fullWidth
                 className={styles.vkButton}
                 onClick={handleVkClick}
               >
-                <VkIcon size={20} /> Продолжить через ВКонтакте
+                <VkIcon size={20} /> Продолжить через VK ID
               </Button>
 
               <div className={styles.divider}>
@@ -316,7 +267,7 @@ export function Login() {
                 />
                 {formError && <p className={styles.formError}>{formError}</p>}
                 <Button type="submit" fullWidth loading={submitting}>
-                  {copyByTab[tab].submitLabel}
+                  Продолжить с почтой
                 </Button>
               </form>
 

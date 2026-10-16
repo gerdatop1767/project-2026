@@ -20,49 +20,37 @@ function renderWithNav(ui: React.ReactElement) {
 }
 
 describe('LandingDesktop', () => {
-  it('renders the marketing headline, mascot, and both CTAs', () => {
+  it('renders the marketing headline, mascot, and the single "Начать бесплатно" CTA — no separate "О проекте" or "Войти"', () => {
     renderWithNav(<LandingDesktop />);
     expect(screen.getByText(/ЕГЭ становится проще/)).toBeInTheDocument();
     expect(screen.getByAltText('')).toHaveAttribute('src', '/branding/v2/hero-mascot-desktop.webp');
     expect(screen.getByRole('button', { name: /Начать бесплатно/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /О проекте/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /О проекте/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Войти' })).not.toBeInTheDocument();
   });
 
-  it('"Начать бесплатно" opens onboarding', async () => {
+  it('"Начать бесплатно" opens the unified auth screen', async () => {
     const user = userEvent.setup();
     renderWithNav(<LandingDesktop />);
     await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('onboarding');
-  });
-
-  it('"О проекте" opens the About overlay', async () => {
-    const user = userEvent.setup();
-    renderWithNav(<LandingDesktop />);
-    await user.click(screen.getByRole('button', { name: /О проекте/ }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('about');
+    expect(screen.getByTestId('overlay')).toHaveTextContent('login');
   });
 });
 
 describe('LandingMobile', () => {
-  it('renders the same headline, mascot, and both CTAs as desktop (same copy, mobile layout)', () => {
+  it('renders the same headline, mascot, and single CTA as desktop (same copy, mobile layout)', () => {
     renderWithNav(<LandingMobile />);
     expect(screen.getByText(/ЕГЭ становится проще/)).toBeInTheDocument();
     expect(screen.getByAltText('')).toHaveAttribute('src', '/branding/v2/hero-mascot-desktop.webp');
     expect(screen.getByRole('button', { name: /Начать бесплатно/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /О проекте/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /О проекте/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Войти' })).not.toBeInTheDocument();
   });
 
-  it('"Начать бесплатно" opens onboarding', async () => {
+  it('"Начать бесплатно" opens the unified auth screen', async () => {
     const user = userEvent.setup();
     renderWithNav(<LandingMobile />);
     await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('onboarding');
-  });
-
-  it('"О проекте" opens the About overlay', async () => {
-    const user = userEvent.setup();
-    renderWithNav(<LandingMobile />);
-    await user.click(screen.getByRole('button', { name: /О проекте/ }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('about');
+    expect(screen.getByTestId('overlay')).toHaveTextContent('login');
   });
 });
