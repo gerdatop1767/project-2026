@@ -1,10 +1,19 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type {
   LearningSessionResponse,
   LearningSessionSummary,
   LearningSessionVariantInfo,
 } from '@zybrilka/shared';
 import type { Route } from './navigation.js';
+import { registerPrivateCacheReset } from './privateCaches.js';
 
 /**
  * ZUBRILKA LEARNING INTELLIGENCE, Phase 10 — the one explicit boundary
@@ -76,6 +85,10 @@ export function LearningSessionProvider({ children }: { children: ReactNode }) {
   const clearSession = useCallback(() => {
     setSessionState(null);
   }, []);
+
+  // The active session (task, position, summary) is the signed-in
+  // account's: forget it on sign-out / account change.
+  useEffect(() => registerPrivateCacheReset(clearSession), [clearSession]);
 
   const value = useMemo(
     () => ({ session, setSession, clearSession }),

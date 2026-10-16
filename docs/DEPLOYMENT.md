@@ -206,6 +206,15 @@ How the trainer decides who may do what (all server-side, in `apps/api`):
   never fails the login. **That endpoint and its response shape come from
   third-party client libraries, not VK's own docs — confirm with one real
   login** (`users.first_name/last_name/avatar_url` filled in the DB).
+- Every call to VK is bounded by `VK_REQUEST_TIMEOUT_MS` (default 5000). A
+  stalled token exchange ends the callback with 504 `vk_timeout`; a stalled
+  or failing profile lookup never blocks sign-in. When the profile cannot
+  be read the API logs ONE warning (`docker compose logs api | grep "VK
+  profile"`) with `vkProfile` = `timeout|network|http|invalid_response|
+  no_usable_fields`, the HTTP status and — for a 200 without usable fields
+  — the key NAMES VK sent (never values, tokens, codes or cookies). After
+  the first real login, no such warning means the assumed `user_info` shape
+  was right; `no_usable_fields` tells you which keys to map instead.
 - "Onboarding finished" is `user_subject_profiles.onboarding_completed_at`
   (set by `PUT /me/learning-profile`). `/auth/me` returns it as
   `onboardingCompleted`; the VK callback redirects an unfinished account to

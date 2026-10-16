@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { addFavorite, listFavoriteTaskIds, removeFavorite } from './api.js';
+import { registerPrivateCacheReset } from './privateCaches.js';
 
 // Module-scoped so every `useFavorite` call across the app (Task
 // screen, later a favorites list, ...) shares one fetch instead of
@@ -20,6 +21,12 @@ function loadFavoriteIds(): Promise<ReadonlySet<string>> {
 function invalidate() {
   cache = null;
 }
+
+// Favorites belong to one account: forget them on sign-out / account
+// change (see privateCaches.ts), or the next account would be shown the
+// previous one's bookmarks — and a failed (signed-out) fetch, which
+// resolves to an empty set, would stay cached across the next sign-in.
+registerPrivateCacheReset(invalidate);
 
 /**
  * Invalidates the shared favorites cache from outside `useFavorite`

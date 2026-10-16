@@ -23,6 +23,18 @@ const vkCallbackQuerySchema = z.object({
   state: z.string().min(1),
 });
 
+/** Parses the `vk_pkce` cookie. The cookie is client-controlled input,
+ * so anything that isn't exactly `{ state, codeVerifier }` JSON (garbage,
+ * truncated, wrong shape) is reported as a failed parse instead of
+ * throwing — a corrupt cookie must be a 4xx, never a 500. */
+function parseVkPkceCookie(raw: string) {
+  try {
+    return vkPkceCookieSchema.safeParse(JSON.parse(raw));
+  } catch {
+    return { success: false as const };
+  }
+}
+
 function baseCookieOptions(config: Config) {
   return {
     httpOnly: true,
@@ -107,11 +119,13 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
   app.get('/auth/vk/callback', async (request, reply) => {
     const query = vkCallbackQuerySchema.safeParse(request.query);
     const rawCookie = request.cookies[VK_PKCE_COOKIE];
-    reply.clearCookie(VK_PKCE_COOKIE, { path: '/' });
+    // The temporary PKCE state is single-use: expire it on every
+    // callback, whatever the outcome below (same attributes it was set with).
+    reply.clearCookie(VK_PKCE_COOKIE, baseCookieOptions(config));
     if (!query.success || !rawCookie) {
       return reply.code(400).send({ error: 'invalid_callback' });
     }
-    const saved = vkPkceCookieSchema.safeParse(JSON.parse(rawCookie));
+    const saved = parseVkPkceCookie(rawCookie);
     // CSRF check: the `state` VK echoes back must match the one this
     // server generated and stored server-side (in the httpOnly
     // cookie) for this exact login attempt, not just be present.
@@ -125,6 +139,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         query.data.code,
         query.data.device_id,
         saved.data.codeVerifier,
+        request.log,
       );
       reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
       // Server-decided landing: an account whose saved learning profile
@@ -140,7 +155,18 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       if (error instanceof service.VkNotConfiguredError) {
         return reply.code(503).send({ error: 'vk_not_configured' });
       }
-      request.log.error({ error }, 'VK login failed');
+      if (error instanceof service.VkRequestError) {
+        // Only the coarse kind / HTTP status / VK error code — never the
+        // request (code, verifier, secret) or VK's response body.
+        request.log.error(
+          { vkLogin: error.kind, status: error.status, vkError: error.vkError },
+          'VK login failed',
+        );
+        return reply
+          .code(error.kind === 'timeout' ? 504 : 502)
+          .send({ error: error.kind === 'timeout' ? 'vk_timeout' : 'vk_login_failed' });
+      }
+      request.log.error({ err: error }, 'VK login failed');
       return reply.code(502).send({ error: 'vk_login_failed' });
     }
   });

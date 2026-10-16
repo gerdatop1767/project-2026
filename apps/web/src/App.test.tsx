@@ -350,6 +350,21 @@ describe('App — access gate (server-truth auth state)', () => {
     expect(api.getLearningProfile).not.toHaveBeenCalled();
   });
 
+  it('signed in, but the API did not send onboardingCompleted (older/incompatible build): no onboarding loop — the normal app opens', async () => {
+    const legacy = { ...makeAuthUser(), onboardingCompleted: undefined } as unknown as AuthUser;
+    renderApp(legacy);
+    expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
+    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('unknown onboarding status never grants access: signed OUT stays signed out whatever else is in the payload', async () => {
+    window.history.replaceState(null, '', '/statistics');
+    renderApp(null);
+    await screen.findByText('Войти или создать аккаунт');
+    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
+  });
+
   it('signed in + onboarded: may still open onboarding on purpose (to retake it) without being bounced', async () => {
     window.history.replaceState(null, '', '/onboarding');
     renderApp(makeAuthUser({ onboardingCompleted: true }));

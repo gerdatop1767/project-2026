@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from './lib/authContext.js';
+import { isOnboardingPending } from './lib/onboardingStatus.js';
 import { useNavigation, type OverlayRoute } from './lib/navigation.js';
 import { useIsDesktop } from './lib/useIsDesktop.js';
 import { useToast } from './ui/Toast/ToastProvider.js';
@@ -54,7 +55,7 @@ export function App() {
     clear();
   }, [tab, overlay, clear]);
 
-  const needsOnboarding = !!user && !user.onboardingCompleted;
+  const needsOnboarding = isOnboardingPending(user);
   const onOnboarding = overlay?.screen === 'onboarding';
   const onPublicPage = overlay === null ? tab === 'home' : publicOverlays.has(overlay.screen);
 
