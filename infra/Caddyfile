@@ -11,6 +11,25 @@ www.zybrilka.ru {
 zybrilka.ru {
 	encode zstd gzip
 
+	# VK ID's OAuth start/callback only ever exist at the API's real
+	# (prefixed) routes — GET /api/v1/auth/vk/start and
+	# GET /api/v1/auth/vk/callback (apps/api/src/modules/auth/routes.ts,
+	# prefixed once in app.ts). A request to the unprefixed shape
+	# (/auth/vk/start, /auth/vk/callback — e.g. VK_REDIRECT_URI set
+	# without /api/v1, or anyone pasting the "obvious" short URL)
+	# previously fell through to the `handle {}` block below and got
+	# served the SPA's index.html instead of a redirect to VK — this
+	# alias rewrites just those two exact paths to their real API
+	# counterpart before proxying, so either shape reaches the same
+	# single Fastify route (never two routes, and the web SPA has no
+	# client-side route under /auth/* to collide with — see
+	# apps/web/src/lib/routes.ts).
+	@vkAuthAlias path /auth/vk/start /auth/vk/callback
+	handle @vkAuthAlias {
+		rewrite * /api/v1{uri}
+		reverse_proxy api:3000
+	}
+
 	# The API registers its own routes at /api/v1/* and a separate
 	# top-level /health (see apps/api/src/app.ts) — proxied here with
 	# no path stripping, matching that layout exactly.

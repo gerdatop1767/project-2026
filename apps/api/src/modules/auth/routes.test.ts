@@ -63,6 +63,26 @@ describe('auth (magic-link + VK ID + session)', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('VK start/callback only exist under the /api/v1 prefix — the unprefixed shape 404s inside Fastify, never silently matches', async () => {
+    // Codifies the boundary a production routing bug (zybrilka.ru/
+    // auth/vk/start returning the SPA's HTML instead of a VK redirect)
+    // was traced to: Caddy only proxies /api/* and /health to this
+    // app (see infra/Caddyfile) — anything else, including the
+    // unprefixed shape, is the web SPA's job, never Fastify's. This
+    // guards against ever accidentally registering a second,
+    // unprefixed route here instead of fixing it at the Caddy layer.
+    const unprefixedStart = await app.inject({ method: 'GET', url: '/auth/vk/start' });
+    expect(unprefixedStart.statusCode).toBe(404);
+    const unprefixedCallback = await app.inject({
+      method: 'GET',
+      url: '/auth/vk/callback?code=abc&device_id=1&state=xyz',
+    });
+    expect(unprefixedCallback.statusCode).toBe(404);
+
+    const prefixedStart = await app.inject({ method: 'GET', url: '/api/v1/auth/vk/start' });
+    expect(prefixedStart.statusCode).toBe(302);
+  });
+
   it('magic-link request 503s with email_not_configured when SMTP is unset', async () => {
     const unconfigured = buildApp({
       version: 'test',
