@@ -36,6 +36,7 @@ const slugToSubjectId: Record<string, string> = Object.fromEntries(
 
 /** Overlay screens with no params — a straight path <-> screen lookup. */
 const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
+  login: '/login',
   learningCenter: '/learning',
   subjectCatalog: '/subjects',
   mistakes: '/training/mistakes',

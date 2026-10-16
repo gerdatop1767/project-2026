@@ -33,6 +33,65 @@ export const users = pgTable('users', {
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const authProviders = ['email', 'vk'] as const;
+
+/**
+ * Identity an authenticated user signs in with — email (magic link) or
+ * VK ID. One row per (provider, providerUserId); a single `users` row
+ * can hold more than one identity (e.g. email now, VK linked later),
+ * though linking UI doesn't exist yet. `providerUserId` is the
+ * lowercased email address for 'email', the VK numeric user id (as a
+ * string) for 'vk'.
+ */
+export const authIdentities = pgTable(
+  'auth_identities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    provider: text('provider', { enum: authProviders }).notNull(),
+    providerUserId: text('provider_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('auth_identities_provider_user_idx').on(table.provider, table.providerUserId),
+  ],
+);
+
+/**
+ * One-time magic-link sign-in tokens. Never stores the raw token —
+ * only its SHA-256 hash (service layer), so a leaked DB row alone
+ * can't be replayed as a valid link. `email` is lowercased/trimmed
+ * before insert. A token is single-use (`consumedAt` set on first
+ * successful verify) and short-lived (`expiresAt`, enforced
+ * server-side on verify, not just by the email client).
+ */
+export const magicLinkTokens = pgTable('magic_link_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Server-side session for an authenticated user — the httpOnly
+ * `session_id` cookie (apps/api's auth-session plugin) looks up a row
+ * here by its primary key on every request. Real server-truth state
+ * (unlike the anonymous `x-anon-id` header, which the anon-user plugin
+ * trusts as client-supplied) — deleting the row is a real sign-out.
+ */
+export const authSessions = pgTable('auth_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Matches apps/web's data/subjects.ts ids (math, russian, ...) so seed
 // content and the existing frontend subject list stay in sync.
 export const subjects = pgTable('subjects', {

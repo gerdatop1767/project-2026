@@ -5,7 +5,10 @@ import type {
   EssayAckResponse,
   FavoritesListResponse,
   LearningProfileResponse,
+  AuthUser,
   LearningSessionResponse,
+  MeResponse,
+  MagicLinkResponse,
   Mistake,
   ProgressByTaskNumberResponse,
   ProgressByTopicResponse,
@@ -368,4 +371,43 @@ export function startVariantSession(variantId: string): Promise<LearningSessionR
  */
 export function getVariantProgress(): Promise<VariantProgressResponse> {
   return apiFetch('/progress/variants');
+}
+
+/**
+ * Login/signup screen's email step — always resolves the same way
+ * whether or not `email` has an account (see apps/api's auth service
+ * doc comment); callers must never infer "this email exists" from a
+ * response difference. Can reject with `ApiError(503)` when SMTP isn't
+ * configured on the backend — the screen must show this honestly
+ * rather than claiming a link was sent.
+ */
+export function requestMagicLink(email: string): Promise<MagicLinkResponse> {
+  return apiFetch('/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) });
+}
+
+/** Exchanges the token from the emailed magic link for a real session
+ * (the server sets the session cookie) — `ApiError(400)` means the
+ * link is invalid, already used, or expired. */
+export function verifyMagicLink(token: string): Promise<{ user: AuthUser }> {
+  return apiFetch('/auth/verify', { method: 'POST', body: JSON.stringify({ token }) });
+}
+
+/** The VK ID "Продолжить через ВКонтакте" button's target — a plain
+ * navigation (not a fetch), since this must trigger a real browser
+ * redirect to id.vk.com. Resolves to this API's own `/auth/vk/start`,
+ * which 503s with `vk_not_configured` if the backend has no VK
+ * credentials set up yet — never a URL that only looks like it works. */
+export function vkLoginUrl(): string {
+  return new URL('/api/v1/auth/vk/start', window.location.origin).toString();
+}
+
+/** The current session's user, or `null` when signed out — never
+ * throws for "not logged in" (see /auth/me's always-200 contract),
+ * only for an actual network/server failure. */
+export function getCurrentUser(): Promise<MeResponse> {
+  return apiFetch('/auth/me');
+}
+
+export function logout(): Promise<void> {
+  return apiFetch('/auth/logout', { method: 'POST' });
 }
