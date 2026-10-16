@@ -67,7 +67,7 @@ describe('auth (magic-link + VK ID + session)', () => {
     // Codifies the boundary a production routing bug (zybrilka.ru/
     // auth/vk/start returning the SPA's HTML instead of a VK redirect)
     // was traced to: Caddy only proxies /api/* and /health to this
-    // app (see infra/Caddyfile) — anything else, including the
+    // app (see infra/caddy/Caddyfile) — anything else, including the
     // unprefixed shape, is the web SPA's job, never Fastify's. This
     // guards against ever accidentally registering a second,
     // unprefixed route here instead of fixing it at the Caddy layer.

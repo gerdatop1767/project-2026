@@ -257,21 +257,22 @@ services:
     image: caddy:2-alpine
     container_name: zybrilka-caddy
     restart: unless-stopped
-    # --watch: infra/Caddyfile is bind-mounted (below), not baked into
-    # the image, so `docker compose up -d` never restarts this
-    # container just because that file's contents changed on disk —
-    # compose only recreates a service when its own definition (image,
-    # env, etc.) changes. Without --watch, a routing change here (like
-    # adding /health) silently never takes effect on a running
-    # deployment until something else happens to recreate the
-    # container. --watch makes Caddy itself detect the change and
-    # reload safely, with no restart needed.
+    # The Caddyfile lives in its own directory (infra/caddy/) and the
+    # whole DIRECTORY is bind-mounted (below), never the single file.
+    # A single-file bind mount pins the file's inode at container
+    # creation: `git pull` replaces changed files with a new inode, so
+    # the running container keeps serving the OLD Caddyfile forever —
+    # and `--watch` cannot help, because it only watches the (stale)
+    # in-container file. A directory mount follows the live directory
+    # entries, so the new file is visible inside the container and
+    # `--watch` can reload it. (Never mount `./` itself here — that
+    # would expose infra/.env to the proxy container.)
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --watch
     ports:
       - '80:80'
       - '443:443'
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:
