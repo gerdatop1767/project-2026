@@ -29,9 +29,7 @@ describe('computeCurrentStreak', () => {
   });
 
   it('three consecutive active days ending today = 3', () => {
-    expect(
-      computeCurrentStreak(['2026-10-01', '2026-10-02', '2026-10-03'], '2026-10-03'),
-    ).toBe(3);
+    expect(computeCurrentStreak(['2026-10-01', '2026-10-02', '2026-10-03'], '2026-10-03')).toBe(3);
   });
 
   it('a gap breaks the chain — only the run ending today/yesterday counts', () => {

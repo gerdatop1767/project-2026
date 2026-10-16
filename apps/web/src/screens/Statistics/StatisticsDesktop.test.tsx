@@ -85,7 +85,9 @@ describe('StatisticsDesktop — real progress data', () => {
       correctTotal: 2,
       incorrectTotal: 1,
       accuracyPercent: 66.7,
-      bySubject: [{ subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 }],
+      bySubject: [
+        { subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],
@@ -115,7 +117,9 @@ describe('StatisticsDesktop — real progress data', () => {
       correctTotal: 2,
       incorrectTotal: 1,
       accuracyPercent: 66.7,
-      bySubject: [{ subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 }],
+      bySubject: [
+        { subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],
@@ -151,7 +155,17 @@ describe('StatisticsDesktop — real progress data', () => {
 describe('StatisticsDesktop — Statistics 2.0 ordering (additive, never replacing existing stats)', () => {
   it('places "По номерам" after the existing charts, never before them', () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 5, total: 4, completed: 3, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 5,
+          total: 4,
+          completed: 3,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     renderStatistics();
     const headings = screen
@@ -173,7 +187,17 @@ describe('StatisticsDesktop — Statistics 2.0 ordering (additive, never replaci
 describe('StatisticsDesktop — По номерам detail (Statistics 2.0)', () => {
   it('clicking a real task number opens its detail, with a working back button', async () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 5, total: 4, completed: 3, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 5,
+          total: 4,
+          completed: 3,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     vi.mocked(api.getTaskNumberStatisticsDetail).mockResolvedValue({
       subjectId: 'math',
@@ -211,7 +235,17 @@ describe('StatisticsDesktop — По номерам detail (Statistics 2.0)', ()
 
   it('shows an honest empty state when the selected number has no attempts yet', async () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 7, total: 2, completed: 0, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 7,
+          total: 2,
+          completed: 0,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     vi.mocked(api.getTaskNumberStatisticsDetail).mockResolvedValue({
       subjectId: 'math',
