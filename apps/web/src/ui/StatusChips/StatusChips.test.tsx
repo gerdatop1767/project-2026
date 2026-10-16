@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StatusChips } from './StatusChips.js';
+import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { StreakProvider, useStreakContext } from '../../lib/streakContext.js';
 import * as api from '../../lib/api.js';
 
@@ -28,9 +29,11 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
   it('shows "—" while the real streak is still loading, never a fabricated 0', async () => {
     vi.mocked(api.getStreak).mockReturnValue(new Promise(() => {}));
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     // Level stays "—" unconditionally — no backend behind it yet.
@@ -44,9 +47,11 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
       isActiveToday: true,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
   });
@@ -58,9 +63,11 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
       isActiveToday: false,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('0')).toBeInTheDocument());
   });
@@ -72,9 +79,11 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
       isActiveToday: true,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
     expect(api.getStreak).toHaveBeenCalledTimes(1);
@@ -98,9 +107,11 @@ describe('StatusChips — streak-increase animation', () => {
       isActiveToday: true,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
     expect(document.querySelector('[class*="chipStreakUp"]')).not.toBeInTheDocument();
@@ -108,14 +119,24 @@ describe('StatusChips — streak-increase animation', () => {
 
   it('pulses only when a refresh genuinely raises the known streak value', async () => {
     vi.mocked(api.getStreak)
-      .mockResolvedValueOnce({ currentStreak: 5, lastActiveDate: '2026-10-02', isActiveToday: false })
-      .mockResolvedValueOnce({ currentStreak: 6, lastActiveDate: '2026-10-03', isActiveToday: true });
+      .mockResolvedValueOnce({
+        currentStreak: 5,
+        lastActiveDate: '2026-10-02',
+        isActiveToday: false,
+      })
+      .mockResolvedValueOnce({
+        currentStreak: 6,
+        lastActiveDate: '2026-10-03',
+        isActiveToday: true,
+      });
     const user = userEvent.setup();
     render(
-      <StreakProvider>
-        <StatusChips />
-        <RefreshButton />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+          <RefreshButton />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
     expect(document.querySelector('[class*="chipStreakUp"]')).not.toBeInTheDocument();

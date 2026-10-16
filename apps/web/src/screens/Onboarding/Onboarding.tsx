@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SelfReportedScore, TargetScore } from '@zybrilka/shared';
 import { useNavigation } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
 import { getLearningProfile, saveLearningProfile } from '../../lib/api.js';
 import { selfReportedScoreOptions, targetScoreOptions } from '../../lib/learningProfileLabels.js';
 import { subjects } from '../../data/subjects.js';
@@ -24,6 +25,7 @@ const TOTAL_STEPS = 5;
  */
 export function Onboarding() {
   const { navigate, back } = useNavigation();
+  const { refresh } = useAuth();
   const [step, setStep] = useState(1);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>(['math']);
@@ -85,6 +87,10 @@ export function Onboarding() {
           targetScore: targets[subjectId] ?? 'unknown',
         })),
       });
+      // The server now says onboarding is complete — pull that into the
+      // auth state BEFORE leaving, or the access gate would still think
+      // it is owed and send the user straight back here.
+      await refresh();
       navigate({ screen: 'home' });
     } catch {
       setSaveError('Не удалось сохранить профиль. Попробуй ещё раз.');

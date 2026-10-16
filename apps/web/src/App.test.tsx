@@ -5,6 +5,8 @@ import { App } from './App.js';
 import { NavigationProvider } from './lib/navigation.js';
 import { ToastProvider } from './ui/Toast/ToastProvider.js';
 import * as api from './lib/api.js';
+import { makeAuthUser, TestAuthProvider } from './lib/authTestUtils.js';
+import type { AuthUser } from '@zybrilka/shared';
 import type * as ApiModule from './lib/api.js';
 
 vi.mock('./lib/api.js', async (importOriginal) => ({
@@ -41,12 +43,19 @@ beforeEach(() => {
   vi.mocked(api.getLearningProfile).mockResolvedValue({ onboardingCompleted: true, subjects: [] });
 });
 
-function renderApp() {
+/** `user`: a signed-in, onboarded user by default; `null` = signed out;
+ * `undefined` = session check still pending. */
+function renderApp(
+  user: AuthUser | null | undefined = makeAuthUser(),
+  logout?: () => Promise<void>,
+) {
   return render(
     <NavigationProvider>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+      <TestAuthProvider user={user} logout={logout}>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </TestAuthProvider>
     </NavigationProvider>,
   );
 }
@@ -94,7 +103,8 @@ describe('App — mobile', () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: /Профиль/ }));
-    expect(screen.getByText('Имя не задано')).toBeInTheDocument();
+    // Name comes from the signed-in user's VK profile.
+    expect(screen.getByText('Иван Петров')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Профиль' })).toHaveAttribute('aria-current', 'page');
   });
 
@@ -237,7 +247,7 @@ describe('App — desktop', () => {
   });
 });
 
-describe('App — first-login gate (Learning Profile, Phase 1)', () => {
+describe('App — access gate (server-truth auth state)', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '/');
   });
@@ -247,67 +257,186 @@ describe('App — first-login gate (Learning Profile, Phase 1)', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('shows the public landing (not an automatic onboarding redirect) for a brand-new user', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
-    });
-    renderApp();
-    await waitFor(() => {
-      expect(screen.getByText(/ЕГЭ становится проще/)).toBeInTheDocument();
-    });
-    expect(window.location.pathname).toBe('/');
-    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+  it('shows a neutral loading state (no landing, no login, no trainer) until the session check resolves', () => {
+    render(
+      <NavigationProvider>
+        <TestAuthProvider user={undefined}>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </TestAuthProvider>
+      </NavigationProvider>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Загрузка');
+    expect(screen.queryByText(/ЕГЭ становится проще/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Войти или создать аккаунт')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
   });
 
-  it('"Начать бесплатно" on the landing opens the unified auth screen, not onboarding directly', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
-    });
+  it('signed out: `/` is the public landing, not the trainer', async () => {
+    renderApp(null);
+    await screen.findByText(/ЕГЭ становится проще/);
+    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('signed out: the desktop landing has no app sidebar', async () => {
+    const restore = mockDesktop(true);
+    renderApp(null);
+    await screen.findByText(/ЕГЭ становится проще/);
+    expect(screen.queryByRole('navigation', { name: 'Zybrilka' })).not.toBeInTheDocument();
+    restore();
+  });
+
+  it('"Начать бесплатно" on the landing opens the unified auth screen', async () => {
     const user = userEvent.setup();
-    renderApp();
+    renderApp(null);
     await screen.findByText(/ЕГЭ становится проще/);
     await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
     expect(screen.getByText('Войти или создать аккаунт')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/login');
   });
 
-  it('shows the desktop landing (not the normal marketing Home) for a brand-new user', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
+  it.each([
+    '/statistics',
+    '/training',
+    '/subjects',
+    '/subjects/math',
+    '/profile',
+    '/training/mistakes',
+    '/learning/session/abc',
+    '/onboarding',
+    '/rating',
+  ])(
+    'signed out: deep link %s shows the login screen and rewrites the URL to /login',
+    async (path) => {
+      window.history.replaceState(null, '', path);
+      renderApp(null);
+      await screen.findByText('Войти или создать аккаунт');
+      await waitFor(() => expect(window.location.pathname).toBe('/login'));
+      expect(screen.queryByText('Мой профиль')).not.toBeInTheDocument();
+    },
+  );
+
+  it('signed out: static info pages stay reachable', async () => {
+    window.history.replaceState(null, '', '/help');
+    renderApp(null);
+    await waitFor(() => expect(screen.getByText('Нужна')).toBeInTheDocument());
+    expect(window.location.pathname).toBe('/help');
+  });
+
+  it('signed in + onboarding NOT completed (new or unfinished account): sent to onboarding, never the main menu', async () => {
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    await screen.findByText('Добро пожаловать в Zybrilka!');
+    expect(window.location.pathname).toBe('/onboarding');
+    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
+  });
+
+  it('signed in + onboarding not completed: a deep link into the trainer is redirected to onboarding too', async () => {
+    window.history.replaceState(null, '', '/statistics');
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    await screen.findByText('Добро пожаловать в Zybrilka!');
+    expect(window.location.pathname).toBe('/onboarding');
+  });
+
+  it('signed in + onboarding completed: straight to the main menu, no onboarding, no landing', async () => {
+    renderApp(makeAuthUser({ onboardingCompleted: true }));
+    expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
+    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+    expect(screen.queryByText(/ЕГЭ становится проще/)).not.toBeInTheDocument();
+    // The diagnostic/onboarding is only reachable on purpose (Профиль →
+    // «Предметы ЕГЭ»), it is never auto-started for an onboarded user.
+    expect(window.location.pathname).toBe('/');
+    expect(api.getLearningProfile).not.toHaveBeenCalled();
+  });
+
+  it('signed in + onboarded: may still open onboarding on purpose (to retake it) without being bounced', async () => {
+    window.history.replaceState(null, '', '/onboarding');
+    renderApp(makeAuthUser({ onboardingCompleted: true }));
+    await screen.findByText('Добро пожаловать в Zybrilka!');
+    expect(window.location.pathname).toBe('/onboarding');
+  });
+
+  it('signed in: the profile shows the VK name and falls back to a neutral prompt without one', async () => {
+    window.history.replaceState(null, '', '/profile');
+    const { unmount } = renderApp(makeAuthUser({ firstName: 'Анна', lastName: 'Ким' }));
+    expect(await screen.findByText('Анна Ким')).toBeInTheDocument();
+    unmount();
+    renderApp(makeAuthUser({ firstName: null, lastName: null }));
+    expect(await screen.findByText('Имя не задано')).toBeInTheDocument();
+  });
+
+  it('signed in: only the first name is shown when VK gave no last name (no "null" text)', async () => {
+    window.history.replaceState(null, '', '/profile');
+    renderApp(makeAuthUser({ firstName: 'Анна', lastName: null }));
+    expect(await screen.findByText('Анна')).toBeInTheDocument();
+    expect(screen.queryByText(/null|undefined/)).not.toBeInTheDocument();
+  });
+
+  it('signed in: the VK avatar is rendered, and a broken image falls back to the default icon', async () => {
+    window.history.replaceState(null, '', '/profile');
+    const { container } = renderApp(makeAuthUser({ avatarUrl: 'https://sun9.userapi.com/a.jpg' }));
+    await screen.findByText('Иван Петров');
+    const img = container.querySelector('img[src="https://sun9.userapi.com/a.jpg"]')!;
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
+    act(() => {
+      img.dispatchEvent(new Event('error'));
     });
+    await waitFor(() =>
+      expect(container.querySelector('img[src="https://sun9.userapi.com/a.jpg"]')).toBeNull(),
+    );
+  });
+});
+
+describe('App — sign out', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/profile');
+  });
+  afterEach(() => {
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('desktop profile "Выйти из аккаунта" calls the real logout', async () => {
     const restore = mockDesktop(true);
-    renderApp();
-    await waitFor(() => {
-      expect(screen.getByText(/ЕГЭ становится проще/)).toBeInTheDocument();
-    });
-    // The desktop landing has no sidebar — it's shown outside the
-    // normal app shell, same as the mobile landing has no bottom nav.
-    expect(screen.queryByRole('navigation', { name: 'Zybrilka' })).not.toBeInTheDocument();
+    const logout = vi.fn(async () => {});
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: /Выйти из аккаунта/ }));
+    expect(logout).toHaveBeenCalledTimes(1);
     restore();
   });
 
-  it('does not redirect a returning user (onboardingCompleted: true)', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: true,
-      subjects: [],
-    });
-    renderApp();
-    await waitFor(() => expect(api.getLearningProfile).toHaveBeenCalled());
-    expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
+  it('desktop menu "Выйти" calls the real logout', async () => {
+    const restore = mockDesktop(true);
+    const logout = vi.fn(async () => {});
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    await user.click(screen.getByRole('button', { name: /^Выйти$/ }));
+    expect(logout).toHaveBeenCalledTimes(1);
+    restore();
   });
 
-  it('does not redirect when landing directly on a deep link (overlay already open)', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
+  it('mobile menu "Выйти из аккаунта" calls the real logout', async () => {
+    const logout = vi.fn(async () => {});
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    await user.click(screen.getByRole('button', { name: 'Выйти из аккаунта' }));
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('says so when the server could not end the session — never silently pretends', async () => {
+    const restore = mockDesktop(true);
+    const logout = vi.fn(async () => {
+      throw new Error('network');
     });
-    window.history.replaceState(null, '', '/help');
-    renderApp();
-    await waitFor(() => expect(screen.getByText('Нужна')).toBeInTheDocument());
-    expect(window.location.pathname).toBe('/help');
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: /Выйти из аккаунта/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось выйти');
+    restore();
   });
 });
 

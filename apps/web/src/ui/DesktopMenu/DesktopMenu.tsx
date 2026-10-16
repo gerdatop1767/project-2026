@@ -8,6 +8,7 @@ import {
   type OverlayRoute,
   type Route,
 } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './DesktopMenu.module.css';
 
@@ -41,11 +42,14 @@ export interface DesktopMenuProps {
  * "Тёмная тема" is a local-only toggle: the app has exactly one (dark)
  * theme today, so there's no real theme system to wire it to yet —
  * it's UI-ready for when one exists, not a fake implementation of one.
- * "Выйти" just closes the menu: there's no real auth/session yet, so a
- * fake sign-out would be dishonest UI rather than a placeholder.
+ * "Выйти" ends the real server session (see AuthProvider.logout) and
+ * reloads to the login page; if the server can't be reached it says so
+ * and stays signed in rather than pretending to sign out.
  */
 export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
   const { tab, overlay, navigate } = useNavigation();
+  const { logout } = useAuth();
+  const [logoutError, setLogoutError] = useState(false);
   const [darkTheme, setDarkTheme] = useState(true);
   // The screen Menu is layered over, captured before any item can
   // replace it — Профиль needs this to hand BackRow a real "previous
@@ -130,11 +134,23 @@ export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
 
           <div className={styles.divider} />
 
-          <button type="button" className={clsx(styles.row, styles.rowDanger)} onClick={onClose}>
+          <button
+            type="button"
+            className={clsx(styles.row, styles.rowDanger)}
+            onClick={() => {
+              setLogoutError(false);
+              logout().catch(() => setLogoutError(true));
+            }}
+          >
             <Icon name="logout" size={18} />
             <span className={styles.rowLabel}>Выйти</span>
             <Icon name="chevronRight" size={16} className={styles.rowChevron} />
           </button>
+          {logoutError && (
+            <p role="alert" className="text-body-sm">
+              Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.
+            </p>
+          )}
         </div>
       )}
     </Overlay>

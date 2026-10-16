@@ -47,6 +47,18 @@ export function getAnonId(): string {
   }
 }
 
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+/** Subscribes to "the server says there is no valid session" (a 401 from
+ * any private endpoint — the session expired, was revoked, or deleted).
+ * The auth provider uses this to drop the client's signed-in state and
+ * close the private screens. Returns an unsubscribe function. */
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener);
+  return () => unauthorizedListeners.delete(listener);
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -76,6 +88,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
+  // `/auth/*` answers are about signing in/out themselves (e.g. a failed
+  // magic-link verify is a 400, logout is a 204) — only a 401 from a
+  // private endpoint means "the session you thought you had is gone".
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    unauthorizedListeners.forEach((listener) => listener());
+  }
   if (!response.ok) {
     let body: unknown;
     try {

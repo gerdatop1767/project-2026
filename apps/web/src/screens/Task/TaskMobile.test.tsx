@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { TaskMobile } from './TaskMobile.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
+import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { StreakProvider } from '../../lib/streakContext.js';
 import * as api from '../../lib/api.js';
 import { resetFavoritesCacheForTests } from '../../lib/useFavorite.js';
@@ -320,13 +321,15 @@ describe('TaskMobile', () => {
     const user = userEvent.setup();
     render(
       <NavigationProvider>
-        <StreakProvider>
-          <TaskMobile
-            subjectId={baseTask.subjectId}
-            taskNumber={baseTask.taskNumber}
-            taskId={TASK_ID}
-          />
-        </StreakProvider>
+        <TestAuthProvider user={makeAuthUser()}>
+          <StreakProvider>
+            <TaskMobile
+              subjectId={baseTask.subjectId}
+              taskNumber={baseTask.taskNumber}
+              taskId={TASK_ID}
+            />
+          </StreakProvider>
+        </TestAuthProvider>
         <OverlayMarker />
       </NavigationProvider>,
     );

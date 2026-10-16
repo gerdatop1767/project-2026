@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { LearningProfileResponse } from '@zybrilka/shared';
 import { useNavigation, getRouteLabel, type Route } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
+import { displayName } from '../../lib/userDisplay.js';
+import { ProfileAvatar } from '../../ui/ProfileAvatar/ProfileAvatar.js';
 import { getLearningProfile } from '../../lib/api.js';
 import { selfReportedScoreLabel, targetScoreLabel } from '../../lib/learningProfileLabels.js';
 import { subjects as staticSubjects } from '../../data/subjects.js';
@@ -38,6 +41,8 @@ export interface ProfileDesktopProps {
 
 export function ProfileDesktop({ from }: ProfileDesktopProps) {
   const { navigate } = useNavigation();
+  const { user, logout } = useAuth();
+  const [logoutError, setLogoutError] = useState(false);
   const [profile, setProfile] = useState<LearningProfileResponse | null>(null);
 
   useEffect(() => {
@@ -57,7 +62,12 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
   const hasSubjects = (profile?.subjects.length ?? 0) > 0;
 
   const basicInfo: readonly ProfileRow[] = [
-    { id: 'username', icon: 'profile', label: 'Имя пользователя', value: 'Не задано' },
+    {
+      id: 'username',
+      icon: 'profile',
+      label: 'Имя пользователя',
+      value: displayName(user) ?? 'Не задано',
+    },
     { id: 'bio', icon: 'chat', label: 'О себе', value: 'Не задано' },
     { id: 'avatar', icon: 'palette', label: 'Аватар', value: 'Изменить фото профиля' },
   ];
@@ -138,11 +148,17 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
       <Card className={styles.hero}>
         <div className={styles.identity}>
           <span className={styles.avatarWrap}>
-            <img
-              src="/branding/v2/logo-icon-desktop.png"
-              alt=""
+            <ProfileAvatar
+              src={user?.avatarUrl}
               className={styles.avatar}
-              aria-hidden="true"
+              fallback={
+                <img
+                  src="/branding/v2/logo-icon-desktop.png"
+                  alt=""
+                  className={styles.avatar}
+                  aria-hidden="true"
+                />
+              }
             />
             <span className={styles.avatarBadge} aria-hidden="true">
               <Icon name="palette" size={12} />
@@ -150,9 +166,11 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
           </span>
           <div>
             <div className={styles.nameRow}>
-              <p className="text-h3">Имя не задано</p>
+              <p className="text-h3">{displayName(user) ?? 'Имя не задано'}</p>
             </div>
-            <p className="text-body-sm text-secondary">Профиль ещё не настроен</p>
+            <p className="text-body-sm text-secondary">
+              {user?.email ?? (displayName(user) ? 'Вход через VK ID' : 'Профиль ещё не настроен')}
+            </p>
             <Button variant="secondary" className={styles.editButton}>
               <Icon name="palette" size={16} /> Изменить профиль
             </Button>
@@ -200,9 +218,21 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
             <RowList rows={helpActions} />
           </Card>
 
-          <button type="button" className={styles.logoutButton}>
+          <button
+            type="button"
+            className={styles.logoutButton}
+            onClick={() => {
+              setLogoutError(false);
+              logout().catch(() => setLogoutError(true));
+            }}
+          >
             <Icon name="logout" size={18} /> Выйти из аккаунта
           </button>
+          {logoutError && (
+            <p role="alert" className="text-body-sm">
+              Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.
+            </p>
+          )}
         </div>
       </div>
     </FadeIn>

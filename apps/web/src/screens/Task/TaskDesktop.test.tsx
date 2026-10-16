@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { TaskDesktop } from './TaskDesktop.js';
 import { subjects } from '../../data/subjects.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
+import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { StreakProvider } from '../../lib/streakContext.js';
 import * as api from '../../lib/api.js';
 import { resetFavoritesCacheForTests } from '../../lib/useFavorite.js';
@@ -217,13 +218,15 @@ describe('TaskDesktop', () => {
     const user = userEvent.setup();
     render(
       <NavigationProvider>
-        <StreakProvider>
-          <TaskDesktop
-            subjectId={baseTask.subjectId}
-            taskNumber={baseTask.taskNumber}
-            taskId={TASK_ID}
-          />
-        </StreakProvider>
+        <TestAuthProvider user={makeAuthUser()}>
+          <StreakProvider>
+            <TaskDesktop
+              subjectId={baseTask.subjectId}
+              taskNumber={baseTask.taskNumber}
+              taskId={TASK_ID}
+            />
+          </StreakProvider>
+        </TestAuthProvider>
         <OverlayMarker />
       </NavigationProvider>,
     );

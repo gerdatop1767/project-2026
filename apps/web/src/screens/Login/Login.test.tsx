@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NavigationProvider } from '../../lib/navigation.js';
 import { Login } from './Login.js';
+import { makeAuthUser } from '../../lib/authTestUtils.js';
 import { ApiError } from '../../lib/api.js';
 import * as api from '../../lib/api.js';
 import type * as ApiModule from '../../lib/api.js';
@@ -111,7 +112,7 @@ describe('Login — magic-link request', () => {
 describe('Login — magic-link verification (?token=...)', () => {
   it('shows a loading state, then success, then auto-redirects into the trainer using the real server session', async () => {
     vi.mocked(api.verifyMagicLink).mockResolvedValue({
-      user: { id: 'u1', email: 'student@example.com' },
+      user: makeAuthUser({ id: 'u1', email: 'student@example.com' }),
     });
     renderLogin('/login?token=good-token');
     expect(screen.getByText('Входим…')).toBeInTheDocument();

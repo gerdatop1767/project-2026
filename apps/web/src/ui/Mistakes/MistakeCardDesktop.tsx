@@ -83,10 +83,6 @@ export function MistakeCardDesktop({
           </Button>
         )}
       </div>
-
-      <button type="button" className={styles.moreButton} aria-label="Ещё">
-        <Icon name="more" size={18} />
-      </button>
     </div>
   );
 }
