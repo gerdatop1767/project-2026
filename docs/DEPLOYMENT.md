@@ -51,13 +51,15 @@ volume, `postgres_data` — survives `down`/`up` and a container
 rebuild), a one-shot `migrate` job that applies any pending Drizzle
 **schema** migrations and exits, a one-shot `sync-subjects` job that
 upserts the canonical `subjects` rows and exits, a one-shot
-`sync-content` job that upserts the EGE-2026 Ященко **content**
-(conditionMd, solutionSteps, correctAnswerDisplay, ...) for all five
-variants (Вариант 1-5, 95 tasks) into their existing task rows and
-exits — running each variant's importer strictly in order (V1 through
-V5, `&&`-chained so the job's own exit code is non-zero and `api`/
-`worker` never start if any one of them fails) — `api` and `worker`
-(both wait for
+`sync-content` job that upserts task **content** (conditionMd,
+solutionSteps, correctAnswerDisplay, explanationMd, ...) for the full
+catalog — ten EGE-2026 Ященко math variants (Вариант 1-10, 190 tasks)
+followed by all eighteen EGE Russian 2027 Дощинский variants (Вариант
+1-18, 486 tasks) — into their existing task rows and exits, running
+every importer strictly in order (math V1 through V10, then Russian V1
+through V18, `&&`-chained so the job's own exit code is non-zero and
+`api`/`worker` never start if any one importer fails) — `api` and
+`worker` (both wait for
 `sync-content` to finish successfully), `web`, and `caddy` (the only
 container publishing `80`/`443`), which reverse-proxies `/api/*` and
 `/health` to `api:3000` and everything else to `web:80`,
@@ -88,9 +90,9 @@ only had `'math'` — a user picking any other subject in Onboarding's
 профиль" the moment they tried to save. Both `sync-subjects` and
 `sync-content` are safe to run unconditionally on a live database with
 real users: `sync-subjects` only ever inserts-or-updates a `subjects`
-row by its stable `id`; `sync-content` upserts each of the 19 tasks by
-its stable identity (subject + source + variant + task number), never
-by a freshly-generated id — neither touches `attempts`/`mistakes`/
+row by its stable `id`; `sync-content` upserts each task by its stable
+identity (subject + source + variant + task number), never by a
+freshly-generated id — neither touches `attempts`/`mistakes`/
 bookmarks/`user_subject_profiles`. See each service's own comment in
 `infra/docker-compose.yml`, `packages/db/src/syncSubjects.test.ts`, and
 `packages/db/src/importEge2026Variant1.test.ts`'s "content migration"

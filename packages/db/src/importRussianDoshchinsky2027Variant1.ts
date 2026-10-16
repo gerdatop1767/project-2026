@@ -11,10 +11,15 @@ import * as schema from './schema.js';
  * EGE Russian 2027, Дощинский сборник, Вариант 1, sourced from a
  * single scanned (no text layer) PDF, read at 300dpi. Separate subject
  * ('russian'), separate source label from the math Ященко collection.
- * Wired into `infra/docker-compose.yml`'s `sync-content` chain (after
- * `importEge2026Variant10`) and into `createImportedVariantsTestDb()`
- * — pilot verified (27/27 published), rolled out alongside the math
- * variants.
+ * Вариант 1 was the original pilot; Вариант 2-18 followed, each its own
+ * import script with its own per-variant test file. All 18 are wired
+ * into `infra/docker-compose.yml`'s `sync-content` chain (after the ten
+ * math importers, in order V1-V18) — see
+ * `russianVariantMatrixAudit.test.ts` for the full 18×27 cross-variant
+ * audit. Russian imports are NOT part of `createImportedVariantsTestDb()`
+ * (that helper is the math-only matrix used by production-facing math
+ * tests) — each Russian variant has its own isolated test file instead
+ * (`importRussianDoshchinsky2027VariantN.test.ts`).
  *
  * Two genuinely shared passages exist in this variant (tasks 1-3 read
  * one official-document excerpt; tasks 23-26 — and task 27's essay

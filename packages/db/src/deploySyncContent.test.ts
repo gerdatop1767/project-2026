@@ -10,23 +10,32 @@ import { describe, expect, it } from 'vitest';
  * test db (`createImportedVariantsTestDb`), but were never synced into
  * any real deployed Postgres. This test reads the actual compose file
  * (plain text — no YAML dependency needed for a simple ordered-
- * substring check) and pins down the fix: all eight importers (extended
- * to Вариант 6, Вариант 7 and Вариант 8 alongside the new imports) are
- * invoked, strictly in order, `&&`-chained so a failing importer stops
- * the deploy instead of letting later ones (or `api`/`worker`) start
+ * substring check) and pins down the fix: all ten math importers
+ * (extended from the original V1-only service to V1-V10) are invoked,
+ * strictly in order, `&&`-chained so a failing importer stops the
+ * deploy instead of letting later ones (or `api`/`worker`) start
  * against a half-synced database.
  *
  * Follow-up gap fix: EGE Russian 2027 (Doshchinsky) Вариант 1 was a
  * deliberate pilot experiment, never added to this chain — production
  * ran `migrate` and `sync-content` successfully every deploy, but
  * `sync-content`'s logs only ever showed the ten math variants, so the
- * Russian catalog never appeared on the live site. This file now also
- * pins down that `importRussianDoshchinsky2027Variant1.js` runs last
- * in the chain, and that `migrate` (which applies migrations 0017/0018
- * — `passages` and `digit_set_order_insensitive`, both required by
- * this importer) still runs before `sync-content` starts.
+ * Russian catalog never appeared on the live site. Russian Вариант 1 was
+ * then added, running last in the chain.
+ *
+ * Second follow-up gap fix (this one): by the time Russian Вариант 2-18
+ * existed as production-format import scripts in
+ * `packages/db/src/`, each with its own passing per-variant test file
+ * (see `russianVariantMatrixAudit.test.ts` for the cross-variant audit),
+ * they were STILL not wired into this chain — the same class of gap as
+ * before, now fixed for the full set of 18 Russian variants. This file
+ * now pins down that all 18 `importRussianDoshchinsky2027VariantN.js`
+ * scripts run, in order, after the ten math importers, and that
+ * `migrate` (which applies migrations 0017/0018 — `passages` and
+ * `digit_set_order_insensitive`, both required by every Russian
+ * importer) still runs before `sync-content` starts.
  */
-describe('infra/docker-compose.yml — sync-content runs all ten EGE-2026 variant imports', () => {
+describe('infra/docker-compose.yml — sync-content runs all 28 EGE variant imports (10 math + 18 Russian)', () => {
   const composePath = fileURLToPath(new URL('../../../infra/docker-compose.yml', import.meta.url));
   const compose = readFileSync(composePath, 'utf-8');
 
@@ -44,31 +53,41 @@ describe('infra/docker-compose.yml — sync-content runs all ten EGE-2026 varian
     }
   });
 
-  it('also invokes importRussianDoshchinsky2027Variant1.js', () => {
-    expect(serviceBlock).toContain(
-      'node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant1.js',
-    );
+  it('invokes all eighteen importRussianDoshchinsky2027VariantN.js scripts', () => {
+    for (let n = 1; n <= 18; n++) {
+      expect(serviceBlock).toContain(
+        `node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant${n}.js`,
+      );
+    }
   });
 
-  it('runs them strictly in order V1 -> V2 -> V3 -> V4 -> V5 -> V6 -> V7 -> V8 -> V9 -> V10 -> Russian V1', () => {
-    const mathPositions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) =>
+  it('runs them strictly in order: math V1 -> V10, then Russian V1 -> V18', () => {
+    const mathPositions = Array.from({ length: 10 }, (_, i) => i + 1).map((n) =>
       serviceBlock.indexOf(`importEge2026Variant${n}.js`),
     );
     for (let i = 1; i < mathPositions.length; i++) {
       expect(mathPositions[i]).toBeGreaterThan(mathPositions[i - 1]!);
     }
-    const russianPosition = serviceBlock.indexOf('importRussianDoshchinsky2027Variant1.js');
-    expect(russianPosition).toBeGreaterThan(mathPositions[mathPositions.length - 1]!);
+
+    const russianPositions = Array.from({ length: 18 }, (_, i) => i + 1).map((n) =>
+      serviceBlock.indexOf(`importRussianDoshchinsky2027Variant${n}.js`),
+    );
+    for (let i = 1; i < russianPositions.length; i++) {
+      expect(russianPositions[i]).toBeGreaterThan(russianPositions[i - 1]!);
+    }
+
+    expect(russianPositions[0]).toBeGreaterThan(mathPositions[mathPositions.length - 1]!);
   });
 
-  it('chains every import with && so a failing importer stops the sequence with a non-zero exit', () => {
-    // Count of "&&" between the eleven invocations (ten math + one
-    // Russian) must be exactly 10 — not ";" (which would silently
-    // continue past a failure) and not "||" (which would swallow one).
+  it('chains all 28 imports with && so a failing importer stops the sequence with a non-zero exit', () => {
+    // 28 invocations (10 math + 18 Russian) joined by && means exactly
+    // 27 "&&" tokens — not ";" (which would silently continue past a
+    // failure) and not "||" (which would swallow one).
     const andCount = (serviceBlock.match(/&&/g) ?? []).length;
-    expect(andCount).toBe(10);
-    expect(serviceBlock).not.toMatch(/importEge2026Variant\d\.js\s*;/);
-    expect(serviceBlock).not.toMatch(/importRussianDoshchinsky2027Variant1\.js\s*;/);
+    expect(andCount).toBe(27);
+    expect(serviceBlock).not.toMatch(/importEge2026Variant\d{1,2}\.js\s*;/);
+    expect(serviceBlock).not.toMatch(/importRussianDoshchinsky2027Variant\d{1,2}\.js\s*;/);
+    expect(serviceBlock).not.toContain('||');
   });
 
   it('still depends on sync-subjects completing first, same as before the fix', () => {
@@ -77,7 +96,7 @@ describe('infra/docker-compose.yml — sync-content runs all ten EGE-2026 varian
     );
   });
 
-  it('migrate still runs before sync-content, transitively via sync-subjects — migrations 0017/0018 (passages, digit_set_order_insensitive) are applied before the Russian importer needs them', () => {
+  it('migrate still runs before sync-content, transitively via sync-subjects — migrations 0017/0018 (passages, digit_set_order_insensitive) are applied before any Russian importer needs them', () => {
     const syncSubjectsBlock = compose.match(
       / {2}sync-subjects:\n([\s\S]*?)\n {2}sync-content:/,
     )?.[1];

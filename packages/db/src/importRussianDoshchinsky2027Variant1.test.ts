@@ -7,14 +7,17 @@ import { importRussianVariant1 } from './importRussianDoshchinsky2027Variant1.js
 import { createTestDb } from './testing.js';
 
 /**
- * EXPERIMENTAL: verifies the single-variant Russian pilot import in
- * isolation. Deliberately does NOT use `createImportedVariantsTestDb()`
- * (that helper is the math-only matrix used by production-facing
- * tests) — this file proves the Russian importer works correctly and
- * coexists safely with the existing math data, without adding Russian
- * to any shared/production test fixture.
+ * Verifies the Вариант 1 Russian import in isolation. Вариант 1 was the
+ * original pilot import (predating Вариант 2-18, which were added later,
+ * all now deployed in production via `infra/docker-compose.yml`'s
+ * `sync-content` chain — see `russianVariantMatrixAudit.test.ts` for the
+ * full 18×27 cross-variant audit). Deliberately does NOT use
+ * `createImportedVariantsTestDb()` (that helper is the math-only matrix
+ * used by production-facing tests) — this file proves the Russian
+ * importer works correctly and coexists safely with the existing math
+ * data, without adding Russian to any shared/production test fixture.
  */
-describe('importRussianVariant1 (experimental pilot)', () => {
+describe('importRussianVariant1', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
 
   beforeAll(async () => {
