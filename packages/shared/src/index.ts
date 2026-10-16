@@ -8,6 +8,7 @@ export * from './mistakes.js';
 export * from './progress.js';
 export * from './statistics.js';
 export * from './favorites.js';
+export * from './auth.js';
 export * from './learningProfile.js';
 export * from './learning/skill.js';
 export * from './learning/mastery.js';

@@ -4,6 +4,7 @@ import { App } from './App.js';
 import { NavigationProvider } from './lib/navigation.js';
 import { LearningSessionProvider } from './lib/learningSessionContext.js';
 import { StreakProvider } from './lib/streakContext.js';
+import { AuthProvider } from './lib/authContext.js';
 import { ToastProvider } from './ui/Toast/ToastProvider.js';
 import { DesignExploration } from './design-exploration/DesignExploration.js';
 import 'katex/dist/katex.min.css';
@@ -26,13 +27,15 @@ createRoot(root).render(
       <DesignExploration />
     ) : (
       <NavigationProvider>
-        <LearningSessionProvider>
-          <StreakProvider>
-            <ToastProvider>
-              <App />
-            </ToastProvider>
-          </StreakProvider>
-        </LearningSessionProvider>
+        <AuthProvider>
+          <LearningSessionProvider>
+            <StreakProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </StreakProvider>
+          </LearningSessionProvider>
+        </AuthProvider>
       </NavigationProvider>
     )}
   </StrictMode>,

@@ -1,4 +1,5 @@
 import { useNavigation } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -31,6 +32,7 @@ const loopSteps = [
  */
 export function LandingDesktop() {
   const { navigate } = useNavigation();
+  const { user } = useAuth();
 
   return (
     <div className={styles.page}>
@@ -53,6 +55,11 @@ export function LandingDesktop() {
               <Button variant="secondary" onClick={() => navigate({ screen: 'about' })}>
                 <Icon name="play" size={18} /> О проекте
               </Button>
+              {!user && (
+                <Button variant="ghost" onClick={() => navigate({ screen: 'login' })}>
+                  Войти
+                </Button>
+              )}
             </div>
             <div className={styles.features}>
               {features.map((feature) => (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -24,6 +25,7 @@ import styles from './HomeMobile.module.css';
  */
 export function HomeMobile() {
   const { navigate } = useNavigation();
+  const { user } = useAuth();
   const popularSubjects = subjects.slice(0, 6);
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   // Real published-task counts per subject (one request) — replaces the
@@ -58,6 +60,17 @@ export function HomeMobile() {
 
   return (
     <SlideUp className={styles.stack}>
+      {!user && (
+        <div className={styles.topRow}>
+          <button
+            type="button"
+            className={styles.loginLink}
+            onClick={() => navigate({ screen: 'login' })}
+          >
+            Войти
+          </button>
+        </div>
+      )}
       <div className={styles.hero}>
         <div className={styles.heroTiles} aria-hidden="true">
           <span

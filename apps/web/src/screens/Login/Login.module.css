@@ -1,0 +1,357 @@
+/*
+ * Scoped light-theme token overrides. The app's tokens.css is dark
+ * (Design Spec default), but the approved auth reference is a light
+ * lilac page — rather than fork Button/Input/etc. into light variants,
+ * this redefines the exact custom properties they already consume
+ * (--color-bg-elevated, --color-text-primary, --color-border-subtle,
+ * ...) just within `.page`, so every reused component renders light
+ * here for free and stays byte-for-byte unchanged everywhere else.
+ */
+.page {
+  --color-bg-base: #f3eefb;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #f4f0fb;
+  --color-text-primary: #211733;
+  --color-text-secondary: #6f6585;
+  --color-text-disabled: #aaa1bd;
+  --color-border-subtle: #e4def3;
+  --shadow-e1: 0 2px 8px rgba(76, 29, 149, 0.08);
+  --shadow-e2: 0 20px 60px rgba(76, 29, 149, 0.16);
+
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+}
+
+/* Soft decorative rays/blobs — pure CSS, no image asset needed for
+   the "light lilac background with soft rays" look. */
+.rayTopLeft,
+.rayBottomRight {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.rayTopLeft {
+  top: -10rem;
+  left: -8rem;
+  width: 28rem;
+  height: 28rem;
+  background: radial-gradient(circle, rgba(139, 20, 245, 0.16) 0%, transparent 70%);
+}
+
+.rayBottomRight {
+  bottom: -12rem;
+  right: -10rem;
+  width: 32rem;
+  height: 32rem;
+  background: radial-gradient(circle, rgba(206, 61, 253, 0.14) 0%, transparent 70%);
+}
+
+.closeButton {
+  position: absolute;
+  top: var(--space-5);
+  right: var(--space-5);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-e1);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--easing-standard);
+}
+
+.closeButton:active {
+  transform: scale(0.94);
+}
+
+.layout {
+  position: relative;
+  z-index: 1;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-8);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26rem;
+  gap: var(--space-10);
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  animation: fadeIn var(--duration-page) var(--easing-standard) both;
+}
+
+.headline {
+  margin: 0;
+  font-size: 2.5rem;
+  line-height: 1.15;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.headlineAccent {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subtext {
+  margin: 0;
+  max-width: 30rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.benefits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+}
+
+.benefitIcon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--color-accent-primary);
+}
+
+.handwritten {
+  margin: var(--space-2) 0 0;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--color-accent-primary);
+  transform: rotate(-3deg);
+  width: fit-content;
+}
+
+.handwrittenArrow {
+  color: var(--color-accent-primary);
+  flex-shrink: 0;
+  margin-bottom: -0.25rem;
+}
+
+.card {
+  position: relative;
+  background: var(--color-bg-surface);
+  border-radius: 2rem;
+  box-shadow: var(--shadow-e2);
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  animation: scaleIn var(--duration-reveal) var(--easing-standard) both;
+}
+
+.tabs {
+  position: relative;
+  display: flex;
+  border-bottom: 1.5px solid var(--color-border-subtle);
+}
+
+.tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--color-accent-primary);
+}
+
+.tabIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--color-accent-primary);
+  transition:
+    transform var(--duration-base) var(--easing-standard),
+    width var(--duration-base) var(--easing-standard);
+}
+
+.vkButton {
+  background: #0077ff;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.vkButton:hover:not(:disabled) {
+  background: #0066dd;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-subtle);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.formError {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-error);
+}
+
+.consent {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.statePanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-6) 0;
+}
+
+.stateTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.stateText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.stateSpinner {
+  color: var(--color-accent-primary);
+  animation: spin 800ms linear infinite;
+}
+
+.stateIconSuccess {
+  color: var(--color-success);
+}
+
+.stateIconError {
+  color: var(--color-error);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy,
+  .card {
+    animation: none;
+  }
+
+  .stateSpinner {
+    animation-duration: 1600ms;
+  }
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-8) var(--space-5) var(--space-10);
+    gap: var(--space-6);
+    align-items: stretch;
+    min-height: 0;
+  }
+
+  .rayTopLeft,
+  .rayBottomRight {
+    width: 18rem;
+    height: 18rem;
+  }
+
+  .headline {
+    font-size: 1.875rem;
+  }
+
+  .card {
+    padding: var(--space-6) var(--space-4);
+    border-radius: 1.5rem;
+  }
+
+  .closeButton {
+    top: var(--space-4);
+    right: var(--space-4);
+  }
+}

@@ -34,6 +34,11 @@ export const mainTabIds: readonly MainTabId[] = ['home', 'training', 'statistics
  */
 export type OverlayRoute =
   | { screen: 'onboarding' }
+  /** The unified sign-in/sign-up screen (S3 auth) — tabs "Создать
+   * аккаунт" / "Войти", email magic-link + VK ID. Reached from Home's
+   * "Войти" entry point; addressable (see routes.ts) so a magic link
+   * or a VK OAuth redirect can land here directly. */
+  | { screen: 'login' }
   | { screen: 'learningCenter' }
   | { screen: 'subjectCatalog' }
   | {
@@ -187,6 +192,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   training: 'Тренировка',
   statistics: 'Статистика',
   achievements: 'Достижения',
+  login: 'Вход',
   learningCenter: 'Учебный центр',
   learningSession: 'Тренировка',
   subjectCatalog: 'Предметы',

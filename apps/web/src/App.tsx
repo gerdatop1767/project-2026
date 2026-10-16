@@ -7,6 +7,7 @@ import { AppMobile } from './AppMobile.js';
 import { AppDesktop } from './AppDesktop.js';
 import { LandingDesktop } from './screens/Landing/LandingDesktop.js';
 import { LandingMobile } from './screens/Landing/LandingMobile.js';
+import { Login } from './screens/Login/Login.js';
 
 /**
  * App root (S1 Block 6, approved design): desktop and mobile are
@@ -47,6 +48,14 @@ export function App() {
         setOnboardingCompleted(true);
       });
   }, []);
+
+  // Rendered standalone, bypassing both the normal dark app shell and
+  // the onboarding/landing gate above — the approved auth reference is
+  // its own light full-page screen, reachable from Home/Landing's
+  // "Войти" button or directly via a magic-link/VK-login redirect.
+  if (overlay?.screen === 'login') {
+    return <Login />;
+  }
 
   const showLanding = onboardingCompleted === false && tab === 'home' && overlay === null;
   if (showLanding) {

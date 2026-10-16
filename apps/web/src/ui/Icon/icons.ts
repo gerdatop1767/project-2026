@@ -99,6 +99,7 @@ import {
   Pencil,
   Pause,
   Shuffle,
+  Mail,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -214,6 +215,7 @@ export const icons = {
   edit: Pencil,
   pause: Pause,
   infinite: InfinityIcon,
+  mail: Mail,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;
