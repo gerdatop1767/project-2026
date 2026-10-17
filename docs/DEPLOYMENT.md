@@ -215,6 +215,12 @@ How the trainer decides who may do what (all server-side, in `apps/api`):
   — the key NAMES VK sent (never values, tokens, codes or cookies). After
   the first real login, no such warning means the assumed `user_info` shape
   was right; `no_usable_fields` tells you which keys to map instead.
+- Profile editing (name, avatar), the best VK photo (`users.get`), Telegram
+  Mini App sign-in and linking VK/Telegram to one account are described in
+  [TELEGRAM_MINI_APP.md](TELEGRAM_MINI_APP.md), including the extra
+  `TELEGRAM_BOT_TOKEN` / `TELEGRAM_AUTH_MAX_AGE_SECONDS` variables, migration
+  `0022_*` (additive) and the log fields to grep for
+  (`vkPhotoApi`, `vkAvatar`, `tgAuth`, `tgPhoto`).
 - "Onboarding finished" is `user_subject_profiles.onboarding_completed_at`
   (set by `PUT /me/learning-profile`). `/auth/me` returns it as
   `onboardingCompleted`; the VK callback redirects an unfinished account to

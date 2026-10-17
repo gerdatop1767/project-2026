@@ -13,6 +13,13 @@ vi.mock('./lib/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
   getRandomTask: vi.fn(),
   getLearningProfile: vi.fn(),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
 }));
 
 const RANDOM_TASK = {
@@ -392,11 +399,12 @@ describe('App — access gate (server-truth auth state)', () => {
     window.history.replaceState(null, '', '/profile');
     const { container } = renderApp(makeAuthUser({ avatarUrl: 'https://sun9.userapi.com/a.jpg' }));
     await screen.findByText('Иван Петров');
-    const img = container.querySelector('img[src="https://sun9.userapi.com/a.jpg"]')!;
-    expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
+    // Shown on the identity card and in «Личные данные».
+    const imgs = [...container.querySelectorAll('img[src="https://sun9.userapi.com/a.jpg"]')];
+    expect(imgs.length).toBeGreaterThan(0);
+    for (const img of imgs) expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
     act(() => {
-      img.dispatchEvent(new Event('error'));
+      for (const img of imgs) img.dispatchEvent(new Event('error'));
     });
     await waitFor(() =>
       expect(container.querySelector('img[src="https://sun9.userapi.com/a.jpg"]')).toBeNull(),

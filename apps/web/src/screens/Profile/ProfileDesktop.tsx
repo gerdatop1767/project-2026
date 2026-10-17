@@ -9,10 +9,11 @@ import { selfReportedScoreLabel, targetScoreLabel } from '../../lib/learningProf
 import { subjects as staticSubjects } from '../../data/subjects.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
-import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import type { IconName } from '../../ui/Icon/icons.js';
 import { FadeIn } from '../../ui/motion/motion.js';
+import { PersonalDataSection } from './account/PersonalDataSection.js';
+import { SignInMethodsSection } from './account/SignInMethodsSection.js';
 import styles from './ProfileDesktop.module.css';
 
 function subjectShortName(subjectId: string): string {
@@ -60,17 +61,6 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
   }, []);
 
   const hasSubjects = (profile?.subjects.length ?? 0) > 0;
-
-  const basicInfo: readonly ProfileRow[] = [
-    {
-      id: 'username',
-      icon: 'profile',
-      label: 'Имя пользователя',
-      value: displayName(user) ?? 'Не задано',
-    },
-    { id: 'bio', icon: 'chat', label: 'О себе', value: 'Не задано' },
-    { id: 'avatar', icon: 'palette', label: 'Аватар', value: 'Изменить фото профиля' },
-  ];
 
   const studySettings: readonly ProfileRow[] = [
     {
@@ -171,9 +161,6 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
             <p className="text-body-sm text-secondary">
               {user?.email ?? (displayName(user) ? 'Вход через VK ID' : 'Профиль ещё не настроен')}
             </p>
-            <Button variant="secondary" className={styles.editButton}>
-              <Icon name="palette" size={16} /> Изменить профиль
-            </Button>
           </div>
         </div>
       </Card>
@@ -181,8 +168,10 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
       <div className={styles.columns}>
         <div className={styles.column}>
           <Card>
-            <p className="text-h3">Основная информация</p>
-            <RowList rows={basicInfo} />
+            <PersonalDataSection />
+          </Card>
+          <Card>
+            <SignInMethodsSection />
           </Card>
           <Card>
             <p className="text-h3">Учебные настройки</p>

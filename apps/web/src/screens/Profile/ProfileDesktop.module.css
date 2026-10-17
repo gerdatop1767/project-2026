@@ -43,6 +43,8 @@
 }
 
 .nameRow {
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -59,10 +61,6 @@
   color: var(--color-accent-primary-end);
   font-size: 0.75rem;
   font-weight: var(--font-weight-bold);
-}
-
-.editButton {
-  margin-top: var(--space-3);
 }
 
 .columns {

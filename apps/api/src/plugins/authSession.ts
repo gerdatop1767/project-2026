@@ -53,3 +53,25 @@ export async function requireSession(request: FastifyRequest, reply: FastifyRepl
     return reply.code(401).send({ error: 'unauthorized' });
   }
 }
+
+/**
+ * Defence in depth against cross-site request forgery for everything that
+ * changes state. The session cookie is already `SameSite=Lax` (not sent on
+ * cross-site POST/PUT/PATCH/DELETE) and these routes need non-simple
+ * request shapes, but browsers also say where a request came from: a
+ * state-changing request that declares itself `cross-site` is refused
+ * outright. Requests without the header (older browsers, scripts, tests)
+ * fall back to the cookie protection.
+ */
+export async function rejectCrossSiteWrites(request: FastifyRequest, reply: FastifyReply) {
+  if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') return;
+  const site = request.headers['sec-fetch-site'];
+  if (
+    typeof site === 'string' &&
+    site !== 'same-origin' &&
+    site !== 'same-site' &&
+    site !== 'none'
+  ) {
+    return reply.code(403).send({ error: 'cross_site_request_blocked' });
+  }
+}

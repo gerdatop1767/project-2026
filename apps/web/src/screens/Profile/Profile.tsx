@@ -13,6 +13,8 @@ import { useAuth } from '../../lib/authContext.js';
 import { displayName } from '../../lib/userDisplay.js';
 import { ProfileAvatar } from '../../ui/ProfileAvatar/ProfileAvatar.js';
 import { SlideUp } from '../../ui/motion/motion.js';
+import { PersonalDataSection } from './account/PersonalDataSection.js';
+import { SignInMethodsSection } from './account/SignInMethodsSection.js';
 import styles from './Profile.module.css';
 
 function findSubject(subjectId: string) {
@@ -110,6 +112,14 @@ export function Profile() {
           suffix={progress ? '%' : undefined}
         />
       </div>
+
+      <Card>
+        <PersonalDataSection />
+      </Card>
+
+      <Card>
+        <SignInMethodsSection />
+      </Card>
 
       <div>
         <SectionHeader

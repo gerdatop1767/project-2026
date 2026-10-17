@@ -218,7 +218,11 @@ describe('VK profile data, onboarding routing, private API and logout', () => {
       mockVk({
         userId: 1013,
         profile: {
-          user: { first_name: 'Пётр', last_name: 'Сидоров', avatar: 'https://vk.example/p.jpg' },
+          user: {
+            first_name: 'Пётр',
+            last_name: 'Сидоров',
+            avatar: 'https://sun9.userapi.com/p.jpg',
+          },
         },
       });
       const first = await vkLogin();
@@ -230,7 +234,7 @@ describe('VK profile data, onboarding routing, private API and logout', () => {
         id: userId,
         firstName: 'Пётр',
         lastName: 'Сидоров',
-        avatarUrl: 'https://vk.example/p.jpg',
+        avatarUrl: 'https://sun9.userapi.com/p.jpg',
       });
 
       // A real change from VK does update.
