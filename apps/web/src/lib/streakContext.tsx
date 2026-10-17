@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { StreakResponse } from '@zybrilka/shared';
 import { getStreak } from './api.js';
+import { useAuth } from './authContext.js';
 
 /**
  * The one real source of streak state (CLAUDE.md's "система серий"):
@@ -37,17 +38,26 @@ const StreakContext = createContext<StreakContextValue>({
 });
 
 export function StreakProvider({ children }: { children: ReactNode }) {
-  const [streak, setStreak] = useState<StreakResponse | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  // Remember WHOSE streak this is: after sign-out or an account switch
+  // the previous account's value must never be shown for the new state.
+  const [loaded, setLoaded] = useState<{ userId: string; streak: StreakResponse } | null>(null);
+  const streak = loaded && loaded.userId === userId ? loaded.streak : null;
 
   const refreshStreak = useCallback(() => {
+    if (!userId) return;
     void getStreak()
-      .then(setStreak)
+      .then((fresh) => setLoaded({ userId, streak: fresh }))
       .catch(() => {
         // Leave whatever was last successfully loaded (or null) rather
         // than showing a fabricated value on a failed refresh.
       });
-  }, []);
+  }, [userId]);
 
+  // The streak is per account: load it only while someone is signed in
+  // (the endpoint is private), reload when the account changes, and
+  // never keep a previous account's value around after sign-out.
   useEffect(() => {
     refreshStreak();
   }, [refreshStreak]);

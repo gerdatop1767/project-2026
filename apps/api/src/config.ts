@@ -27,6 +27,10 @@ const configSchema = z
     VK_CLIENT_ID: z.string().optional(),
     VK_CLIENT_SECRET: z.string().optional(),
     VK_REDIRECT_URI: z.url().optional(),
+    // Upper bound for each server-to-server call to VK (code exchange,
+    // profile lookup) so a stalled VK endpoint can't leave the OAuth
+    // callback hanging. Not an env the deploy has to set.
+    VK_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(100).max(30000).default(5000),
   })
   .refine((c) => c.NODE_ENV !== 'production' || c.DATABASE_URL, {
     message: 'DATABASE_URL is required in production',

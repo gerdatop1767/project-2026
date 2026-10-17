@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { getLearningProfile } from './lib/api.js';
+import { useEffect } from 'react';
 import { useAuth } from './lib/authContext.js';
-import { useNavigation } from './lib/navigation.js';
+import { isOnboardingPending } from './lib/onboardingStatus.js';
+import { useNavigation, type OverlayRoute } from './lib/navigation.js';
 import { useIsDesktop } from './lib/useIsDesktop.js';
 import { useToast } from './ui/Toast/ToastProvider.js';
 import { AppMobile } from './AppMobile.js';
@@ -10,13 +10,40 @@ import { LandingDesktop } from './screens/Landing/LandingDesktop.js';
 import { LandingMobile } from './screens/Landing/LandingMobile.js';
 import { Login } from './screens/Login/Login.js';
 
+/** Overlays that hold no per-user data and stay reachable while signed
+ * out. Everything else is the trainer itself and needs a session (the
+ * API enforces the same on the server — this only decides what to
+ * render). */
+const publicOverlays: ReadonlySet<OverlayRoute['screen']> = new Set(['login', 'about', 'help']);
+
+function LoadingScreen() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center' }}
+    >
+      Загрузка…
+    </div>
+  );
+}
+
 /**
  * App root (S1 Block 6, approved design): desktop and mobile are
  * separate compositions, so this just decides which tree mounts —
  * `AppMobile` / `AppDesktop` own everything else.
+ *
+ * It is also the single access gate, driven only by server truth from
+ * `/auth/me` (never localStorage or a URL parameter):
+ * - not checked yet → neutral loading state;
+ * - signed out → public landing at `/`, the login screen, and a couple
+ *   of static info pages; any other URL shows the login screen;
+ * - signed in with onboarding not completed (new account, or one that
+ *   was left unfinished) → onboarding;
+ * - signed in and onboarded → the trainer / main menu.
  */
 export function App() {
-  const { tab, overlay } = useNavigation();
+  const { tab, overlay, navigate } = useNavigation();
   const { clear } = useToast();
   const isDesktop = useIsDesktop();
   const { user } = useAuth();
@@ -28,45 +55,39 @@ export function App() {
     clear();
   }, [tab, overlay, clear]);
 
-  // Public landing gate (DB is the source of truth, never localStorage
-  // — see apps/api's learningProfile module). `null` (not yet known)
-  // renders the normal app immediately, same as before this existed —
-  // only once the check resolves `false` does a visitor still sitting
-  // on the plain `home` tab with no overlay/deep link open see the
-  // public landing instead; its own "Начать бесплатно" is what starts
-  // onboarding now, not an automatic redirect (Landing{Desktop,Mobile}).
-  // A deep link into any other screen/overlay is never interrupted,
-  // same guarantee the old redirect-based gate made.
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
-  const checkedOnboarding = useRef(false);
-  useEffect(() => {
-    if (checkedOnboarding.current) return;
-    checkedOnboarding.current = true;
-    getLearningProfile()
-      .then((profile) => setOnboardingCompleted(profile.onboardingCompleted))
-      .catch(() => {
-        // No DB / offline — fall through to the normal app rather than
-        // blocking on a profile check that can't succeed.
-        setOnboardingCompleted(true);
-      });
-  }, []);
+  const needsOnboarding = isOnboardingPending(user);
+  const onOnboarding = overlay?.screen === 'onboarding';
+  const onPublicPage = overlay === null ? tab === 'home' : publicOverlays.has(overlay.screen);
 
-  // Rendered standalone, bypassing both the normal dark app shell and
-  // the onboarding/landing gate above — the approved auth reference is
-  // its own light full-page screen, reachable from Home/Landing's
-  // "Войти" button or directly via a magic-link/VK-login redirect.
-  if (overlay?.screen === 'login') {
+  // Keep the address bar truthful: a signed-out visitor on a private URL
+  // is moved to /login; a signed-in user who still owes onboarding is
+  // moved to /onboarding. (The screens below render the right thing
+  // immediately; this just fixes the URL so refresh/back stay coherent.)
+  useEffect(() => {
+    if (user === null && !onPublicPage) {
+      navigate({ screen: 'login' });
+    } else if (needsOnboarding && !onOnboarding && overlay?.screen !== 'login') {
+      navigate({ screen: 'onboarding' });
+    }
+  }, [user, onPublicPage, needsOnboarding, onOnboarding, overlay?.screen, navigate]);
+
+  // `needsOnboarding && !onOnboarding` lasts one render: the effect above
+  // is already navigating to /onboarding. Never flash the trainer there.
+  if (user === undefined || (needsOnboarding && !onOnboarding && overlay?.screen !== 'login')) {
+    return <LoadingScreen />;
+  }
+
+  // Rendered standalone, bypassing the normal dark app shell — the
+  // approved auth reference is its own light full-page screen, reachable
+  // from Landing's "Войти" button, a private URL while signed out, or
+  // directly via a magic-link/VK-login redirect.
+  if (overlay?.screen === 'login' || (user === null && !onPublicPage)) {
     return <Login />;
   }
 
-  // A signed-in visitor never sees the public landing again, even if
-  // their (per-account) learning profile has no diagnostic yet — the
-  // auth funnel now comes before onboarding, and "Начать бесплатно"
-  // sends them to /login rather than onboarding directly (see
-  // LandingDesktop/Mobile), so after a real sign-in they must land on
-  // Home/the trainer, not bounce back to this anonymous-visitor gate.
-  const showLanding = !user && onboardingCompleted === false && tab === 'home' && overlay === null;
-  if (showLanding) {
+  // The public landing is the signed-out face of `/`; signed-in users
+  // never see it.
+  if (user === null && tab === 'home' && overlay === null) {
     return isDesktop ? <LandingDesktop /> : <LandingMobile />;
   }
 

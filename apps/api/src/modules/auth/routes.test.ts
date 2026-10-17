@@ -161,7 +161,16 @@ describe('auth (magic-link + VK ID + session)', () => {
       url: '/api/v1/auth/me',
       headers: { cookie: `session_id=${sessionId}` },
     });
-    expect(meRes.json()).toEqual({ user: { id: verifyRes.json().user.id, email } });
+    expect(meRes.json()).toEqual({
+      user: {
+        id: verifyRes.json().user.id,
+        email,
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
+        onboardingCompleted: false,
+      },
+    });
 
     // The same token is single-use — replaying it must fail.
     const replayRes = await app.inject({
@@ -276,7 +285,9 @@ describe('auth (magic-link + VK ID + session)', () => {
       headers: { cookie: `vk_pkce=${pkceCookie}` },
     });
     expect(callbackRes.statusCode).toBe(302);
-    expect(callbackRes.headers.location).toBe('http://localhost:5173');
+    // A brand-new account has no saved learning profile yet, so the
+    // server sends it to onboarding rather than the main menu.
+    expect(callbackRes.headers.location).toBe('http://localhost:5173/onboarding');
     const sessionId = parseSetCookie(callbackRes.headers['set-cookie'], 'session_id')!;
 
     // The token-exchange request itself — not just that fetch was

@@ -5,6 +5,8 @@ import type { IconName } from '../Icon/icons.js';
 import { SubjectTile } from '../SubjectTile/SubjectTile.js';
 import { Avatar } from '../Leaderboard/Avatar.js';
 import { useNavigation, type MainTabId, type OverlayRoute } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
+import { displayName } from '../../lib/userDisplay.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MobileMenu.module.css';
 
@@ -122,6 +124,8 @@ export interface MobileMenuProps {
  */
 export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
   const { navigate } = useNavigation();
+  const { user, logout } = useAuth();
+  const [logoutError, setLogoutError] = useState(false);
   const [darkTheme, setDarkTheme] = useState(true);
 
   function go(route: MenuRoute) {
@@ -174,12 +178,17 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
             className={styles.profileRow}
             onClick={() => go({ screen: 'profile' })}
           >
-            <Avatar username="?" color="var(--color-accent-primary)" size={48} />
+            <Avatar
+              username={displayName(user) ?? '?'}
+              color="var(--color-accent-primary)"
+              size={48}
+              avatarUrl={user?.avatarUrl ?? undefined}
+            />
             <div className={styles.profileBody}>
               <p className={`text-body ${styles.profileName}`} style={{ fontWeight: 700 }}>
                 Профиль
               </p>
-              <p className="text-body-sm text-secondary">Имя не задано</p>
+              <p className="text-body-sm text-secondary">{displayName(user) ?? 'Имя не задано'}</p>
             </div>
             <Icon name="chevronRight" size={18} className={styles.navChevron} />
           </button>
@@ -298,13 +307,26 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
               <span className={styles.plainLabel}>О проекте</span>
               <Icon name="chevronRight" size={18} className={styles.navChevron} />
             </button>
-            <button type="button" className={styles.plainItem} aria-label="Выйти из аккаунта">
+            <button
+              type="button"
+              className={styles.plainItem}
+              aria-label="Выйти из аккаунта"
+              onClick={() => {
+                setLogoutError(false);
+                logout().catch(() => setLogoutError(true));
+              }}
+            >
               <span className={styles.plainIcon}>
                 <Icon name="logout" size={20} />
               </span>
               <span className={styles.plainLabel}>Выйти</span>
               <Icon name="chevronRight" size={18} className={styles.navChevron} />
             </button>
+            {logoutError && (
+              <p role="alert" className="text-body-sm">
+                Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.
+              </p>
+            )}
           </div>
         </div>
       )}

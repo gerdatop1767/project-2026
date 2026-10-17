@@ -148,6 +148,13 @@
       "when": 1792152387005,
       "tag": "0020_robust_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792174171917,
+      "tag": "0021_glossy_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

@@ -64,9 +64,12 @@ export function Login() {
     verifyStarted.current = true;
     setVerifyState('verifying');
     verifyMagicLink(token)
-      .then(() => {
+      .then(async () => {
+        // Pull the new server-side session (and its onboarding status)
+        // into the app BEFORE showing success/redirecting, so the gate
+        // in App.tsx never sees a half-signed-in state.
+        await refresh();
         setVerifyState('done');
-        refresh();
       })
       .catch(() => setVerifyState('error'));
   }, [refresh]);

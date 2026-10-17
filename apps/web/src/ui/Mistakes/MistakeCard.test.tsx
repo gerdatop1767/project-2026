@@ -25,6 +25,25 @@ describe('MistakeCardDesktop', () => {
     expect(onReview).toHaveBeenCalledOnce();
   });
 
+  it('has no three-dots "Ещё" button or dropdown menu (removed)', () => {
+    const { container } = render(
+      <MistakeCardDesktop
+        mistake={sample}
+        selected={false}
+        onToggleSelect={() => {}}
+        onReview={() => {}}
+        onToggleFavorite={() => {}}
+        favorited={false}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Ещё' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    // lucide's MoreVertical renders three <circle>s inside one <svg>.
+    expect(
+      container.querySelector('svg.lucide-ellipsis-vertical, svg.lucide-more-vertical'),
+    ).toBeNull();
+  });
+
   it('toggles selection', async () => {
     const user = userEvent.setup();
     const onToggleSelect = vi.fn();

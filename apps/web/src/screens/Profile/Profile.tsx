@@ -9,6 +9,9 @@ import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { StatTile } from '../../ui/Statistics/StatTile.js';
 import { SubjectTile } from '../../ui/SubjectTile/SubjectTile.js';
 import { useNavigation } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
+import { displayName } from '../../lib/userDisplay.js';
+import { ProfileAvatar } from '../../ui/ProfileAvatar/ProfileAvatar.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import styles from './Profile.module.css';
 
@@ -30,6 +33,7 @@ function findSubject(subjectId: string) {
  */
 export function Profile() {
   const { navigate } = useNavigation();
+  const { user } = useAuth();
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [learningProfile, setLearningProfile] = useState<LearningProfileResponse | null>(null);
 
@@ -74,11 +78,17 @@ export function Profile() {
       <Card className={styles.identityCard}>
         <div className={styles.identity}>
           <span className={styles.avatarWrap} aria-hidden="true">
-            <Icon name="profile" size={32} />
+            <ProfileAvatar
+              src={user?.avatarUrl}
+              className={styles.avatarImage}
+              fallback={<Icon name="profile" size={32} />}
+            />
           </span>
           <div className={styles.identityText}>
-            <p className="text-h3">Имя не задано</p>
-            <p className="text-body-sm text-secondary">Профиль ещё не настроен</p>
+            <p className="text-h3">{displayName(user) ?? 'Имя не задано'}</p>
+            <p className="text-body-sm text-secondary">
+              {user?.email ?? (displayName(user) ? 'Вход через VK ID' : 'Профиль ещё не настроен')}
+            </p>
           </div>
         </div>
       </Card>

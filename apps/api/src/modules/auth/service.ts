@@ -4,10 +4,11 @@ import type { AuthUser } from '@zybrilka/shared';
 import type { Config } from '../../config.js';
 import * as repo from './repo.js';
 import { isEmailConfigured, sendMagicLinkEmail, EmailNotConfiguredError } from './email.js';
-import { exchangeVkCode } from './vk.js';
+import { isOnboardingCompleted } from '../learningProfile/repo.js';
+import { exchangeVkCode, fetchVkProfile, type VkLogger } from './vk.js';
 
 export { EmailNotConfiguredError } from './email.js';
-export { VkNotConfiguredError, isVkConfigured } from './vk.js';
+export { VkNotConfiguredError, VkRequestError, isVkConfigured } from './vk.js';
 
 const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -43,49 +44,71 @@ export class InvalidMagicLinkError extends Error {
   }
 }
 
+/** Assembles the `AuthUser` the API/client sees for a user id — every
+ * field read from the database (display profile, linked email, and
+ * whether the saved learning profile says onboarding is finished). */
+export async function loadAuthUser(db: Database, userId: string): Promise<AuthUser> {
+  const [email, profile, onboardingCompleted] = await Promise.all([
+    repo.getUserEmail(db, userId),
+    repo.getUserProfile(db, userId),
+    isOnboardingCompleted(db, userId),
+  ]);
+  return { id: userId, email, ...profile, onboardingCompleted };
+}
+
+export interface LoginResult {
+  sessionId: string;
+  sessionExpiresAt: Date;
+  user: AuthUser;
+  /** True only when this very sign-in created the account. */
+  created: boolean;
+}
+
 /** Verifies the token, creates/resolves the `users` row for this
- * email, and opens a new session. Rate limiting (not implemented here
- * — see final report) should sit in front of this at the route level. */
-export async function verifyMagicLink(
-  db: Database,
-  token: string,
-): Promise<{ sessionId: string; sessionExpiresAt: Date; user: AuthUser }> {
+ * email, and opens a new session. */
+export async function verifyMagicLink(db: Database, token: string): Promise<LoginResult> {
   const tokenHash = hashToken(token);
   const found = await repo.findValidMagicLinkToken(db, tokenHash);
   if (!found) throw new InvalidMagicLinkError();
 
-  const userId = await repo.findOrCreateUserByIdentity(db, 'email', found.email);
+  const { userId, created } = await repo.findOrCreateUserByIdentity(db, 'email', found.email);
   await repo.consumeMagicLinkToken(db, found.id);
 
   const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const sessionId = await repo.createSession(db, userId, sessionExpiresAt);
-  return { sessionId, sessionExpiresAt, user: { id: userId, email: found.email } };
+  return { sessionId, sessionExpiresAt, user: await loadAuthUser(db, userId), created };
 }
 
-/** Exchanges the VK authorization code for VK's user id, then
- * find-or-creates the `users` row and opens a session — mirrors
- * `verifyMagicLink`'s shape so the route can treat both uniformly. */
+/** Exchanges the VK authorization code for VK's user id (plus, best
+ * effort, name/avatar), then find-or-creates the `users` row, refreshes
+ * its display profile, and opens a session — mirrors `verifyMagicLink`'s
+ * shape so the route can treat both uniformly. Identity, name and avatar
+ * all come from VK's server-to-server responses for this code; nothing
+ * client-supplied is trusted. */
 export async function completeVkLogin(
   db: Database,
   config: Config,
   code: string,
   deviceId: string,
   codeVerifier: string,
-): Promise<{ sessionId: string; sessionExpiresAt: Date; user: AuthUser }> {
-  const { vkUserId } = await exchangeVkCode(config, code, deviceId, codeVerifier);
-  const userId = await repo.findOrCreateUserByIdentity(db, 'vk', vkUserId);
-  const email = await repo.getUserEmail(db, userId);
+  log?: VkLogger,
+): Promise<LoginResult> {
+  const { vkUserId, accessToken } = await exchangeVkCode(config, code, deviceId, codeVerifier);
+  const { userId, created } = await repo.findOrCreateUserByIdentity(db, 'vk', vkUserId);
+
+  if (accessToken) {
+    await repo.updateUserProfile(db, userId, await fetchVkProfile(config, accessToken, log));
+  }
 
   const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const sessionId = await repo.createSession(db, userId, sessionExpiresAt);
-  return { sessionId, sessionExpiresAt, user: { id: userId, email } };
+  return { sessionId, sessionExpiresAt, user: await loadAuthUser(db, userId), created };
 }
 
 export async function getCurrentUser(db: Database, sessionId: string): Promise<AuthUser | null> {
   const userId = await repo.getSessionUserId(db, sessionId);
   if (!userId) return null;
-  const email = await repo.getUserEmail(db, userId);
-  return { id: userId, email };
+  return loadAuthUser(db, userId);
 }
 
 export async function logout(db: Database, sessionId: string): Promise<void> {
