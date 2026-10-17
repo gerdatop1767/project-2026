@@ -1,6 +1,10 @@
 import type { Database } from '@zybrilka/db';
-import { magicLinkRequestSchema, verifyMagicLinkRequestSchema } from '@zybrilka/shared';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import {
+  magicLinkRequestSchema,
+  telegramInitDataRequestSchema,
+  verifyMagicLinkRequestSchema,
+} from '@zybrilka/shared';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import * as service from './service.js';
@@ -15,7 +19,14 @@ const SESSION_COOKIE = 'session_id';
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days — mirrors service.ts's SESSION_TTL_MS
 
 const VK_PKCE_COOKIE = 'vk_pkce';
-const vkPkceCookieSchema = z.object({ state: z.string(), codeVerifier: z.string() });
+const vkPkceCookieSchema = z.object({
+  state: z.string(),
+  codeVerifier: z.string(),
+  // Present when the flow was started from a signed-in profile to ADD VK to
+  // that account (instead of signing in). Written by this server at `start`
+  // from the session, and re-checked against the session at `callback`.
+  link: z.object({ userId: z.uuid() }).optional(),
+});
 
 const vkCallbackQuerySchema = z.object({
   code: z.string().min(1),
@@ -24,7 +35,7 @@ const vkCallbackQuerySchema = z.object({
 });
 
 /** Parses the `vk_pkce` cookie. The cookie is client-controlled input,
- * so anything that isn't exactly `{ state, codeVerifier }` JSON (garbage,
+ * so anything that isn't exactly the expected JSON shape (garbage,
  * truncated, wrong shape) is reported as a failed parse instead of
  * throwing — a corrupt cookie must be a 4xx, never a 500. */
 function parseVkPkceCookie(raw: string) {
@@ -56,6 +67,13 @@ function clearSessionCookie(reply: FastifyReply, config: Config) {
 }
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { db, config }) => {
+  // A new sign-in replaces the browser's session cookie; the session it
+  // replaces must not stay valid on the server (shared device, account switch).
+  async function dropPreviousSession(request: FastifyRequest, newSessionId: string) {
+    const previous = request.cookies[SESSION_COOKIE];
+    if (previous && previous !== newSessionId) await service.logout(db, previous);
+  }
+
   // Always the same response shape whether or not `email` has an
   // account — never reveals which, to prevent email enumeration (see
   // service.ts's requestMagicLink doc comment). Rate-limited per IP —
@@ -92,6 +110,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       }
       try {
         const { sessionId, user } = await service.verifyMagicLink(db, body.data.token);
+        await dropPreviousSession(request, sessionId);
         reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
         return reply.code(200).send({ user });
       } catch (error) {
@@ -103,14 +122,26 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     },
   );
 
+  // `?link=1` starts the flow from a signed-in profile to ADD VK to that
+  // account. The target account is taken from the SESSION, never from the
+  // URL, and is stored in the same short-lived httpOnly cookie as the PKCE
+  // state so the callback can check it is still the same account.
   app.get('/auth/vk/start', async (request, reply) => {
     if (!isVkConfigured(config)) {
       return reply.code(503).send({ error: 'vk_not_configured' });
     }
+    const linking = (request.query as { link?: string } | undefined)?.link === '1';
+    if (linking && !request.sessionUserId) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
     const challenge = createVkPkceChallenge();
     reply.setCookie(
       VK_PKCE_COOKIE,
-      JSON.stringify({ state: challenge.state, codeVerifier: challenge.codeVerifier }),
+      JSON.stringify({
+        state: challenge.state,
+        codeVerifier: challenge.codeVerifier,
+        ...(linking ? { link: { userId: request.sessionUserId } } : {}),
+      }),
       cookieOptions(config, 600),
     );
     return reply.redirect(buildVkAuthorizeUrl(config, challenge));
@@ -132,6 +163,44 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     if (!saved.success || saved.data.state !== query.data.state) {
       return reply.code(400).send({ error: 'invalid_state' });
     }
+    if (saved.data.link) {
+      const toProfile = (outcome: string) =>
+        reply.redirect(
+          new URL(`/profile?link=${outcome}&provider=vk`, config.WEB_BASE_URL).toString(),
+        );
+      // The account being linked must still be the one signed in now.
+      if (!request.sessionUserId || request.sessionUserId !== saved.data.link.userId) {
+        return toProfile('session_changed');
+      }
+      try {
+        const outcome = await service.completeVkLink(
+          db,
+          config,
+          request.sessionUserId,
+          query.data.code,
+          query.data.device_id,
+          saved.data.codeVerifier,
+          request.log,
+        );
+        const labels = {
+          linked: 'ok',
+          already_linked: 'already',
+          taken: 'taken',
+          provider_already_used: 'provider_used',
+        } as const;
+        return toProfile(labels[outcome]);
+      } catch (error) {
+        if (error instanceof service.VkRequestError) {
+          request.log.error(
+            { vkLink: error.kind, status: error.status, vkError: error.vkError },
+            'VK link failed',
+          );
+        } else if (!(error instanceof service.VkNotConfiguredError)) {
+          request.log.error({ err: error }, 'VK link failed');
+        }
+        return toProfile('error');
+      }
+    }
     try {
       const { sessionId, user } = await service.completeVkLogin(
         db,
@@ -141,6 +210,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         saved.data.codeVerifier,
         request.log,
       );
+      await dropPreviousSession(request, sessionId);
       reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
       // Server-decided landing: an account whose saved learning profile
       // is not complete (brand-new, or an earlier onboarding left
@@ -170,6 +240,44 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       return reply.code(502).send({ error: 'vk_login_failed' });
     }
   });
+
+  // Telegram Mini App sign-in / first-launch registration. The browser sends
+  // the raw `initData`; everything is decided from its verified signature.
+  app.post(
+    '/auth/telegram',
+    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = telegramInitDataRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      try {
+        const result = await service.completeTelegramLogin(db, config, body.data.initData, {
+          currentUserId: request.sessionUserId,
+          log: request.log,
+        });
+        await dropPreviousSession(request, result.sessionId);
+        reply.setCookie(
+          SESSION_COOKIE,
+          result.sessionId,
+          cookieOptions(config, SESSION_MAX_AGE_SECONDS),
+        );
+        return reply.code(200).send({ user: result.user, created: result.created });
+      } catch (error) {
+        if (error instanceof service.TelegramNotConfiguredError) {
+          return reply.code(503).send({ error: 'telegram_not_configured' });
+        }
+        if (error instanceof service.TelegramAuthError) {
+          request.log.warn({ tgAuth: error.reason }, 'Telegram sign-in rejected');
+          return reply.code(401).send({
+            error: error.reason === 'expired' ? 'telegram_data_expired' : 'invalid_telegram_data',
+          });
+        }
+        if (error instanceof service.TelegramNotLinkedError) {
+          return reply.code(409).send({ error: 'telegram_not_linked' });
+        }
+        throw error;
+      }
+    },
+  );
 
   app.get('/auth/me', async (request, reply) => {
     const sessionId = request.cookies[SESSION_COOKIE];

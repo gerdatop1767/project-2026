@@ -9,6 +9,13 @@ import type * as ApiModule from '../../lib/api.js';
 vi.mock('../../lib/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
   getLearningProfile: vi.fn(),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
 }));
 
 function OverlayMarker() {
@@ -40,7 +47,7 @@ describe('ProfileDesktop', () => {
   it('renders the personal/settings sections, not stats or achievements', () => {
     renderProfile();
     expect(screen.getByText('Мой профиль')).toBeInTheDocument();
-    expect(screen.getByText('Основная информация')).toBeInTheDocument();
+    expect(screen.getByText('Личные данные')).toBeInTheDocument();
     expect(screen.getByText('Учебные настройки')).toBeInTheDocument();
     expect(screen.getByText('Настройки аккаунта')).toBeInTheDocument();
     expect(screen.getByText('Действия')).toBeInTheDocument();

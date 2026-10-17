@@ -199,15 +199,17 @@ describe('VK server-to-server calls: timeouts, safe logging, PKCE cookie handlin
   });
 
   describe('profile lookup logging (never blocks sign-in, never leaks)', () => {
-    const profileLog = async (userInfo: () => unknown) => {
-      fetchMock.mockImplementation(async (url: string) =>
-        url.endsWith('/oauth2/auth')
-          ? jsonResponse({
-              user_id: 7100 + Math.floor(Math.random() * 1e6),
-              access_token: ACCESS_TOKEN,
-            })
-          : userInfo(),
-      );
+    const profileLog = async (userInfo: () => unknown, usersGet?: () => unknown) => {
+      fetchMock.mockImplementation(async (url: string) => {
+        if (url.endsWith('/oauth2/auth')) {
+          return jsonResponse({
+            user_id: 7100 + Math.floor(Math.random() * 1e6),
+            access_token: ACCESS_TOKEN,
+          });
+        }
+        if (url.includes('/method/users.get') && usersGet) return usersGet();
+        return userInfo();
+      });
       const { state, pkce } = await start();
       const res = await callback(pkce, state);
       expect(res.statusCode).toBe(302); // sign-in itself always succeeds
@@ -242,10 +244,19 @@ describe('VK server-to-server calls: timeouts, safe logging, PKCE cookie handlin
     });
 
     it('a healthy profile logs no warning at all', async () => {
-      const out = await profileLog(() =>
-        jsonResponse({
-          user: { first_name: 'Анна', last_name: 'Ким', avatar: 'https://a.example/a.jpg' },
-        }),
+      const out = await profileLog(
+        () =>
+          jsonResponse({
+            user: {
+              first_name: 'Анна',
+              last_name: 'Ким',
+              avatar: 'https://sun9.userapi.com/a.jpg',
+            },
+          }),
+        () =>
+          jsonResponse({
+            response: [{ photo_max_orig: 'https://sun9.userapi.com/orig.jpg' }],
+          }),
       );
       expect(out).toBe('');
     });

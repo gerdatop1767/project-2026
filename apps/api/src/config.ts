@@ -27,6 +27,12 @@ const configSchema = z
     VK_CLIENT_ID: z.string().optional(),
     VK_CLIENT_SECRET: z.string().optional(),
     VK_REDIRECT_URI: z.url().optional(),
+    // Telegram Mini App sign-in. The bot token is the HMAC key that proves
+    // `initData` really came from Telegram — server-only, never sent to the
+    // client. Unset => POST /auth/telegram answers 503 `telegram_not_configured`.
+    TELEGRAM_BOT_TOKEN: z.string().optional(),
+    // How old a launch's `auth_date` may be before the sign-in is refused.
+    TELEGRAM_AUTH_MAX_AGE_SECONDS: z.coerce.number().int().min(60).max(86400).default(3600),
     // Upper bound for each server-to-server call to VK (code exchange,
     // profile lookup) so a stalled VK endpoint can't leave the OAuth
     // callback hanging. Not an env the deploy has to set.

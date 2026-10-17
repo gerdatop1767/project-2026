@@ -7,10 +7,12 @@ import { healthRoutes } from './routes/health.js';
 import { registerAnonUser } from './plugins/anonUser.js';
 import {
   registerAuthSession,
+  rejectCrossSiteWrites,
   requireSession,
   withoutEncapsulation,
 } from './plugins/authSession.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { profileRoutes } from './modules/profile/routes.js';
 import { collectionsRoutes } from './modules/collections/routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
@@ -97,11 +99,16 @@ export function buildApp({
         // above: its `onRoute` hook must already be active before the
         // throttled routes are added.
         await authScope.register(rateLimit, { global: false });
+        // Sign-in POSTs (magic-link verify, Telegram) are same-origin fetches
+        // from our own pages; a cross-site one would be login CSRF.
+        authScope.addHook('onRequest', rejectCrossSiteWrites);
         authScope.register(authRoutes, { db, config: authConfig, prefix: '/api/v1' });
       });
       app.register(async (scope) => {
         scope.addHook('onRequest', requireSession);
+        scope.addHook('onRequest', rejectCrossSiteWrites);
         scope.register(privateRoutes);
+        scope.register(profileRoutes, { db, config: authConfig, prefix: '/api/v1' });
       });
     } else {
       app.register(privateRoutes);

@@ -44,7 +44,7 @@ const benefits = [
  */
 export function Login() {
   const { navigate, back } = useNavigation();
-  const { user, refresh } = useAuth();
+  const { user, refresh, telegramError } = useAuth();
 
   const [email, setEmail] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -269,6 +269,13 @@ export function Login() {
                   }}
                 />
                 {formError && <p className={styles.formError}>{formError}</p>}
+                {telegramError && (
+                  <p role="alert" className={styles.formError}>
+                    {telegramError === 'telegram_data_expired'
+                      ? 'Данные запуска из Telegram устарели. Закройте и снова откройте приложение или войдите другим способом.'
+                      : 'Не удалось войти через Telegram. Войдите другим способом или откройте приложение заново.'}
+                  </p>
+                )}
                 <Button type="submit" fullWidth loading={submitting}>
                   Продолжить с почтой
                 </Button>

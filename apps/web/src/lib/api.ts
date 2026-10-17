@@ -6,6 +6,8 @@ import type {
   FavoritesListResponse,
   LearningProfileResponse,
   AuthUser,
+  IdentitiesResponse,
+  IdentityProvider,
   LearningSessionResponse,
   MeResponse,
   MagicLinkResponse,
@@ -428,4 +430,57 @@ export function getCurrentUser(): Promise<MeResponse> {
 
 export function logout(): Promise<void> {
   return apiFetch('/auth/logout', { method: 'POST' });
+}
+
+// ---------------------------------------------------------------- profile
+
+/** Sets the user's own display name; `null` (or blank) goes back to the
+ * name the sign-in provider supplied. Resolves to the refreshed user. */
+export function updateProfileName(displayName: string | null): Promise<{ user: AuthUser }> {
+  return apiFetch('/me/profile', { method: 'PATCH', body: JSON.stringify({ displayName }) });
+}
+
+/** Uploads the (already downsized) avatar as raw bytes. The server decides
+ * what the file really is; the browser's `type` is only a hint. */
+export function uploadAvatar(image: Blob): Promise<{ user: AuthUser }> {
+  return apiFetch('/me/avatar', {
+    method: 'PUT',
+    body: image,
+    headers: { 'content-type': image.type },
+  });
+}
+
+export function deleteAvatar(): Promise<{ user: AuthUser }> {
+  return apiFetch('/me/avatar', { method: 'DELETE' });
+}
+
+// -------------------------------------------------------- sign-in methods
+
+export function getIdentities(): Promise<IdentitiesResponse> {
+  return apiFetch('/me/identities');
+}
+
+export function unlinkIdentity(provider: IdentityProvider): Promise<IdentitiesResponse> {
+  return apiFetch(`/me/identities/${provider}`, { method: 'DELETE' });
+}
+
+export function linkTelegram(
+  initData: string,
+): Promise<{ status: 'linked' | 'already_linked'; user: AuthUser }> {
+  return apiFetch('/me/identities/telegram', {
+    method: 'POST',
+    body: JSON.stringify({ initData }),
+  });
+}
+
+/** Navigation target that ADDS VK to the signed-in account (a full-page
+ * redirect, like the VK sign-in button). The server reads the account from
+ * the session, not from this URL. */
+export function vkLinkUrl(): string {
+  return new URL('/api/v1/auth/vk/start?link=1', window.location.origin).toString();
+}
+
+/** Signs in (or registers) with the signed Telegram Mini App launch data. */
+export function loginWithTelegram(initData: string): Promise<{ user: AuthUser; created: boolean }> {
+  return apiFetch('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) });
 }

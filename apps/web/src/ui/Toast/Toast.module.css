@@ -6,7 +6,7 @@
   right: 0;
   display: flex;
   justify-content: center;
-  padding: max(var(--space-4), env(safe-area-inset-top, 0)) var(--space-4) 0;
+  padding: max(var(--space-4), var(--safe-top)) var(--space-4) 0;
   pointer-events: none;
 }
 

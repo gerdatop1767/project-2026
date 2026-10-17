@@ -323,3 +323,86 @@ describe('users display profile columns (migration 0021)', () => {
     }
   });
 });
+
+describe('custom display name, profile source and user_avatars (migration 0022)', () => {
+  let testDb: Awaited<ReturnType<typeof createTestDb>>;
+
+  beforeAll(async () => {
+    testDb = await createTestDb();
+  });
+
+  afterAll(async () => {
+    await testDb.close();
+  });
+
+  it('adds display_name / profile_source as nullable text; old users stay valid', async () => {
+    const { db } = testDb;
+    const { rows } = (await db.execute(
+      `select column_name, data_type, is_nullable from information_schema.columns
+       where table_name = 'users' and column_name in ('display_name', 'profile_source')
+       order by column_name`,
+    )) as unknown as { rows: { column_name: string; data_type: string; is_nullable: string }[] };
+    expect(rows).toEqual([
+      { column_name: 'display_name', data_type: 'text', is_nullable: 'YES' },
+      { column_name: 'profile_source', data_type: 'text', is_nullable: 'YES' },
+    ]);
+    const [user] = await db.insert(schema.users).values({}).returning();
+    expect(user).toMatchObject({ displayName: null, profileSource: null });
+  });
+
+  it('stores avatar bytes exactly and keeps one row per (user, source)', async () => {
+    const { db } = testDb;
+    const [user] = await db.insert(schema.users).values({}).returning();
+    const data = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 255, 1, 2, 3]);
+    const base = {
+      userId: user!.id,
+      source: 'user' as const,
+      contentType: 'image/png',
+      width: 100,
+      height: 100,
+      byteSize: data.length,
+      sha256: 'x'.repeat(64),
+      data,
+    };
+    await db.insert(schema.userAvatars).values(base);
+    const [stored] = await db
+      .select()
+      .from(schema.userAvatars)
+      .where(eq(schema.userAvatars.userId, user!.id));
+    expect(Buffer.compare(Buffer.from(stored!.data), data)).toBe(0);
+    await expect(db.insert(schema.userAvatars).values(base)).rejects.toThrow();
+    await db.insert(schema.userAvatars).values({ ...base, source: 'telegram' });
+  });
+
+  it('rejects an avatar for a user that does not exist', async () => {
+    await expect(
+      testDb.db.insert(schema.userAvatars).values({
+        userId: '00000000-0000-4000-8000-000000000000',
+        source: 'user' as const,
+        contentType: 'image/png',
+        width: 1,
+        height: 1,
+        byteSize: 1,
+        sha256: 'y',
+        data: Buffer.from([1]),
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('the migration is purely additive: new table + ADD COLUMN, nothing dropped or rewritten', () => {
+    const dir = fileURLToPath(new URL('../migrations/', import.meta.url));
+    const file = readdirSync(dir).find((name) => name.startsWith('0022_'))!;
+    const sql = readFileSync(`${dir}${file}`, 'utf-8');
+    const withoutFkActions = sql.replace(/ON DELETE no action ON UPDATE no action/g, '');
+    expect(withoutFkActions).not.toMatch(/\b(DROP|DELETE|TRUNCATE|UPDATE|RENAME|SET NOT NULL)\b/i);
+    const statements = sql
+      .split('--> statement-breakpoint')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const statement of statements) {
+      expect(statement).toMatch(
+        /^(CREATE TABLE "user_avatars"|ALTER TABLE "(users|user_avatars)" (ADD COLUMN|ADD CONSTRAINT)|CREATE UNIQUE INDEX "user_avatars_)/,
+      );
+    }
+  });
+});

@@ -19,6 +19,13 @@ vi.mock('./lib/api.js', () => ({
   getMistakes: vi.fn(() => new Promise(() => {})),
   getSimilarTasks: vi.fn(() => Promise.resolve([])),
   getLearningProfile: vi.fn(() => new Promise(() => {})),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
   listFavoriteTaskIds: vi.fn(() => Promise.resolve({ taskIds: [] })),
   addFavorite: vi.fn(() => Promise.resolve()),
   removeFavorite: vi.fn(() => Promise.resolve()),

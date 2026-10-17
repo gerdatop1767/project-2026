@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Config } from '../../config.js';
+import { checkProviderAvatarUrl, cleanProviderName } from './providerProfile.js';
 
 /**
  * VK ID (OAuth 2.1 + mandatory PKCE — NOT the deprecated oauth.vk.com
@@ -184,53 +185,91 @@ export interface VkProfile {
   avatarUrl?: string;
 }
 
-const MAX_NAME_LENGTH = 100;
-const MAX_AVATAR_URL_LENGTH = 1000;
+/** VK's own method API: a second, richer source for the photo. */
+const VK_API_USERS_GET = 'https://api.vk.com/method/users.get';
+const VK_API_VERSION = '5.199';
 
-function cleanName(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  return trimmed.slice(0, MAX_NAME_LENGTH);
+/** Photo fields `users.get` can return, best first, with the side (px) each
+ * is documented to have. `photo_max_orig` is the original upload, so it is
+ * ranked above everything without a made-up pixel count. */
+const PHOTO_FIELDS: readonly { field: string; score: number }[] = [
+  { field: 'photo_max_orig', score: 1_000_000 },
+  { field: 'photo_400_orig', score: 400 * 400 },
+  { field: 'photo_200_orig', score: 200 * 200 },
+  { field: 'photo_200', score: 200 * 200 },
+  { field: 'photo_100', score: 100 * 100 },
+  { field: 'photo_50', score: 50 * 50 },
+];
+
+export interface AvatarCandidate {
+  url: string;
+  /** Larger = better. Only ever derived from a documented field or from a
+   * size the URL itself declares — never guessed or inflated. */
+  score: number;
 }
 
-/** Only absolute https URLs are kept — the value ends up in an
- * `<img src>` for the user's own profile, so anything else (javascript:,
- * data:, plain http, garbage) is dropped rather than stored. */
-function cleanAvatarUrl(value: unknown): string | undefined {
-  if (typeof value !== 'string' || value.length > MAX_AVATAR_URL_LENGTH) return undefined;
+/** VK image URLs declare the crop they serve as `cs=WxH` (or `size=WxH`);
+ * read that, and nothing more, as the URL's own size hint. */
+export function declaredPixels(url: string): number {
   try {
-    const url = new URL(value.trim());
-    return url.protocol === 'https:' ? url.toString() : undefined;
+    const params = new URL(url).searchParams;
+    for (const key of ['cs', 'size']) {
+      const match = params.get(key)?.match(/^(\d{2,4})x(\d{2,4})$/);
+      if (match) return Number(match[1]) * Number(match[2]);
+    }
   } catch {
-    return undefined;
+    // not a URL
   }
+  return 0;
 }
 
-/** The only logging surface `fetchVkProfile` needs (pino-compatible). */
+/** The highest-quality candidate; on a tie the earlier one (users.get first). */
+export function pickBestAvatar(candidates: readonly AvatarCandidate[]): string | undefined {
+  let best: AvatarCandidate | undefined;
+  for (const candidate of candidates) {
+    if (!best || candidate.score > best.score) best = candidate;
+  }
+  return best?.url;
+}
+
+/** The only logging surface the VK helpers need (pino-compatible). */
 export interface VkLogger {
   warn(obj: Record<string, unknown>, msg: string): void;
 }
 
+function failureFields(error: unknown): Record<string, unknown> {
+  const failure = error instanceof VkRequestError ? error : new VkRequestError('network');
+  return {
+    kind: failure.kind,
+    ...(failure.status !== undefined ? { status: failure.status } : {}),
+    ...(failure.vkError ? { vkError: failure.vkError } : {}),
+  };
+}
+
 /**
- * Best-effort profile lookup with the access token VK just issued for
- * THIS authorization code (server-to-server, never anything the browser
- * supplied), bounded by `VK_REQUEST_TIMEOUT_MS`. Never throws: a failed
- * or malformed lookup yields `{}` so the sign-in itself still succeeds
- * with the stable VK id and the profile simply isn't updated this time.
+ * Best-effort profile lookup with the access token VK just issued for THIS
+ * authorization code (server-to-server, never anything the browser
+ * supplied), every call bounded by `VK_REQUEST_TIMEOUT_MS`. Never throws: a
+ * failed or malformed lookup yields less data (down to `{}`), never a failed
+ * sign-in.
  *
- * Every degraded outcome logs ONE warning carrying only the failure
- * kind / HTTP status / VK error code and — for a 200 that carried no
- * usable fields — the NAMES of the keys VK sent (never their values),
- * which is what tells an operator "the response shape differs from what
- * we assumed" during the first real login. Tokens, codes, secrets,
- * cookies and response bodies are never logged.
+ * Two sources, queried in parallel and merged:
+ * - `POST id.vk.ru/oauth2/user_info` → `{ user: { first_name, last_name,
+ *   avatar } }`. Its `avatar` is a ready-made thumbnail whose URL declares a
+ *   small crop (`cs=…`), which is why photos looked blurry.
+ * - `POST api.vk.com/method/users.get` with `fields=photo_max_orig,…` → the
+ *   original upload and the sized variants. The best photo across BOTH
+ *   sources is kept (see `pickBestAvatar`); a placeholder "camera" picture
+ *   or a host outside the allow-list counts as no photo.
  *
- * Request/response shape (`POST id.vk.ru/oauth2/user_info` with form
- * fields `access_token` + `client_id` → `{ user: { user_id, first_name,
- * last_name, avatar, ... } }`) comes from third-party client libraries
- * (django-allauth, omniauth-vk_id) — VK's own docs were unreachable from
- * this environment, so confirm with one real login.
+ * Whether VK ID access tokens are accepted by `users.get` — and the exact
+ * key names above — are taken from third-party client libraries, because
+ * VK's own docs were not reachable when this was written. So each source is
+ * independent and a failure is logged as ONE warning carrying only the
+ * failure kind / HTTP status / VK error code / key NAMES (never tokens,
+ * codes, secrets, cookies, bodies, photo URLs or personal values), then the
+ * other source is used. The first real login shows in the API logs which
+ * source works.
  */
 export async function fetchVkProfile(
   config: Config,
@@ -238,6 +277,40 @@ export async function fetchVkProfile(
   log?: VkLogger,
 ): Promise<VkProfile> {
   if (!isVkConfigured(config)) return {};
+
+  const [userInfo, photoApi] = await Promise.all([
+    readUserInfo(config, accessToken, log),
+    readUsersGet(config, accessToken, log),
+  ]);
+
+  const candidates: AvatarCandidate[] = [];
+  const consider = (value: unknown, score: number, source: string) => {
+    if (value === undefined || value === null || value === '') return;
+    const checked = checkProviderAvatarUrl(value, 'vk');
+    if (checked.ok) {
+      candidates.push({ url: checked.url, score });
+    } else if (checked.reason !== 'placeholder') {
+      // A stock "no photo" picture is normal; anything else is worth knowing about.
+      log?.warn({ vkAvatar: checked.reason, source }, 'VK avatar URL ignored');
+    }
+  };
+  for (const { field, score } of PHOTO_FIELDS) consider(photoApi[field], score, 'users.get');
+  consider(userInfo.avatar, declaredPixels(String(userInfo.avatar ?? '')), 'user_info');
+
+  return {
+    firstName: userInfo.firstName ?? photoApi.firstName,
+    lastName: userInfo.lastName ?? photoApi.lastName,
+    avatarUrl: pickBestAvatar(candidates),
+  };
+}
+
+interface RawInfo {
+  firstName?: string;
+  lastName?: string;
+  avatar?: unknown;
+}
+
+async function readUserInfo(config: Config, accessToken: string, log?: VkLogger): Promise<RawInfo> {
   try {
     const data = await postToVk(config, VK_USER_INFO_URL, {
       access_token: accessToken,
@@ -247,32 +320,71 @@ export async function fetchVkProfile(
     if (user === null || typeof user !== 'object' || Array.isArray(user)) {
       log?.warn(
         { vkProfile: 'invalid_response', topLevelKeys: safeKeys(data) },
-        'VK profile lookup returned no user object; continuing without profile data',
+        'VK profile lookup returned no user object; continuing without it',
       );
       return {};
     }
     const fields = user as Record<string, unknown>;
-    const profile: VkProfile = {
-      firstName: cleanName(fields.first_name),
-      lastName: cleanName(fields.last_name),
-      avatarUrl: cleanAvatarUrl(fields.avatar),
+    const info: RawInfo = {
+      firstName: cleanProviderName(fields.first_name),
+      lastName: cleanProviderName(fields.last_name),
+      avatar: fields.avatar,
     };
-    if (!profile.firstName && !profile.lastName && !profile.avatarUrl) {
+    if (!info.firstName && !info.lastName && !fields.avatar) {
       log?.warn(
         { vkProfile: 'no_usable_fields', userKeys: safeKeys(fields) },
-        'VK profile lookup succeeded but had no usable name/avatar; continuing without profile data',
+        'VK profile lookup succeeded but had no name/avatar; continuing without it',
       );
     }
-    return profile;
+    return info;
   } catch (error) {
-    const failure = error instanceof VkRequestError ? error : new VkRequestError('network');
     log?.warn(
-      {
-        vkProfile: failure.kind,
-        ...(failure.status !== undefined ? { status: failure.status } : {}),
-        ...(failure.vkError ? { vkError: failure.vkError } : {}),
-      },
-      'VK profile lookup failed; continuing without profile data',
+      { vkProfile: failureFields(error).kind, ...failureFields(error) },
+      'VK profile lookup failed; continuing without it',
+    );
+    return {};
+  }
+}
+
+async function readUsersGet(
+  config: Config,
+  accessToken: string,
+  log?: VkLogger,
+): Promise<RawInfo & Record<string, unknown>> {
+  try {
+    const data = await postToVk(config, VK_API_USERS_GET, {
+      access_token: accessToken,
+      v: VK_API_VERSION,
+      fields: PHOTO_FIELDS.map((f) => f.field).join(','),
+    });
+    if (data.error && typeof data.error === 'object') {
+      // VK API errors arrive as HTTP 200 with an `error` object.
+      const code = (data.error as Record<string, unknown>).error_code;
+      log?.warn(
+        { vkPhotoApi: 'api_error', ...(typeof code === 'number' ? { vkErrorCode: code } : {}) },
+        'VK users.get returned an error; using the user_info photo if any',
+      );
+      return {};
+    }
+    const list = data.response;
+    const first = Array.isArray(list) ? list[0] : undefined;
+    if (first === null || typeof first !== 'object') {
+      log?.warn(
+        { vkPhotoApi: 'invalid_response', topLevelKeys: safeKeys(data) },
+        'VK users.get returned no user; using the user_info photo if any',
+      );
+      return {};
+    }
+    const fields = first as Record<string, unknown>;
+    return {
+      ...fields,
+      firstName: cleanProviderName(fields.first_name),
+      lastName: cleanProviderName(fields.last_name),
+    };
+  } catch (error) {
+    log?.warn(
+      { vkPhotoApi: failureFields(error).kind, ...failureFields(error) },
+      'VK users.get failed; using the user_info photo if any',
     );
     return {};
   }

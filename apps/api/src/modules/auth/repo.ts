@@ -51,42 +51,22 @@ export async function findOrCreateUserByIdentity(
   });
 }
 
-export interface ProfileUpdate {
-  firstName?: string;
-  lastName?: string;
-  avatarUrl?: string;
-}
-
-/** Applies provider-supplied display data. Only fields that actually
- * have a non-empty value are written: a sign-in where VK omitted (or
- * blanked) a field leaves what is already stored untouched. Never
- * touches settings, learning profile, progress or anything else. */
-export async function updateUserProfile(
+/** The account an identity belongs to, or null if nobody has it yet. */
+export async function findUserIdByIdentity(
   db: Database,
-  userId: string,
-  profile: ProfileUpdate,
-): Promise<void> {
-  const set: Partial<typeof schema.users.$inferInsert> = {};
-  if (profile.firstName) set.firstName = profile.firstName;
-  if (profile.lastName) set.lastName = profile.lastName;
-  if (profile.avatarUrl) set.avatarUrl = profile.avatarUrl;
-  if (Object.keys(set).length === 0) return;
-  await db.update(schema.users).set(set).where(eq(schema.users.id, userId));
-}
-
-export async function getUserProfile(
-  db: Database,
-  userId: string,
-): Promise<{ firstName: string | null; lastName: string | null; avatarUrl: string | null }> {
+  provider: (typeof schema.authProviders)[number],
+  providerUserId: string,
+): Promise<string | null> {
   const [row] = await db
-    .select({
-      firstName: schema.users.firstName,
-      lastName: schema.users.lastName,
-      avatarUrl: schema.users.avatarUrl,
-    })
-    .from(schema.users)
-    .where(eq(schema.users.id, userId));
-  return row ?? { firstName: null, lastName: null, avatarUrl: null };
+    .select({ userId: schema.authIdentities.userId })
+    .from(schema.authIdentities)
+    .where(
+      and(
+        eq(schema.authIdentities.provider, provider),
+        eq(schema.authIdentities.providerUserId, providerUserId),
+      ),
+    );
+  return row?.userId ?? null;
 }
 
 export async function getUserEmail(db: Database, userId: string): Promise<string | null> {
