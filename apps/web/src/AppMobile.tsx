@@ -11,7 +11,6 @@ import { StatisticsMobile } from './screens/Statistics/StatisticsMobile.js';
 import { MistakesMobile } from './screens/Mistakes/MistakesMobile.js';
 import { AchievementsMobile } from './screens/Achievements/AchievementsMobile.js';
 import { RatingMobile } from './screens/Rating/RatingMobile.js';
-import { AboutMobile } from './screens/About/AboutMobile.js';
 import { HelpMobile } from './screens/Help/HelpMobile.js';
 import { FriendsMobile } from './screens/Friends/FriendsMobile.js';
 import { FriendProfileMobile } from './screens/Friends/FriendProfileMobile.js';
@@ -176,7 +175,6 @@ export function AppMobile() {
               />
             )}
             {contentOverlay.screen === 'rating' && <RatingMobile />}
-            {contentOverlay.screen === 'about' && <AboutMobile />}
             {contentOverlay.screen === 'learningCenter' && (
               <WipPlaceholder
                 title="Учебный центр"

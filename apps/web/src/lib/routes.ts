@@ -45,7 +45,6 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   trainingVariants: '/training/variants',
   trainingByNumber: '/training/by-number',
   rating: '/rating',
-  about: '/about',
   favorites: '/favorites',
   mockExams: '/mock-exams',
   topics: '/topics',
@@ -109,6 +108,17 @@ export function pathForRoute(route: Route): string | null {
 }
 
 const simpleOverlayScreens = new Set(Object.keys(simpleOverlayPaths));
+
+/** Paths of screens that were removed from the product. `routeFromPath`
+ * already lands them on Home; this lets the router also correct the
+ * address bar (see NavigationProvider) so an old bookmark or link does
+ * not keep showing a URL of a page that no longer exists. */
+const removedPaths: ReadonlySet<string> = new Set(['/about']);
+
+export function isRemovedPath(pathname: string): boolean {
+  const path = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
+  return removedPaths.has(path);
+}
 
 /** Parses a pathname (optionally with a `?query` string attached) into
  * a Route, defaulting to Home for anything unrecognized rather than

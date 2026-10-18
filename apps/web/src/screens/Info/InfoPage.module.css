@@ -18,7 +18,7 @@
 }
 
 .back:focus-visible,
-.more a:focus-visible {
+.moreButton:focus-visible {
   outline: 2px solid var(--color-accent-primary-end);
   outline-offset: 2px;
 }
@@ -97,11 +97,20 @@
   color: var(--color-text-secondary);
 }
 
-.more a {
+.moreButton {
+  min-height: var(--touch-target-min);
+  padding: 0;
+  border: none;
   border-radius: var(--radius-input);
+  font: inherit;
   color: var(--color-text-primary);
+  background: none;
+  text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--color-accent-primary) 70%, transparent);
   text-underline-offset: 0.2em;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @media (hover: hover) and (pointer: fine) {

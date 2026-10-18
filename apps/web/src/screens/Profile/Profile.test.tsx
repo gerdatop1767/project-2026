@@ -203,7 +203,7 @@ describe('Profile', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('notifications');
   });
 
-  it('opens the Menu drawer (Рейтинг/Настройки/Помощь/О проекте…) via the header gear button', async () => {
+  it('opens the Menu drawer (Рейтинг/Настройки/Помощь…) via the header gear button', async () => {
     const user = userEvent.setup();
     renderProfile();
     await user.click(screen.getByRole('button', { name: 'Меню' }));

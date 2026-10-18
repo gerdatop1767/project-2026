@@ -7,3 +7,11 @@
  * than linking somewhere fake.
  */
 export const TELEGRAM_SUPPORT_URL: string = import.meta.env.VITE_TELEGRAM_SUPPORT_URL ?? '';
+
+/**
+ * The real, public support bot. Used by the public landing's support
+ * window, which must always offer a working link. The internal Help screen
+ * keeps its own env-driven `TELEGRAM_SUPPORT_URL` above untouched.
+ */
+export const SUPPORT_BOT_URL = 'https://t.me/zybrilka_bot';
+export const SUPPORT_BOT_HANDLE = '@zybrilka_bot';

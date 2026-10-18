@@ -77,13 +77,15 @@ const recommendations: readonly Recommendation[] = [
  * Desktop "Учебный центр" (approved reference screenshot): a hub of
  * theory/practice/strategy/resource sections, a subject picker and
  * personalized recommendations — not a dashboard, a materials index.
+ * `root` = shown as a signed-in visitor's `/` (no back row).
  */
-export function LearningCenterDesktop() {
+export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
   const { navigate } = useNavigation();
 
   return (
     <div>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
+      {/* At the root (`/`) there is no "Главная" to go back to — this IS it. */}
+      {!root && <BackRow to={{ screen: 'home' }} label="Главная" />}
       <div className={styles.headRow}>
         <div>
           <h1 className="text-h1">Учебный центр</h1>

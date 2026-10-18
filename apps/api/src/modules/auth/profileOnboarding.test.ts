@@ -188,6 +188,111 @@ describe('VK profile data, onboarding routing, private API and logout', () => {
     });
   });
 
+  describe('where the browser lands after VK (never an arbitrary or internal page)', () => {
+    const WEB = 'http://localhost:5173';
+
+    /** /vk/start then /vk/callback with extra raw query text appended. */
+    async function callbackWith(extraQuery: string, startQuery = '', cookieHeader = '') {
+      const start = await app.inject({
+        method: 'GET',
+        url: `/api/v1/auth/vk/start${startQuery}`,
+        headers: cookieHeader ? { cookie: cookieHeader } : {},
+      });
+      const state = new URL(start.headers.location as string).searchParams.get('state');
+      const pkce = cookieValue(start.headers['set-cookie'], 'vk_pkce')!;
+      return app.inject({
+        method: 'GET',
+        url: `/api/v1/auth/vk/callback?code=c&device_id=d&state=${state}${extraQuery}`,
+        headers: { cookie: `vk_pkce=${pkce}` },
+      });
+    }
+
+    it('ignores every redirect-style parameter: the target is only ever the configured site root or /onboarding', async () => {
+      const hostile =
+        '&returnTo=https://evil.example/phish&return_to=//evil.example&next=/help&redirect=/help' +
+        '&redirect_uri=https://evil.example&url=https://evil.example&continue=/help&to=/help';
+
+      // Brand-new account -> onboarding.
+      mockVk({ userId: 3101, profile: { user: { first_name: 'Нина' } } });
+      const fresh = await callbackWith(hostile);
+      expect(fresh.statusCode).toBe(302);
+      expect(fresh.headers.location).toBe(`${WEB}/onboarding`);
+
+      // Returning account that finished onboarding -> the site root (the main menu).
+      const first = await vkLogin();
+      await finishOnboarding(first.sessionId);
+      mockVk({ userId: 3101, profile: { user: { first_name: 'Нина' } } });
+      const returning = await callbackWith(hostile);
+      expect(returning.statusCode).toBe(302);
+      expect(returning.headers.location).toBe(WEB);
+      for (const location of [fresh.headers.location, returning.headers.location]) {
+        expect(String(location)).not.toMatch(/evil|help/);
+      }
+    });
+
+    it('a cancelled/denied VK consent returns to the sign-in page with a notice flag, signs nobody in and never calls VK', async () => {
+      const start = await app.inject({ method: 'GET', url: '/api/v1/auth/vk/start' });
+      const state = new URL(start.headers.location as string).searchParams.get('state');
+      const pkce = cookieValue(start.headers['set-cookie'], 'vk_pkce')!;
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/auth/vk/callback?error=access_denied&error_description=User+denied&state=${state}`,
+        headers: { cookie: `vk_pkce=${pkce}` },
+      });
+      expect(res.statusCode).toBe(302);
+      expect(res.headers.location).toBe(`${WEB}/login?vk=cancelled`);
+      expect(cookieValue(res.headers['set-cookie'], 'session_id')).toBeUndefined();
+      // The single-use PKCE cookie is expired on this outcome too.
+      expect(String(res.headers['set-cookie'])).toMatch(/vk_pkce=;/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('a cancelled consent without the PKCE cookie (expired/other browser) still lands on sign-in, not on a raw JSON error', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/vk/callback?error=access_denied&state=whatever',
+      });
+      expect(res.statusCode).toBe(302);
+      expect(res.headers.location).toBe(`${WEB}/login?vk=cancelled`);
+    });
+
+    it('the error text VK sends is never echoed into the redirect', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/vk/callback?error=%3Cscript%3Ealert(1)%3C/script%3E&error_description=https://evil.example',
+      });
+      expect(res.statusCode).toBe(302);
+      expect(res.headers.location).toBe(`${WEB}/login?vk=cancelled`);
+    });
+
+    it('cancelling while ADDING VK from the profile goes back to the profile, not to sign-in', async () => {
+      mockVk({ userId: 3102, profile: { user: { first_name: 'Лев' } } });
+      const { sessionId } = await vkLogin();
+      const start = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/vk/start?link=1',
+        headers: { cookie: `session_id=${sessionId}` },
+      });
+      const pkce = cookieValue(start.headers['set-cookie'], 'vk_pkce')!;
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/vk/callback?error=access_denied&state=x',
+        headers: { cookie: `vk_pkce=${pkce}; session_id=${sessionId}` },
+      });
+      expect(res.statusCode).toBe(302);
+      expect(res.headers.location).toBe(`${WEB}/profile?link=error&provider=vk`);
+    });
+
+    it('a callback that is neither a success nor a cancel (no code, no error) is still rejected as before', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/vk/callback?state=x',
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: 'invalid_callback' });
+    });
+  });
+
   describe('missing / partial VK data', () => {
     it('login still succeeds with no profile at all (user_info fails) and the fields are null', async () => {
       mockVk({ userId: 1010 /* profile undefined => user_info 500 */ });

@@ -44,7 +44,7 @@ const benefits = [
  * final report for the follow-up note.
  */
 export function Login() {
-  const { navigate, back } = useNavigation();
+  const { navigate, leave } = useNavigation();
   const { user, refresh, telegramError } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -52,6 +52,16 @@ export function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // VK ID sends the user back here with `?vk=cancelled` when they backed
+  // out of (or denied) the VK consent screen — say so instead of leaving
+  // them on a silent, unchanged form.
+  const [vkCancelled] = useState(
+    () => new URLSearchParams(window.location.search).get('vk') === 'cancelled',
+  );
+  useEffect(() => {
+    if (vkCancelled) navigate({ screen: 'login' }, { replace: true });
+  }, [vkCancelled, navigate]);
 
   // Magic-link verification: the user followed the emailed link back
   // here with ?token=... — a completely different mode of this same
@@ -79,13 +89,18 @@ export function Login() {
   // ends the same way: straight into the trainer, using the real
   // server session that was just set/confirmed — never a second,
   // parallel notion of "logged in" on the client.
+  // The redirect REPLACES the sign-in entry: Back after signing in must not
+  // return to the sign-in page (which would just bounce forward again).
   useEffect(() => {
     if (verifyState === 'done') {
-      const id = window.setTimeout(() => navigate({ screen: 'home' }), SUCCESS_REDIRECT_DELAY_MS);
+      const id = window.setTimeout(
+        () => navigate({ screen: 'home' }, { replace: true }),
+        SUCCESS_REDIRECT_DELAY_MS,
+      );
       return () => window.clearTimeout(id);
     }
     if (user && verifyState === 'idle') {
-      navigate({ screen: 'home' });
+      navigate({ screen: 'home' }, { replace: true });
     }
   }, [user, verifyState, navigate]);
 
@@ -128,7 +143,7 @@ export function Login() {
         type="button"
         className={styles.closeButton}
         aria-label="Закрыть"
-        onClick={() => back()}
+        onClick={() => leave({ screen: 'home' })}
       >
         <Icon name="close" size={22} />
       </button>
@@ -199,7 +214,7 @@ export function Login() {
               <Icon name="success" size={40} className={styles.stateIconSuccess} />
               <p className={clsx('text-h3', styles.stateTitle)}>Готово!</p>
               <p className={styles.stateText}>Вы вошли в Zybrilka. Переходим в тренажёр…</p>
-              <Button fullWidth onClick={() => navigate({ screen: 'home' })}>
+              <Button fullWidth onClick={() => navigate({ screen: 'home' }, { replace: true })}>
                 Перейти сейчас
               </Button>
             </div>
@@ -215,7 +230,7 @@ export function Login() {
               <Button
                 fullWidth
                 onClick={() => {
-                  window.history.replaceState(null, '', '/login');
+                  navigate({ screen: 'login' }, { replace: true });
                   setVerifyState('idle');
                 }}
               >
@@ -240,6 +255,11 @@ export function Login() {
 
           {verifyState === 'idle' && !sent && (
             <>
+              {vkCancelled && (
+                <p role="status" className={styles.formError}>
+                  Вход через VK ID отменён. Попробуйте ещё раз или войдите по почте.
+                </p>
+              )}
               <Button
                 variant="secondary"
                 fullWidth

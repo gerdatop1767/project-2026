@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pathForRoute, routeFromPath } from './routes.js';
+import { isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { Route } from './navigation.js';
 
 describe('pathForRoute', () => {
@@ -29,7 +29,6 @@ describe('pathForRoute', () => {
     expect(pathForRoute({ screen: 'profile' })).toBe('/profile');
     expect(pathForRoute({ screen: 'help' })).toBe('/help');
     expect(pathForRoute({ screen: 'rating' })).toBe('/rating');
-    expect(pathForRoute({ screen: 'about' })).toBe('/about');
     expect(pathForRoute({ screen: 'mistakes' })).toBe('/training/mistakes');
   });
 
@@ -63,7 +62,6 @@ describe('routeFromPath', () => {
       { screen: 'subject', subjectId: 'social' },
       { screen: 'mistakes' },
       { screen: 'rating' },
-      { screen: 'about' },
       { screen: 'profile' },
       { screen: 'help' },
     ];
@@ -78,6 +76,18 @@ describe('routeFromPath', () => {
 
   it('falls back to Home for an unknown path', () => {
     expect(routeFromPath('/this-does-not-exist')).toEqual({ screen: 'home' });
+  });
+
+  it('the removed /about page resolves to Home and is recognised as a removed path', () => {
+    expect(routeFromPath('/about')).toEqual({ screen: 'home' });
+    expect(routeFromPath('/about/')).toEqual({ screen: 'home' });
+    expect(isRemovedPath('/about')).toBe(true);
+    expect(isRemovedPath('/about/')).toBe(true);
+    expect(isRemovedPath('/about?x=1')).toBe(true);
+    // Only that exact page: nothing that merely starts with it.
+    expect(isRemovedPath('/about-us')).toBe(false);
+    expect(isRemovedPath('/help')).toBe(false);
+    expect(isRemovedPath('/')).toBe(false);
   });
 
   it('ignores a trailing slash', () => {

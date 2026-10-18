@@ -133,7 +133,7 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
     // or overlay route, which closes the drawer on its own — calling
     // `onClose` (== `back`, which clears the overlay) here as well
     // would immediately wipe out whatever `navigate` just set for any
-    // overlay destination (task/mistakes/rating/about/…).
+    // overlay destination (task/mistakes/rating/help/…).
     navigate(route);
   }
 
@@ -294,17 +294,6 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
                 <Icon name="faq" size={20} />
               </span>
               <span className={styles.plainLabel}>Помощь</span>
-              <Icon name="chevronRight" size={18} className={styles.navChevron} />
-            </button>
-            <button
-              type="button"
-              className={styles.plainItem}
-              onClick={() => go({ screen: 'about' })}
-            >
-              <span className={styles.plainIcon}>
-                <Icon name="faq" size={20} />
-              </span>
-              <span className={styles.plainLabel}>О проекте</span>
               <Icon name="chevronRight" size={18} className={styles.navChevron} />
             </button>
             <button

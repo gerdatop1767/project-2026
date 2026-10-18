@@ -16,7 +16,6 @@ import { Login } from './screens/Login/Login.js';
  * render). */
 const publicOverlays: ReadonlySet<OverlayRoute['screen']> = new Set([
   'login',
-  'about',
   'help',
   'faq',
   'privacy',
@@ -76,11 +75,14 @@ export function App() {
   // is moved to /login; a signed-in user who still owes onboarding is
   // moved to /onboarding. (The screens below render the right thing
   // immediately; this just fixes the URL so refresh/back stay coherent.)
+  // Both are redirects the user did not ask for, so they REPLACE the
+  // entry: pushing would leave the private URL behind the sign-in page
+  // and Back / the × button would bounce straight into the same redirect.
   useEffect(() => {
     if (user === null && !onPublicPage) {
-      navigate({ screen: 'login' });
+      navigate({ screen: 'login' }, { replace: true });
     } else if (needsOnboarding && !onOnboarding && overlay?.screen !== 'login' && !onInfoPage) {
-      navigate({ screen: 'onboarding' });
+      navigate({ screen: 'onboarding' }, { replace: true });
     }
   }, [user, onPublicPage, needsOnboarding, onOnboarding, onInfoPage, overlay?.screen, navigate]);
 
