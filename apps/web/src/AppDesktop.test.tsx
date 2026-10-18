@@ -72,7 +72,6 @@ describe('AppDesktop — Subject → Задания по номерам → task
     vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
     renderApp();
 
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
     await user.click(screen.getByRole('button', { name: 'Предметы' }));
     await user.click(await screen.findByText('Математика'));
     await user.click(await screen.findByText('Задания по номерам'));

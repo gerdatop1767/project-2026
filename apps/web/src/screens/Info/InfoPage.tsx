@@ -9,6 +9,7 @@ import {
 import { Icon } from '../../ui/Icon/Icon.js';
 import { FaqList } from '../Landing/FaqList.js';
 import { SiteFooter, SiteHeader, useRouteLink } from '../Landing/SiteChrome.js';
+import { SupportDialogProvider, useSupportDialog } from '../Landing/SupportDialog.js';
 import landing from '../Landing/Landing.module.css';
 import styles from './InfoPage.module.css';
 
@@ -80,7 +81,16 @@ function LegalBody({ doc }: { doc: LegalDocument }) {
  * signed in or out, each at its own URL (/faq, /privacy, /terms).
  */
 export function InfoPage({ kind }: { kind: InfoPageKind }) {
+  return (
+    <SupportDialogProvider>
+      <InfoPageContent kind={kind} />
+    </SupportDialogProvider>
+  );
+}
+
+function InfoPageContent({ kind }: { kind: InfoPageKind }) {
   const link = useRouteLink();
+  const support = useSupportDialog();
   const doc = kind === 'privacy' ? privacyPolicy : kind === 'terms' ? termsOfUse : null;
 
   return (
@@ -102,7 +112,14 @@ export function InfoPage({ kind }: { kind: InfoPageKind }) {
           <>
             <FaqList items={faq} />
             <p className={styles.more}>
-              Не нашли ответ? <a {...link({ screen: 'help' })}>Напишите в поддержку</a>
+              Не нашли ответ?{' '}
+              <button
+                type="button"
+                className={styles.moreButton}
+                onClick={(event) => support.open(event.currentTarget)}
+              >
+                Напишите в поддержку
+              </button>
             </p>
           </>
         )}

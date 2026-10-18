@@ -35,18 +35,17 @@ const sidebarItems: readonly SidebarItem[] = [
   },
   { id: 'rating', label: 'Рейтинг', icon: 'crown', route: { screen: 'rating' } },
   { id: 'friends', label: 'Друзья', icon: 'friends', route: { screen: 'friends' } },
-  { id: 'about', label: 'О проекте', icon: 'info', route: { screen: 'about' } },
 ];
 
 /**
- * Desktop's persistent left sidebar. Home has no entry here (the
- * approved reference dropped it — the user is already on a screen,
- * so a link back to the marketing landing page is redundant); it's
- * still reachable as the tab underneath every overlay and via BackRow.
+ * Desktop's persistent left sidebar. Home has no entry of its own: for a
+ * signed-in visitor `/` IS the Учебный центр, so that entry is the active
+ * one there. Home is still the tab underneath every overlay and the
+ * target of BackRow.
  */
 export function DesktopSidebar() {
   const { tab, overlay, navigate } = useNavigation();
-  const currentId = overlay?.screen ?? tab;
+  const currentId = overlay?.screen ?? (tab === 'home' ? 'learningCenter' : tab);
 
   return (
     <nav className={styles.sidebar} aria-label="Zybrilka">

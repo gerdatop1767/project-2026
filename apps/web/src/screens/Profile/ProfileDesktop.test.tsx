@@ -110,8 +110,8 @@ describe('ProfileDesktop', () => {
 
   it('BackRow with an explicit `from` returns to that exact route', async () => {
     const user = userEvent.setup();
-    renderProfile({ screen: 'about' });
-    await user.click(screen.getByRole('button', { name: 'О проекте' }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('about');
+    renderProfile({ screen: 'rating' });
+    await user.click(screen.getByRole('button', { name: 'Рейтинг' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('rating');
   });
 });

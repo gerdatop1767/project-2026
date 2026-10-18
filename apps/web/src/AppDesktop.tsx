@@ -3,12 +3,10 @@ import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
 import { TaskDesktop } from './screens/Task/TaskDesktop.js';
 import { ResultDesktop } from './screens/Result/ResultDesktop.js';
 import { useNavigation } from './lib/navigation.js';
-import { HomeDesktop } from './screens/Home/HomeDesktop.js';
 import { StatisticsDesktop } from './screens/Statistics/StatisticsDesktop.js';
 import { MistakesDesktop } from './screens/Mistakes/MistakesDesktop.js';
 import { AchievementsDesktop } from './screens/Achievements/AchievementsDesktop.js';
 import { RatingDesktop } from './screens/Rating/RatingDesktop.js';
-import { AboutDesktop } from './screens/About/AboutDesktop.js';
 import { LearningCenterDesktop } from './screens/LearningCenter/LearningCenterDesktop.js';
 import { SubjectCatalogDesktop } from './screens/SubjectCatalog/SubjectCatalogDesktop.js';
 import { SubjectDesktop } from './screens/Subject/SubjectDesktop.js';
@@ -22,7 +20,7 @@ import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
 
 /** Screens whose approved desktop composition has no left sidebar. */
-const noSidebarScreens = new Set(['home', 'task', 'result', 'onboarding', 'learningSession']);
+const noSidebarScreens = new Set(['task', 'result', 'onboarding', 'learningSession']);
 
 /**
  * Desktop app tree (S1 Block 6, approved design) — its own composition,
@@ -95,7 +93,6 @@ export function AppDesktop() {
           />
         )}
         {overlay.screen === 'rating' && <RatingDesktop />}
-        {overlay.screen === 'about' && <AboutDesktop />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
         {overlay.screen === 'onboarding' && <Onboarding />}
         {overlay.screen === 'favorites' && (
@@ -122,11 +119,13 @@ export function AppDesktop() {
   }
 
   const sidebar = !noSidebarScreens.has(tab);
-  const header = tab === 'home' ? 'cta' : 'status';
 
   return (
-    <DesktopShell header={header} sidebar={sidebar}>
-      {tab === 'home' && <HomeDesktop />}
+    <DesktopShell header="status" sidebar={sidebar}>
+      {/* A signed-in visitor's `/` is the Учебный центр — the same hub the
+          logo opens. (It used to be a marketing page that duplicated the
+          public landing's old copy.) */}
+      {tab === 'home' && <LearningCenterDesktop root />}
       {tab === 'training' && <Training />}
       {tab === 'statistics' && <StatisticsDesktop />}
       {tab === 'achievements' && <AchievementsDesktop />}

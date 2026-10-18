@@ -153,6 +153,19 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     // The temporary PKCE state is single-use: expire it on every
     // callback, whatever the outcome below (same attributes it was set with).
     reply.clearCookie(VK_PKCE_COOKIE, baseCookieOptions(config));
+    // The user backed out of (or denied) the VK consent screen: VK returns
+    // `?error=…` with no `code`. Nothing is signed in and nothing is read
+    // from the request, so send the browser back to the sign-in page (or the
+    // profile, when it was an "add VK" attempt) with a fixed, server-chosen
+    // path instead of leaving it on a raw JSON error.
+    if (!query.success && typeof (request.query as { error?: unknown })?.error === 'string') {
+      const early = rawCookie ? parseVkPkceCookie(rawCookie) : undefined;
+      const target =
+        early?.success && early.data.link
+          ? '/profile?link=error&provider=vk'
+          : '/login?vk=cancelled';
+      return reply.redirect(new URL(target, config.WEB_BASE_URL).toString());
+    }
     if (!query.success || !rawCookie) {
       return reply.code(400).send({ error: 'invalid_callback' });
     }

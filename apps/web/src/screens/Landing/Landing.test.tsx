@@ -39,7 +39,7 @@ describe('Landing', () => {
     expect(bison).toEqual(['/branding/v2/landing-mascot.webp']);
   });
 
-  it('header has the section links, "О нас", FAQ, "Войти" and one "Начать бесплатно"', () => {
+  it('header has the section links, FAQ and "Войти" — and no "О нас" / "О проекте"', () => {
     renderLanding();
     const nav = screen.getByRole('navigation', { name: 'Разделы' });
     expect(within(nav).getByRole('link', { name: 'Предметы' })).toHaveAttribute(
@@ -50,9 +50,14 @@ describe('Landing', () => {
       'href',
       '#features',
     );
-    expect(within(nav).getByRole('link', { name: 'О нас' })).toHaveAttribute('href', '/about');
     expect(within(nav).getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '#faq');
+    expect(within(nav).getAllByRole('link')).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
+    // The "О проекте" section is gone from the product: no link anywhere.
+    expect(screen.queryByRole('link', { name: /О нас|О проекте/ })).not.toBeInTheDocument();
+    for (const link of screen.getAllByRole('link')) {
+      expect(link).not.toHaveAttribute('href', '/about');
+    }
   });
 
   it('every CTA and subject card opens the unified auth screen', async () => {
@@ -105,9 +110,7 @@ describe('Landing', () => {
     renderLanding();
     const footer = screen.getByRole('contentinfo');
     const expected: Record<string, string> = {
-      'О проекте': '/about',
       'Вопросы и ответы': '/faq',
-      Поддержка: '/help',
       'Политика конфиденциальности': '/privacy',
       'Пользовательское соглашение': '/terms',
     };
@@ -116,5 +119,18 @@ describe('Landing', () => {
     }
     await user.click(within(footer).getByRole('link', { name: 'Политика конфиденциальности' }));
     expect(screen.getByTestId('overlay')).toHaveTextContent('privacy');
+  });
+
+  it('footer has no "О проекте", and "Поддержка" opens the support window instead of navigating', async () => {
+    const user = userEvent.setup();
+    renderLanding();
+    const footer = screen.getByRole('contentinfo');
+    expect(within(footer).queryByText('О проекте')).not.toBeInTheDocument();
+    expect(within(footer).queryByRole('link', { name: 'Поддержка' })).not.toBeInTheDocument();
+
+    await user.click(within(footer).getByRole('button', { name: 'Поддержка' }));
+    expect(screen.getByRole('dialog', { name: /Нужна помощь/ })).toBeInTheDocument();
+    expect(screen.getByTestId('overlay')).toHaveTextContent('tab:home');
+    expect(window.location.pathname).toBe('/');
   });
 });

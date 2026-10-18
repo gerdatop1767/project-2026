@@ -20,10 +20,16 @@ describe('InfoPage', () => {
     renderPage('faq');
     expect(screen.getByRole('heading', { level: 1, name: 'Вопросы и ответы' })).toBeInTheDocument();
     for (const item of faq) expect(screen.getByText(item.question)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Напишите в поддержку' })).toHaveAttribute(
-      'href',
-      '/help',
-    );
+    // Support opens the window over the page (see SupportDialog.test) — it is
+    // a button, not a link into the app's internal Help screen.
+    expect(screen.getByRole('button', { name: 'Напишите в поддержку' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Напишите в поддержку' })).not.toBeInTheDocument();
+  });
+
+  it('the support answer in the FAQ points to the footer button, not to a removed/internal page', () => {
+    const answer = faq.find((item) => item.question.includes('поддержкой'))!.answer;
+    expect(answer).toMatch(/Нажмите «Поддержка»/);
+    expect(answer).not.toMatch(/Помощь/);
   });
 
   it.each(['privacy', 'terms'] as const)(

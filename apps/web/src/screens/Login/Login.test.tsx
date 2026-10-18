@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { NavigationProvider } from '../../lib/navigation.js';
+import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { Login } from './Login.js';
 import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 import { ApiError } from '../../lib/api.js';
@@ -152,5 +152,150 @@ describe('Login — Telegram Mini App sign-in failure', () => {
   it('shows nothing about Telegram when no Telegram sign-in failed', () => {
     renderWithTelegramError(null);
     expect(screen.queryByText(/Telegram/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The "×" used to call `history.back()`: with nothing of the app behind the
+ * screen (opened by URL, refreshed, back from VK) it left the site, and on top
+ * of a private URL it bounced into the same redirect. It must always close the
+ * screen and leave the visitor inside the app, on the public Home.
+ */
+describe('Login — the close (×) button', () => {
+  function Where() {
+    const { tab, overlay } = useNavigation();
+    return <p data-testid="where">{`${tab}:${overlay?.screen ?? 'none'}`}</p>;
+  }
+  function renderAt(path: string, withHistoryBehind = false) {
+    window.history.replaceState(null, '', '/');
+    if (withHistoryBehind) window.history.pushState(null, '', path);
+    else window.history.replaceState(null, '', path);
+    return render(
+      <NavigationProvider>
+        <Login />
+        <Where />
+      </NavigationProvider>,
+    );
+  }
+
+  it('is a real, named, non-submitting button reachable by keyboard', async () => {
+    const user = userEvent.setup();
+    renderAt('/login');
+    const close = screen.getByRole('button', { name: 'Закрыть' });
+    expect(close).toHaveAttribute('type', 'button');
+
+    // It sits inside no <form>, and using it never triggers form validation.
+    expect(close.closest('form')).toBeNull();
+    await user.type(screen.getByLabelText('Email'), 'not-an-email');
+    await user.click(close);
+    expect(screen.queryByText('Введите корректный email')).not.toBeInTheDocument();
+    expect(api.requestMagicLink).not.toHaveBeenCalled();
+  });
+
+  it('opened directly by URL (nothing behind it): closes to the public Home in place — never about:blank, no extra entry', async () => {
+    const user = userEvent.setup();
+    renderAt('/login');
+    const length = window.history.length;
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(window.location.pathname).toBe('/');
+    expect(screen.getByTestId('where')).toHaveTextContent('home:none');
+    expect(window.history.length).toBe(length);
+  });
+
+  it('works every time it is pressed, not just the first', async () => {
+    const user = userEvent.setup();
+    renderAt('/login');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      window.history.replaceState(null, '', '/login');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      await user.click(await screen.findByRole('button', { name: 'Закрыть' }));
+      expect(window.location.pathname).toBe('/');
+    }
+  });
+
+  it('opened from a public page of the app: goes back to it (a real Back)', async () => {
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const user = userEvent.setup();
+    function OpenFromHome() {
+      const { navigate } = useNavigation();
+      return <button onClick={() => navigate({ screen: 'login' })}>open</button>;
+    }
+    window.history.replaceState(null, '', '/');
+    render(
+      <NavigationProvider>
+        <OpenFromHome />
+        <Login />
+      </NavigationProvider>,
+    );
+    await user.click(screen.getByText('open'));
+    expect(window.location.pathname).toBe('/login');
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(back).toHaveBeenCalledTimes(1);
+    back.mockRestore();
+  });
+
+  it('is operable with Enter and Space', async () => {
+    const user = userEvent.setup();
+    renderAt('/login');
+    screen.getByRole('button', { name: 'Закрыть' }).focus();
+    await user.keyboard('{Enter}');
+    expect(window.location.pathname).toBe('/');
+
+    window.history.replaceState(null, '', '/login');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    (await screen.findByRole('button', { name: 'Закрыть' })).focus();
+    await user.keyboard(' ');
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('is the topmost element at its own position (nothing decorative sits over it)', () => {
+    renderAt('/login');
+    const close = screen.getByRole('button', { name: 'Закрыть' });
+    // jsdom has no layout, so assert the structural guarantees instead: the
+    // button is a direct child of the page root and comes before the
+    // decorative rays, which are aria-hidden.
+    const page = close.parentElement!;
+    const rays = [...page.querySelectorAll('[aria-hidden="true"]')];
+    expect(rays.length).toBeGreaterThan(0);
+    for (const ray of rays) expect(ray.contains(close)).toBe(false);
+  });
+});
+
+describe('Login — leaving after a successful sign-in', () => {
+  it('replaces the sign-in entry, so Back afterwards does not return to the sign-in page', async () => {
+    window.history.replaceState(null, '', '/login');
+    const length = window.history.length;
+    render(
+      <NavigationProvider>
+        <TestAuthProvider user={makeAuthUser()}>
+          <Login />
+        </TestAuthProvider>
+      </NavigationProvider>,
+    );
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    expect(window.history.length).toBe(length);
+  });
+});
+
+describe('Login — returning from a cancelled VK ID consent (?vk=cancelled)', () => {
+  it('says the sign-in was cancelled, keeps the form usable and cleans the flag from the address', async () => {
+    renderLogin('/login?vk=cancelled');
+    expect(screen.getByRole('status')).toHaveTextContent('Вход через VK ID отменён');
+    expect(screen.getByRole('button', { name: /Продолжить через VK ID/ })).toBeEnabled();
+    expect(screen.getByLabelText('Email')).toBeEnabled();
+    await waitFor(() => expect(window.location.search).toBe(''));
+    expect(window.location.pathname).toBe('/login');
+    // The message stays for this visit even though the flag left the URL.
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('shows no such message on a normal visit', () => {
+    renderLogin('/login');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('ignores any other value of the flag', () => {
+    renderLogin('/login?vk=%3Cb%3Ehi%3C/b%3E');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

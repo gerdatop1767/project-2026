@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
 import { Logo } from '../Logo/Logo.js';
 import { StatusChips } from '../StatusChips/StatusChips.js';
-import { Button } from '../Button/Button.js';
 import { Icon } from '../Icon/Icon.js';
 import { DesktopSidebar } from './DesktopSidebar.js';
 import { DesktopMenu } from '../DesktopMenu/DesktopMenu.js';
@@ -10,10 +9,8 @@ import { clsx } from '../../lib/clsx.js';
 import styles from './DesktopShell.module.css';
 
 export interface DesktopShellProps {
-  /** 'cta' = Home's logged-out-style "Начать заниматься" header (the
-   * only screen that shows it); 'status' = every other screen's
-   * streak/level chips. */
-  header?: 'cta' | 'status';
+  /** Header content: 'status' = the streak/level chips (every screen). */
+  header?: 'status';
   /** Whether the persistent left sidebar renders — independent of the
    * header, since Task/Result use the status header WITHOUT a sidebar
    * (no approved desktop screenshot shows one there). */
@@ -22,13 +19,11 @@ export interface DesktopShellProps {
 }
 
 /**
- * Desktop app shell (S1 Block 6 — approved design). Unlike mobile,
- * desktop Home is a logged-out-style marketing page (hero + "Начать
- * бесплатно"), while most other desktop screens are a logged-in
- * dashboard with a persistent left sidebar — except Training/Result,
- * which show the status header but no sidebar. All three
- * combinations come straight from the approved screenshots, not an
- * invented distinction.
+ * Desktop app shell (S1 Block 6 — approved design): the status header
+ * (streak/level chips + menu) and, for most screens, a persistent left
+ * sidebar — except Task/Result, which show the header but no sidebar.
+ * The public marketing page is NOT part of this shell any more: it is the
+ * standalone landing (screens/Landing), shown to signed-out visitors only.
  */
 export function DesktopShell({ header = 'status', sidebar = true, children }: DesktopShellProps) {
   const { navigate, tab, overlay } = useNavigation();
@@ -46,13 +41,7 @@ export function DesktopShell({ header = 'status', sidebar = true, children }: De
         <div className={styles.topHeaderInner}>
           <Logo icon="desktop" size={50} onClick={() => navigate({ screen: 'learningCenter' })} />
           <div className={styles.topHeaderActions}>
-            {header === 'cta' ? (
-              <Button variant="primary" onClick={() => navigate({ screen: 'training' })}>
-                Начать заниматься <Icon name="arrowRight" size={16} />
-              </Button>
-            ) : (
-              <StatusChips />
-            )}
+            {header === 'status' && <StatusChips />}
             <button
               type="button"
               className={styles.menuButton}

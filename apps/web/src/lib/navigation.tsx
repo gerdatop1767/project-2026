@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { pathForRoute, routeFromPath } from './routes.js';
+import { isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 
 /**
@@ -16,7 +16,7 @@ import type { SubjectModeId } from '../data/subjectContent.js';
  * couple of different labels for slot 2/4 across mocks (Учёба vs
  * Тренировка, Достижения vs Ошибки vs Рейтинг); a real nav needs one
  * fixed set, so this uses the pattern that recurs across the most
- * screens. Мои ошибки / Рейтинг / О проекте stay reachable from Home
+ * screens. Мои ошибки / Рейтинг stay reachable from Home
  * and the Menu overlay rather than living in the tab bar itself.
  * Профиль is an overlay (see `OverlayRoute`), not a tab — it opens
  * from Menu on top of whichever tab is underneath, the same as every
@@ -165,7 +165,6 @@ export type OverlayRoute =
       initialTaskNumber?: number;
     }
   | { screen: 'rating' }
-  | { screen: 'about' }
   | { screen: 'menu' }
   | { screen: 'favorites' }
   | { screen: 'mockExams' }
@@ -204,7 +203,6 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   mistakes: 'Мои ошибки',
   trainingByNumber: 'По номерам',
   rating: 'Рейтинг',
-  about: 'О проекте',
   faq: 'Вопросы и ответы',
   privacy: 'Политика конфиденциальности',
   terms: 'Пользовательское соглашение',
@@ -242,9 +240,47 @@ interface NavigationContextValue {
   tab: MainTabId;
   /** The active overlay, or null when a tab screen is showing. */
   overlay: OverlayRoute | null;
-  navigate: (route: Route) => void;
-  /** Closes the current overlay, returning to its underlying tab. */
+  navigate: (route: Route, options?: NavigateOptions) => void;
+  /**
+   * Closes the current overlay. When the app itself has history to go
+   * back to, that is a real browser Back; when this overlay is the very
+   * first entry of the visit (opened by URL, a refresh, an OAuth return)
+   * there is nothing in the app to go back to, so it returns to the
+   * underlying tab instead of leaving the site. Takes no arguments on
+   * purpose: it is passed straight to `onClick` in many places.
+   */
   back: () => void;
+  /**
+   * Like `back()`, but for a screen that must end on a specific route
+   * when the app has no history of its own to return to (e.g. the sign-in
+   * page always closes to the public Home, never to a private tab).
+   */
+  leave: (fallback: Route) => void;
+}
+
+export interface NavigateOptions {
+  /** Replace the current history entry instead of adding one — for
+   * redirects the user did not ask for (access gate, post-sign-in), so
+   * the entry they bounce from is not left behind to trap Back. */
+  replace?: boolean;
+}
+
+/**
+ * Every entry the app writes carries its position in this visit's own
+ * history (`history.state.zybrilka.index`, 0 = first app entry). That is
+ * how `back()` knows whether `history.back()` stays inside the app: the
+ * browser itself never says whether a previous entry is ours.
+ */
+function currentHistoryIndex(): number {
+  const state = window.history.state as { zybrilka?: { index?: unknown } } | null;
+  const index = state?.zybrilka?.index;
+  return typeof index === 'number' && Number.isInteger(index) && index > 0 ? index : 0;
+}
+
+function writeHistory(mode: 'push' | 'replace', path: string, index: number) {
+  const state = { zybrilka: { index } };
+  if (mode === 'push') window.history.pushState(state, '', path);
+  else window.history.replaceState(state, '', path);
 }
 
 const NavigationContext = createContext<NavigationContextValue | null>(null);
@@ -278,6 +314,18 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Mark this visit's first entry (a fresh load, refresh or OAuth return
+    // arrives with no marker) and tidy the URL of a removed page, so
+    // `back()` can tell "nothing of ours behind this" from "go back".
+    // The `#hash` is carried over untouched: Telegram's launch data lives
+    // there and its own script may still be about to read it.
+    const { pathname, search, hash } = window.location;
+    if (isRemovedPath(pathname)) {
+      writeHistory('replace', `/${hash}`, 0);
+    } else {
+      writeHistory('replace', pathname + search + hash, currentHistoryIndex());
+    }
+
     function onPopState() {
       const route = routeFromPath(window.location.pathname + window.location.search);
       if (isTabRoute(route)) {
@@ -291,7 +339,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  const navigate = useCallback((route: Route) => {
+  const navigate = useCallback((route: Route, options?: NavigateOptions) => {
     if (isTabRoute(route)) {
       setTab(route.screen);
       setOverlay(null);
@@ -299,11 +347,25 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       setOverlay(route);
     }
     const path = pathForRoute(route);
+    if (path === null) return;
     const currentPath = window.location.pathname + window.location.search;
-    if (path !== null && path !== currentPath) {
-      window.history.pushState(null, '', path);
+    if (options?.replace) {
+      writeHistory('replace', path, currentHistoryIndex());
+    } else if (path !== currentPath) {
+      writeHistory('push', path, currentHistoryIndex() + 1);
     }
   }, []);
+
+  const leave = useCallback(
+    (fallback: Route) => {
+      if (currentHistoryIndex() > 0) {
+        window.history.back();
+      } else {
+        navigate(fallback, { replace: true });
+      }
+    },
+    [navigate],
+  );
 
   // Only routes `navigate()` actually pushed a history entry for can
   // be popped — `menu`/`task`/`result` have no URL (see routes.ts), so
@@ -311,11 +373,11 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   // routing existed.
   const back = useCallback(() => {
     if (overlay && pathForRoute(overlay) !== null) {
-      window.history.back();
+      leave({ screen: tab });
     } else {
       setOverlay(null);
     }
-  }, [overlay]);
+  }, [overlay, tab, leave]);
 
   // Memoized so a re-render of this provider (e.g. from a parent
   // provider's own state changing, unrelated to navigation) doesn't
@@ -323,8 +385,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   // identity and force them all to re-render — only an actual
   // tab/overlay change should do that.
   const value = useMemo<NavigationContextValue>(
-    () => ({ tab, overlay, navigate, back }),
-    [tab, overlay, navigate, back],
+    () => ({ tab, overlay, navigate, back, leave }),
+    [tab, overlay, navigate, back, leave],
   );
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;

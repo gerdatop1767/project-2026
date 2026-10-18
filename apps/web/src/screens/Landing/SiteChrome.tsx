@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/authContext.js';
 import { useNavigation, type OverlayRoute } from '../../lib/navigation.js';
 import { pathForRoute } from '../../lib/routes.js';
 import { Logo } from '../../ui/Logo/Logo.js';
+import { useSupportDialog } from './SupportDialog.js';
 import styles from './SiteChrome.module.css';
 
 /** A real `<a href>` (crawlers, middle-click, "copy link") that still
@@ -97,7 +98,6 @@ export function SiteHeader({ sectionLinks = false }: SiteHeaderProps) {
                 </a>
               </>
             )}
-            <a {...link({ screen: 'about' })}>О нас</a>
             {sectionLinks ? (
               <a href="#faq" onClick={(event) => scrollToSection(event, 'faq')}>
                 FAQ
@@ -153,9 +153,10 @@ function FooterColumn({ title, children }: { title: string; children: ReactNode 
   );
 }
 
-/** Public footer: project info, support and the legal documents. */
+/** Public footer: project info, support (opens a window) and the legal documents. */
 export function SiteFooter() {
   const link = useRouteLink();
+  const support = useSupportDialog();
 
   return (
     <footer className={styles.footer}>
@@ -168,13 +169,19 @@ export function SiteFooter() {
         <div className={styles.footerColumns}>
           <FooterColumn title="Проект">
             <li>
-              <a {...link({ screen: 'about' })}>О проекте</a>
-            </li>
-            <li>
               <a {...link({ screen: 'faq' })}>Вопросы и ответы</a>
             </li>
             <li>
-              <a {...link({ screen: 'help' })}>Поддержка</a>
+              {/* A button, not a link to /help: for a signed-out visitor that
+                  screen is the app's internal shell. The window opens over
+                  the page instead. */}
+              <button
+                type="button"
+                className={styles.footerButton}
+                onClick={(event) => support.open(event.currentTarget)}
+              >
+                Поддержка
+              </button>
             </li>
           </FooterColumn>
           <FooterColumn title="Документы">

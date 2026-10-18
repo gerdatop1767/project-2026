@@ -36,6 +36,12 @@ describe('MobileMenu', () => {
     expect(screen.getByText('Твой тренажёр для ЕГЭ')).toBeInTheDocument();
   });
 
+  it('has no «О проекте» entry (that section was removed) and keeps Помощь', () => {
+    renderMenu(true);
+    expect(screen.queryByText('О проекте')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Помощь/ })).toBeInTheDocument();
+  });
+
   it('marks the active tab item and omits its chevron', () => {
     renderMenu(true);
     const homeItem = screen.getByRole('button', { name: /Главная/ });

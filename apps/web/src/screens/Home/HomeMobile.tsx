@@ -15,8 +15,7 @@ import styles from './HomeMobile.module.css';
 /**
  * Mobile Home (S1 Block 6, approved design — mobile/01_home.png): the
  * logged-in dashboard. Structurally its own composition, not a scaled
- * desktop layout — desktop Home is a separate marketing page
- * (see HomeDesktop.tsx).
+ * desktop layout — desktop's `/` is the Учебный центр (see AppDesktop.tsx).
  *
  * "Решено"/"Правильно" are real (`GET /progress/summary`, Block D).
  * There's no backend streak/level/XP system at all yet, so "Серия"
