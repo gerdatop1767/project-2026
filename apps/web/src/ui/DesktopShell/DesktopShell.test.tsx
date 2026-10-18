@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesktopShell } from './DesktopShell.js';
 import { NavigationProvider } from '../../lib/navigation.js';
@@ -30,7 +30,7 @@ describe('DesktopShell', () => {
     await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     expect(window.location.pathname).toBe('/learning');
     window.history.back();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(window.location.pathname).toBe('/');
+    // history.back() is asynchronous (even in jsdom): wait for it, don't race it.
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
   });
 });

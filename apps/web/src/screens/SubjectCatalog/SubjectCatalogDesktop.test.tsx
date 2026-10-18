@@ -6,6 +6,7 @@ import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { pathForRoute } from '../../lib/routes.js';
 import { subjects } from '../../data/subjects.js';
 import * as api from '../../lib/api.js';
+import { subjectIconSrc, type SubjectIconId } from '../../ui/SubjectIcon/subjectIcons.js';
 
 vi.mock('../../lib/api.js', () => ({
   getTaskCountsBySubject: vi.fn(() => Promise.resolve({ items: [] })),
@@ -31,7 +32,7 @@ describe('SubjectCatalogDesktop', () => {
     expect(screen.getAllByRole('button').length).toBeGreaterThanOrEqual(9);
     for (const subject of subjects) {
       expect(
-        document.querySelector(`img[src="/branding/v2/subjects/${subject.id}.png"]`),
+        document.querySelector(`img[src="${subjectIconSrc(subject.id as SubjectIconId)}"]`),
       ).toBeInTheDocument();
     }
   });

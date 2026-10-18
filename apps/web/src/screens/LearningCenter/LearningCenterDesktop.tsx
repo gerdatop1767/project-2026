@@ -4,6 +4,7 @@ import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import type { IconName } from '../../ui/Icon/icons.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
@@ -132,22 +133,19 @@ export function LearningCenterDesktop() {
         <p className="text-body-sm text-secondary">Перейди к материалам нужного предмета</p>
       </div>
       <div className={styles.subjectsGrid}>
-        {subjects.map((subject) => (
+        {subjects.map((subject, index) => (
           <button
             key={subject.id}
             type="button"
             className={styles.subjectRow}
-            style={{ ['--subject-accent' as string]: subject.color }}
+            data-subject-interactive
             onClick={() =>
               navigate({ screen: 'subject', subjectId: subject.id, from: 'learningCenter' })
             }
           >
-            <img
-              src={`/branding/v2/subjects/${subject.id}.png`}
-              alt=""
-              aria-hidden="true"
-              className={styles.subjectIcon}
-            />
+            <span className={styles.subjectIcon}>
+              <SubjectIcon subjectId={subject.id} reveal={index} />
+            </span>
             <span className={styles.subjectName}>{subject.shortName}</span>
             <Icon name="arrowRight" size={16} className={styles.subjectArrow} />
           </button>

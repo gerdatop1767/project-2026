@@ -3,6 +3,7 @@ import { subjects } from '../../data/subjects.js';
 import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { FadeIn, SlideUp } from '../../ui/motion/motion.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectCatalogMobile.module.css';
 
 /**
@@ -71,19 +72,13 @@ export function SubjectCatalogMobile() {
             <button
               type="button"
               className={styles.subjectRow}
-              style={{ ['--subject-accent' as string]: subject.color }}
+              data-subject-interactive
               onClick={() =>
                 navigate({ screen: 'subject', subjectId: subject.id, from: 'subjectCatalog' })
               }
             >
               <span className={styles.subjectThumb}>
-                <img
-                  src={`/branding/v2/subjects/${subject.id}.png`}
-                  alt=""
-                  aria-hidden="true"
-                  className={styles.subjectThumbImg}
-                  loading="lazy"
-                />
+                <SubjectIcon subjectId={subject.id} reveal={index} />
               </span>
               <span className={styles.subjectBody}>
                 <span className="text-body" style={{ fontWeight: 700 }}>

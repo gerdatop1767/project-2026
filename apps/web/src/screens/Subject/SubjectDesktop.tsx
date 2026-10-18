@@ -21,6 +21,7 @@ import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { FavoritesList } from '../../ui/Favorites/FavoritesList.js';
 import { clsx } from '../../lib/clsx.js';
 import { FadeIn } from '../../ui/motion/motion.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectDesktop.module.css';
 
 /** Sentinel Select value for "Общий банк" (no collection filter) — Select's
@@ -245,12 +246,7 @@ export function SubjectDesktop({
           className={styles.heroIllustration}
           style={{ ['--subject-accent' as string]: subject.color }}
         >
-          <img
-            src={`/branding/v2/subjects/${subject.id}.png`}
-            alt=""
-            aria-hidden="true"
-            className={styles.heroImg}
-          />
+          <SubjectIcon subjectId={subject.id} selected parallax />
         </div>
         <div className={styles.heroText}>
           <h1 className="text-h1">{subject.shortName}</h1>

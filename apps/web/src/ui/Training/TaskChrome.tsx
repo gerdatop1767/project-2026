@@ -61,7 +61,7 @@ export function TaskChrome({
         <button type="button" className={styles.iconButton} aria-label="Назад" onClick={onBack}>
           <Icon name="back" size={20} />
         </button>
-        <SubjectTile glyph={subject.glyph} color={subject.color} size={40} />
+        <SubjectTile glyph={subject.glyph} size={40} />
         <div className={styles.headerText}>
           <p className="text-body" style={{ fontWeight: 700 }}>
             {subject.shortName}

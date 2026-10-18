@@ -45,24 +45,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-/* Desktop/tablet: collapse into a left rail (Design Spec Section 3). */
-@media (min-width: 768px) {
-  .nav {
-    position: sticky;
-    top: 0;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    width: 6rem;
-    height: 100vh;
-    border-top: none;
-    border-right: 1px solid var(--color-border-subtle);
-    padding-top: var(--space-6);
-    padding-bottom: 0;
-    gap: var(--space-2);
-  }
-
-  .item {
-    flex: none;
-  }
-}
+/* No left-rail variant: the mobile shell is a phone-width column even on
+   tablets (>=768px; the real desktop shell starts at 1024px and has its own
+   sidebar), so a 6rem rail inside that column covered the page content. */

@@ -59,6 +59,14 @@
   gap: var(--space-4);
 }
 
+.chipIcon {
+  display: block;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: calc(var(--space-2) * -1);
+}
+
 .chipGrid {
   display: flex;
   flex-wrap: wrap;

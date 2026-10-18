@@ -92,12 +92,9 @@
 }
 
 .subjectImg {
-  width: 100%;
+  display: block;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
-  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--subject-accent) 55%, transparent))
-    drop-shadow(0 0 5px color-mix(in srgb, var(--subject-accent) 65%, transparent));
+  aspect-ratio: 1 / 1; /* the artwork (and its halo) is square, whatever the card width */
 }
 
 .subjectFooter {

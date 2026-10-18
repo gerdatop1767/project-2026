@@ -9,6 +9,7 @@ import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
 import type { ProgressSummary } from '@zybrilka/shared';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './HomeMobile.module.css';
 
 /**
@@ -60,23 +61,14 @@ export function HomeMobile() {
     <SlideUp className={styles.stack}>
       <div className={styles.hero}>
         <div className={styles.heroTiles} aria-hidden="true">
-          <span
-            className={styles.heroTilePi}
-            style={{ ['--tile-glow' as string]: subjects[0]!.color }}
-          >
-            <img src={`/branding/v2/subjects/${subjects[0]!.id}.png`} alt="" />
+          <span className={styles.heroTilePi}>
+            <SubjectIcon subjectId={subjects[0]!.id} />
           </span>
-          <span
-            className={styles.heroTileAa}
-            style={{ ['--tile-glow' as string]: subjects[1]!.color }}
-          >
-            <img src={`/branding/v2/subjects/${subjects[1]!.id}.png`} alt="" />
+          <span className={styles.heroTileAa}>
+            <SubjectIcon subjectId={subjects[1]!.id} />
           </span>
-          <span
-            className={styles.heroTileM}
-            style={{ ['--tile-glow' as string]: subjects[4]!.color }}
-          >
-            <img src={`/branding/v2/subjects/${subjects[4]!.id}.png`} alt="" />
+          <span className={styles.heroTileM}>
+            <SubjectIcon subjectId={subjects[4]!.id} />
           </span>
         </div>
         <p className={clsx('text-h2', styles.heroHeading)}>
@@ -139,31 +131,30 @@ export function HomeMobile() {
           </button>
         </div>
         <div className={styles.subjectGrid}>
-          {popularSubjects.map((subject) => (
+          {popularSubjects.map((subject, index) => (
             <button
               key={subject.id}
               type="button"
               className={styles.subjectCard}
-              style={{ ['--subject-accent' as string]: subject.color }}
+              data-subject-interactive
               onClick={() => navigate({ screen: 'subject', subjectId: subject.id })}
             >
-              <span className={styles.subjectThumb}>
-                <img
-                  src={`/branding/v2/subjects/${subject.id}.png`}
-                  alt=""
-                  className={styles.subjectThumbImg}
-                  loading="lazy"
-                />
-              </span>
-              <span className={styles.subjectCardText}>
-                <span className="text-card-title">{subject.shortName}</span>
-                <span className={styles.subjectCardCount}>
-                  {taskCounts
-                    ? `${(taskCounts[subject.id] ?? 0).toLocaleString('ru-RU')} заданий`
-                    : '···'}
+              <span className={styles.subjectCardInner}>
+                <span className={styles.subjectThumb}>
+                  <SubjectIcon subjectId={subject.id} reveal={index} />
                 </span>
+                <span className={styles.subjectCardText}>
+                  <span className={`text-card-title ${styles.subjectName}`}>
+                    {subject.shortName}
+                  </span>
+                  <span className={styles.subjectCardCount}>
+                    {taskCounts
+                      ? `${(taskCounts[subject.id] ?? 0).toLocaleString('ru-RU')} заданий`
+                      : '···'}
+                  </span>
+                </span>
+                <Icon name="chevronRight" size={16} className={styles.subjectCardChevron} />
               </span>
-              <Icon name="chevronRight" size={16} className={styles.subjectCardChevron} />
             </button>
           ))}
         </div>
@@ -183,15 +174,11 @@ export function HomeMobile() {
         <button
           type="button"
           className={styles.continueCard}
-          style={{ ['--subject-accent' as string]: subjects[0]!.color }}
+          data-subject-interactive
           onClick={() => startRealTask(navigate, { subject: 'math' })}
         >
           <span className={styles.continueThumb}>
-            <img
-              src={`/branding/v2/subjects/${subjects[0]!.id}.png`}
-              alt=""
-              className={styles.subjectThumbImg}
-            />
+            <SubjectIcon subjectId={subjects[0]!.id} />
           </span>
           <span className={styles.continueCardText}>
             <span className="text-body" style={{ fontWeight: 600 }}>

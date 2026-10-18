@@ -18,7 +18,7 @@ export interface BottomNavProps {
 
 /**
  * Primary navigation foundation (Design Spec Section 3): 5 items on
- * mobile, collapses to a left rail at >=768px. Task/battle screens
+ * mobile and tablet widths (the desktop shell has its own sidebar). Task/battle screens
  * hide this entirely — that's the screen's job, not this component's.
  */
 export function BottomNav({ items, activeId, onSelect, className }: BottomNavProps) {

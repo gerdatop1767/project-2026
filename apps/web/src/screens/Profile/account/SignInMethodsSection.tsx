@@ -1,17 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { IdentitiesResponse, IdentityProvider } from '@zybrilka/shared';
-import {
-  ApiError,
-  getIdentities,
-  linkTelegram,
-  unlinkIdentity,
-  vkLinkUrl,
-} from '../../../lib/api.js';
+import { useState } from 'react';
+import type { IdentityProvider } from '@zybrilka/shared';
+import { ApiError, linkTelegram, unlinkIdentity, vkLinkUrl } from '../../../lib/api.js';
 import { useAuth } from '../../../lib/authContext.js';
 import { getTelegramInitData } from '../../../lib/telegramMiniApp.js';
 import { Button } from '../../../ui/Button/Button.js';
 import { Icon } from '../../../ui/Icon/Icon.js';
 import { VkIcon } from '../../../ui/VkIcon/VkIcon.js';
+import type { IdentitiesState } from './useIdentities.js';
 import styles from './Account.module.css';
 
 type Notice = { kind: 'success' | 'error'; text: string } | null;
@@ -82,36 +77,18 @@ function formatDate(iso: string): string {
  * never lets the last method be removed.
  */
 export function SignInMethodsSection({
+  identities,
   navigateTo = (url: string) => window.location.assign(url),
 }: {
+  identities: IdentitiesState;
   /** Seam for tests: performs the full-page redirect to the provider. */
   navigateTo?: (url: string) => void;
 }) {
   const { updateUser } = useAuth();
-  const [data, setData] = useState<IdentitiesResponse | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const { data, failed: loadFailed, reload: load, replace: setData } = identities;
   const [busy, setBusy] = useState<IdentityProvider | null>(null);
   const [confirming, setConfirming] = useState<IdentityProvider | null>(null);
   const [notice, setNotice] = useState<Notice>(() => readLinkResult());
-
-  const [reloadKey, setReloadKey] = useState(0);
-  const load = useCallback(() => {
-    setLoadFailed(false);
-    setReloadKey((key) => key + 1);
-  }, []);
-  useEffect(() => {
-    let cancelled = false;
-    getIdentities()
-      .then((result) => {
-        if (!cancelled) setData(result);
-      })
-      .catch(() => {
-        if (!cancelled) setLoadFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadKey]);
 
   async function connectTelegram() {
     const initData = getTelegramInitData();

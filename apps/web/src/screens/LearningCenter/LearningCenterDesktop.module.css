@@ -110,8 +110,6 @@
   flex-shrink: 0;
   width: 2.25rem;
   height: 2.25rem;
-  object-fit: contain;
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--subject-accent) 55%, transparent));
 }
 
 .subjectName {

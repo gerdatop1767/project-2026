@@ -9,11 +9,9 @@ import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { StatTile } from '../../ui/Statistics/StatTile.js';
 import { SubjectTile } from '../../ui/SubjectTile/SubjectTile.js';
 import { useNavigation } from '../../lib/navigation.js';
-import { useAuth } from '../../lib/authContext.js';
-import { displayName } from '../../lib/userDisplay.js';
-import { ProfileAvatar } from '../../ui/ProfileAvatar/ProfileAvatar.js';
 import { SlideUp } from '../../ui/motion/motion.js';
-import { PersonalDataSection } from './account/PersonalDataSection.js';
+import { ProfileIdentityCard } from './account/ProfileIdentityCard.js';
+import { useIdentities } from './account/useIdentities.js';
 import { SignInMethodsSection } from './account/SignInMethodsSection.js';
 import styles from './Profile.module.css';
 
@@ -35,7 +33,7 @@ function findSubject(subjectId: string) {
  */
 export function Profile() {
   const { navigate } = useNavigation();
-  const { user } = useAuth();
+  const identities = useIdentities();
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [learningProfile, setLearningProfile] = useState<LearningProfileResponse | null>(null);
 
@@ -77,23 +75,7 @@ export function Profile() {
         </button>
       </div>
 
-      <Card className={styles.identityCard}>
-        <div className={styles.identity}>
-          <span className={styles.avatarWrap} aria-hidden="true">
-            <ProfileAvatar
-              src={user?.avatarUrl}
-              className={styles.avatarImage}
-              fallback={<Icon name="profile" size={32} />}
-            />
-          </span>
-          <div className={styles.identityText}>
-            <p className="text-h3">{displayName(user) ?? 'Имя не задано'}</p>
-            <p className="text-body-sm text-secondary">
-              {user?.email ?? (displayName(user) ? 'Вход через VK ID' : 'Профиль ещё не настроен')}
-            </p>
-          </div>
-        </div>
-      </Card>
+      <ProfileIdentityCard identities={identities} />
 
       <div className={styles.statsGrid}>
         <StatTile
@@ -114,11 +96,7 @@ export function Profile() {
       </div>
 
       <Card>
-        <PersonalDataSection />
-      </Card>
-
-      <Card>
-        <SignInMethodsSection />
+        <SignInMethodsSection identities={identities} />
       </Card>
 
       <div>
@@ -137,9 +115,10 @@ export function Profile() {
                   key={s.subjectId}
                   type="button"
                   className={styles.subjectCard}
+                  data-subject-interactive
                   onClick={() => navigate({ screen: 'subject', subjectId: s.subjectId })}
                 >
-                  {subject && <SubjectTile glyph={subject.glyph} color={subject.color} size={40} />}
+                  {subject && <SubjectTile glyph={subject.glyph} size={40} />}
                   <span className={styles.subjectText}>
                     <span className="text-body">{subject?.shortName ?? s.subjectId}</span>
                     <span className="text-body-sm text-secondary">
