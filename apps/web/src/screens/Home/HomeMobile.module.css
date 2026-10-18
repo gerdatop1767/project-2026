@@ -172,14 +172,16 @@
  *   the name gets the full card width, wide cards use the row layout;
  * - the name is sized from that width so the longest word always fits
  *   (never above the normal 14 px), and never breaks inside a word;
- * - the grid stays at two columns whenever a card can be at least 9.75rem
- *   wide, otherwise it becomes one column.
+ * - the grid stays at two columns only while a card is wide enough for the
+ *   name to keep its full 14 px: the longest word needs 11.6 em ≈ 162 px plus
+ *   1.25rem of padding, so 11.5rem (184 px). Below that (phones up to ~410 px)
+ *   it becomes one column rather than shrinking the text.
  */
 .subjectGrid {
   display: grid;
   grid-template-columns: repeat(
     auto-fit,
-    minmax(min(100%, max(9.75rem, calc((100% - var(--space-3)) / 2))), 1fr)
+    minmax(min(100%, max(11.5rem, calc((100% - var(--space-3)) / 2))), 1fr)
   );
   gap: var(--space-3);
 }

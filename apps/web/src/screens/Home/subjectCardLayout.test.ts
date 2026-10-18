@@ -29,10 +29,10 @@ describe('Home subject cards — names never split inside a word', () => {
     expect(rule('.subjectCard')).toContain('container-type: inline-size');
   });
 
-  it('keeps two columns while a card can be at least 9.75rem wide, else one column', () => {
+  it('keeps two columns only while a card is >= 11.5rem wide (name stays 14px), else one column', () => {
     const grid = rule('.subjectGrid');
     expect(grid).toContain('auto-fit');
-    expect(grid).toContain('9.75rem');
+    expect(grid).toContain('11.5rem');
   });
 
   it('narrow cards stack icon/name; wide cards switch to the row layout', () => {
