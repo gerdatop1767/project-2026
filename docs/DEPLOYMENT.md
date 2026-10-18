@@ -435,3 +435,37 @@ A schema rollback (undoing a migration) is not automated — Drizzle
 migrations are forward-only here. If a bad migration shipped, restore
 from a pre-migration backup instead of trying to hand-write a down
 migration.
+
+
+## Деплой на текущий VPS
+
+Для production на текущем VPS используется отдельный checkout `/opt/Zybrilka-release` и файл `infra/docker-compose.deploy.yml`. Не заменяйте их стандартным Compose-файлом: пути сборки и конфигурация рассчитаны на эту схему.
+
+Переменные окружения находятся в `/opt/Zybrilka/infra/.env`. Не выводите их содержимое и не добавляйте файл в Git.
+
+Проверить конфигурацию перед деплоем:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml config --quiet
+```
+
+Применить миграции базы данных:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml run --rm migrate
+```
+
+Перезапустить API и веб-приложение после обновления их образов:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml up -d api web
+```
+
+Проверить состояние контейнеров и API:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml ps
+curl -fsS https://zybrilka.ru/health
+```
+
+Перед миграциями или рискованными изменениями базы создавайте резервную копию и проверяйте её доступность. Не удаляйте неизвестные файлы и резервные копии в `/opt/Zybrilka`.
