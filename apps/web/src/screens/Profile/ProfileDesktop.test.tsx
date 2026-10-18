@@ -47,7 +47,11 @@ describe('ProfileDesktop', () => {
   it('renders the personal/settings sections, not stats or achievements', () => {
     renderProfile();
     expect(screen.getByText('Мой профиль')).toBeInTheDocument();
-    expect(screen.getByText('Личные данные')).toBeInTheDocument();
+    // Picture + nickname are edited in the one top card; there is no second «Личные данные» block.
+    expect(screen.getByRole('button', { name: /Изменить аватар/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Изменить ник/ })).toBeInTheDocument();
+    expect(screen.queryByText('Личные данные')).not.toBeInTheDocument();
+    expect(screen.getByText('Способы входа')).toBeInTheDocument();
     expect(screen.getByText('Учебные настройки')).toBeInTheDocument();
     expect(screen.getByText('Настройки аккаунта')).toBeInTheDocument();
     expect(screen.getByText('Действия')).toBeInTheDocument();

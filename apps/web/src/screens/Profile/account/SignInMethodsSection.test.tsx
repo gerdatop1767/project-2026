@@ -6,6 +6,7 @@ import * as api from '../../../lib/api.js';
 import { makeAuthUser, TestAuthProvider } from '../../../lib/authTestUtils.js';
 import * as miniApp from '../../../lib/telegramMiniApp.js';
 import { SignInMethodsSection } from './SignInMethodsSection.js';
+import { useIdentities } from './useIdentities.js';
 
 vi.mock('../../../lib/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof api>()),
@@ -28,11 +29,16 @@ const identities = (
   ...extra,
 });
 
+function Harness({ navigateTo }: { navigateTo: (url: string) => void }) {
+  const identities = useIdentities();
+  return <SignInMethodsSection identities={identities} navigateTo={navigateTo} />;
+}
+
 function renderSection(navigateTo = vi.fn()) {
   const updateUser = vi.fn();
   render(
     <TestAuthProvider user={makeAuthUser()} updateUser={updateUser}>
-      <SignInMethodsSection navigateTo={navigateTo} />
+      <Harness navigateTo={navigateTo} />
     </TestAuthProvider>,
   );
   return { navigateTo, updateUser };
