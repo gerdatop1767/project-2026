@@ -174,6 +174,11 @@ export type OverlayRoute =
   | { screen: 'friendProfile'; friendId: string }
   | { screen: 'settings' }
   | { screen: 'help' }
+  /** Public info pages, readable signed in or out and rendered outside
+   * the app shells (see App.tsx): FAQ, privacy policy, terms of use. */
+  | { screen: 'faq' }
+  | { screen: 'privacy' }
+  | { screen: 'terms' }
   | { screen: 'notifications' }
   | {
       screen: 'profile';
@@ -200,6 +205,9 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   trainingByNumber: 'По номерам',
   rating: 'Рейтинг',
   about: 'О проекте',
+  faq: 'Вопросы и ответы',
+  privacy: 'Политика конфиденциальности',
+  terms: 'Пользовательское соглашение',
 };
 
 /** A human label for any route, used by BackRow to name where it's

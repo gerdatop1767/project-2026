@@ -113,6 +113,7 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
       icon: 'shield',
       label: 'Конфиденциальность',
       value: 'Данные и безопасность',
+      onClick: () => navigate({ screen: 'privacy' }),
     },
   ];
 

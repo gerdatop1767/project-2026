@@ -148,6 +148,10 @@
   --duration-reveal: 300ms;
   --duration-celebrate: 600ms;
   --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Stronger curves for entrances and on-screen movement — the built-in
+     ease-out/ease-in-out are too weak to feel intentional. */
+  --easing-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
   /* ---- Layout ---- */
   --bottom-nav-height: 4rem; /* 64px */
