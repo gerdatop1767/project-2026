@@ -13,7 +13,7 @@
   padding-bottom: calc(var(--space-6) + var(--safe-bottom));
   padding-left: calc(var(--space-4) + var(--safe-left));
   transform: translateX(-100%);
-  transition: transform var(--duration-page) var(--easing-standard);
+  transition: transform 220ms var(--easing-standard);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -21,6 +21,7 @@
 
 .panelOpen {
   transform: translateX(0);
+  transition: transform 420ms var(--easing-drawer);
 }
 
 .panel:focus-visible {

@@ -4,6 +4,12 @@ import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { FadeIn, SlideUp } from '../../ui/motion/motion.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
+import {
+  FeatureIcon,
+  featureIconGlow,
+  type FeatureIconName,
+} from '../../ui/FeatureIcon/FeatureIcon.js';
 import styles from './SubjectCatalogMobile.module.css';
 
 /**
@@ -25,21 +31,21 @@ export function SubjectCatalogMobile() {
 
   const stats = [
     {
-      image: '/branding/v2/summary/subjects.png',
+      icon: 'subjects',
       label: 'предметов',
       value: `${subjects.length}`,
     },
     {
-      image: '/branding/v2/summary/tasks.png',
+      icon: 'tasks',
       label: 'заданий',
       value: totalTasks !== null ? `${totalTasks.toLocaleString('ru-RU')}+` : '···',
     },
     {
-      image: '/branding/v2/summary/full-statistics.png',
+      icon: 'statistics',
       label: 'статистика',
       value: 'Полная',
     },
-  ] as const;
+  ] as const satisfies readonly { icon: FeatureIconName; label: string; value: string }[];
 
   return (
     <SlideUp className={styles.stack}>
@@ -56,10 +62,17 @@ export function SubjectCatalogMobile() {
 
       <div className={styles.statsRow}>
         {stats.map((stat, index) => (
-          <FadeIn key={stat.label} delayMs={index * 40} className={styles.statCard}>
-            <img src={stat.image} alt="" aria-hidden="true" className={styles.statIcon} />
+          <FadeIn
+            key={stat.label}
+            delayMs={index * 40}
+            className={styles.statCard}
+            style={{ ['--card-glow' as string]: featureIconGlow(stat.icon) }}
+          >
+            <span className={styles.statIcon}>
+              <FeatureIcon name={stat.icon} />
+            </span>
             <span className="text-body" style={{ fontWeight: 700 }}>
-              {stat.value}
+              <AnimatedNumber value={stat.value} />
             </span>
             <span className="text-label text-secondary">{stat.label}</span>
           </FadeIn>

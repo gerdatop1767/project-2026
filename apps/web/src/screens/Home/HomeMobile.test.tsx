@@ -91,10 +91,12 @@ describe('HomeMobile', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
-  it('shows 0/0% before the real progress data has loaded, never a fabricated fallback', () => {
+  it('shows a neutral placeholder before the real progress data has loaded — never a number it does not have', () => {
     renderHome();
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.getByText('0%')).toBeInTheDocument();
+    // "Решено" and "Правильно" (subject task counts use the same placeholder).
+    expect(screen.getAllByText('···').length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 
   it('renders every popular subject as a tappable card', () => {

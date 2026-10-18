@@ -23,17 +23,18 @@ function renderLearningCenter() {
 describe('LearningCenterDesktop', () => {
   it('renders the four section cards with their real illustrations and an arrow each', () => {
     renderLearningCenter();
-    const sectionImages: Record<string, string> = {
-      Теория: 'theory.png',
-      Практика: 'practice.png',
-      Стратегии: 'strategy.png',
-      'Полезные материалы': 'useful-materials.png',
+    const sectionIcons: Record<string, string> = {
+      Теория: 'theory',
+      Практика: 'practice',
+      Стратегии: 'strategy',
+      'Полезные материалы': 'materials',
     };
-    for (const [title, file] of Object.entries(sectionImages)) {
+    for (const [title, icon] of Object.entries(sectionIcons)) {
       expect(screen.getByText(title)).toBeInTheDocument();
-      expect(
-        document.querySelector(`img[src="/branding/v2/learning/${file}"]`),
-      ).toBeInTheDocument();
+      // The section's own animated line icon, decorative (the title names it).
+      const iconEl = document.querySelector(`[data-icon="${icon}"]`);
+      expect(iconEl).toBeInTheDocument();
+      expect(iconEl).toHaveAttribute('aria-hidden', 'true');
       expect(screen.getByRole('button', { name: title })).toBeInTheDocument();
     }
   });

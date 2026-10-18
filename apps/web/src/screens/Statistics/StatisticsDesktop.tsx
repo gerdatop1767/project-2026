@@ -1,3 +1,4 @@
+import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
@@ -280,7 +281,9 @@ export function StatisticsDesktop() {
               }))}
               centerLabel={
                 <>
-                  <p className="text-h2">{mistakesSummary.total}</p>
+                  <p className="text-h2">
+                    <AnimatedNumber value={mistakesSummary.total} />
+                  </p>
                   <p className="text-body-sm text-secondary">заданий</p>
                 </>
               }

@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { clsx } from '../../lib/clsx.js';
 import {
   SUBJECT_ICON_GLOW,
@@ -52,6 +52,14 @@ export function SubjectIcon({
   const revealState = useRevealOnScroll(ref, reveal !== false);
   usePointerParallax(ref, parallax);
   usePressFeedback(ref);
+
+  // Hand the icon's colour to the card it sits in, so the card can glow in it.
+  useEffect(() => {
+    const host = ref.current?.closest<HTMLElement>('[data-subject-interactive]');
+    if (host && isSubjectIconId(subjectId)) {
+      host.style.setProperty('--subject-glow', SUBJECT_ICON_GLOW[subjectId]);
+    }
+  }, [subjectId]);
 
   if (!isSubjectIconId(subjectId)) return null;
   const id: SubjectIconId = subjectId;

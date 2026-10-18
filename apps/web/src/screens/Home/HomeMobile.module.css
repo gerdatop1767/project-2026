@@ -194,7 +194,10 @@
   border-radius: var(--radius-card);
   background: var(--color-bg-surface);
   text-align: left;
-  transition: background-color var(--duration-fast) var(--easing-standard);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    box-shadow 280ms ease,
+    scale 160ms var(--easing-out);
 }
 
 .subjectCard:active {

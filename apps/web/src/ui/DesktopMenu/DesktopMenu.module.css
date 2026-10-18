@@ -15,15 +15,19 @@
   border-radius: var(--radius-modal);
   box-shadow: var(--shadow-e3);
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top right; /* it drops from the menu button */
   transition:
-    opacity var(--duration-page) var(--easing-standard),
-    transform var(--duration-page) var(--easing-standard);
+    opacity 140ms ease,
+    transform 160ms ease;
 }
 
 .panelOpen {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  transition:
+    opacity 200ms ease,
+    transform 260ms var(--easing-out);
 }
 
 .closeButton {
@@ -153,5 +157,13 @@
     right: var(--space-4);
     left: var(--space-4);
     width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .panelOpen {
+    transform: none;
+    transition-duration: 1ms;
   }
 }

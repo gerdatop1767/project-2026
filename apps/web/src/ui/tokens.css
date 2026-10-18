@@ -152,6 +152,16 @@
      ease-out/ease-in-out are too weak to feel intentional. */
   --easing-out: cubic-bezier(0.23, 1, 0.32, 1);
   --easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* iOS-like sheet/drawer curve — fast start, long gentle settle. */
+  --easing-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* ---- Motion language ("rise"): one entrance for the whole app ----
+     Content enters by rising a few px while fading in; neighbours follow
+     a short stagger. Page-level content is a touch slower than controls
+     (it is seen once per visit, not dozens of times a minute). */
+  --duration-enter: 460ms;
+  --motion-rise: 12px;
+  --stagger-step: 45ms;
 
   /* ---- Layout ---- */
   --bottom-nav-height: 4rem; /* 64px */
@@ -174,5 +184,7 @@
     --duration-page: 0ms;
     --duration-reveal: 0ms;
     --duration-celebrate: 0ms;
+    --duration-enter: 0ms;
+    --motion-rise: 0px;
   }
 }

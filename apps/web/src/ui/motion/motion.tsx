@@ -55,6 +55,34 @@ export function ScaleIn({ children, delayMs, className, style, ...rest }: Motion
   );
 }
 
+/**
+ * Its direct children rise in one after another (~45 ms apart, capped).
+ * For a screen's top-level sections or a short grid of cards.
+ */
+export function Stagger({ children, className, ...rest }: Omit<MotionProps, 'delayMs'>) {
+  return (
+    <div className={clsx(styles.stagger, className)} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+/** Same stagger as `<Stagger>`, as a class for an element that is not a div (a `<ul>`, a grid). */
+export const staggerClassName = styles.stagger;
+
+/**
+ * Wraps the current screen inside the app shells. Keyed by screen, so it
+ * re-plays only when the visitor actually moves to another screen: a soft
+ * fade of the whole screen while its title and lead line rise into place.
+ */
+export function ScreenEnter({ screenKey, children }: { screenKey: string; children: ReactNode }) {
+  return (
+    <div key={screenKey} className={styles.screen} data-screen={screenKey}>
+      {children}
+    </div>
+  );
+}
+
 export interface CollapseProps {
   open: boolean;
   children: ReactNode;
