@@ -51,7 +51,7 @@ any code; it was left in place (nothing was deleted) and can be removed.
 | --- | --- |
 | Idle | A very soft halo in the icon's own colour, breathing slowly (opacity only). |
 | Hover (fine pointers only) | scale 1.04, 3 px lift, stronger halo, ~260 ms ease. |
-| Press / tap (every pointer) | scale 0.97 in ~110 ms, smooth return. |
+| Press / tap (every pointer) | scale 0.97 in ~110 ms, smooth return. Driven by pointer events (`data-pressed`), not `:active`, because iOS Safari / Telegram's iOS WebView do not apply `:active` on touch without a touch handler; cleared on release, cancel (scroll), leave or blur, so it cannot get stuck. |
 | Selected | Steady halo plus a thin luminous outline; readable without any animation. Used on the open subject page and on chosen subjects in onboarding / the statistics picker. |
 | Scroll into view | opacity 0→1, translateY 10 px→0, scale .96→1; neighbours staggered 65 ms (capped at 4 steps so a late scroll-in is never sluggish). Needs `IntersectionObserver`; without it, the icon is simply visible. |
 | Pointer parallax | ≤ 4 px drift toward the mouse on the larger icons (desktop catalog, subject hero), fine pointers only, one rAF per frame. |

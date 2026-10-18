@@ -139,18 +139,22 @@ export function HomeMobile() {
               data-subject-interactive
               onClick={() => navigate({ screen: 'subject', subjectId: subject.id })}
             >
-              <span className={styles.subjectThumb}>
-                <SubjectIcon subjectId={subject.id} reveal={index} />
-              </span>
-              <span className={styles.subjectCardText}>
-                <span className="text-card-title">{subject.shortName}</span>
-                <span className={styles.subjectCardCount}>
-                  {taskCounts
-                    ? `${(taskCounts[subject.id] ?? 0).toLocaleString('ru-RU')} заданий`
-                    : '···'}
+              <span className={styles.subjectCardInner}>
+                <span className={styles.subjectThumb}>
+                  <SubjectIcon subjectId={subject.id} reveal={index} />
                 </span>
+                <span className={styles.subjectCardText}>
+                  <span className={`text-card-title ${styles.subjectName}`}>
+                    {subject.shortName}
+                  </span>
+                  <span className={styles.subjectCardCount}>
+                    {taskCounts
+                      ? `${(taskCounts[subject.id] ?? 0).toLocaleString('ru-RU')} заданий`
+                      : '···'}
+                  </span>
+                </span>
+                <Icon name="chevronRight" size={16} className={styles.subjectCardChevron} />
               </span>
-              <Icon name="chevronRight" size={16} className={styles.subjectCardChevron} />
             </button>
           ))}
         </div>

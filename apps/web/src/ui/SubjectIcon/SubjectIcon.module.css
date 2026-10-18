@@ -109,9 +109,10 @@
   }
 }
 
-/* Press / tap: every pointer type, fast dip and a smooth spring back. */
-.root:active .body,
-:global([data-subject-interactive]:active) .root .body {
+/* Press / tap: every pointer type, fast dip and a smooth spring back.
+   `data-pressed` is set by pointer events (see usePressFeedback) because
+   `:active` does not reliably apply on touch in iOS Safari / Telegram. */
+.root[data-pressed] .body {
   --scale: 0.97;
   --lift: 0px;
   transition-duration: 110ms;
@@ -132,8 +133,7 @@
   }
 
   .body,
-  .root:active .body,
-  :global([data-subject-interactive]:active) .root .body {
+  .root[data-pressed] .body {
     --scale: 1;
     --lift: 0px;
     --px: 0px;

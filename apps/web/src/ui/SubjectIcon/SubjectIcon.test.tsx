@@ -216,3 +216,55 @@ describe('SubjectIcon — pointer parallax', () => {
     expect(root.style.getPropertyValue('--px')).toBe('');
   });
 });
+
+describe('SubjectIcon — press feedback (pointer events, works on touch)', () => {
+  function renderCard() {
+    const view = render(
+      <button type="button" data-subject-interactive>
+        <SubjectIcon subjectId="math" />
+      </button>,
+    );
+    const card = view.container.querySelector('button') as HTMLElement;
+    return { card, root: card.firstElementChild as HTMLElement };
+  }
+
+  it('marks the icon pressed on pointerdown, for touch as well as mouse', () => {
+    for (const pointerType of ['touch', 'mouse', 'pen']) {
+      const { card, root } = renderCard();
+      fireEvent.pointerDown(card, { pointerType });
+      expect(root.dataset.pressed).toBe('true');
+    }
+  });
+
+  it.each(['pointerUp', 'pointerCancel', 'pointerLeave', 'blur'] as const)(
+    'clears the pressed state on %s, so it can never get stuck',
+    (event) => {
+      const { card, root } = renderCard();
+      fireEvent.pointerDown(card, { pointerType: 'touch' });
+      fireEvent[event](card);
+      expect(root.dataset.pressed).toBeUndefined();
+    },
+  );
+
+  it('works on a bare icon too (no card around it)', () => {
+    const { container } = render(<SubjectIcon subjectId="math" />);
+    const root = container.firstElementChild as HTMLElement;
+    fireEvent.pointerDown(root, { pointerType: 'touch' });
+    expect(root.dataset.pressed).toBe('true');
+    fireEvent.pointerUp(root);
+    expect(root.dataset.pressed).toBeUndefined();
+  });
+
+  it('stops listening after unmount', () => {
+    const view = render(
+      <button type="button" data-subject-interactive>
+        <SubjectIcon subjectId="math" />
+      </button>,
+    );
+    const card = view.container.querySelector('button') as HTMLElement;
+    const root = card.firstElementChild as HTMLElement;
+    view.unmount();
+    fireEvent.pointerDown(card, { pointerType: 'touch' });
+    expect(root.dataset.pressed).toBeUndefined();
+  });
+});

@@ -6,7 +6,7 @@ import {
   subjectIconSrc,
   type SubjectIconId,
 } from './subjectIcons.js';
-import { usePointerParallax, useRevealOnScroll } from './useSubjectIconMotion.js';
+import { usePointerParallax, usePressFeedback, useRevealOnScroll } from './useSubjectIconMotion.js';
 import styles from './SubjectIcon.module.css';
 
 export interface SubjectIconProps {
@@ -29,7 +29,8 @@ const MAX_STAGGER_STEPS = 4;
  * The approved subject artwork with its premium micro-motion:
  * - idle: a very soft halo in the icon's own colour, breathing slowly;
  * - hover (fine pointers only): scale ~1.04, small lift, stronger halo;
- * - press / tap (every pointer): quick dip to 0.97 and a smooth return;
+ * - press / tap (every pointer, via pointer events): quick dip to 0.97 and a
+ *   smooth return;
  * - selected: steady halo and a thin luminous outline;
  * - reveal: opacity + translateY + scale .96 → 1 on first scroll into view.
  *
@@ -50,6 +51,7 @@ export function SubjectIcon({
   const ref = useRef<HTMLSpanElement>(null);
   const revealState = useRevealOnScroll(ref, reveal !== false);
   usePointerParallax(ref, parallax);
+  usePressFeedback(ref);
 
   if (!isSubjectIconId(subjectId)) return null;
   const id: SubjectIconId = subjectId;
@@ -74,6 +76,8 @@ export function SubjectIcon({
         <img
           src={subjectIconSrc(id)}
           alt=""
+          width={512}
+          height={512}
           className={styles.image}
           decoding="async"
           draggable={false}

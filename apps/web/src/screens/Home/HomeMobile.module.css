@@ -159,18 +159,35 @@
 
 /* ---- Popular subjects grid ---- */
 
+/*
+ * Why names used to break mid-word ("Математ-ика"): the card names are set in
+ * the wide display font (Unbounded), where the longest single word,
+ * «Обществознание», is ~11.4 em wide (159 px at 14 px). The old row layout
+ * (icon + name + chevron side by side) left only 70–105 px for the text on a
+ * phone, so no size could make a whole word fit, and the global
+ * `.text-card-title { overflow-wrap: break-word }` broke it inside the word.
+ *
+ * Fix at the source instead of per subject:
+ * - the card is a size container; narrow cards stack icon / name / count so
+ *   the name gets the full card width, wide cards use the row layout;
+ * - the name is sized from that width so the longest word always fits
+ *   (never above the normal 14 px), and never breaks inside a word;
+ * - the grid stays at two columns whenever a card can be at least 9.75rem
+ *   wide, otherwise it becomes one column.
+ */
 .subjectGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(9.75rem, calc((100% - var(--space-3)) / 2))), 1fr)
+  );
   gap: var(--space-3);
 }
 
 .subjectCard {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1, 8px);
+  container-type: inline-size;
   min-width: 0;
-  padding: var(--space-3) var(--space-1, 8px) var(--space-3) var(--space-2);
+  padding: 0;
   border: none;
   border-radius: var(--radius-card);
   background: var(--color-bg-surface);
@@ -182,25 +199,47 @@
   background: var(--color-bg-elevated);
 }
 
+/* Narrow card (two columns on a phone): icon + chevron on top, name below. */
+.subjectCardInner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    'thumb chevron'
+    'text text';
+  align-items: center;
+  row-gap: var(--space-2);
+  padding: 0.625rem;
+}
+
 .subjectThumb {
+  grid-area: thumb;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
 .subjectCardText {
-  flex: 1;
+  grid-area: text;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* Long single words like "Обществознание" have no space to wrap at —
-     without this they overflowed the two-column card at phone widths
-     instead of breaking onto a second line. */
-  overflow-wrap: break-word;
+}
+
+.subjectCardText .subjectName {
+  /* Whole words only: never split inside a word (overrides the global
+     `.text-card-title` break-word, which is only a last resort elsewhere). */
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+  /* Fallback where container units are unsupported: the size that fits the
+     longest name in the narrowest two-column card. */
+  font-size: 0.75rem;
+  /* The name's room is the card minus the inner padding (1.25rem); 11.6 is
+     the longest word's width in em, with a little air. */
+  font-size: min(var(--font-size-body-sm), calc((100cqw - 1.25rem) / 11.6));
 }
 
 .subjectCardCount {
@@ -209,8 +248,24 @@
 }
 
 .subjectCardChevron {
-  flex-shrink: 0;
+  grid-area: chevron;
+  justify-self: end;
   color: var(--color-text-disabled);
+}
+
+/* Wide card (one column, tablets): the roomy row layout, full-size name. */
+@container (min-width: 15rem) {
+  .subjectCardInner {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: 'thumb text chevron';
+    column-gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .subjectThumb {
+    width: 2rem;
+    height: 2rem;
+  }
 }
 
 /* ---- Continue card ---- */

@@ -90,3 +90,35 @@ export function usePointerParallax(ref: RefObject<HTMLElement | null>, enabled: 
     };
   }, [ref, enabled]);
 }
+
+/**
+ * Press feedback driven by pointer events instead of `:active`: iOS Safari
+ * (and so Telegram's iOS WebView) only applies `:active` on touch when a touch
+ * handler is registered, so a CSS-only press state silently never shows there.
+ * `pointerdown` marks the icon pressed; anything that ends the gesture —
+ * release, cancel (the browser took over to scroll), leaving the card, losing
+ * focus — clears it, so no pressed state can get stuck.
+ */
+export function usePressFeedback(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const target = element.closest<HTMLElement>('[data-subject-interactive]') ?? element;
+    const press = () => {
+      element.dataset.pressed = 'true';
+    };
+    const release = () => {
+      delete element.dataset.pressed;
+    };
+    target.addEventListener('pointerdown', press, { passive: true });
+    for (const type of ['pointerup', 'pointercancel', 'pointerleave', 'dragstart', 'blur']) {
+      target.addEventListener(type, release, { passive: true });
+    }
+    return () => {
+      target.removeEventListener('pointerdown', press);
+      for (const type of ['pointerup', 'pointercancel', 'pointerleave', 'dragstart', 'blur']) {
+        target.removeEventListener(type, release);
+      }
+    };
+  }, [ref]);
+}
