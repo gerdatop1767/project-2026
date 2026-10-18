@@ -46,15 +46,35 @@
   display: flex;
   flex-direction: column;
   min-height: 10rem;
+  /* Lit from its icon's corner, in the icon's own colour. */
+  background:
+    radial-gradient(
+      80% 70% at 0% 0%,
+      color-mix(in srgb, var(--section-accent) 14%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  border: 1px solid color-mix(in srgb, var(--section-accent) 16%, var(--color-border-subtle));
+  transition:
+    transform 280ms var(--easing-out),
+    border-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sectionCard:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--section-accent) 50%, var(--color-border-subtle));
+    box-shadow:
+      var(--shadow-e1),
+      0 14px 34px -18px color-mix(in srgb, var(--section-accent) 70%, transparent);
+  }
 }
 
 .sectionImg {
-  width: 3rem;
-  height: 3rem;
-  object-fit: contain;
+  width: 3.5rem;
+  height: 3.5rem;
   margin-bottom: var(--space-3);
-  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--section-accent) 55%, transparent))
-    drop-shadow(0 0 4px color-mix(in srgb, var(--section-accent) 65%, transparent));
 }
 
 .sectionBody {
@@ -102,8 +122,10 @@
   text-align: left;
 }
 
-.subjectRow:hover {
-  background: var(--color-bg-elevated);
+@media (hover: hover) and (pointer: fine) {
+  .subjectRow:hover {
+    background: var(--color-bg-elevated);
+  }
 }
 
 .subjectIcon {

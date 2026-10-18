@@ -14,11 +14,13 @@
   padding: var(--space-3) var(--space-6) var(--space-6);
   padding-bottom: calc(var(--space-6) + var(--safe-bottom));
   transform: translateY(100%);
-  transition: transform var(--duration-page) var(--easing-standard);
+  /* Closing slides away fast; opening uses the iOS sheet curve. */
+  transition: transform 220ms var(--easing-standard);
 }
 
 .panelOpen {
   transform: translateY(0);
+  transition: transform 440ms var(--easing-drawer);
 }
 
 .panel:focus-visible {

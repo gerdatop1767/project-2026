@@ -4,15 +4,22 @@
   z-index: var(--z-overlay);
   background: var(--color-bg-overlay);
   opacity: 0;
-  transition: opacity var(--duration-page) var(--easing-standard);
+  transition: opacity 180ms ease;
 }
 
 .backdropOpen {
   opacity: 1;
+  transition-duration: 260ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .backdrop {
     transition-duration: 1ms;
   }
+}
+
+/* Groups backdrop + panel so a closing overlay can be made inert as one;
+   adds no box of its own. */
+.layer {
+  display: contents;
 }

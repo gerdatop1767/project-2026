@@ -201,3 +201,35 @@ a,
 .katex {
   white-space: nowrap;
 }
+
+/*
+ * Subject cards light up in their subject's own colour. Any element marked
+ * `data-subject-interactive` that holds a SubjectIcon gets `--subject-glow`
+ * from that icon (SubjectIcon.tsx) and `data-pressed` while it is pressed.
+ * `:where()` keeps these at zero specificity, so a screen's own card styles
+ * always win where they say something different.
+ */
+:where([data-subject-interactive]) {
+  transition:
+    background-color 160ms ease,
+    box-shadow 280ms ease,
+    scale 160ms var(--easing-out);
+}
+
+:where([data-subject-interactive][data-pressed]) {
+  scale: 0.985;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :where([data-subject-interactive]):hover {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--subject-glow, transparent) 55%, transparent),
+      0 14px 32px -20px color-mix(in srgb, var(--subject-glow, transparent) 85%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where([data-subject-interactive][data-pressed]) {
+    scale: none;
+  }
+}

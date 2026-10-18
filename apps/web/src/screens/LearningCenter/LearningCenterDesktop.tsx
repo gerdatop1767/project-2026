@@ -1,41 +1,43 @@
 import { useNavigation } from '../../lib/navigation.js';
+import { clsx } from '../../lib/clsx.js';
 import { subjects } from '../../data/subjects.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import type { IconName } from '../../ui/Icon/icons.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import {
+  FeatureIcon,
+  featureIconGlow,
+  type FeatureIconName,
+} from '../../ui/FeatureIcon/FeatureIcon.js';
+import { staggerClassName } from '../../ui/motion/motion.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
-  image: string;
-  color: string;
+  icon: FeatureIconName;
   title: string;
   description: string;
 }
 
 const sections: readonly LearningSection[] = [
   {
-    image: '/branding/v2/learning/theory.png',
-    color: 'var(--color-accent-primary)',
+    icon: 'theory',
     title: 'Теория',
     description: 'Краткие и понятные конспекты по всем темам ЕГЭ',
   },
   {
-    image: '/branding/v2/learning/practice.png',
-    color: 'var(--color-accent-secondary)',
+    icon: 'practice',
     title: 'Практика',
     description: 'Разборы заданий и примеры решений',
   },
   {
-    image: '/branding/v2/learning/strategy.png',
-    color: 'var(--color-gold)',
+    icon: 'strategy',
     title: 'Стратегии',
     description: 'Советы, лайфхаки и эффективные методики',
   },
   {
-    image: '/branding/v2/learning/useful-materials.png',
-    color: 'var(--color-warning)',
+    icon: 'materials',
     title: 'Полезные материалы',
     description: 'Сборники, файлы и дополнительные ресурсы',
   },
@@ -104,14 +106,17 @@ export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
         </div>
       </div>
 
-      <div className={styles.sectionsGrid}>
+      <div className={clsx(styles.sectionsGrid, staggerClassName)}>
         {sections.map((section) => (
           <Card
             key={section.title}
             className={styles.sectionCard}
-            style={{ ['--section-accent' as string]: section.color }}
+            data-icon-host
+            style={{ ['--section-accent' as string]: featureIconGlow(section.icon) }}
           >
-            <img src={section.image} alt="" aria-hidden="true" className={styles.sectionImg} />
+            <span className={styles.sectionImg}>
+              <FeatureIcon name={section.icon} />
+            </span>
             <div className={styles.sectionBody}>
               <p className="text-body" style={{ fontWeight: 700 }}>
                 {section.title}
@@ -134,7 +139,7 @@ export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
         <p className="text-h3">Выбери предмет</p>
         <p className="text-body-sm text-secondary">Перейди к материалам нужного предмета</p>
       </div>
-      <div className={styles.subjectsGrid}>
+      <div className={clsx(styles.subjectsGrid, staggerClassName)}>
         {subjects.map((subject, index) => (
           <button
             key={subject.id}

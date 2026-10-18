@@ -37,10 +37,12 @@ describe('SubjectCatalogDesktop', () => {
     }
   });
 
-  it('renders the three summary illustrations', () => {
+  it('renders the three summary icons (decorative — each stat names itself)', () => {
     renderCatalog();
-    for (const file of ['subjects.png', 'tasks.png', 'full-statistics.png']) {
-      expect(document.querySelector(`img[src="/branding/v2/summary/${file}"]`)).toBeInTheDocument();
+    for (const icon of ['subjects', 'tasks', 'statistics']) {
+      const iconEl = document.querySelector(`[data-icon="${icon}"]`);
+      expect(iconEl).toBeInTheDocument();
+      expect(iconEl).toHaveAttribute('aria-hidden', 'true');
     }
   });
 

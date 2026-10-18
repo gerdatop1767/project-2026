@@ -104,11 +104,15 @@ export function usePressFeedback(ref: RefObject<HTMLElement | null>) {
     const element = ref.current;
     if (!element) return;
     const target = element.closest<HTMLElement>('[data-subject-interactive]') ?? element;
+    // The card holding the icon is marked too, so it can give its own press
+    // feedback (see global.css).
     const press = () => {
       element.dataset.pressed = 'true';
+      if (target !== element) target.dataset.pressed = 'true';
     };
     const release = () => {
       delete element.dataset.pressed;
+      if (target !== element) delete target.dataset.pressed;
     };
     target.addEventListener('pointerdown', press, { passive: true });
     for (const type of ['pointerup', 'pointercancel', 'pointerleave', 'dragstart', 'blur']) {

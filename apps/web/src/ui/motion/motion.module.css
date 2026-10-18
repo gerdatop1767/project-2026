@@ -1,33 +1,37 @@
+/*
+ * The app's one entrance language ("rise"): content fades in while rising a
+ * few px, on the strong ease-out curve. Every keyframe uses fill-mode
+ * `backwards` on purpose — it holds the start state during a stagger delay
+ * and then lets go completely. With `both`, a finished entrance left
+ * `transform: translateY(0)` behind, which silently turns the wrapper into
+ * the containing block of any `position: fixed` child (e.g. the scratchboard
+ * overlay inside a task screen).
+ */
+
 .fadeIn {
-  animation: fadeIn var(--duration-base) var(--easing-standard) both;
+  animation: fadeIn 320ms var(--easing-out) backwards;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-  }
-  to {
-    opacity: 1;
+    transform: translateY(calc(var(--motion-rise) / 2));
   }
 }
 
 .slideUp {
-  animation: slideUp var(--duration-page) var(--easing-standard) both;
+  animation: slideUp var(--duration-enter) var(--easing-out) backwards;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(var(--motion-rise));
   }
 }
 
 .scaleIn {
-  animation: scaleIn var(--duration-base) var(--easing-standard) both;
+  animation: scaleIn 300ms var(--easing-out) backwards;
 }
 
 @keyframes scaleIn {
@@ -35,16 +39,78 @@
     opacity: 0;
     transform: scale(0.96);
   }
-  to {
-    opacity: 1;
-    transform: scale(1);
+}
+
+/*
+ * Stagger: every direct child rises in turn (~45 ms apart, capped so a long
+ * list never makes the user wait). Decorative only — nothing is blocked
+ * while it plays.
+ */
+.stagger > * {
+  animation: slideUp var(--duration-enter) var(--easing-out) backwards;
+  animation-delay: calc(min(var(--stagger-index, 0), 8) * var(--stagger-step));
+}
+
+.stagger > :nth-child(2) {
+  --stagger-index: 1;
+}
+.stagger > :nth-child(3) {
+  --stagger-index: 2;
+}
+.stagger > :nth-child(4) {
+  --stagger-index: 3;
+}
+.stagger > :nth-child(5) {
+  --stagger-index: 4;
+}
+.stagger > :nth-child(6) {
+  --stagger-index: 5;
+}
+.stagger > :nth-child(7) {
+  --stagger-index: 6;
+}
+.stagger > :nth-child(8) {
+  --stagger-index: 7;
+}
+.stagger > :nth-child(n + 9) {
+  --stagger-index: 8;
+}
+
+/*
+ * Screen enter (DesktopShell / MobileShell wrap each screen in this, keyed by
+ * screen). The wrapper itself is `display: contents`, so it adds no box and
+ * the screens' own layout (e.g. `min-height: 100%` against the scroll area)
+ * is exactly what it was. Its children fade in — opacity only: a transform
+ * would re-anchor fixed-position children for the duration — unless they
+ * already play one of the entrances above. The screen's title and its lead
+ * line rise into place just behind.
+ */
+.screen {
+  display: contents;
+}
+
+.screen > :not(.fadeIn, .slideUp, .scaleIn) {
+  animation: screenFade 280ms var(--easing-out) backwards;
+}
+
+@keyframes screenFade {
+  from {
+    opacity: 0;
   }
+}
+
+.screen :where(h1) {
+  animation: slideUp var(--duration-enter) var(--easing-out) 40ms backwards;
+}
+
+.screen :where(h1 + p) {
+  animation: slideUp var(--duration-enter) var(--easing-out) 110ms backwards;
 }
 
 .collapse {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows var(--duration-base) var(--easing-standard);
+  transition: grid-template-rows 260ms var(--easing-out);
 }
 
 .collapseOpen {
@@ -56,11 +122,16 @@
   min-height: 0;
 }
 
+/* Reduced motion: no movement at all; content simply is there. */
 @media (prefers-reduced-motion: reduce) {
   .fadeIn,
   .slideUp,
-  .scaleIn {
-    animation-duration: 1ms;
+  .scaleIn,
+  .stagger > *,
+  .screen > *,
+  .screen :where(h1),
+  .screen :where(h1 + p) {
+    animation: none;
   }
 
   .collapse {
