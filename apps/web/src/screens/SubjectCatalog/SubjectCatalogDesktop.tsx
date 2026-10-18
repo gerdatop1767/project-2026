@@ -5,6 +5,12 @@ import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
+import {
+  FeatureIcon,
+  featureIconGlow,
+  type FeatureIconName,
+} from '../../ui/FeatureIcon/FeatureIcon.js';
 import styles from './SubjectCatalogDesktop.module.css';
 
 /**
@@ -26,21 +32,21 @@ export function SubjectCatalogDesktop() {
 
   const stats = [
     {
-      image: '/branding/v2/summary/subjects.png',
+      icon: 'subjects',
       label: 'предметов',
       value: `${subjects.length}`,
     },
     {
-      image: '/branding/v2/summary/tasks.png',
+      icon: 'tasks',
       label: 'заданий',
       value: totalTasks !== null ? `${totalTasks.toLocaleString('ru-RU')}+` : '···',
     },
     {
-      image: '/branding/v2/summary/full-statistics.png',
+      icon: 'statistics',
       label: 'статистика',
       value: 'Полная',
     },
-  ] as const;
+  ] as const satisfies readonly { icon: FeatureIconName; label: string; value: string }[];
 
   return (
     <div>
@@ -62,10 +68,19 @@ export function SubjectCatalogDesktop() {
 
       <div className={styles.statsRow}>
         {stats.map((stat) => (
-          <Card key={stat.label} className={styles.statCard}>
-            <img src={stat.image} alt="" aria-hidden="true" className={styles.statIcon} />
+          <Card
+            key={stat.label}
+            className={styles.statCard}
+            data-icon-host
+            style={{ ['--card-glow' as string]: featureIconGlow(stat.icon) }}
+          >
+            <span className={styles.statIcon}>
+              <FeatureIcon name={stat.icon} />
+            </span>
             <span>
-              <strong className="text-body">{stat.value}</strong>
+              <strong className={styles.statValue}>
+                <AnimatedNumber value={stat.value} />
+              </strong>
               <br />
               <span className="text-body-sm text-secondary">{stat.label}</span>
             </span>

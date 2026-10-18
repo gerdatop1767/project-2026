@@ -24,13 +24,16 @@
   transform: translateY(-12px);
   opacity: 0;
   transition:
-    transform var(--duration-base) var(--easing-standard),
-    opacity var(--duration-base) var(--easing-standard);
+    transform 180ms ease,
+    opacity 180ms ease;
 }
 
 .toastOpen {
   transform: translateY(0);
   opacity: 1;
+  transition:
+    transform 340ms var(--easing-out),
+    opacity 220ms ease;
 }
 
 .icon {

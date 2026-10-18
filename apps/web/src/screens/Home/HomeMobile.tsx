@@ -7,6 +7,7 @@ import { StatRow } from '../../ui/StatRow/StatRow.js';
 import { startRealTask } from '../../lib/startTraining.js';
 import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
 import type { ProgressSummary } from '@zybrilka/shared';
+import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
@@ -26,6 +27,9 @@ export function HomeMobile() {
   const { navigate } = useNavigation();
   const popularSubjects = subjects.slice(0, 6);
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
+  // Until the summary arrives the stats read "···" (a real 0 would be a
+  // claim), and "—" if it could not be loaded at all.
+  const [progressFailed, setProgressFailed] = useState(false);
   // Real published-task counts per subject (one request) — replaces the
   // static `subject.taskCount` demo numbers. null until loaded; a
   // subject absent from the response has 0 published tasks.
@@ -38,8 +42,7 @@ export function HomeMobile() {
         if (!cancelled) setProgress(data);
       })
       .catch(() => {
-        // No backend data yet (or the request failed) — stats stay at
-        // their neutral zero state below.
+        if (!cancelled) setProgressFailed(true);
       });
     void getTaskCountsBySubject()
       .then((res) => {
@@ -99,7 +102,9 @@ export function HomeMobile() {
               value: (
                 <span className={styles.statValue}>
                   <Icon name="success" size={16} className={styles.statIconSuccess} />
-                  {progress?.solvedTotal ?? 0}
+                  <AnimatedNumber
+                    value={progress ? progress.solvedTotal : progressFailed ? '—' : '···'}
+                  />
                 </span>
               ),
               label: 'Решено',
@@ -109,7 +114,15 @@ export function HomeMobile() {
               value: (
                 <span className={styles.statValue}>
                   <Icon name="star" size={16} className={styles.statIconGold} />
-                  {progress ? Math.round(progress.accuracyPercent) : 0}%
+                  <AnimatedNumber
+                    value={
+                      progress
+                        ? `${Math.round(progress.accuracyPercent)}%`
+                        : progressFailed
+                          ? '—'
+                          : '···'
+                    }
+                  />
                 </span>
               ),
               label: 'Правильно',

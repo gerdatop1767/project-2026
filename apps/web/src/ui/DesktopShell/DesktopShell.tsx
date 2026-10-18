@@ -6,6 +6,7 @@ import { Icon } from '../Icon/Icon.js';
 import { DesktopSidebar } from './DesktopSidebar.js';
 import { DesktopMenu } from '../DesktopMenu/DesktopMenu.js';
 import { clsx } from '../../lib/clsx.js';
+import { ScreenEnter } from '../motion/motion.js';
 import styles from './DesktopShell.module.css';
 
 export interface DesktopShellProps {
@@ -55,7 +56,9 @@ export function DesktopShell({ header = 'status', sidebar = true, children }: De
       </header>
       <div className={clsx(styles.body, sidebar && styles.bodyApp)}>
         {sidebar && <DesktopSidebar />}
-        <main className={styles.content}>{children}</main>
+        <main className={styles.content}>
+          <ScreenEnter screenKey={overlay?.screen ?? tab}>{children}</ScreenEnter>
+        </main>
       </div>
       {/* Local panel state (not the shared tab/overlay route mobile's
        * own Menu uses): it layers over whichever screen is already
