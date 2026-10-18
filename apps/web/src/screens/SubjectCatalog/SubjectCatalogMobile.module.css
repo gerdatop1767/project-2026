@@ -79,13 +79,6 @@
   height: 2.75rem;
 }
 
-.subjectThumbImg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--subject-accent) 55%, transparent));
-}
-
 .subjectBody {
   flex: 1;
   min-width: 0;

@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/authContext.js';
 import { getLearningProfile, saveLearningProfile } from '../../lib/api.js';
 import { selfReportedScoreOptions, targetScoreOptions } from '../../lib/learningProfileLabels.js';
 import { subjects } from '../../data/subjects.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Chip } from '../../ui/Chip/Chip.js';
@@ -147,9 +148,15 @@ export function Onboarding() {
                 <Chip
                   key={subject.id}
                   selected={selectedSubjects.includes(subject.id)}
-                  accentColor={subject.color}
+                  data-subject-interactive
                   onClick={() => toggleSubject(subject.id)}
                 >
+                  <span className={styles.chipIcon}>
+                    <SubjectIcon
+                      subjectId={subject.id}
+                      selected={selectedSubjects.includes(subject.id)}
+                    />
+                  </span>
                   {subject.shortName}
                 </Chip>
               ))}

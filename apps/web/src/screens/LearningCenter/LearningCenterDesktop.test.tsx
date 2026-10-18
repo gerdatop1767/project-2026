@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { LearningCenterDesktop } from './LearningCenterDesktop.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
+import { subjectIconSrc, type SubjectIconId } from '../../ui/SubjectIcon/subjectIcons.js';
 
 function OverlayMarker() {
   const { overlay } = useNavigation();
@@ -41,7 +42,7 @@ describe('LearningCenterDesktop', () => {
     renderLearningCenter();
     for (const subject of subjects) {
       expect(
-        document.querySelector(`img[src="/branding/v2/subjects/${subject.id}.png"]`),
+        document.querySelector(`img[src="${subjectIconSrc(subject.id as SubjectIconId)}"]`),
       ).toBeInTheDocument();
     }
   });

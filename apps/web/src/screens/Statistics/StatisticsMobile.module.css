@@ -110,7 +110,7 @@
 .subjectPickerOption {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-3);
   width: 100%;
   min-height: var(--touch-target-min);
   padding: var(--space-3) var(--space-4);
@@ -120,6 +120,18 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-body);
   text-align: left;
+}
+
+.subjectPickerIcon {
+  display: block;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+}
+
+.subjectPickerName {
+  flex: 1;
+  min-width: 0;
 }
 
 .subjectPickerOption:active {

@@ -21,6 +21,7 @@ import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { FavoritesList } from '../../ui/Favorites/FavoritesList.js';
 import { clsx } from '../../lib/clsx.js';
 import { FadeIn, SlideUp } from '../../ui/motion/motion.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectMobile.module.css';
 
 /** See SubjectDesktop.tsx for why "Общий банк" needs its own sentinel value. */
@@ -242,12 +243,7 @@ export function SubjectMobile({ subjectId, collectionSlug, initialMode }: Subjec
         <>
           <Card className={styles.hero} style={{ ['--subject-accent' as string]: subject.color }}>
             <span className={styles.heroThumb}>
-              <img
-                src={`/branding/v2/subjects/${subject.id}.png`}
-                alt=""
-                aria-hidden="true"
-                className={styles.heroImg}
-              />
+              <SubjectIcon subjectId={subject.id} selected />
             </span>
             <p className="text-h2">{subject.shortName}</p>
             <p className="text-body-sm text-secondary">{content.tagline}</p>

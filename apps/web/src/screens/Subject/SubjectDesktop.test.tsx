@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SubjectDesktop } from './SubjectDesktop.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
+import { subjectIconSrc } from '../../ui/SubjectIcon/subjectIcons.js';
 
 vi.mock('../../lib/api.js', () => ({
   getRandomTask: vi.fn(),
@@ -66,7 +67,7 @@ describe('SubjectDesktop — hero icon and glow', () => {
   it('renders the real subject illustration instead of the old glyph tile', () => {
     mockCollections();
     renderSubject();
-    const img = document.querySelector('img[src="/branding/v2/subjects/math.png"]');
+    const img = document.querySelector(`img[src="${subjectIconSrc('math')}"]`);
     expect(img).toBeInTheDocument();
     // No leftover SubjectTile glyph (rendered as an inline SVG/lucide
     // icon) inside the hero — the image itself carries the artwork now.

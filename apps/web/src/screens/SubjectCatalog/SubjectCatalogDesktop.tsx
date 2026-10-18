@@ -4,6 +4,7 @@ import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectCatalogDesktop.module.css';
 
 /**
@@ -73,23 +74,21 @@ export function SubjectCatalogDesktop() {
       </div>
 
       <div className={styles.grid}>
-        {subjects.map((subject) => (
+        {subjects.map((subject, index) => (
           <button
             key={subject.id}
             type="button"
             className={styles.subjectCard}
             style={{ ['--subject-accent' as string]: subject.color }}
+            data-subject-interactive
             onClick={() =>
               navigate({ screen: 'subject', subjectId: subject.id, from: 'subjectCatalog' })
             }
           >
             <div className={styles.subjectThumb}>
-              <img
-                src={`/branding/v2/subjects/${subject.id}.png`}
-                alt=""
-                aria-hidden="true"
-                className={styles.subjectImg}
-              />
+              <span className={styles.subjectImg}>
+                <SubjectIcon subjectId={subject.id} reveal={index} parallax />
+              </span>
             </div>
             <div className={styles.subjectFooter}>
               <span>

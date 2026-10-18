@@ -36,6 +36,7 @@ import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { FadeIn } from '../../ui/motion/motion.js';
 import { SlideUp } from '../../ui/motion/motion.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './StatisticsMobile.module.css';
 
 const subTabs = [
@@ -243,9 +244,13 @@ export function StatisticsMobile() {
               role="option"
               aria-selected={s.id === subject.id}
               className={styles.subjectPickerOption}
+              data-subject-interactive
               onClick={() => selectSubject(s.id)}
             >
-              {s.shortName}
+              <span className={styles.subjectPickerIcon}>
+                <SubjectIcon subjectId={s.id} selected={s.id === subject.id} />
+              </span>
+              <span className={styles.subjectPickerName}>{s.shortName}</span>
               {s.id === subject.id && <Icon name="check" size={18} />}
             </button>
           ))}

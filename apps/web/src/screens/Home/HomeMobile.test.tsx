@@ -5,6 +5,7 @@ import { HomeMobile } from './HomeMobile.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import * as api from '../../lib/api.js';
+import { subjectIconSrc, type SubjectIconId } from '../../ui/SubjectIcon/subjectIcons.js';
 
 vi.mock('../../lib/api.js', () => ({
   getRandomTask: vi.fn(),
@@ -139,7 +140,7 @@ describe('HomeMobile', () => {
     renderHome();
     for (const subject of subjects.slice(0, 6)) {
       expect(
-        document.querySelector(`img[src="/branding/v2/subjects/${subject.id}.png"]`),
+        document.querySelector(`img[src="${subjectIconSrc(subject.id as SubjectIconId)}"]`),
       ).toBeInTheDocument();
     }
   });

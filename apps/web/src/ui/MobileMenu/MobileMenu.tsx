@@ -156,7 +156,7 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
           aria-label="Меню"
         >
           <div className={styles.header}>
-            <SubjectTile glyph="pi" color="var(--color-subject-math)" size={48} />
+            <SubjectTile glyph="pi" size={48} />
             <div className={styles.headerBody}>
               <p className={`text-h3 ${styles.headerTitle}`}>Зубрилка</p>
               <p className={`text-body-sm text-secondary ${styles.headerSubtitle}`}>
