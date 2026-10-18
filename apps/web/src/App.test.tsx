@@ -275,14 +275,14 @@ describe('App — access gate (server-truth auth state)', () => {
       </NavigationProvider>,
     );
     expect(screen.getByRole('status')).toHaveTextContent('Загрузка');
-    expect(screen.queryByText(/ЕГЭ становится проще/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
     expect(screen.queryByText('Войти или создать аккаунт')).not.toBeInTheDocument();
     expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
   });
 
   it('signed out: `/` is the public landing, not the trainer', async () => {
     renderApp(null);
-    await screen.findByText(/ЕГЭ становится проще/);
+    await screen.findByText(/Подготовка к/);
     expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
   });
@@ -290,7 +290,7 @@ describe('App — access gate (server-truth auth state)', () => {
   it('signed out: the desktop landing has no app sidebar', async () => {
     const restore = mockDesktop(true);
     renderApp(null);
-    await screen.findByText(/ЕГЭ становится проще/);
+    await screen.findByText(/Подготовка к/);
     expect(screen.queryByRole('navigation', { name: 'Zybrilka' })).not.toBeInTheDocument();
     restore();
   });
@@ -298,8 +298,8 @@ describe('App — access gate (server-truth auth state)', () => {
   it('"Начать бесплатно" on the landing opens the unified auth screen', async () => {
     const user = userEvent.setup();
     renderApp(null);
-    await screen.findByText(/ЕГЭ становится проще/);
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await screen.findByText(/Подготовка к/);
+    await user.click(screen.getAllByRole('button', { name: /Начать бесплатно/ })[0]!);
     expect(screen.getByText('Войти или создать аккаунт')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/login');
   });
@@ -332,6 +332,36 @@ describe('App — access gate (server-truth auth state)', () => {
     expect(window.location.pathname).toBe('/help');
   });
 
+  it.each([
+    ['/faq', 'Вопросы и ответы'],
+    ['/privacy', 'Политика конфиденциальности'],
+    ['/terms', 'Пользовательское соглашение'],
+  ])('signed out: %s is a public page, never the login screen', async (path, heading) => {
+    window.history.replaceState(null, '', path);
+    renderApp(null);
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        // Long title words carry soft hyphens for narrow phones.
+        name: (name) => name.replaceAll('\u00ad', '') === heading,
+      }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe(path);
+  });
+
+  it('signed in with onboarding pending: /privacy stays readable, no redirect to onboarding', async () => {
+    window.history.replaceState(null, '', '/privacy');
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: (name) => name.replaceAll('\u00ad', '') === 'Политика конфиденциальности',
+      }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/privacy');
+    expect(screen.getByRole('button', { name: 'Открыть тренажёр' })).toBeInTheDocument();
+  });
+
   it('signed in + onboarding NOT completed (new or unfinished account): sent to onboarding, never the main menu', async () => {
     renderApp(makeAuthUser({ onboardingCompleted: false }));
     await screen.findByText('Добро пожаловать в Zybrilka!');
@@ -350,7 +380,7 @@ describe('App — access gate (server-truth auth state)', () => {
     renderApp(makeAuthUser({ onboardingCompleted: true }));
     expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
     expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
-    expect(screen.queryByText(/ЕГЭ становится проще/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
     // The diagnostic/onboarding is only reachable on purpose (Профиль →
     // «Предметы ЕГЭ»), it is never auto-started for an onboarded user.
     expect(window.location.pathname).toBe('/');

@@ -52,6 +52,9 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   friends: '/friends',
   settings: '/settings',
   help: '/help',
+  faq: '/faq',
+  privacy: '/privacy',
+  terms: '/terms',
   notifications: '/notifications',
   onboarding: '/onboarding',
 };

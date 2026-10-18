@@ -215,7 +215,11 @@ export function Profile() {
             <span className={styles.settingsLabel}>Язык</span>
             <span className="text-body-sm text-secondary">Русский</span>
           </div>
-          <div className={styles.settingsRow}>
+          <button
+            type="button"
+            className={styles.settingsRow}
+            onClick={() => navigate({ screen: 'privacy' })}
+          >
             <span className={styles.settingsIcon}>
               <Icon name="shield" size={18} />
             </span>
@@ -223,7 +227,8 @@ export function Profile() {
               Конфиденциальность
               <span className={styles.settingsSublabel}>Данные и безопасность</span>
             </span>
-          </div>
+            <Icon name="chevronRight" size={16} className={styles.subjectChevron} />
+          </button>
           <div className={styles.settingsInfo}>
             <Icon name="info" size={18} />
             <span className="text-body-sm">

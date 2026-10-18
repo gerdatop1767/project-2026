@@ -6,15 +6,27 @@ import { useIsDesktop } from './lib/useIsDesktop.js';
 import { useToast } from './ui/Toast/ToastProvider.js';
 import { AppMobile } from './AppMobile.js';
 import { AppDesktop } from './AppDesktop.js';
-import { LandingDesktop } from './screens/Landing/LandingDesktop.js';
-import { LandingMobile } from './screens/Landing/LandingMobile.js';
+import { Landing } from './screens/Landing/Landing.js';
+import { InfoPage, type InfoPageKind } from './screens/Info/InfoPage.js';
 import { Login } from './screens/Login/Login.js';
 
 /** Overlays that hold no per-user data and stay reachable while signed
  * out. Everything else is the trainer itself and needs a session (the
  * API enforces the same on the server — this only decides what to
  * render). */
-const publicOverlays: ReadonlySet<OverlayRoute['screen']> = new Set(['login', 'about', 'help']);
+const publicOverlays: ReadonlySet<OverlayRoute['screen']> = new Set([
+  'login',
+  'about',
+  'help',
+  'faq',
+  'privacy',
+  'terms',
+]);
+
+/** Public info pages that render standalone (landing header/footer, no app
+ * shell) for everyone — a privacy policy must never sit behind sign-in or
+ * onboarding. */
+const infoPages: ReadonlySet<OverlayRoute['screen']> = new Set(['faq', 'privacy', 'terms']);
 
 function LoadingScreen() {
   return (
@@ -58,6 +70,7 @@ export function App() {
   const needsOnboarding = isOnboardingPending(user);
   const onOnboarding = overlay?.screen === 'onboarding';
   const onPublicPage = overlay === null ? tab === 'home' : publicOverlays.has(overlay.screen);
+  const onInfoPage = overlay !== null && infoPages.has(overlay.screen);
 
   // Keep the address bar truthful: a signed-out visitor on a private URL
   // is moved to /login; a signed-in user who still owes onboarding is
@@ -66,13 +79,17 @@ export function App() {
   useEffect(() => {
     if (user === null && !onPublicPage) {
       navigate({ screen: 'login' });
-    } else if (needsOnboarding && !onOnboarding && overlay?.screen !== 'login') {
+    } else if (needsOnboarding && !onOnboarding && overlay?.screen !== 'login' && !onInfoPage) {
       navigate({ screen: 'onboarding' });
     }
-  }, [user, onPublicPage, needsOnboarding, onOnboarding, overlay?.screen, navigate]);
+  }, [user, onPublicPage, needsOnboarding, onOnboarding, onInfoPage, overlay?.screen, navigate]);
 
   // `needsOnboarding && !onOnboarding` lasts one render: the effect above
   // is already navigating to /onboarding. Never flash the trainer there.
+  if (overlay !== null && onInfoPage) {
+    return <InfoPage kind={overlay.screen as InfoPageKind} />;
+  }
+
   if (user === undefined || (needsOnboarding && !onOnboarding && overlay?.screen !== 'login')) {
     return <LoadingScreen />;
   }
@@ -86,9 +103,9 @@ export function App() {
   }
 
   // The public landing is the signed-out face of `/`; signed-in users
-  // never see it.
+  // never see it. One responsive page for every width.
   if (user === null && tab === 'home' && overlay === null) {
-    return isDesktop ? <LandingDesktop /> : <LandingMobile />;
+    return <Landing />;
   }
 
   return isDesktop ? <AppDesktop /> : <AppMobile />;
