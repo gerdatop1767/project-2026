@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from './config.js';
+import { loadConfig, normalizeBotToken } from './config.js';
 
 describe('loadConfig', () => {
   it('applies defaults', () => {
@@ -45,5 +45,32 @@ describe('loadConfig', () => {
       const config = loadConfig({ WEB_BASE_URL: 'https://zybrilka.ru' });
       expect(config.WEB_BASE_URL).toBe('https://zybrilka.ru');
     });
+  });
+});
+
+describe('TELEGRAM_BOT_TOKEN normalization', () => {
+  const token = '123456789:AAFexampleExampleExampleExampleExample1';
+
+  it.each([
+    ['plain', token],
+    ['trailing newline (editor / CRLF .env)', `${token}\r\n`],
+    ['surrounding spaces', `  ${token} `],
+    ['double quotes', `"${token}"`],
+    ['single quotes', `'${token}'`],
+    ['the "bot" prefix of Bot API URLs', `bot${token}`],
+  ])('accepts a token pasted with %s', (_name, raw) => {
+    expect(loadConfig({ TELEGRAM_BOT_TOKEN: raw }).TELEGRAM_BOT_TOKEN).toBe(token);
+  });
+
+  it('treats blank / whitespace-only / empty-quotes values as not configured', () => {
+    for (const raw of ['', '   ', '\n', '""']) {
+      expect(loadConfig({ TELEGRAM_BOT_TOKEN: raw }).TELEGRAM_BOT_TOKEN).toBeUndefined();
+    }
+    expect(loadConfig({}).TELEGRAM_BOT_TOKEN).toBeUndefined();
+  });
+
+  it('never alters the inside of a token', () => {
+    expect(normalizeBotToken('123456:AB-cd_EF')).toBe('123456:AB-cd_EF');
+    expect(normalizeBotToken('bot')).toBe('bot');
   });
 });

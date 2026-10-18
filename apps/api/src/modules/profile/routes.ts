@@ -112,10 +112,14 @@ export const profileRoutes: FastifyPluginAsync<ProfileRoutesOptions> = async (
       };
     } catch (error) {
       if (error instanceof authService.TelegramNotConfiguredError) {
+        request.log.error(
+          { tgAuth: 'not_configured' },
+          'Telegram link requested but TELEGRAM_BOT_TOKEN is not set',
+        );
         return reply.code(503).send({ error: 'telegram_not_configured' });
       }
       if (error instanceof authService.TelegramAuthError) {
-        request.log.warn({ tgAuth: error.reason }, 'Telegram link rejected');
+        request.log.warn({ tgAuth: error.reason, ...error.diagnostics }, 'Telegram link rejected');
         return reply.code(400).send({
           error: error.reason === 'expired' ? 'telegram_data_expired' : 'invalid_telegram_data',
         });

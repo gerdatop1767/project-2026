@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './authContext.js';
 import * as api from './api.js';
 import type * as ApiModule from './api.js';
@@ -110,5 +110,45 @@ describe('AuthProvider — Telegram Mini App sign-in', () => {
     expect(await screen.findByText('Новый ник|no-error')).toBeInTheDocument();
     act(() => latest.updateUser(makeAuthUser({ id: 'other-user', customName: 'Чужой' })));
     expect(screen.queryByText('Чужой|no-error')).not.toBeInTheDocument();
+  });
+
+  it('overlapping refreshes send ONE Telegram sign-in request', async () => {
+    vi.mocked(miniApp.getTelegramInitData).mockReturnValue('x');
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: null });
+    let release!: (value: { user: ReturnType<typeof makeAuthUser>; created: boolean }) => void;
+    vi.mocked(api.loginWithTelegram).mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    renderProvider();
+    await waitFor(() => expect(api.loginWithTelegram).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      void latest.refresh();
+    });
+    release({ user: makeAuthUser({ firstName: 'Тим', lastName: null }), created: false });
+    expect(await screen.findByText('Тим|no-error')).toBeInTheDocument();
+    expect(api.loginWithTelegram).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      'an unconfigured server',
+      new api.ApiError(503, { error: 'telegram_not_configured' }),
+      'telegram_not_configured',
+    ],
+    [
+      'a rejected signature',
+      new api.ApiError(401, { error: 'invalid_telegram_data' }),
+      'invalid_telegram_data',
+    ],
+    ['a gateway error without a JSON body', new api.ApiError(502, undefined), 'http_502'],
+    ['no network', new TypeError('Failed to fetch'), 'network'],
+  ])('%s is reported with its own code', async (_name, error, code) => {
+    vi.mocked(miniApp.getTelegramInitData).mockReturnValue('x');
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: null });
+    vi.mocked(api.loginWithTelegram).mockRejectedValue(error);
+    renderProvider();
+    expect(await screen.findByText(`signed-out|${code}`)).toBeInTheDocument();
   });
 });

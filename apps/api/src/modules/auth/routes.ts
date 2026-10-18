@@ -263,10 +263,17 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         return reply.code(200).send({ user: result.user, created: result.created });
       } catch (error) {
         if (error instanceof service.TelegramNotConfiguredError) {
+          request.log.error(
+            { tgAuth: 'not_configured' },
+            'Telegram sign-in requested but TELEGRAM_BOT_TOKEN is not set in the API container',
+          );
           return reply.code(503).send({ error: 'telegram_not_configured' });
         }
         if (error instanceof service.TelegramAuthError) {
-          request.log.warn({ tgAuth: error.reason }, 'Telegram sign-in rejected');
+          request.log.warn(
+            { tgAuth: error.reason, ...error.diagnostics },
+            'Telegram sign-in rejected',
+          );
           return reply.code(401).send({
             error: error.reason === 'expired' ? 'telegram_data_expired' : 'invalid_telegram_data',
           });
