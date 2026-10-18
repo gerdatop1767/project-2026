@@ -1,5 +1,25 @@
 import { z } from 'zod';
 
+/**
+ * A bot token pasted from BotFather, a Bot API URL or an `.env` file often
+ * drags along whitespace, a trailing newline, wrapping quotes or the `bot`
+ * prefix of `https://api.telegram.org/bot<token>/…`. None of that is part of
+ * the token, and any of it makes every signature check fail with no hint why
+ * — so it is removed. Returns `undefined` for an effectively empty value.
+ */
+export function normalizeBotToken(raw: string): string | undefined {
+  let token = raw.trim();
+  if (
+    token.length >= 2 &&
+    ((token.startsWith('"') && token.endsWith('"')) ||
+      (token.startsWith("'") && token.endsWith("'")))
+  ) {
+    token = token.slice(1, -1).trim();
+  }
+  token = token.replace(/^bot(?=\d+:)/i, '');
+  return token === '' ? undefined : token;
+}
+
 const configSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -30,7 +50,7 @@ const configSchema = z
     // Telegram Mini App sign-in. The bot token is the HMAC key that proves
     // `initData` really came from Telegram — server-only, never sent to the
     // client. Unset => POST /auth/telegram answers 503 `telegram_not_configured`.
-    TELEGRAM_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_BOT_TOKEN: z.string().transform(normalizeBotToken).optional(),
     // How old a launch's `auth_date` may be before the sign-in is refused.
     TELEGRAM_AUTH_MAX_AGE_SECONDS: z.coerce.number().int().min(60).max(86400).default(3600),
     // Upper bound for each server-to-server call to VK (code exchange,

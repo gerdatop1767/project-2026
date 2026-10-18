@@ -150,6 +150,37 @@ Telegram.
    `vkAvatar` = why a photo URL was ignored (`host_not_allowed`, …). They
    never contain tokens, codes, names or URLs.
 
+## 4a. «Не удалось войти через Telegram» — как найти причину
+
+The login screen now shows a short **код** with the message, and the API logs
+the reason. Look at the code first, then at the API log:
+
+```bash
+docker compose -f infra/docker-compose.yml logs api | grep -E "authProviders|tgAuth"
+```
+
+| Code on screen | Meaning | What to do |
+| --- | --- | --- |
+| `telegram_not_configured` | The API container has no `TELEGRAM_BOT_TOKEN`. The startup log line says `"telegram":{"configured":false}`. | Put the token in `infra/.env`, then **recreate** the container: `docker compose -f infra/docker-compose.yml up -d api` (a plain `restart` does not re-read `.env`). |
+| `invalid_telegram_data` | The signature did not verify. Log: `tgAuth":"bad_signature"`. Almost always the token belongs to a **different bot** than the one that opens the Mini App. Compare `authProviders.telegram.botId` in the startup log with the numeric part of your bot's token (the part before `:` is public). | Use the token of the bot whose menu button / Mini App link you tapped. |
+| `invalid_telegram_data` + `matchesWithoutSignatureField":true` | The token is right but Telegram's hash is computed over the data *without* the `signature` field — an algorithm difference, not a configuration error. Report it; do not work around it. | — |
+| `telegram_data_expired` | `auth_date` older than `TELEGRAM_AUTH_MAX_AGE_SECONDS` (log shows `ageSeconds`). Often a Mini App left open for hours, or the phone's clock. | Reopen the Mini App. |
+| `rate_limited` | More than 30 attempts / 10 min from one IP. | Wait. |
+| `network`, `http_5xx` | The request did not reach the API / the API crashed. | Check the API container and Caddy. |
+
+The token is cleaned when read (surrounding spaces, a trailing newline, quotes
+and a pasted `bot` prefix are removed), because any of those silently makes
+every signature check fail. A log line `tgAuth":"token_format"` means the value
+still does not look like `<bot id>:<secret>`.
+
+Rejected-launch log lines carry only: the reason, the payload length, the
+**names** of the fields present and the age of `auth_date`. Never values, the
+hash, user data or the token.
+
+Known limit: Telegram Web (web.telegram.org) embeds the app in a cross-site
+iframe, where browsers may refuse the `SameSite=Lax` session cookie even though
+sign-in itself succeeds. Telegram Desktop / iOS / Android apps are not affected.
+
 ## 5. Deploy notes
 
 - Migration `0022_*` is **additive**: new table `user_avatars`, new nullable

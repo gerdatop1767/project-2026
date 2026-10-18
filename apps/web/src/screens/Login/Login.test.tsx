@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NavigationProvider } from '../../lib/navigation.js';
 import { Login } from './Login.js';
-import { makeAuthUser } from '../../lib/authTestUtils.js';
+import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 import { ApiError } from '../../lib/api.js';
 import * as api from '../../lib/api.js';
 import type * as ApiModule from '../../lib/api.js';
@@ -127,5 +127,30 @@ describe('Login — magic-link verification (?token=...)', () => {
     renderLogin('/login?token=bad-token');
     await waitFor(() => expect(screen.getByText('Ссылка недействительна')).toBeInTheDocument());
     expect(screen.queryByText('Готово!')).not.toBeInTheDocument();
+  });
+});
+
+describe('Login — Telegram Mini App sign-in failure', () => {
+  function renderWithTelegramError(code: string | null) {
+    window.history.pushState(null, '', '/login');
+    return render(
+      <NavigationProvider>
+        <TestAuthProvider user={null} telegramError={code}>
+          <Login />
+        </TestAuthProvider>
+      </NavigationProvider>,
+    );
+  }
+
+  it('says why, with the code, instead of one sentence for every failure', () => {
+    renderWithTelegramError('telegram_not_configured');
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('ещё не включён на сервере');
+    expect(alert).toHaveTextContent('(код: telegram_not_configured)');
+  });
+
+  it('shows nothing about Telegram when no Telegram sign-in failed', () => {
+    renderWithTelegramError(null);
+    expect(screen.queryByText(/Telegram/)).not.toBeInTheDocument();
   });
 });

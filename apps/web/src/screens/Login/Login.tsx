@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
 import { useAuth } from '../../lib/authContext.js';
 import { ApiError, requestMagicLink, verifyMagicLink, vkLoginUrl } from '../../lib/api.js';
+import { telegramErrorMessage } from '../../lib/telegramErrors.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Input } from '../../ui/Input/Input.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -271,9 +272,7 @@ export function Login() {
                 {formError && <p className={styles.formError}>{formError}</p>}
                 {telegramError && (
                   <p role="alert" className={styles.formError}>
-                    {telegramError === 'telegram_data_expired'
-                      ? 'Данные запуска из Telegram устарели. Закройте и снова откройте приложение или войдите другим способом.'
-                      : 'Не удалось войти через Telegram. Войдите другим способом или откройте приложение заново.'}
+                    {telegramErrorMessage(telegramError)}
                   </p>
                 )}
                 <Button type="submit" fullWidth loading={submitting}>

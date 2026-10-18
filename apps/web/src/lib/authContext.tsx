@@ -9,13 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthUser } from '@zybrilka/shared';
-import {
-  ApiError,
-  getCurrentUser,
-  loginWithTelegram,
-  logout as apiLogout,
-  onUnauthorized,
-} from './api.js';
+import { getCurrentUser, loginWithTelegram, logout as apiLogout, onUnauthorized } from './api.js';
+import { telegramErrorCode } from './telegramErrors.js';
 import { getTelegramInitData, prepareTelegramApp } from './telegramMiniApp.js';
 import { resetPrivateCaches } from './privateCaches.js';
 
@@ -119,19 +114,24 @@ export function AuthProvider({
   /** Inside a Telegram Mini App with no session yet: sign in (or register)
    * with the signed launch data. The server verifies it; any failure just
    * leaves the normal login screen in place. */
-  const signInWithTelegram = useCallback(async (): Promise<AuthUser | null> => {
+  const telegramInFlight = useRef<Promise<AuthUser | null> | null>(null);
+  const signInWithTelegram = useCallback((): Promise<AuthUser | null> => {
     const initData = getTelegramInitData();
-    if (!initData || telegramOptedOut()) return null;
-    try {
-      const res = await loginWithTelegram(initData);
-      setTelegramError(null);
-      return res.user;
-    } catch (error) {
-      const code =
-        error instanceof ApiError && (error.body as { error?: unknown } | undefined)?.error;
-      setTelegramError(typeof code === 'string' ? code : 'telegram_unavailable');
-      return null;
-    }
+    if (!initData || telegramOptedOut()) return Promise.resolve(null);
+    // One launch = one request, even if several refreshes overlap.
+    telegramInFlight.current ??= loginWithTelegram(initData)
+      .then((res) => {
+        setTelegramError(null);
+        return res.user;
+      })
+      .catch((error: unknown) => {
+        setTelegramError(telegramErrorCode(error));
+        return null;
+      })
+      .finally(() => {
+        telegramInFlight.current = null;
+      });
+    return telegramInFlight.current;
   }, []);
 
   const refresh = useCallback(
