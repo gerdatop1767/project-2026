@@ -5,7 +5,6 @@ import { useAuth } from '../../lib/authContext.js';
 import { getLearningProfile, saveLearningProfile } from '../../lib/api.js';
 import { selfReportedScoreOptions, targetScoreOptions } from '../../lib/learningProfileLabels.js';
 import { subjects } from '../../data/subjects.js';
-import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Chip } from '../../ui/Chip/Chip.js';
@@ -13,6 +12,7 @@ import { Icon } from '../../ui/Icon/Icon.js';
 import { Logo } from '../../ui/Logo/Logo.js';
 import { clsx } from '../../lib/clsx.js';
 import { FadeIn } from '../../ui/motion/motion.js';
+import { SubjectOptionList } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './Onboarding.module.css';
 
 const TOTAL_STEPS = 5;
@@ -143,24 +143,12 @@ export function Onboarding() {
         {step === 2 && (
           <>
             <h1 className="text-h2">Какие предметы сдаёшь?</h1>
-            <div className={styles.chipGrid}>
-              {subjects.map((subject) => (
-                <Chip
-                  key={subject.id}
-                  selected={selectedSubjects.includes(subject.id)}
-                  data-subject-interactive
-                  onClick={() => toggleSubject(subject.id)}
-                >
-                  <span className={styles.chipIcon}>
-                    <SubjectIcon
-                      subjectId={subject.id}
-                      selected={selectedSubjects.includes(subject.id)}
-                    />
-                  </span>
-                  {subject.shortName}
-                </Chip>
-              ))}
-            </div>
+            <SubjectOptionList
+              multiple
+              aria-label="Предметы ЕГЭ"
+              value={selectedSubjects}
+              onSelect={toggleSubject}
+            />
             <Button
               variant="primary"
               fullWidth

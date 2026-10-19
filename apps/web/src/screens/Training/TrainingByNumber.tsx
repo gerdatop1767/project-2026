@@ -15,6 +15,7 @@ import { Chip } from '../../ui/Chip/Chip.js';
 import { Select } from '../../ui/Select/Select.js';
 import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { SlideUp } from '../../ui/motion/motion.js';
+import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './TrainingByNumber.module.css';
 
 interface NumberSelection {
@@ -25,11 +26,6 @@ interface NumberSelection {
   random: boolean;
   unseen: boolean;
 }
-
-const subjectSelectOptions = subjects.map((subject) => ({
-  value: subject.id,
-  label: subject.name,
-}));
 
 function backLabelFor(route: Route | undefined): string {
   if (!route) return 'Тренировка';
@@ -252,12 +248,7 @@ export function TrainingByNumber({
         Выбери один или несколько номеров — для каждого можно включить своё сочетание режимов.
       </p>
 
-      <Select
-        label="Предмет"
-        options={subjectSelectOptions}
-        value={selectedSubjectId}
-        onChange={selectSubject}
-      />
+      <SubjectSelect label="Предмет" value={selectedSubjectId} onChange={selectSubject} />
 
       {collections.length > 0 && (
         <div>

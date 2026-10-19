@@ -1,7 +1,6 @@
 import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
 import type { StatsPeriod } from '../../data/sampleStatistics.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
 import {
@@ -22,7 +21,6 @@ import type {
 } from '@zybrilka/shared';
 import { Card } from '../../ui/Card/Card.js';
 import { VariantHistoryCard } from '../../ui/Statistics/VariantHistoryCard.js';
-import { Select } from '../../ui/Select/Select.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -34,6 +32,7 @@ import { LineChart } from '../../ui/Charts/LineChart.js';
 import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { RankedBarList } from '../../ui/Charts/RankedBarList.js';
 import { FadeIn } from '../../ui/motion/motion.js';
+import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './StatisticsDesktop.module.css';
 
 const periodTabs = [
@@ -193,8 +192,6 @@ export function StatisticsDesktop() {
   const points = useMemo(() => toDailyPoints(dailyItems, days), [dailyItems, days]);
   const showEvery = points.length > 40 ? 10 : points.length > 14 ? 4 : 3;
 
-  const subjectOptions = subjects.map((s) => ({ value: s.id, label: s.shortName }));
-
   return (
     <FadeIn className={styles.page}>
       <div className={styles.headerRow}>
@@ -206,7 +203,7 @@ export function StatisticsDesktop() {
         </div>
         <div className={styles.controls}>
           <div className={styles.subjectSelect}>
-            <Select options={subjectOptions} value={subjectId} onChange={selectSubject} />
+            <SubjectSelect value={subjectId} onChange={selectSubject} />
           </div>
           <Tabs
             items={periodTabs}
@@ -220,12 +217,14 @@ export function StatisticsDesktop() {
 
       <div className={styles.statsRow}>
         <StatTile
+          animate
           icon="variant"
           iconColor="var(--color-accent-primary-end)"
           label="Решено заданий"
           value={solvedTotal ?? '···'}
         />
         <StatTile
+          animate
           icon="success"
           iconColor="var(--color-success)"
           label="Правильных ответов"
@@ -234,6 +233,7 @@ export function StatisticsDesktop() {
           deltaLabel={`${correctTotal} из ${solvedTotal ?? '···'}`}
         />
         <StatTile
+          animate
           icon="time"
           iconColor="var(--color-warning)"
           label="Среднее время"
@@ -241,6 +241,7 @@ export function StatisticsDesktop() {
           deltaLabel={subjectTime ? `медиана ${formatDuration(subjectTime.medianTimeMs)}` : 'скоро'}
         />
         <StatTile
+          animate
           icon="progress"
           iconColor="var(--color-accent-secondary)"
           label="Текущий уровень"

@@ -24,7 +24,6 @@ import { Card } from '../../ui/Card/Card.js';
 import { VariantHistoryCard } from '../../ui/Statistics/VariantHistoryCard.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { BottomSheet } from '../../ui/BottomSheet/BottomSheet.js';
 import { SubjectHeaderMobile } from '../../ui/SubjectHeader/SubjectHeaderMobile.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { StatTile } from '../../ui/Statistics/StatTile.js';
@@ -37,7 +36,7 @@ import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { FadeIn } from '../../ui/motion/motion.js';
 import { SlideUp } from '../../ui/motion/motion.js';
-import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { SubjectPickerDialog } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './StatisticsMobile.module.css';
 
 const subTabs = [
@@ -232,31 +231,13 @@ export function StatisticsMobile() {
         }
       />
 
-      <BottomSheet
+      <SubjectPickerDialog
         open={subjectPickerOpen}
         onClose={() => setSubjectPickerOpen(false)}
-        title="Предмет"
-      >
-        <div className={styles.subjectPickerList} role="listbox" aria-label="Предмет">
-          {subjects.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              role="option"
-              aria-selected={s.id === subject.id}
-              className={styles.subjectPickerOption}
-              data-subject-interactive
-              onClick={() => selectSubject(s.id)}
-            >
-              <span className={styles.subjectPickerIcon}>
-                <SubjectIcon subjectId={s.id} selected={s.id === subject.id} />
-              </span>
-              <span className={styles.subjectPickerName}>{s.shortName}</span>
-              {s.id === subject.id && <Icon name="check" size={18} />}
-            </button>
-          ))}
-        </div>
-      </BottomSheet>
+        value={subject.id}
+        onSelect={selectSubject}
+        subtitle="Статистика покажется по выбранному предмету"
+      />
 
       <Tabs
         items={subTabs}
@@ -393,6 +374,7 @@ export function StatisticsMobile() {
         <>
           <div className={styles.statsGrid}>
             <StatTile
+              animate
               icon="variant"
               iconColor="var(--color-accent-primary-end)"
               label="Решено заданий"
@@ -400,6 +382,7 @@ export function StatisticsMobile() {
               deltaLabel={`из ${subjectTotalTasks}`}
             />
             <StatTile
+              animate
               icon="progress"
               iconColor="var(--color-accent-secondary)"
               label="Точность"
@@ -408,6 +391,7 @@ export function StatisticsMobile() {
               deltaLabel={`${subjectRow?.correct ?? 0} верных`}
             />
             <StatTile
+              animate
               icon="xp"
               iconColor="var(--color-gold)"
               label="Текущая серия"
@@ -415,6 +399,7 @@ export function StatisticsMobile() {
               deltaLabel="скоро"
             />
             <StatTile
+              animate
               icon="time"
               iconColor="var(--color-accent-primary)"
               label="Среднее время"

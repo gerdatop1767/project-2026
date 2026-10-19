@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
 import { getSubjectContent } from '../../data/subjectContent.js';
 import {
   getProgressByTopic,
@@ -24,6 +23,7 @@ import { Select } from '../../ui/Select/Select.js';
 import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { clsx } from '../../lib/clsx.js';
 import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
+import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './Training.module.css';
 
 type TopicItem = ProgressByTopicResponse['items'][number];
@@ -81,11 +81,6 @@ const amountOptions: readonly { id: AmountId; icon: IconName; label: string }[] 
   { id: '20', icon: 'checklist', label: '20' },
   { id: 'custom', icon: 'edit', label: 'Своё число' },
 ];
-
-const subjectSelectOptions = subjects.map((subject) => ({
-  value: subject.id,
-  label: subject.name,
-}));
 
 /**
  * Training (Design Spec Section 7): subject → mode → the selected
@@ -329,12 +324,7 @@ export function Training() {
     <SlideUp className={styles.stack}>
       <h1 className="text-h1">Тренировка</h1>
 
-      <Select
-        label="Предмет"
-        options={subjectSelectOptions}
-        value={subjectId}
-        onChange={selectSubject}
-      />
+      <SubjectSelect label="Предмет" value={subjectId} onChange={selectSubject} />
 
       <div>
         <SectionHeader title="Режим тренировки" />

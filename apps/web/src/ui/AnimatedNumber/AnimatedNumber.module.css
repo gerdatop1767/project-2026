@@ -1,8 +1,9 @@
 /*
- * Left-to-right reveal. Each character sits at its final place from the
- * first frame (so the number's width never changes); only its visibility
- * animates: a wipe from its own left edge (clip-path), a short glide from
- * the left and a fade, each character a beat after the one before it.
+ * Count-up. The final value (`.sizer`, invisible) and the counting figure
+ * (`.figure`) share one grid cell, so the box is the final width from the
+ * first frame; tabular figures keep each digit the same width while it
+ * counts. Both are drawn by `::before` from a data attribute, so the
+ * element's text content is only the hidden final value.
  */
 
 .root {
@@ -23,43 +24,20 @@
 }
 
 .visual {
-  display: inline-block;
+  display: inline-grid;
 }
 
-.glyph,
-.plain {
+.sizer,
+.figure {
+  grid-area: 1 / 1;
   white-space: pre;
 }
 
-.glyph::before,
-.plain::before {
-  content: attr(data-char);
+.sizer::before,
+.figure::before {
+  content: attr(data-text);
 }
 
-.glyph {
-  display: inline-block;
-  clip-path: inset(-0.2em -0.2em -0.2em -0.2em);
-  opacity: 1;
-  transform: none;
-  transition:
-    clip-path 460ms var(--easing-out) calc(var(--i, 0) * 55ms),
-    transform 520ms var(--easing-out) calc(var(--i, 0) * 55ms),
-    opacity 260ms ease calc(var(--i, 0) * 55ms);
-}
-
-/* Waiting to be seen: every character hidden behind its own left edge. */
-.root:not([data-revealed]) .glyph {
-  clip-path: inset(-0.2em 100% -0.2em -0.2em);
-  opacity: 0;
-  transform: translateX(-0.22em);
-}
-
-.root[data-instant] .glyph {
-  transition: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .glyph {
-    transition: none;
-  }
+.sizer {
+  visibility: hidden;
 }

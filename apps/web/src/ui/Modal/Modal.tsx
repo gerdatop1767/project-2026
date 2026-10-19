@@ -9,6 +9,8 @@ export interface ModalProps {
   onClose: () => void;
   title?: string;
   children: ReactNode;
+  /** A wider panel for a list (e.g. the subject picker) instead of a short confirmation. */
+  wide?: boolean;
 }
 
 /**
@@ -18,7 +20,7 @@ export interface ModalProps {
  * BottomSheet instead, per the spec's "prefer bottom sheet on mobile"
  * guidance.
  */
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, wide = false }: ModalProps) {
   const titleId = useId();
   const panelRef = usePanelFocus(open);
 
@@ -27,7 +29,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       {(entered) => (
         <div
           ref={panelRef}
-          className={clsx(styles.panel, entered && styles.panelOpen)}
+          className={clsx(styles.panel, wide && styles.wide, entered && styles.panelOpen)}
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
