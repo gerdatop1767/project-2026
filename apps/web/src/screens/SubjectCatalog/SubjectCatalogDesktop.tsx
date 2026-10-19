@@ -1,7 +1,6 @@
 import { useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
@@ -50,8 +49,6 @@ export function SubjectCatalogDesktop() {
 
   return (
     <div>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
-
       <div className={styles.hero}>
         <img
           src="/branding/v2/hero-mascot-desktop.webp"

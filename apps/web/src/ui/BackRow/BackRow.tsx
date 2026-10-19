@@ -42,6 +42,13 @@ export function BackRow({ to, label, onBack }: BackRowProps) {
   const { tab, back, navigate } = useNavigation();
   const resolvedLabel = label ?? (mainTabIds.includes(tab) ? tabLabels[tab] : tabLabels.home);
 
+  // No "← Главная" row anywhere: the home screen is always one click away
+  // in the sidebar / logo, and the row only cluttered the top of pages.
+  // A row that would lead home (explicitly, or by closing back onto the
+  // home tab) is simply not drawn; steps back to anything else stay.
+  const leadsHome = !onBack && (to ? to.screen === 'home' : tab === 'home');
+  if (leadsHome) return null;
+
   function handleClick() {
     if (onBack) {
       onBack();

@@ -12,9 +12,10 @@ describe('AnimatedNumber', () => {
     const { container } = render(<AnimatedNumber value="70%" />);
     const visual = container.querySelector('[aria-hidden="true"]')!;
     expect(visual.textContent).toBe('');
-    // One rolling column per digit; the "%" stays a static character.
-    expect(visual.querySelectorAll('[data-digit]')).toHaveLength(2);
-    expect(visual.querySelector('[data-char="%"]')).not.toBeNull();
+    // One glyph per character, in order, each at its final place.
+    expect(
+      [...visual.querySelectorAll('[data-char]')].map((g) => g.getAttribute('data-char')),
+    ).toEqual(['7', '0', '%']);
     expect(container.textContent).toBe('70%');
   });
 
@@ -27,12 +28,11 @@ describe('AnimatedNumber', () => {
   it('shows a placeholder or text without digits exactly as given, unanimated', () => {
     const { container } = render(<AnimatedNumber value="···" />);
     expect(screen.getByText('···')).toBeInTheDocument();
-    expect(container.querySelector('[data-digit]')).toBeNull();
+    expect(container.querySelector('[style*="--i"]')).toBeNull();
   });
 
-  it('lands on the real value (no IntersectionObserver here, so it is shown at once)', () => {
+  it('is shown at once where it cannot animate (no IntersectionObserver here)', () => {
     const { container } = render(<AnimatedNumber value="94+" />);
-    const columns = [...container.querySelectorAll<HTMLElement>('[data-digit]')];
-    expect(columns.map((column) => column.style.getPropertyValue('--pos'))).toEqual(['19', '14']);
+    expect(container.querySelector('[data-animated-number]')).toHaveAttribute('data-revealed');
   });
 });

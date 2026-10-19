@@ -16,8 +16,7 @@ import { RankedBarList } from '../../ui/Charts/RankedBarList.js';
 import { MistakeCardDesktop } from '../../ui/Mistakes/MistakeCardDesktop.js';
 import { MistakeNumberGroup } from '../../ui/Mistakes/MistakeNumberGroup.js';
 import { FeedbackState } from '../../ui/FeedbackState/FeedbackState.js';
-import { FadeIn } from '../../ui/motion/motion.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
+import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
 import styles from './MistakesDesktop.module.css';
 
 type FilterId = 'all' | 'unsolved' | 'byTopic' | 'byDate';
@@ -123,7 +122,6 @@ export function MistakesDesktop() {
 
   return (
     <FadeIn className={styles.page}>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
       <div className={styles.headerRow}>
         <div>
           <h1 className="text-h1">Мои ошибки</h1>
@@ -161,38 +159,40 @@ export function MistakesDesktop() {
               description="Все ошибки в этом фильтре уже разобраны."
             />
           )}
-          {groups.map((group) => {
-            const cards = group.items.map((m) => (
-              <MistakeCardDesktop
-                key={m.id}
-                mistake={m}
-                selected={selected.has(m.id)}
-                onToggleSelect={() => toggleSelect(m.id)}
-                onReview={() => openMistake(m)}
-                onToggleFavorite={() => toggleFavorite(m.id)}
-                favorited={favorited.has(m.id)}
-                onSolveSimilar={() => solveSimilar(m)}
-                solvingSimilar={solvingSimilarId === m.id}
-              />
-            ));
-            if (group.taskNumber !== null) {
+          <ContentSwap key={filter}>
+            {groups.map((group) => {
+              const cards = group.items.map((m) => (
+                <MistakeCardDesktop
+                  key={m.id}
+                  mistake={m}
+                  selected={selected.has(m.id)}
+                  onToggleSelect={() => toggleSelect(m.id)}
+                  onReview={() => openMistake(m)}
+                  onToggleFavorite={() => toggleFavorite(m.id)}
+                  favorited={favorited.has(m.id)}
+                  onSolveSimilar={() => solveSimilar(m)}
+                  solvingSimilar={solvingSimilarId === m.id}
+                />
+              ));
+              if (group.taskNumber !== null) {
+                return (
+                  <MistakeNumberGroup
+                    key={group.taskNumber}
+                    taskNumber={group.taskNumber}
+                    count={group.items.length}
+                  >
+                    {cards}
+                  </MistakeNumberGroup>
+                );
+              }
               return (
-                <MistakeNumberGroup
-                  key={group.taskNumber}
-                  taskNumber={group.taskNumber}
-                  count={group.items.length}
-                >
-                  {cards}
-                </MistakeNumberGroup>
+                <div key={group.label}>
+                  {group.label && <p className={`text-h3 ${styles.groupLabel}`}>{group.label}</p>}
+                  <div className={styles.list}>{cards}</div>
+                </div>
               );
-            }
-            return (
-              <div key={group.label}>
-                {group.label && <p className={`text-h3 ${styles.groupLabel}`}>{group.label}</p>}
-                <div className={styles.list}>{cards}</div>
-              </div>
-            );
-          })}
+            })}
+          </ContentSwap>
         </div>
 
         <div className={styles.sidebar}>

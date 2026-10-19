@@ -1,4 +1,3 @@
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { WipPlaceholder } from '../../ui/WipPlaceholder/WipPlaceholder.js';
 import { FadeIn } from '../../ui/motion/motion.js';
 import styles from './RatingDesktop.module.css';
@@ -12,7 +11,6 @@ import styles from './RatingDesktop.module.css';
 export function RatingDesktop() {
   return (
     <FadeIn className={styles.page}>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
       <div className={styles.headerRow}>
         <div>
           <h1 className="text-h1">Рейтинг</h1>

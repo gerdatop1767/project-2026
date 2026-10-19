@@ -1,4 +1,3 @@
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import type { IconName } from '../../ui/Icon/icons.js';
 import { TELEGRAM_SUPPORT_URL } from '../../lib/telegram.js';
@@ -58,8 +57,6 @@ export function HelpDesktop() {
 
   return (
     <div>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
-
       <div className={styles.hero}>
         <div className={styles.heroText}>
           <span className={styles.badge}>Помощь</span>

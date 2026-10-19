@@ -125,7 +125,7 @@ export function AppDesktop() {
       {/* A signed-in visitor's `/` is the Учебный центр — the same hub the
           logo opens. (It used to be a marketing page that duplicated the
           public landing's old copy.) */}
-      {tab === 'home' && <LearningCenterDesktop root />}
+      {tab === 'home' && <LearningCenterDesktop />}
       {tab === 'training' && <Training />}
       {tab === 'statistics' && <StatisticsDesktop />}
       {tab === 'achievements' && <AchievementsDesktop />}

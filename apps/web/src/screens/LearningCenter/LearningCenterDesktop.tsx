@@ -1,10 +1,8 @@
 import { useNavigation } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
 import { subjects } from '../../data/subjects.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import type { IconName } from '../../ui/Icon/icons.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import {
   FeatureIcon,
@@ -44,8 +42,7 @@ const sections: readonly LearningSection[] = [
 ];
 
 interface Recommendation {
-  icon: IconName;
-  color: string;
+  icon: FeatureIconName;
   badge: string;
   title: string;
   description: string;
@@ -53,22 +50,19 @@ interface Recommendation {
 
 const recommendations: readonly Recommendation[] = [
   {
-    icon: 'topic',
-    color: 'var(--color-accent-primary)',
+    icon: 'topics',
     badge: 'Популярное',
     title: 'Основные темы ЕГЭ',
     description: 'Самые важные темы, которые встречаются в экзамене',
   },
   {
-    icon: 'variant',
-    color: 'var(--color-accent-secondary)',
+    icon: 'typical',
     badge: 'Новое',
     title: 'Типовые задания',
     description: 'Разбор сложных заданий с примерами решений',
   },
   {
-    icon: 'hint',
-    color: 'var(--color-gold)',
+    icon: 'tips',
     badge: 'Советы',
     title: 'Как эффективно готовиться',
     description: 'Методики, планирование и полезные лайфхаки',
@@ -79,15 +73,12 @@ const recommendations: readonly Recommendation[] = [
  * Desktop "Учебный центр" (approved reference screenshot): a hub of
  * theory/practice/strategy/resource sections, a subject picker and
  * personalized recommendations — not a dashboard, a materials index.
- * `root` = shown as a signed-in visitor's `/` (no back row).
  */
-export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
+export function LearningCenterDesktop() {
   const { navigate } = useNavigation();
 
   return (
     <div>
-      {/* At the root (`/`) there is no "Главная" to go back to — this IS it. */}
-      {!root && <BackRow to={{ screen: 'home' }} label="Главная" />}
       <div className={styles.headRow}>
         <div>
           <h1 className="text-h1">Учебный центр</h1>
@@ -162,11 +153,16 @@ export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
       <Card className={styles.recommendCard}>
         <p className="text-h3">Рекомендации для тебя</p>
         <p className="text-body-sm text-secondary">На основе твоей активности</p>
-        <div className={styles.recommendGrid}>
+        <div className={clsx(styles.recommendGrid, staggerClassName)}>
           {recommendations.map((item) => (
-            <div key={item.title} className={styles.recommendItem}>
-              <span className={styles.recommendIcon} style={{ background: item.color }}>
-                <Icon name={item.icon} size={22} />
+            <div
+              key={item.title}
+              className={styles.recommendItem}
+              data-icon-host
+              style={{ ['--rec-accent' as string]: featureIconGlow(item.icon) }}
+            >
+              <span className={styles.recommendIcon}>
+                <FeatureIcon name={item.icon} />
               </span>
               <div className={styles.recommendBody}>
                 <span className={styles.recommendBadge}>{item.badge}</span>

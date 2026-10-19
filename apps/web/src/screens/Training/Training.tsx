@@ -23,7 +23,7 @@ import { Input } from '../../ui/Input/Input.js';
 import { Select } from '../../ui/Select/Select.js';
 import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { clsx } from '../../lib/clsx.js';
-import { SlideUp } from '../../ui/motion/motion.js';
+import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
 import styles from './Training.module.css';
 
 type TopicItem = ProgressByTopicResponse['items'][number];
@@ -370,177 +370,187 @@ export function Training() {
         </div>
       </div>
 
-      {(modeId === 'topic' || modeId === 'variant') && collections.length > 0 && (
-        <div>
-          <SectionHeader title="Сборник" />
-          <Select
-            options={collections.map((c) => ({
-              value: c.collection.slug,
-              label: c.collection.title,
-            }))}
-            value={collectionSlug}
-            onChange={handleSelectCollection}
-            placeholder="Все источники"
-          />
-        </div>
-      )}
-
-      {modeId === 'variant' && (
-        <>
-          <div className={styles.chipRow}>
-            <Chip icon="dice" selected={variantRandom} onClick={() => setVariantRandom((v) => !v)}>
-              Случайный вариант
-            </Chip>
-            <Chip icon="retry" selected={variantUnseen} onClick={() => setVariantUnseen((v) => !v)}>
-              Только нерешённые
-            </Chip>
-          </div>
-
-          {selectedCollection && selectedCollection.variants.length > 0 && (
-            <div>
-              <SectionHeader title="Вариант" />
-              <div className={styles.chipRow}>
-                {selectedCollection.variants.map((v) => (
-                  <Chip
-                    key={v.id}
-                    selected={v.id === variantId}
-                    onClick={() => setVariantId(v.id)}
-                    disabled={variantRandom || variantUnseen}
-                  >
-                    Вариант {v.variantNumber}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {modeId === 'topic' && (
-        <>
+      <ContentSwap key={modeId}>
+        {(modeId === 'topic' || modeId === 'variant') && collections.length > 0 && (
           <div>
-            <SectionHeader title="Тема" />
-            {topics.length === 0 ? (
-              <p className="text-body-sm text-secondary">
-                В этом источнике пока нет тем — попробуй сменить «Сборник».
-              </p>
-            ) : (
-              <div className={styles.chipRow}>
-                {topics.map((topic) => (
-                  <Chip
-                    key={topic.topicId}
-                    selected={topic.topicId === topicId}
-                    onClick={() => setTopicId(topic.topicId)}
-                  >
-                    {topic.topicName}
-                  </Chip>
-                ))}
-              </div>
-            )}
+            <SectionHeader title="Сборник" />
+            <Select
+              options={collections.map((c) => ({
+                value: c.collection.slug,
+                label: c.collection.title,
+              }))}
+              value={collectionSlug}
+              onChange={handleSelectCollection}
+              placeholder="Все источники"
+            />
           </div>
+        )}
 
-          {topicId && (
-            <>
+        {modeId === 'variant' && (
+          <>
+            <div className={styles.chipRow}>
+              <Chip
+                icon="dice"
+                selected={variantRandom}
+                onClick={() => setVariantRandom((v) => !v)}
+              >
+                Случайный вариант
+              </Chip>
+              <Chip
+                icon="retry"
+                selected={variantUnseen}
+                onClick={() => setVariantUnseen((v) => !v)}
+              >
+                Только нерешённые
+              </Chip>
+            </div>
+
+            {selectedCollection && selectedCollection.variants.length > 0 && (
               <div>
-                <SectionHeader title="Номера внутри темы (необязательно)" />
+                <SectionHeader title="Вариант" />
                 <div className={styles.chipRow}>
-                  {Array.from(
-                    { length: getSubjectContent(subjectId).taskNumberCount },
-                    (_, i) => i + 1,
-                  ).map((number) => (
+                  {selectedCollection.variants.map((v) => (
                     <Chip
-                      key={number}
-                      selected={topicNumbers.has(number)}
-                      onClick={() => toggleTopicNumber(number)}
+                      key={v.id}
+                      selected={v.id === variantId}
+                      onClick={() => setVariantId(v.id)}
+                      disabled={variantRandom || variantUnseen}
                     >
-                      №{number}
+                      Вариант {v.variantNumber}
                     </Chip>
                   ))}
                 </div>
               </div>
+            )}
+          </>
+        )}
 
-              <div>
-                <SectionHeader title="Режим выборки" />
+        {modeId === 'topic' && (
+          <>
+            <div>
+              <SectionHeader title="Тема" />
+              {topics.length === 0 ? (
+                <p className="text-body-sm text-secondary">
+                  В этом источнике пока нет тем — попробуй сменить «Сборник».
+                </p>
+              ) : (
                 <div className={styles.chipRow}>
-                  <Chip
-                    icon="dice"
-                    selected={topicRandom}
-                    onClick={() => setTopicRandom((v) => !v)}
-                  >
-                    Случайное
-                  </Chip>
-                  <Chip
-                    icon="retry"
-                    selected={topicUnseen}
-                    onClick={() => setTopicUnseen((v) => !v)}
-                  >
-                    Только нерешённые
-                  </Chip>
+                  {topics.map((topic) => (
+                    <Chip
+                      key={topic.topicId}
+                      selected={topic.topicId === topicId}
+                      onClick={() => setTopicId(topic.topicId)}
+                    >
+                      {topic.topicName}
+                    </Chip>
+                  ))}
                 </div>
-              </div>
+              )}
+            </div>
 
-              {topicNumbers.size === 0 && (
+            {topicId && (
+              <>
                 <div>
-                  <SectionHeader title="Количество заданий" />
+                  <SectionHeader title="Номера внутри темы (необязательно)" />
                   <div className={styles.chipRow}>
-                    {amountOptions.map((option) => (
+                    {Array.from(
+                      { length: getSubjectContent(subjectId).taskNumberCount },
+                      (_, i) => i + 1,
+                    ).map((number) => (
                       <Chip
-                        key={option.id}
-                        icon={option.icon}
-                        selected={amount === option.id}
-                        onClick={() => setAmount(option.id)}
+                        key={number}
+                        selected={topicNumbers.has(number)}
+                        onClick={() => toggleTopicNumber(number)}
                       >
-                        {option.label}
+                        №{number}
                       </Chip>
                     ))}
                   </div>
-                  {amount === 'custom' && (
-                    <Input
-                      label="Сколько заданий"
-                      placeholder="Например, 15"
-                      inputMode="numeric"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value.replace(/\D/g, ''))}
-                      style={{ marginTop: 'var(--space-2)' }}
-                    />
-                  )}
                 </div>
-              )}
-            </>
-          )}
-        </>
-      )}
 
-      {modeId === 'smart' && (
-        <>
-          <div>
-            <SectionHeader title="Режим выборки" />
-            <div className={styles.chipRow}>
-              <Chip icon="dice" selected={smartRandom} onClick={() => setSmartRandom((v) => !v)}>
-                Случайное
-              </Chip>
-              <Chip icon="retry" selected={smartUnseen} onClick={() => setSmartUnseen((v) => !v)}>
-                Только нерешённые
-              </Chip>
-            </div>
-          </div>
+                <div>
+                  <SectionHeader title="Режим выборки" />
+                  <div className={styles.chipRow}>
+                    <Chip
+                      icon="dice"
+                      selected={topicRandom}
+                      onClick={() => setTopicRandom((v) => !v)}
+                    >
+                      Случайное
+                    </Chip>
+                    <Chip
+                      icon="retry"
+                      selected={topicUnseen}
+                      onClick={() => setTopicUnseen((v) => !v)}
+                    >
+                      Только нерешённые
+                    </Chip>
+                  </div>
+                </div>
 
-          <div>
-            <SectionHeader title="Количество заданий" />
-            <div className={styles.chipRow}>
-              {smartQuantityOptions.map((option) => (
-                <Chip
-                  key={option}
-                  selected={option === smartQuantity}
-                  onClick={() => setSmartQuantity(option)}
-                >
-                  {option}
+                {topicNumbers.size === 0 && (
+                  <div>
+                    <SectionHeader title="Количество заданий" />
+                    <div className={styles.chipRow}>
+                      {amountOptions.map((option) => (
+                        <Chip
+                          key={option.id}
+                          icon={option.icon}
+                          selected={amount === option.id}
+                          onClick={() => setAmount(option.id)}
+                        >
+                          {option.label}
+                        </Chip>
+                      ))}
+                    </div>
+                    {amount === 'custom' && (
+                      <Input
+                        label="Сколько заданий"
+                        placeholder="Например, 15"
+                        inputMode="numeric"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value.replace(/\D/g, ''))}
+                        style={{ marginTop: 'var(--space-2)' }}
+                      />
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {modeId === 'smart' && (
+          <>
+            <div>
+              <SectionHeader title="Режим выборки" />
+              <div className={styles.chipRow}>
+                <Chip icon="dice" selected={smartRandom} onClick={() => setSmartRandom((v) => !v)}>
+                  Случайное
                 </Chip>
-              ))}
+                <Chip icon="retry" selected={smartUnseen} onClick={() => setSmartUnseen((v) => !v)}>
+                  Только нерешённые
+                </Chip>
+              </div>
             </div>
-          </div>
-        </>
-      )}
+
+            <div>
+              <SectionHeader title="Количество заданий" />
+              <div className={styles.chipRow}>
+                {smartQuantityOptions.map((option) => (
+                  <Chip
+                    key={option}
+                    selected={option === smartQuantity}
+                    onClick={() => setSmartQuantity(option)}
+                  >
+                    {option}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </ContentSwap>
 
       {startError && (
         <p className="text-body-sm" style={{ color: 'var(--color-error)' }}>

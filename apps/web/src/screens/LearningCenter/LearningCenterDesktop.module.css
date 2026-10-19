@@ -129,9 +129,38 @@
 }
 
 .subjectIcon {
+  position: relative;
+  isolation: isolate; /* keeps the halo below the icon, above the row */
   flex-shrink: 0;
   width: 2.25rem;
   height: 2.25rem;
+}
+
+/* A soft halo of the subject's own colour under its icon (the colour comes
+   from the icon itself, see SubjectIcon: --subject-glow on this row). */
+.subjectIcon::after {
+  content: '';
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -30%;
+  height: 55%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--subject-glow, transparent) 55%, transparent),
+    transparent
+  );
+  opacity: 0.55;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .subjectRow:hover .subjectIcon::after {
+    opacity: 0.95;
+  }
 }
 
 .subjectName {
@@ -168,23 +197,29 @@
   gap: var(--space-2);
   padding: var(--space-4);
   border-radius: var(--radius-card);
-  background: var(--color-bg-elevated);
+  /* Each card keeps its own colour: a faint wash of its icon's light. */
+  background:
+    radial-gradient(
+      80% 70% at 0% 0%,
+      color-mix(in srgb, var(--rec-accent) 12%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-elevated);
 }
 
 .recommendIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: var(--radius-card);
-  color: #fff;
+  margin-bottom: var(--space-1);
 }
 
 .recommendBody {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  /* Clear of the round arrow in the bottom-right corner. */
+  padding-right: 2.5rem;
 }
 
 .recommendBadge {

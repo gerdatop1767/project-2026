@@ -64,7 +64,18 @@
   left: 0;
   border-radius: var(--radius-button);
   background: var(--color-accent-primary);
+}
+
+/* Slides between tabs once it has a place; fast and decisive, so the
+   choice registers the moment it is made. */
+.indicatorPlaced {
   transition:
-    transform var(--duration-base) var(--easing-standard),
-    width var(--duration-base) var(--easing-standard);
+    transform 240ms var(--easing-out),
+    width 240ms var(--easing-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicatorPlaced {
+    transition: none;
+  }
 }

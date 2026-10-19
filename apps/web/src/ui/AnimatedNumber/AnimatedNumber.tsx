@@ -12,21 +12,6 @@ export interface AnimatedNumberProps {
   className?: string;
 }
 
-type Token =
-  { kind: 'digit'; digit: number; key: string } | { kind: 'char'; char: string; key: string };
-
-function tokenize(text: string): Token[] {
-  const chars = [...text];
-  // Keyed from the RIGHT, so the units stay the units when the number grows
-  // a digit (9 → 10) and only the new leading column is added.
-  return chars.map((char, index) => {
-    const fromRight = chars.length - 1 - index;
-    return /\d/.test(char)
-      ? { kind: 'digit', digit: Number(char), key: `d${fromRight}` }
-      : { kind: 'char', char, key: `c${fromRight}` };
-  });
-}
-
 function prefersReducedMotion(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -36,33 +21,37 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * A number that rolls into place like an odometer: every digit is a column
- * that spins up from 0 and settles on its value, the columns rippling left
- * to right. It plays when the number first scrolls into view — not on every
- * render — and afterwards a changed value rolls from the old digits to the
- * new ones. Formatting (spaces, "+", "%", units) is kept as given.
+ * A number that is revealed from left to right: its characters come into
+ * view one after another, each wiped in from its left edge with a slight
+ * glide, so the whole value reads like it is being written out. It plays
+ * when the number first scrolls into view — not on every render; a value
+ * that changes later simply updates. Formatting (spaces, "+", "%", units)
+ * is kept as given.
  *
- * Honest by construction: it only ever animates toward the real value it is
- * given; while the caller has nothing yet it passes its placeholder ("···"),
- * which is shown as is.
+ * Every character is laid out at its final place from the first frame (only
+ * its visibility animates), so nothing around the number shifts or jumps
+ * while it plays, whatever the length or grouping of the value.
  *
- * The moving digits are drawn by CSS (`::before` strips, transform only — no
- * per-frame JavaScript), so the element's text is just the final value, in a
- * visually hidden span for screen readers, copy and tests. With
- * `prefers-reduced-motion` (or no IntersectionObserver) the value is simply
- * shown.
+ * Honest by construction: it only ever shows the real value it is given;
+ * while the caller has nothing yet it passes its placeholder ("···"), which
+ * is shown as is.
+ *
+ * The visible characters are drawn by CSS (`::before`), so the element's
+ * text is just the value, in a visually hidden span for screen readers,
+ * copy and tests. With `prefers-reduced-motion` (or no
+ * IntersectionObserver) the value is simply shown.
  */
 export function AnimatedNumber({ value, className }: AnimatedNumberProps) {
   const text = typeof value === 'number' ? value.toLocaleString('ru-RU') : value;
-  const tokens = tokenize(text);
-  const hasDigits = tokens.some((token) => token.kind === 'digit');
+  const chars = [...text];
+  const hasDigits = chars.some((char) => /\d/.test(char));
 
   const ref = useRef<HTMLSpanElement>(null);
   const [instant] = useState(
     () => typeof IntersectionObserver === 'undefined' || prefersReducedMotion(),
   );
   const [inView, setInView] = useState(instant);
-  const [rolled, setRolled] = useState(instant);
+  const [revealed, setRevealed] = useState(instant);
 
   useEffect(() => {
     if (inView) return;
@@ -81,50 +70,44 @@ export function AnimatedNumber({ value, className }: AnimatedNumberProps) {
     return () => observer.disconnect();
   }, [inView]);
 
-  // Roll once the real digits are both here and visible. Two frames: the
-  // columns must be painted at 0 first, or there is nothing to transition from.
+  // Reveal once the real digits are both here and visible. Two frames: the
+  // hidden state must be painted first, or there is nothing to transition from.
   useEffect(() => {
-    if (instant || rolled || !inView || !hasDigits) return;
+    if (instant || revealed || !inView || !hasDigits) return;
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => setRolled(true));
+      second = requestAnimationFrame(() => setRevealed(true));
     });
     return () => {
       cancelAnimationFrame(first);
       cancelAnimationFrame(second);
     };
-  }, [instant, rolled, inView, hasDigits]);
-
-  let column = 0;
+  }, [instant, revealed, inView, hasDigits]);
 
   return (
-    <span ref={ref} className={clsx(styles.root, className)} data-instant={instant || undefined}>
+    <span
+      ref={ref}
+      className={clsx(styles.root, className)}
+      data-animated-number
+      data-instant={instant || undefined}
+      data-revealed={revealed || !hasDigits || undefined}
+    >
       <span className={styles.text}>{text}</span>
-      {hasDigits ? (
-        <span className={styles.visual} aria-hidden="true">
-          {tokens.map((token) => {
-            if (token.kind === 'char') {
-              return <span key={token.key} className={styles.char} data-char={token.char} />;
-            }
-            const style = {
-              ['--pos' as string]: rolled ? 10 + token.digit : 0,
-              ['--col' as string]: column++,
-            } as CSSProperties;
-            return (
-              <span
-                key={token.key}
-                className={styles.digit}
-                data-digit={token.digit}
-                style={style}
-              />
-            );
-          })}
-        </span>
-      ) : (
-        <span className={styles.visual} aria-hidden="true">
-          <span className={styles.char} data-char={text} />
-        </span>
-      )}
+      <span className={styles.visual} aria-hidden="true">
+        {hasDigits ? (
+          chars.map((char, index) => (
+            <span
+              // Keyed from the right: the units stay the units when the value grows a digit.
+              key={chars.length - 1 - index}
+              className={styles.glyph}
+              data-char={char}
+              style={{ ['--i' as string]: index } as CSSProperties}
+            />
+          ))
+        ) : (
+          <span className={styles.plain} data-char={text} />
+        )}
+      </span>
     </span>
   );
 }
