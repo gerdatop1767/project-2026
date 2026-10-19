@@ -59,9 +59,9 @@
 }
 
 .card[data-tone='low'] {
-  --tone: #e2648f;
-  --tone-soft: color-mix(in srgb, #e2648f 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #e2648f 38%, transparent);
+  --tone: var(--color-progress-low);
+  --tone-soft: color-mix(in srgb, var(--color-progress-low) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-progress-low) 38%, transparent);
 }
 
 /* Selection: an outer ring of its own, on top of whatever tone it has. */

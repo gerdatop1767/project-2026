@@ -23,7 +23,7 @@
 
 .header[data-scrolled] {
   background: color-mix(in srgb, var(--color-bg-base) 90%, transparent);
-  border-bottom-color: color-mix(in srgb, #fff 7%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--color-tint) 7%, transparent);
 }
 
 @supports (backdrop-filter: blur(1px)) {
@@ -163,7 +163,7 @@
   }
 
   .signIn:hover {
-    background: color-mix(in srgb, #fff 7%, transparent);
+    background: color-mix(in srgb, var(--color-tint) 7%, transparent);
   }
 
   .cta:hover {
@@ -174,7 +174,7 @@
 /* ---- Footer ---- */
 
 .footer {
-  border-top: 1px solid color-mix(in srgb, #fff 7%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-tint) 7%, transparent);
   padding-bottom: var(--safe-bottom);
 }
 

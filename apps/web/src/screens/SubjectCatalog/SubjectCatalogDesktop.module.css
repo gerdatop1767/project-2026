@@ -21,8 +21,8 @@
   background: linear-gradient(
     90deg,
     var(--color-bg-base) 0%,
-    rgba(5, 7, 15, 0.75) 35%,
-    rgba(5, 7, 15, 0.15) 75%
+    color-mix(in srgb, var(--color-bg-base) 75%, transparent) 35%,
+    color-mix(in srgb, var(--color-bg-base) 15%, transparent) 75%
   );
 }
 

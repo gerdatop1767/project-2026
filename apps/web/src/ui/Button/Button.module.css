@@ -28,7 +28,7 @@
 
 .primary {
   background: var(--gradient-primary);
-  color: var(--color-text-primary);
+  color: var(--color-on-accent);
   box-shadow: var(--shadow-glow-accent);
 }
 
@@ -61,7 +61,7 @@
 
 .destructive:hover:not(:disabled) {
   background: var(--color-error);
-  color: var(--color-text-primary);
+  color: var(--color-on-accent);
 }
 
 /* ---- States ---- */
@@ -87,7 +87,7 @@
 }
 
 .primary .spinner {
-  color: var(--color-text-primary);
+  color: var(--color-on-accent);
 }
 
 .secondary .spinner,

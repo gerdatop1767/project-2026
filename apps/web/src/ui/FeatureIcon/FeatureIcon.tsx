@@ -126,8 +126,8 @@ export function FeatureIcon({ name, reveal = true, className }: FeatureIconProps
           x2="20"
           y2="21"
         >
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.5" stopColor="#ffffff" />
+          <stop offset="0" style={{ stopColor: 'var(--glyph-light, #ffffff)' }} />
+          <stop offset="0.5" style={{ stopColor: 'var(--glyph-light, #ffffff)' }} />
           <stop offset="1" stopColor={accent} />
         </linearGradient>
       </svg>

@@ -48,9 +48,9 @@
 }
 
 .col[data-tone='low'] {
-  --tone-a: #e2648f;
+  --tone-a: var(--color-progress-low);
   --tone-b: #a83466;
-  --tone-text: #e2648f;
+  --tone-text: var(--color-progress-low);
 }
 
 .track {
