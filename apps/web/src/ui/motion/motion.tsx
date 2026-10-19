@@ -83,6 +83,15 @@ export function ScreenEnter({ screenKey, children }: { screenKey: string; childr
   );
 }
 
+/**
+ * New content arriving in place of old (another task, another tab's
+ * panel): its children fade in with a short rise. Key it by what it shows
+ * (`key={taskId}`) so it re-plays on each swap. Adds no box of its own.
+ */
+export function ContentSwap({ children }: { children: ReactNode }) {
+  return <div className={styles.contentSwap}>{children}</div>;
+}
+
 export interface CollapseProps {
   open: boolean;
   children: ReactNode;

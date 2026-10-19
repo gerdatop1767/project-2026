@@ -263,6 +263,9 @@ export interface NavigateOptions {
    * redirects the user did not ask for (access gate, post-sign-in), so
    * the entry they bounce from is not left behind to trap Back. */
   replace?: boolean;
+  /** Marks the entry as the access gate's sign-in redirect (a signed-out
+   * visitor sent from a private URL to /login) — see `isSignInGateEntry`. */
+  signInGate?: boolean;
 }
 
 /**
@@ -277,8 +280,20 @@ function currentHistoryIndex(): number {
   return typeof index === 'number' && Number.isInteger(index) && index > 0 ? index : 0;
 }
 
-function writeHistory(mode: 'push' | 'replace', path: string, index: number) {
-  const state = { zybrilka: { index } };
+/**
+ * Whether the current entry is the sign-in screen the access gate put in
+ * place of a private page. Going "back" from there only reaches more
+ * private pages (after a sign-out the trainer's whole history is still
+ * behind it), each of which the gate turns into this same screen again —
+ * so its × must take the visitor out to the landing instead.
+ */
+export function isSignInGateEntry(): boolean {
+  const state = window.history.state as { zybrilka?: { gate?: unknown } } | null;
+  return state?.zybrilka?.gate === true;
+}
+
+function writeHistory(mode: 'push' | 'replace', path: string, index: number, gate = false) {
+  const state = { zybrilka: gate ? { index, gate } : { index } };
   if (mode === 'push') window.history.pushState(state, '', path);
   else window.history.replaceState(state, '', path);
 }
@@ -323,7 +338,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     if (isRemovedPath(pathname)) {
       writeHistory('replace', `/${hash}`, 0);
     } else {
-      writeHistory('replace', pathname + search + hash, currentHistoryIndex());
+      writeHistory('replace', pathname + search + hash, currentHistoryIndex(), isSignInGateEntry());
     }
 
     function onPopState() {
@@ -350,7 +365,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     if (path === null) return;
     const currentPath = window.location.pathname + window.location.search;
     if (options?.replace) {
-      writeHistory('replace', path, currentHistoryIndex());
+      writeHistory('replace', path, currentHistoryIndex(), options.signInGate);
     } else if (path !== currentPath) {
       writeHistory('push', path, currentHistoryIndex() + 1);
     }

@@ -13,6 +13,9 @@ export interface StatTileProps {
   suffix?: string;
   deltaLabel?: ReactNode;
   deltaDirection?: 'up' | 'down';
+  /** Roll the digits into place on first view (default). Off where the
+   * number is seen on every visit and should simply be there. */
+  animate?: boolean;
   className?: string;
 }
 
@@ -30,8 +33,10 @@ export function StatTile({
   suffix,
   deltaLabel,
   deltaDirection,
+  animate = true,
   className,
 }: StatTileProps) {
+  const text = `${value}${suffix ?? ''}`;
   return (
     <div
       className={`${styles.tile} ${className ?? ''}`}
@@ -41,9 +46,7 @@ export function StatTile({
         <Icon name={icon} size={20} />
       </span>
       <p className="text-body-sm text-secondary">{label}</p>
-      <p className={styles.value}>
-        <AnimatedNumber value={`${value}${suffix ?? ''}`} />
-      </p>
+      <p className={styles.value}>{animate ? <AnimatedNumber value={text} /> : text}</p>
       {deltaLabel && (
         <span
           className={`${styles.delta} ${deltaDirection === 'down' ? styles.deltaDown : styles.deltaUp}`}

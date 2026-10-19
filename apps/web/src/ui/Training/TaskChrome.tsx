@@ -6,14 +6,18 @@ import { ProgressBar } from '../Progress/ProgressBar.js';
 import { BottomSheet } from '../BottomSheet/BottomSheet.js';
 import { ReportTaskContent } from '../ReportTask/ReportTaskContent.js';
 import type { Subject } from '../../data/subjects.js';
-import type { SampleTask } from '../../data/sampleTask.js';
 import { useFavorite } from '../../lib/useFavorite.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './TaskChrome.module.css';
 
 export interface TaskChromeProps {
   subject: Subject;
-  task: SampleTask;
+  /** The task the route points at. Only its id and number are needed,
+   * both known from the route before the task itself has loaded — so the
+   * chrome (and the strip's active number) can switch the instant a
+   * number is picked, while the task's content is still on its way. */
+  taskId: string;
+  taskNumber: number;
   onBack: () => void;
   /** The real ordered task list for the current source/variant — see
    * TaskNumberStrip; empty when there's no source/variant context. */
@@ -41,7 +45,8 @@ export interface TaskChromeProps {
  */
 export function TaskChrome({
   subject,
-  task,
+  taskId,
+  taskNumber,
   onBack,
   numberStripRange,
   onSelectNumber,
@@ -52,7 +57,7 @@ export function TaskChrome({
   totalInSession,
 }: TaskChromeProps) {
   const progressPercent = (indexInSession / totalInSession) * 100;
-  const favorite = useFavorite(task.id);
+  const favorite = useFavorite(taskId);
   const [reportOpen, setReportOpen] = useState(false);
 
   return (
@@ -66,7 +71,7 @@ export function TaskChrome({
           <p className="text-body" style={{ fontWeight: 700 }}>
             {subject.shortName}
           </p>
-          <p className="text-body-sm text-secondary">Задание №{task.number}</p>
+          <p className="text-body-sm text-secondary">Задание №{taskNumber}</p>
         </div>
         <button
           type="button"
@@ -88,7 +93,7 @@ export function TaskChrome({
       </div>
 
       <BottomSheet open={reportOpen} onClose={() => setReportOpen(false)} title="Задание">
-        <ReportTaskContent taskId={task.id} />
+        <ReportTaskContent taskId={taskId} />
       </BottomSheet>
 
       <div className={styles.navRow}>
@@ -101,11 +106,7 @@ export function TaskChrome({
         >
           <Icon name="chevronLeft" size={20} />
         </button>
-        <TaskNumberStrip
-          activeTaskId={task.id}
-          range={numberStripRange}
-          onSelect={onSelectNumber}
-        />
+        <TaskNumberStrip activeTaskId={taskId} range={numberStripRange} onSelect={onSelectNumber} />
         <button
           type="button"
           className={styles.iconButton}

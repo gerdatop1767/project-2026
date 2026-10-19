@@ -200,7 +200,8 @@ export function ResultMobile({
     <SlideUp key={`${taskId}-${correct}`} className={styles.stack}>
       <TaskChrome
         subject={subject}
-        task={task}
+        taskId={task.id}
+        taskNumber={task.number}
         onBack={goBack}
         numberStripRange={taskNav.orderedTasks}
         onSelectNumber={taskNav.goTo}

@@ -79,6 +79,7 @@ export function Profile() {
 
       <div className={styles.statsGrid}>
         <StatTile
+          animate={false}
           className={styles.statTile}
           icon="target"
           iconColor="var(--color-accent-primary)"
@@ -86,6 +87,7 @@ export function Profile() {
           value={progress ? progress.solvedTotal : '···'}
         />
         <StatTile
+          animate={false}
           className={styles.statTile}
           icon="progress"
           iconColor="var(--color-accent-secondary)"

@@ -1,6 +1,7 @@
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { resetPrivateCaches } from '../lib/privateCaches.js';
 
 // Testing Library's auto-cleanup relies on a global `afterEach` hook, which
 // Vitest only provides when `test.globals` is enabled. This project keeps
@@ -13,6 +14,10 @@ afterEach(() => {
   // calls would leak into the next test's initial location within the
   // same file.
   window.history.replaceState(null, '', '/');
+  // Module-level caches (e.g. the resolved task orders in
+  // useTaskNavigation) would otherwise carry one test's mocked data into
+  // the next — the same reset a sign-out runs.
+  resetPrivateCaches();
 });
 
 // jsdom doesn't implement matchMedia. Components that check

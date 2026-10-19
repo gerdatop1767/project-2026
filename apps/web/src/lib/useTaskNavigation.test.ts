@@ -114,6 +114,26 @@ describe('useTaskNavigation', () => {
     expect(result.current.variantId).toBe('variant-1');
   });
 
+  it('a later task of an already-resolved variant has its list at once — no second fetch, nothing to wait for', async () => {
+    vi.mocked(api.getVariant).mockResolvedValue(variantDetail([TASK_A, TASK_B]));
+    const first = renderHook(
+      () => useTaskNavigation({ subjectId: 'math', taskId: TASK_A.taskId, variantId: 'variant-1' }),
+      { wrapper },
+    );
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    first.unmount();
+
+    // The task screen remounts for every task: the next one must not start empty.
+    const second = renderHook(
+      () => useTaskNavigation({ subjectId: 'math', taskId: TASK_B.taskId, variantId: 'variant-1' }),
+      { wrapper },
+    );
+    expect(second.result.current.loading).toBe(false);
+    expect(second.result.current.orderedTasks).toEqual([TASK_A, TASK_B]);
+    expect(second.result.current.previous).toEqual(TASK_A);
+    expect(api.getVariant).toHaveBeenCalledTimes(1);
+  });
+
   it('previous is null at the start of the ordered list', async () => {
     vi.mocked(api.getVariantForTask).mockResolvedValue(variantDetail([TASK_A, TASK_B]));
     const { result } = renderHook(

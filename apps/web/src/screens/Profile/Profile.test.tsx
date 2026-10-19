@@ -168,6 +168,8 @@ describe('Profile', () => {
     // The overall "Точность" tile also reads 75% here; this is about the row.
     const row = (await screen.findByText('Математика')).closest('button')!;
     await waitFor(() => expect(within(row).getByText('75%')).toBeInTheDocument());
+    // The profile's numbers are simply shown — no rolling digits here.
+    expect(document.querySelector('[data-digit]')).toBeNull();
   });
 
   it('shows an honest "—" (not 0%) for a subject with no solved attempts yet', async () => {

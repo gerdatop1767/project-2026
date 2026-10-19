@@ -661,6 +661,21 @@ describe('App — sign-in redirects, × and removed pages', () => {
     expect(window.location.pathname).toBe('/');
   });
 
+  it('after signing out, the trainer pages left in the history do not trap ×: the sign-in shown in place of one goes straight to the landing', async () => {
+    // What a sign-out leaves behind: several private pages of this visit.
+    window.history.replaceState({ zybrilka: { index: 0 } }, '', '/statistics');
+    window.history.pushState({ zybrilka: { index: 1 } }, '', '/achievements');
+    window.history.pushState({ zybrilka: { index: 2 } }, '', '/rating');
+    const user = userEvent.setup();
+    renderApp(null);
+    await screen.findByText('Войти или создать аккаунт');
+    expect(window.location.pathname).toBe('/login');
+
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await landingHeading();
+    expect(window.location.pathname).toBe('/');
+  });
+
   it("sign-in opened from the landing's CTA: × is a real Back to the landing", async () => {
     const user = userEvent.setup();
     renderApp(null);
