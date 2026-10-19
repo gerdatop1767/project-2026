@@ -684,7 +684,8 @@ describe('ResultDesktop — "Другие задания" (desktop, bugfix: bloc
   it('"К списку заданий №N" inside "Другие задания" navigates to По номерам with this taskNumber pre-selected, distinct from the main action bar\'s plain "К списку заданий"', async () => {
     function ByNumberOverlayDetail() {
       const { overlay } = useNavigation();
-      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      if (overlay?.screen !== 'subject' || overlay.initialMode !== 'byNumber')
+        return <p data-testid="by-number">none</p>;
       return (
         <p data-testid="by-number">
           byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}

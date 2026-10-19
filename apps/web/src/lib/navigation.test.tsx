@@ -113,21 +113,21 @@ describe('NavigationProvider — URL is the source of truth', () => {
  * neither platform invents its own navigation mechanism.
  */
 describe('trainingByNumberRouteFor', () => {
-  it('builds a trainingByNumber route with the real subjectId and initialTaskNumber', () => {
+  it('opens the subject page in "По номерам" with the real subjectId and number pre-selected', () => {
     expect(trainingByNumberRouteFor('math', 13)).toEqual({
-      screen: 'trainingByNumber',
+      screen: 'subject',
       subjectId: 'math',
+      initialMode: 'byNumber',
       initialTaskNumber: 13,
-      from: { screen: 'subject', subjectId: 'math' },
     });
   });
 
   it('is deterministic for different subjects/numbers, never hardcoded to one', () => {
     expect(trainingByNumberRouteFor('russian', 7)).toEqual({
-      screen: 'trainingByNumber',
+      screen: 'subject',
       subjectId: 'russian',
+      initialMode: 'byNumber',
       initialTaskNumber: 7,
-      from: { screen: 'subject', subjectId: 'russian' },
     });
   });
 });

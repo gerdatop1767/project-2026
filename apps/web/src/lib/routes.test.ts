@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
+import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { Route } from './navigation.js';
 
 describe('pathForRoute', () => {
@@ -109,6 +109,36 @@ describe('routeFromPath', () => {
       screen: 'subject',
       subjectId: 'math',
       from: 'subjectCatalog',
+    });
+  });
+});
+
+describe('По номерам — a mode of the subject page', () => {
+  it('round-trips mode and the pre-selected number through the URL', () => {
+    const route: Route = {
+      screen: 'subject',
+      subjectId: 'math',
+      initialMode: 'byNumber',
+      initialTaskNumber: 13,
+    };
+    const path = pathForRoute(route)!;
+    expect(path).toBe('/subjects/math?mode=byNumber&n=13');
+    expect(routeFromPath(path)).toEqual({ ...route, from: 'subjectCatalog' });
+  });
+
+  it('ignores a bad number', () => {
+    expect(routeFromPath('/subjects/math?mode=byNumber&n=abc')).not.toHaveProperty(
+      'initialTaskNumber',
+    );
+  });
+
+  it('old /training/by-number links land on the subject page in that mode', () => {
+    expect(isLegacyPath('/training/by-number')).toBe(true);
+    expect(routeFromPath('/training/by-number')).toEqual({
+      screen: 'subject',
+      subjectId: 'math',
+      from: 'subjectCatalog',
+      initialMode: 'byNumber',
     });
   });
 });

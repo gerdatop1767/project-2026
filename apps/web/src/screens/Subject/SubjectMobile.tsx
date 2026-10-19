@@ -10,6 +10,7 @@ import {
   listCollections,
 } from '../../lib/api.js';
 import { getSubjectContent, type SubjectModeId } from '../../data/subjectContent.js';
+import { ByNumberPanel } from './ByNumberPanel.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Chip } from '../../ui/Chip/Chip.js';
@@ -34,7 +35,7 @@ function sourceSelectOptions(collections: readonly CollectionListItem[]) {
   ];
 }
 
-const modes: readonly { id: SubjectModeId | 'byNumber'; label: string; icon: IconName }[] = [
+const modes: readonly { id: SubjectModeId; label: string; icon: IconName }[] = [
   { id: 'topics', label: 'Темы', icon: 'reference' },
   { id: 'byNumber', label: 'По номерам', icon: 'checklist' },
   { id: 'variants', label: 'Варианты', icon: 'variant' },
@@ -49,6 +50,8 @@ export interface SubjectMobileProps {
   /** Opens straight into this mode tab (e.g. Result's "К списку
    * заданий" wants "По номерам") instead of the default "Темы". */
   initialMode?: SubjectModeId;
+  /** With `initialMode: 'byNumber'`: the number to pre-select. */
+  initialTaskNumber?: number;
 }
 
 type TopicProgressItem = ProgressByTopicResponse['items'][number];
@@ -63,7 +66,12 @@ type TopicProgressItem = ProgressByTopicResponse['items'][number];
  * below it. No approved mobile screenshot exists for this screen, so
  * it stays a functional adaptation rather than an invented layout.
  */
-export function SubjectMobile({ subjectId, collectionSlug, initialMode }: SubjectMobileProps) {
+export function SubjectMobile({
+  subjectId,
+  collectionSlug,
+  initialMode,
+  initialTaskNumber,
+}: SubjectMobileProps) {
   const { navigate, back } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const content = getSubjectContent(subject.id);
@@ -204,16 +212,7 @@ export function SubjectMobile({ subjectId, collectionSlug, initialMode }: Subjec
     });
   }
 
-  function selectMode(id: SubjectModeId | 'byNumber') {
-    if (id === 'byNumber') {
-      navigate({
-        screen: 'trainingByNumber',
-        subjectId: subject.id,
-        collectionSlug: effectiveTopicsSlug ?? undefined,
-        from: currentReturnTo(),
-      });
-      return;
-    }
+  function selectMode(id: SubjectModeId) {
     setMode(id);
     setSelectedTopic(null);
   }
@@ -289,6 +288,20 @@ export function SubjectMobile({ subjectId, collectionSlug, initialMode }: Subjec
             subjectName={subject.shortName}
             topic={selectedTopic}
             onStart={() => startTopicTraining(selectedTopic)}
+          />
+        )}
+        {mode === 'byNumber' && (
+          <ByNumberPanel
+            subjectId={subject.id}
+            collections={collections}
+            collectionSlug={collectionSlug}
+            initialTaskNumber={initialTaskNumber}
+            returnTo={(slug) => ({
+              screen: 'subject',
+              subjectId: subject.id,
+              collectionSlug: slug,
+              initialMode: 'byNumber',
+            })}
           />
         )}
         {mode === 'variants' && (

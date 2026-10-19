@@ -66,7 +66,7 @@ function renderApp() {
 }
 
 describe('AppDesktop — Subject → Задания по номерам → task → Back (routing fix)', () => {
-  it('Back from the started task returns to Задания по номерам, not Subject or a hardcoded Тренировка', async () => {
+  it('Back from the started task returns to the subject page in Задания по номерам', async () => {
     const user = userEvent.setup();
     vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
     vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
@@ -75,18 +75,18 @@ describe('AppDesktop — Subject → Задания по номерам → task
     await user.click(screen.getByRole('button', { name: 'Предметы' }));
     await user.click(await screen.findByText('Математика'));
     await user.click(await screen.findByText('Задания по номерам'));
-    await waitFor(() =>
-      expect(screen.getByTestId('overlay')).toHaveTextContent('trainingByNumber'),
-    );
+    expect(screen.getByTestId('overlay')).toHaveTextContent('subject');
 
     await user.click(await screen.findByRole('button', { name: '№5' }));
+    const historyLength = window.history.length;
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:5'));
 
     await user.click(screen.getByRole('button', { name: 'Назад' }));
-    await waitFor(() =>
-      expect(screen.getByTestId('overlay')).toHaveTextContent('trainingByNumber'),
-    );
-    expect(screen.getByRole('button', { name: '№5' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('subject'));
+    // Straight back to the same mode — the number grid is right there —
+    // and no extra stop was added to the browser's Back stack.
+    expect(await screen.findByRole('button', { name: '№5' })).toBeInTheDocument();
+    expect(window.history.length).toBe(historyLength);
   });
 });

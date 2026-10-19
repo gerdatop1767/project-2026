@@ -19,7 +19,6 @@ import { SubjectMobile } from './screens/Subject/SubjectMobile.js';
 import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { Profile } from './screens/Profile/Profile.js';
 import { Training } from './screens/Training/Training.js';
-import { TrainingByNumber } from './screens/Training/TrainingByNumber.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
 
 /**
@@ -116,6 +115,7 @@ export function AppMobile() {
                 from={contentOverlay.from}
                 collectionSlug={contentOverlay.collectionSlug}
                 initialMode={contentOverlay.initialMode}
+                initialTaskNumber={contentOverlay.initialTaskNumber}
               />
             )}
             {contentOverlay.screen === 'task' && (
@@ -165,14 +165,6 @@ export function AppMobile() {
             )}
             {contentOverlay.screen === 'trainingVariants' && (
               <WipPlaceholder title="Варианты" note="Экран в разработке — следующий блок." />
-            )}
-            {contentOverlay.screen === 'trainingByNumber' && (
-              <TrainingByNumber
-                subjectId={contentOverlay.subjectId}
-                collectionSlug={contentOverlay.collectionSlug}
-                from={contentOverlay.from}
-                initialTaskNumber={contentOverlay.initialTaskNumber}
-              />
             )}
             {contentOverlay.screen === 'rating' && <RatingMobile />}
             {contentOverlay.screen === 'learningCenter' && (

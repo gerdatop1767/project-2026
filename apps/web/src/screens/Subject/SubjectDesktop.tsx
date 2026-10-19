@@ -10,6 +10,7 @@ import {
   listCollections,
 } from '../../lib/api.js';
 import { getSubjectContent, type SubjectModeId } from '../../data/subjectContent.js';
+import { ByNumberPanel } from './ByNumberPanel.js';
 import { BackRow, type BackRowProps } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Button } from '../../ui/Button/Button.js';
@@ -46,12 +47,14 @@ export interface SubjectDesktopProps {
   /** Opens straight into this mode tab (e.g. Result's "К списку
    * заданий" wants "По номерам") instead of the default "Темы". */
   initialMode?: SubjectModeId;
+  /** With `initialMode: 'byNumber'`: the number to pre-select. */
+  initialTaskNumber?: number;
 }
 
 type TopicProgressItem = ProgressByTopicResponse['items'][number];
 
 const modes: readonly {
-  id: SubjectModeId | 'byNumber';
+  id: SubjectModeId;
   label: string;
   caption: string;
   icon: IconName;
@@ -82,6 +85,7 @@ export function SubjectDesktop({
   from,
   collectionSlug,
   initialMode,
+  initialTaskNumber,
 }: SubjectDesktopProps) {
   const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
@@ -271,16 +275,8 @@ export function SubjectDesktop({
             key={item.id}
             type="button"
             className={clsx(styles.modeButton, mode === item.id && styles.modeButtonActive)}
+            aria-pressed={mode === item.id}
             onClick={() => {
-              if (item.id === 'byNumber') {
-                navigate({
-                  screen: 'trainingByNumber',
-                  subjectId: subject.id,
-                  collectionSlug: effectiveTopicsSlug ?? undefined,
-                  from: currentReturnTo(),
-                });
-                return;
-              }
               setMode(item.id);
               setSelectedTopic(null);
             }}
@@ -311,6 +307,20 @@ export function SubjectDesktop({
                 subjectName={subject.shortName}
                 topic={selectedTopic}
                 onStart={() => startTopicTraining(selectedTopic)}
+              />
+            )}
+            {mode === 'byNumber' && (
+              <ByNumberPanel
+                subjectId={subject.id}
+                collections={collections}
+                collectionSlug={collectionSlug}
+                initialTaskNumber={initialTaskNumber}
+                returnTo={(slug) => ({
+                  screen: 'subject',
+                  subjectId: subject.id,
+                  collectionSlug: slug,
+                  initialMode: 'byNumber',
+                })}
               />
             )}
             {mode === 'variants' && (

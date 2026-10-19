@@ -916,7 +916,8 @@ describe('TaskDesktop — "Другие задания" (desktop, bugfix: block 
   it('"К списку заданий №N" navigates to По номерам with this taskNumber pre-selected (never auto-starts training)', async () => {
     function ByNumberOverlayDetail() {
       const { overlay } = useNavigation();
-      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      if (overlay?.screen !== 'subject' || overlay.initialMode !== 'byNumber')
+        return <p data-testid="by-number">none</p>;
       return (
         <p data-testid="by-number">
           byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}

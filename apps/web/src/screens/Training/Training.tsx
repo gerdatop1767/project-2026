@@ -86,7 +86,7 @@ const amountOptions: readonly { id: AmountId; icon: IconName; label: string }[] 
  * Training (Design Spec Section 7): subject → mode → the selected
  * mode's own settings, then into Task. No "Быстрый старт" shortcuts —
  * those live one level up, as the three real 🎲/🔄/🔢 entry points
- * already offered elsewhere (Subject's own tabs, TrainingByNumber).
+ * already offered elsewhere (the Subject page's own modes, incl. По номерам).
  *
  * "По теме" is wired to real topics (`GET /progress/by-topic`, the
  * same data Subject's "Темы" tab already uses) with independent
