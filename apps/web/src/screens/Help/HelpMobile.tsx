@@ -1,49 +1,10 @@
 import { useNavigation } from '../../lib/navigation.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import type { IconName } from '../../ui/Icon/icons.js';
-import { TELEGRAM_SUPPORT_URL } from '../../lib/telegram.js';
+import { SUPPORT_BOT_URL } from '../../lib/telegram.js';
+import { helpCategories } from './helpCategories.js';
+import { HelpIcon } from './HelpIcon.js';
 import { SlideUp } from '../../ui/motion/motion.js';
-import { clsx } from '../../lib/clsx.js';
 import styles from './HelpMobile.module.css';
-
-interface HelpCategory {
-  id: string;
-  icon: IconName;
-  color: string;
-  title: string;
-  description: string;
-}
-
-const categories: readonly HelpCategory[] = [
-  {
-    id: 'suggestions',
-    icon: 'hint',
-    color: 'var(--color-warning)',
-    title: 'Предложения',
-    description: 'Идеи по улучшению сайта',
-  },
-  {
-    id: 'technical',
-    icon: 'settings',
-    color: 'var(--chart-1)',
-    title: 'Технические проблемы',
-    description: 'Сайт не работает или что-то не загружается',
-  },
-  {
-    id: 'login',
-    icon: 'profile',
-    color: 'var(--chart-6)',
-    title: 'Проблемы с входом',
-    description: 'Не удаётся войти или восстановить доступ',
-  },
-  {
-    id: 'other',
-    icon: 'chat',
-    color: 'var(--chart-2)',
-    title: 'Другие запросы',
-    description: 'Любые другие вопросы и обращения',
-  },
-];
 
 /**
  * Mobile "Помощь" (approved reference:
@@ -54,7 +15,6 @@ const categories: readonly HelpCategory[] = [
  */
 export function HelpMobile() {
   const { back } = useNavigation();
-  const hasBotUrl = TELEGRAM_SUPPORT_URL.length > 0;
 
   return (
     <SlideUp className={styles.stack}>
@@ -81,63 +41,40 @@ export function HelpMobile() {
           aria-hidden="true"
           className={styles.mascot}
         />
-        {hasBotUrl ? (
-          <a
-            href={TELEGRAM_SUPPORT_URL}
-            target="_blank"
-            rel="noreferrer"
-            className={styles.ctaButton}
-          >
-            <Icon name="chat" size={18} /> Открыть бот
-          </a>
-        ) : (
-          <span className={clsx(styles.ctaButton, styles.ctaDisabled)} aria-disabled="true">
-            <Icon name="chat" size={18} /> Бот скоро будет подключён
-          </span>
-        )}
+        <a
+          href={SUPPORT_BOT_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.ctaButton}
+        >
+          <Icon name="chat" size={18} /> Открыть Telegram-бота
+          <span className={styles.srOnly}> (откроется в новой вкладке)</span>
+        </a>
       </div>
 
       <div className={styles.grid}>
-        {categories.map((category) =>
-          hasBotUrl ? (
-            <a
-              key={category.id}
-              href={TELEGRAM_SUPPORT_URL}
-              target="_blank"
-              rel="noreferrer"
-              className={styles.categoryCard}
-              style={{ ['--accent' as string]: category.color }}
-            >
-              <span className={styles.categoryIcon}>
-                <Icon name={category.icon} size={20} />
+        {helpCategories.map((category, index) => (
+          <a
+            key={category.id}
+            href={SUPPORT_BOT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.categoryCard}
+            data-help-card
+            style={{ ['--accent' as string]: category.color }}
+          >
+            <span className={styles.categoryIcon}>
+              <HelpIcon category={category} index={index} />
+            </span>
+            <span className={styles.categoryBody}>
+              <span className="text-body-sm" style={{ fontWeight: 700 }}>
+                {category.title}
               </span>
-              <span className={styles.categoryBody}>
-                <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                  {category.title}
-                </p>
-                <p className="text-body-sm text-secondary">{category.description}</p>
-              </span>
-              <Icon name="chevronRight" size={18} className={styles.categoryChevron} />
-            </a>
-          ) : (
-            <div
-              key={category.id}
-              className={styles.categoryCard}
-              style={{ ['--accent' as string]: category.color }}
-            >
-              <span className={styles.categoryIcon}>
-                <Icon name={category.icon} size={20} />
-              </span>
-              <span className={styles.categoryBody}>
-                <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                  {category.title}
-                </p>
-                <p className="text-body-sm text-secondary">{category.description}</p>
-              </span>
-              <Icon name="chevronRight" size={18} className={styles.categoryChevron} />
-            </div>
-          ),
-        )}
+              <span className="text-body-sm text-secondary">{category.description}</span>
+            </span>
+            <Icon name="chevronRight" size={18} className={styles.categoryChevron} />
+          </a>
+        ))}
       </div>
     </SlideUp>
   );
