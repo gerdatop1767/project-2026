@@ -84,7 +84,9 @@ export function HomeMobile() {
           className={styles.heroCta}
           onClick={() => navigate({ screen: 'subjectCatalog' })}
         >
-          Начать тренировку <Icon name="arrowRight" size={18} />
+          <span className={styles.heroCtaLabel}>
+            Начать тренировку <Icon name="arrowRight" size={18} className={styles.heroCtaArrow} />
+          </span>
         </Button>
       </div>
 
@@ -100,7 +102,13 @@ export function HomeMobile() {
               id: 'solved',
               value: (
                 <span className={styles.statValue}>
-                  <Icon name="success" size={16} className={styles.statIconSuccess} />
+                  <span
+                    className={clsx(styles.statIcon, styles.statIconSuccess)}
+                    data-ready={progress ? '' : undefined}
+                    aria-hidden="true"
+                  >
+                    <Icon name="checklist" size={15} />
+                  </span>
                   {progress ? progress.solvedTotal : progressFailed ? '—' : '···'}
                 </span>
               ),
@@ -110,7 +118,13 @@ export function HomeMobile() {
               id: 'accuracy',
               value: (
                 <span className={styles.statValue}>
-                  <Icon name="star" size={16} className={styles.statIconGold} />
+                  <span
+                    className={clsx(styles.statIcon, styles.statIconGold)}
+                    data-ready={progress ? '' : undefined}
+                    aria-hidden="true"
+                  >
+                    <Icon name="target" size={15} />
+                  </span>
                   {progress
                     ? `${Math.round(progress.accuracyPercent)}%`
                     : progressFailed

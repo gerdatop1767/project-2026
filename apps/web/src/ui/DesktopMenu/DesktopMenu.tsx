@@ -65,7 +65,6 @@ export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
   const { logout } = useAuth();
   const [theme, setTheme] = useTheme();
   const [logoutError, setLogoutError] = useState(false);
-  const panelRef = usePanelFocus(open);
   // The screen Menu is layered over, captured before any item can
   // replace it — Профиль needs this to hand BackRow a real "previous
   // screen" (see Route['from'] on the 'profile' overlay).
@@ -82,6 +81,9 @@ export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
     opener.current = null;
     if (element?.isConnected) element.focus({ preventScroll: true });
   }, [open]);
+  // Declared after the opener capture above: effects run in order, so the
+  // ☰ button is remembered before focus moves into the panel.
+  const panelRef = usePanelFocus(open);
 
   function go(route: MenuRoute) {
     navigate(route.screen === 'profile' ? { screen: 'profile', from: currentRoute } : route);

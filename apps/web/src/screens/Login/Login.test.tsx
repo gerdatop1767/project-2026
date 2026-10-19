@@ -41,6 +41,24 @@ describe('Login — unified layout (no separate signup/login tabs)', () => {
   });
 });
 
+describe('Login — theme', () => {
+  it('follows the site theme instead of forcing its own (same flow in light and dark)', async () => {
+    const { setTheme } = await import('../../lib/theme.js');
+    for (const theme of ['light', 'dark'] as const) {
+      setTheme(theme);
+      const { container, unmount } = renderLogin();
+      // The screen never pins a theme or palette of its own…
+      expect(container.querySelector('[data-theme]')).toBeNull();
+      expect(container.querySelector('[style*="--color"]')).toBeNull();
+      expect(document.documentElement).toHaveAttribute('data-theme', theme);
+      // …and the sign-in paths are the same in both.
+      expect(screen.getByText('Продолжить через VK ID')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Продолжить с почтой' })).toBeInTheDocument();
+      unmount();
+    }
+  });
+});
+
 describe('Login — email validation', () => {
   it('rejects an invalid email without calling the API', async () => {
     const user = userEvent.setup();

@@ -84,4 +84,21 @@ describe('DesktopMenu', () => {
     expect(logout).toHaveBeenCalledOnce();
     expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось выйти');
   });
+
+  it('moves focus into the panel on open and back to the opener on close', () => {
+    const opener = document.createElement('button');
+    document.body.append(opener);
+    opener.focus();
+    const tree = (open: boolean) => (
+      <NavigationProvider>
+        <DesktopMenu open={open} onClose={() => {}} />
+      </NavigationProvider>
+    );
+    const { rerender } = render(tree(false));
+    rerender(tree(true));
+    expect(screen.getByRole('dialog', { name: 'Меню' })).toHaveFocus();
+    rerender(tree(false));
+    expect(opener).toHaveFocus();
+    opener.remove();
+  });
 });

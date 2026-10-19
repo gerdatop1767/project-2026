@@ -94,9 +94,11 @@ describe('HomeMobile', () => {
   });
 
   it('shows a neutral placeholder before the real progress data has loaded — never a number it does not have', () => {
-    renderHome();
+    const { container } = renderHome();
     // "Решено" and "Правильно" (subject task counts use the same placeholder).
     expect(screen.getAllByText('···').length).toBeGreaterThanOrEqual(2);
+    // The metric icons only "pop" once real data has arrived.
+    expect(container.querySelector('[data-ready]')).toBeNull();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
