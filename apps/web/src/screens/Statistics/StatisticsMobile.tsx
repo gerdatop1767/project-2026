@@ -178,8 +178,11 @@ export function StatisticsMobile() {
     setSelectedTaskNumber(null);
   }
 
+  // The number last opened stays marked in the strip/cards after coming back.
+  const [lastOpenedTaskNumber, setLastOpenedTaskNumber] = useState<number | null>(null);
   function openDetail(taskNumber: number) {
     setSelectedTaskNumber(taskNumber);
+    setLastOpenedTaskNumber(taskNumber);
   }
 
   function openTopic(topic: ProgressByTopicResponse['items'][number]) {
@@ -272,7 +275,11 @@ export function StatisticsMobile() {
             >
               Нажми на номер задания, чтобы посмотреть подробную статистику
             </p>
-            <TaskNumberGrid rows={taskNumberProgress} onSelect={openDetail} />
+            <TaskNumberGrid
+              rows={taskNumberProgress}
+              onSelect={openDetail}
+              activeNumber={lastOpenedTaskNumber}
+            />
           </Card>
         </FadeIn>
       )}
@@ -412,7 +419,11 @@ export function StatisticsMobile() {
             <div className={styles.cardHeaderRow}>
               <p className="text-h3">Прогресс по заданиям</p>
             </div>
-            <TaskNumberBars rows={taskNumberProgress} onSelect={openDetail} />
+            <TaskNumberBars
+              rows={taskNumberProgress}
+              onSelect={openDetail}
+              activeNumber={lastOpenedTaskNumber}
+            />
           </Card>
 
           <Card>

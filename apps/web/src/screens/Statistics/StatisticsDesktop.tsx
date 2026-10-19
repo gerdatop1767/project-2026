@@ -26,6 +26,7 @@ import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { StatTile } from '../../ui/Statistics/StatTile.js';
 import { TaskNumberGrid } from '../../ui/Statistics/TaskNumberGrid.js';
+import { TaskNumberBars } from '../../ui/Statistics/TaskNumberBars.js';
 import { TaskNumberDetailPanel } from '../../ui/Statistics/TaskNumberDetailPanel.js';
 import { BarChart } from '../../ui/Charts/BarChart.js';
 import { LineChart } from '../../ui/Charts/LineChart.js';
@@ -67,6 +68,12 @@ export function StatisticsDesktop() {
     Awaited<ReturnType<typeof getProgressByTaskNumber>>['items']
   >([]);
   const [selectedTaskNumber, setSelectedTaskNumber] = useState<number | null>(null);
+  // The number last opened stays marked after "Назад к статистике".
+  const [lastOpenedTaskNumber, setLastOpenedTaskNumber] = useState<number | null>(null);
+  function openTaskNumber(taskNumber: number) {
+    setSelectedTaskNumber(taskNumber);
+    setLastOpenedTaskNumber(taskNumber);
+  }
   const [detail, setDetail] = useState<TaskNumberStatisticsDetail | null | undefined>(undefined);
   const [variantHistory, setVariantHistory] = useState<readonly VariantProgressItem[]>([]);
 
@@ -365,7 +372,18 @@ export function StatisticsDesktop() {
               <p className="text-body-sm text-secondary" style={{ marginBottom: 'var(--space-2)' }}>
                 Нажми на номер задания, чтобы посмотреть подробную статистику
               </p>
-              <TaskNumberGrid rows={taskNumberProgress} onSelect={setSelectedTaskNumber} compact />
+              <div className={styles.numbersWaves}>
+                <TaskNumberBars
+                  rows={taskNumberProgress}
+                  onSelect={openTaskNumber}
+                  activeNumber={lastOpenedTaskNumber}
+                />
+              </div>
+              <TaskNumberGrid
+                rows={taskNumberProgress}
+                onSelect={openTaskNumber}
+                activeNumber={lastOpenedTaskNumber}
+              />
             </>
           )}
         </Card>
