@@ -44,6 +44,16 @@
   /* ---- Colors: borders ---- */
   --color-border-subtle: #23284a;
 
+  /* ---- Colors: theme-relative ----
+     `--color-tint` is "the opposite of the background": a few percent of it
+     lightens a dark surface or shades a light one (hover washes, shimmer,
+     hairlines). `--color-on-accent` is text/icons on the violet accent. */
+  --color-tint: #ffffff;
+  --color-on-accent: #ffffff;
+  /* Low-progress tone (statistics): a muted red-violet. */
+  --color-progress-low: #e2648f;
+  color-scheme: dark;
+
   /* ---- Colors: subjects (fixed per subject, chips/icons only) ---- */
   --color-subject-math: #22c55e;
   --color-subject-russian: #4da3ff;
@@ -187,4 +197,47 @@
     --duration-enter: 0ms;
     --motion-rise: 0px;
   }
+}
+
+/*
+ * Light theme — a design of its own, not an inversion: a soft lavender-grey
+ * page, white cards, hairline lilac borders, the same violet accents a shade
+ * deeper (to keep contrast on white), quieter shadows and glows. Applied
+ * from <html data-theme="light"> (lib/theme.ts; set before first paint by
+ * index.html). Only colours and shadows change; layout, type and motion
+ * stay the same.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-bg-base: #f4f3fb;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #f1eefb;
+  --color-bg-overlay: rgba(26, 20, 54, 0.36);
+
+  --color-accent-primary: #7a12e2;
+  --color-accent-primary-end: #b32ee6;
+  --color-accent-primary-hover: #8c2cef;
+  --color-accent-secondary: #2f7ee0;
+
+  --color-success: #15924a;
+  --color-error: #d92650;
+  --color-warning: #c97a06;
+  --color-gold: #d38706;
+
+  /* Primary ≈ 16:1, secondary ≈ 6.9:1, disabled ≈ 3:1 on white. */
+  --color-text-primary: #16132c;
+  --color-text-secondary: #555a78;
+  --color-text-disabled: #8e90aa;
+
+  --color-border-subtle: #e2def1;
+
+  --color-tint: #1a1440;
+  --color-progress-low: #c83f72;
+
+  --shadow-e1: 0 1px 3px rgba(40, 26, 92, 0.08);
+  --shadow-e2: 0 6px 18px rgba(40, 26, 92, 0.1), inset 0 0 0 1px rgba(22, 19, 44, 0.04);
+  --shadow-e3: 0 16px 40px rgba(40, 26, 92, 0.16);
+  --shadow-glow-accent: 0 0 18px rgba(122, 18, 226, 0.22);
+  --shadow-glow-gold: 0 0 18px rgba(211, 135, 6, 0.2);
 }

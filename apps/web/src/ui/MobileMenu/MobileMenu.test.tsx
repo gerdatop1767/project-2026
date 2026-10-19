@@ -84,5 +84,9 @@ describe('MobileMenu', () => {
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     expect(document.documentElement).toHaveAttribute('data-theme', 'light');
+    expect(window.localStorage.getItem('zybrilka-theme')).toBe('light');
+    await user.click(toggle);
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
+    expect(window.localStorage.getItem('zybrilka-theme')).toBe('dark');
   });
 });

@@ -103,7 +103,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-accent-primary);
-  color: var(--color-text-primary);
+  color: var(--color-on-accent);
   flex-shrink: 0;
 }
 

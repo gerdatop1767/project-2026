@@ -62,6 +62,7 @@ export function TaskNumberDetailPanel({ taskNumber, detail }: TaskNumberDetailPa
     <div className={styles.stack}>
       <div className={styles.statsGrid}>
         <StatTile
+          animate
           icon="progress"
           iconColor="var(--color-accent-secondary)"
           label="Точность"
@@ -70,6 +71,7 @@ export function TaskNumberDetailPanel({ taskNumber, detail }: TaskNumberDetailPa
           deltaLabel={`${detail.correctAttempts} из ${detail.attempts}`}
         />
         <StatTile
+          animate
           icon="variant"
           iconColor="var(--color-accent-primary-end)"
           label="Уникальных заданий"
@@ -77,6 +79,7 @@ export function TaskNumberDetailPanel({ taskNumber, detail }: TaskNumberDetailPa
           deltaLabel={`${detail.attempts} попыток`}
         />
         <StatTile
+          animate
           icon="time"
           iconColor="var(--color-warning)"
           label="Среднее время"
@@ -88,6 +91,7 @@ export function TaskNumberDetailPanel({ taskNumber, detail }: TaskNumberDetailPa
           }
         />
         <StatTile
+          animate
           icon="success"
           iconColor="var(--color-success)"
           label="Ошибок"

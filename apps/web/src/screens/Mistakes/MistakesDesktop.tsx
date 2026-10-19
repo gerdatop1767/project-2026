@@ -1,7 +1,5 @@
-import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
 import { getMistakes, getSimilarTasks } from '../../lib/api.js';
 import { toSampleMistake } from '../../lib/mistakeAdapter.js';
@@ -9,7 +7,6 @@ import { useToast } from '../../ui/Toast/ToastProvider.js';
 import { formatDateShort } from '../../lib/formatDate.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Chip } from '../../ui/Chip/Chip.js';
-import { Select } from '../../ui/Select/Select.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { RankedBarList } from '../../ui/Charts/RankedBarList.js';
@@ -17,6 +14,7 @@ import { MistakeCardDesktop } from '../../ui/Mistakes/MistakeCardDesktop.js';
 import { MistakeNumberGroup } from '../../ui/Mistakes/MistakeNumberGroup.js';
 import { FeedbackState } from '../../ui/FeedbackState/FeedbackState.js';
 import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
+import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './MistakesDesktop.module.css';
 
 type FilterId = 'all' | 'unsolved' | 'byTopic' | 'byDate';
@@ -118,8 +116,6 @@ export function MistakesDesktop() {
       .finally(() => setSolvingSimilarId(null));
   }
 
-  const subjectOptions = subjects.map((s) => ({ value: s.id, label: s.shortName }));
-
   return (
     <FadeIn className={styles.page}>
       <div className={styles.headerRow}>
@@ -130,7 +126,7 @@ export function MistakesDesktop() {
           </p>
         </div>
         <div className={styles.subjectSelect}>
-          <Select options={subjectOptions} value={subjectId} onChange={setSubjectId} />
+          <SubjectSelect value={subjectId} onChange={setSubjectId} />
         </div>
       </div>
 
@@ -208,9 +204,7 @@ export function MistakesDesktop() {
               }))}
               centerLabel={
                 <>
-                  <p className="text-h2">
-                    <AnimatedNumber value={summary.total} />
-                  </p>
+                  <p className="text-h2">{summary.total}</p>
                   <p className="text-body-sm text-secondary">ошибки</p>
                 </>
               }

@@ -11,8 +11,8 @@
 .page {
   --site-max: 75rem;
   --site-gutter: var(--space-4);
-  --line: color-mix(in srgb, #fff 9%, transparent);
-  --accent-text: color-mix(in srgb, var(--color-accent-primary) 68%, #fff);
+  --line: color-mix(in srgb, var(--color-tint) 9%, transparent);
+  --accent-text: color-mix(in srgb, var(--color-accent-primary) 68%, var(--color-tint));
   position: relative;
   min-height: 100dvh;
   overflow-x: clip;
@@ -181,8 +181,8 @@
   aspect-ratio: 1;
   border-radius: 50%;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, #fff 10%, transparent),
-    0 0 0 18px color-mix(in srgb, #fff 2%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, var(--color-tint) 10%, transparent),
+    0 0 0 18px color-mix(in srgb, var(--color-tint) 2%, transparent);
   /* Fades out toward the bottom, so it disappears behind the books. */
   mask-image: linear-gradient(to bottom, #000 30%, transparent 78%);
   -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 78%);
@@ -365,7 +365,7 @@
   border-radius: var(--radius-card);
   text-align: left;
   color: inherit;
-  background: color-mix(in srgb, #fff 3.5%, transparent);
+  background: color-mix(in srgb, var(--color-tint) 3.5%, transparent);
   box-shadow: inset 0 0 0 1px var(--line);
   cursor: pointer;
   touch-action: manipulation;
@@ -427,7 +427,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .subject:hover {
-    background: color-mix(in srgb, #fff 5.5%, transparent);
+    background: color-mix(in srgb, var(--color-tint) 5.5%, transparent);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 40%, transparent);
   }
 
@@ -561,7 +561,7 @@
       color-mix(in srgb, var(--color-accent-primary) 22%, transparent),
       transparent 70%
     ),
-    color-mix(in srgb, #fff 3%, transparent);
+    color-mix(in srgb, var(--color-tint) 3%, transparent);
   box-shadow: inset 0 0 0 1px var(--line);
 }
 

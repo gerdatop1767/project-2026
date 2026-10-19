@@ -61,6 +61,12 @@
   pointer-events: none;
 }
 
+/* Light theme: a white glyph would vanish on the pale badge — draw it in a
+   deep shade of its own accent instead. */
+:global(:root[data-theme='light']) .root {
+  --glyph-light: color-mix(in srgb, var(--accent) 72%, #16132c);
+}
+
 .defs {
   position: absolute;
   width: 0;

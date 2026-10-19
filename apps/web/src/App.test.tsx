@@ -207,7 +207,7 @@ describe('App — desktop', () => {
     renderApp();
     await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Помощь' }));
+    await user.click(screen.getByRole('button', { name: /^Помощь/ }));
     expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
     expect(screen.getByText('Нужна')).toBeInTheDocument();
     restore();
@@ -231,7 +231,7 @@ describe('App — desktop', () => {
     await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Рейтинг' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('button', { name: /^Профиль/ }));
     expect(screen.getByText('Мой профиль')).toBeInTheDocument();
 
     const backRow = within(screen.getByRole('main')).getByRole('button', { name: 'Рейтинг' });
@@ -246,7 +246,7 @@ describe('App — desktop', () => {
     renderApp();
     await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Помощь' }));
+    await user.click(screen.getByRole('button', { name: /^Помощь/ }));
     expect(screen.getByText('Нужна')).toBeInTheDocument();
     expect(
       within(screen.getByRole('main')).queryByRole('button', { name: /Главная/ }),

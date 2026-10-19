@@ -18,6 +18,11 @@ afterEach(() => {
   // useTaskNavigation) would otherwise carry one test's mocked data into
   // the next — the same reset a sign-out runs.
   resetPrivateCaches();
+  // The theme lives on <html> and in localStorage (lib/theme.ts): start
+  // every test from the default dark theme.
+  delete document.documentElement.dataset.theme;
+  document.documentElement.style.colorScheme = '';
+  window.localStorage.removeItem('zybrilka-theme');
 });
 
 // jsdom doesn't implement matchMedia. Components that check

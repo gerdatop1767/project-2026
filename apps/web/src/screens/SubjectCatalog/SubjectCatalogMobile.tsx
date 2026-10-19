@@ -4,7 +4,6 @@ import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { FadeIn, SlideUp } from '../../ui/motion/motion.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
-import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import {
   FeatureIcon,
   featureIconGlow,
@@ -72,7 +71,7 @@ export function SubjectCatalogMobile() {
               <FeatureIcon name={stat.icon} />
             </span>
             <span className="text-body" style={{ fontWeight: 700 }}>
-              <AnimatedNumber value={stat.value} />
+              {stat.value}
             </span>
             <span className="text-label text-secondary">{stat.label}</span>
           </FadeIn>

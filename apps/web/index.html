@@ -9,6 +9,21 @@
       content="Zybrilka (Зубрилка) — бесплатный онлайн-тренажёр ЕГЭ по профильной математике и русскому языку: задания из типовых вариантов, мгновенная проверка, пошаговые разборы и статистика."
     />
     <meta name="theme-color" content="#05070f" />
+    <script>
+      // Theme before first paint (see src/lib/theme.ts): the saved choice, else dark.
+      (function () {
+        var theme = 'dark';
+        try {
+          if (localStorage.getItem('zybrilka-theme') === 'light') theme = 'light';
+        } catch (e) {}
+        var root = document.documentElement;
+        root.setAttribute('data-theme', theme);
+        root.style.colorScheme = theme;
+        if (theme === 'light') {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f4f3fb');
+        }
+      })();
+    </script>
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Zybrilka — бесплатный тренажёр ЕГЭ" />
     <meta

@@ -62,7 +62,12 @@ describe('StatisticsMobile — subject filter', () => {
     expect(vi.mocked(api.getProgressByTaskNumber)).toHaveBeenLastCalledWith({ subject: 'math' });
 
     await user.click(screen.getByRole('button', { name: /Математика/ }));
-    await user.click(screen.getByRole('option', { name: /Русский язык/ }));
+    // The shared subject picker: a card per subject, the current one checked.
+    expect(screen.getByRole('radio', { name: /Математика/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await user.click(screen.getByRole('radio', { name: /Русский язык/ }));
 
     // Switching subjects refetches the subject-scoped endpoints with the
     // new subject, and the headline figure switches to that subject's

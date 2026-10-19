@@ -179,12 +179,12 @@ describe('Onboarding', () => {
     renderOnboarding();
     await waitFor(() => expect(api.getLearningProfile).toHaveBeenCalled());
     await user.click(screen.getByRole('button', { name: 'Начать' }));
-    expect(screen.getByRole('button', { name: /Математика/ })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('checkbox', { name: /Математика/ })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
-    expect(screen.getByRole('button', { name: /Русский язык/ })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('checkbox', { name: /Русский язык/ })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
   });

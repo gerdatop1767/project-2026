@@ -1,23 +1,10 @@
 /*
- * Scoped light-theme token overrides. The app's tokens.css is dark
- * (Design Spec default), but the approved auth reference is a light
- * lilac page — rather than fork Button/Input/etc. into light variants,
- * this redefines the exact custom properties they already consume
- * (--color-bg-elevated, --color-text-primary, --color-border-subtle,
- * ...) just within `.page`, so every reused component renders light
- * here for free and stays byte-for-byte unchanged everywhere else.
+ * The sign-in / sign-up screen follows the app's theme like every other
+ * screen: dark Zybrilka in the dark theme, light in the light one (tokens.css
+ * `[data-theme='light']`). It used to redefine the tokens to a fixed light
+ * palette here, which made it the one white page in a dark site.
  */
 .page {
-  --color-bg-base: #f3eefb;
-  --color-bg-surface: #ffffff;
-  --color-bg-elevated: #f4f0fb;
-  --color-text-primary: #211733;
-  --color-text-secondary: #6f6585;
-  --color-text-disabled: #aaa1bd;
-  --color-border-subtle: #e4def3;
-  --shadow-e1: 0 2px 8px rgba(76, 29, 149, 0.08);
-  --shadow-e2: 0 20px 60px rgba(76, 29, 149, 0.16);
-
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
@@ -42,7 +29,11 @@
   left: -8rem;
   width: 28rem;
   height: 28rem;
-  background: radial-gradient(circle, rgba(139, 20, 245, 0.16) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-accent-primary) 22%, transparent) 0%,
+    transparent 70%
+  );
 }
 
 .rayBottomRight {
@@ -50,7 +41,11 @@
   right: -10rem;
   width: 32rem;
   height: 32rem;
-  background: radial-gradient(circle, rgba(206, 61, 253, 0.14) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-accent-primary-end) 18%, transparent) 0%,
+    transparent 70%
+  );
 }
 
 .closeButton {
@@ -160,7 +155,9 @@
   position: relative;
   background: var(--color-bg-surface);
   border-radius: 2rem;
-  box-shadow: var(--shadow-e2);
+  box-shadow:
+    var(--shadow-e2),
+    inset 0 0 0 1px var(--color-border-subtle);
   padding: var(--space-8) var(--space-6);
   display: flex;
   flex-direction: column;

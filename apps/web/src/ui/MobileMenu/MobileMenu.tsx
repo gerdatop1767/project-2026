@@ -7,6 +7,7 @@ import { Avatar } from '../Leaderboard/Avatar.js';
 import { useNavigation, type MainTabId, type OverlayRoute } from '../../lib/navigation.js';
 import { useAuth } from '../../lib/authContext.js';
 import { displayName } from '../../lib/userDisplay.js';
+import { useTheme } from '../../lib/theme.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MobileMenu.module.css';
 
@@ -126,7 +127,8 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
   const { navigate } = useNavigation();
   const { user, logout } = useAuth();
   const [logoutError, setLogoutError] = useState(false);
-  const [darkTheme, setDarkTheme] = useState(true);
+  const [theme, setTheme] = useTheme();
+  const darkTheme = theme === 'dark';
 
   function go(route: MenuRoute) {
     // `navigate` already replaces the 'menu' overlay with the new tab
@@ -137,13 +139,9 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
     navigate(route);
   }
 
+  // The whole site follows (and remembers) this switch — see lib/theme.ts.
   function toggleTheme() {
-    const next = !darkTheme;
-    setDarkTheme(next);
-    // No light theme is designed/approved yet — this really flips a
-    // document attribute a future theme stylesheet can key off, rather
-    // than pretending to do something it can't.
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    setTheme(darkTheme ? 'light' : 'dark');
   }
 
   return (
