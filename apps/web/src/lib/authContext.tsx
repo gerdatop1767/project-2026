@@ -77,19 +77,19 @@ function setTelegramOptOut(value: boolean) {
 
 /** After a real logout, replace the whole document: it drops every
  * in-memory cache (progress, streak, learning session, favorites, open
- * task…) that belonged to the previous account in one go, and leaves
- * the browser history pointing at the login page. */
-function hardRedirectToLogin() {
-  window.location.replace('/login');
+ * task…) that belonged to the previous account in one go, and lands on
+ * the public landing — signing out is leaving, not asking to sign in. */
+function hardRedirectToLanding() {
+  window.location.replace('/');
 }
 
 export function AuthProvider({
   children,
-  onSignedOut = hardRedirectToLogin,
+  onSignedOut = hardRedirectToLanding,
 }: {
   children: ReactNode;
   /** Runs after a successful logout (tests pass a spy; production
-   * reloads to /login). */
+   * reloads to the landing at /). */
   onSignedOut?: () => void;
 }) {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);

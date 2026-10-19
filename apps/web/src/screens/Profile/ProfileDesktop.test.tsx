@@ -101,11 +101,9 @@ describe('ProfileDesktop', () => {
     expect(screen.getByText(/Математика: 90\+, Русский язык: 100/)).toBeInTheDocument();
   });
 
-  it('BackRow with no `from` falls back to closing the overlay (default tab)', async () => {
-    const user = userEvent.setup();
+  it('opened over the home screen, it draws no "← Главная" row (home is in the sidebar)', () => {
     renderProfile();
-    await user.click(screen.getByRole('button', { name: 'Главная' }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('none');
+    expect(screen.queryByRole('button', { name: 'Главная' })).not.toBeInTheDocument();
   });
 
   it('BackRow with an explicit `from` returns to that exact route', async () => {

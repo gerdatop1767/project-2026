@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { clsx } from '../../lib/clsx.js';
 import { useReducedMotion } from '../../lib/useReducedMotion.js';
 import styles from './Tabs.module.css';
@@ -40,13 +40,20 @@ export function Tabs({
 }: TabsProps) {
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
   const listRef = useRef<HTMLDivElement>(null);
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+  // `placed`: the indicator has been put under a tab at least once. Until
+  // then it has no transition, so it never slides in from the left edge
+  // at width 0 when the tabs first appear.
+  const [indicator, setIndicator] = useState({ left: 0, width: 0, placed: false });
   const reducedMotion = useReducedMotion();
 
-  useEffect(() => {
+  // Layout effect, not a plain effect: the indicator moves in the SAME frame
+  // the tapped tab's label turns active. After paint it lagged a frame
+  // behind the click.
+  useLayoutEffect(() => {
     const el = tabRefs.current.get(activeId);
     if (el) {
-      setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+      const next = { left: el.offsetLeft, width: el.offsetWidth };
+      setIndicator((prev) => ({ ...next, placed: prev.placed || prev.width > 0 }));
     }
     // Keep the active tab visible when the strip scrolls horizontally —
     // e.g. landing directly on a sub-tab that's currently scrolled out
@@ -69,7 +76,7 @@ export function Tabs({
       aria-label={ariaLabel}
     >
       <span
-        className={styles.indicator}
+        className={clsx(styles.indicator, indicator.placed && styles.indicatorPlaced)}
         style={{
           transform: `translateX(${indicator.left}px)`,
           width: `${indicator.width}px`,

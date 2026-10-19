@@ -187,6 +187,27 @@ describe('TaskMobile', () => {
     );
   });
 
+  it('marks the picked task in the number strip at once, while its content is still loading', () => {
+    vi.mocked(api.getTask).mockReturnValue(new Promise(() => {}));
+    render(
+      <NavigationProvider>
+        <TaskMobile
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+          customOrderedTasks={[
+            { taskId: 'other-task', taskNumber: 1 },
+            { taskId: TASK_ID, taskNumber: baseTask.taskNumber },
+          ]}
+        />
+      </NavigationProvider>,
+    );
+    // No waiting: the strip and progress come from the route, not the request.
+    const active = document.querySelector('[aria-current="true"]');
+    expect(active).toHaveTextContent(String(baseTask.taskNumber));
+    expect(screen.getByText('Задание 2 из 2')).toBeInTheDocument();
+  });
+
   it('renders the task condition and code', async () => {
     renderTask();
     expect(await screen.findByText(CONDITION)).toBeInTheDocument();

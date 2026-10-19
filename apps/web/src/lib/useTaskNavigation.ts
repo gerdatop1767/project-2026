@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getVariant, getVariantForTask } from './api.js';
 import { useNavigation, type Route } from './navigation.js';
+import { registerPrivateCacheReset } from './privateCaches.js';
 
 export interface TaskNavigationEntry {
   taskId: string;
@@ -60,6 +61,30 @@ export interface TaskNavigationContext {
  *    context (just the current number, no strip/arrows) rather than
  *    inventing an ordering that doesn't exist.
  */
+interface ResolvedList {
+  orderedTasks: readonly TaskNavigationEntry[];
+  resolvedVariantId: string | null;
+}
+
+/**
+ * Resolved task orders, remembered for this visit. A variant's order never
+ * changes while it is being solved, and the task screen is remounted for
+ * every task (key={taskId}): without this, picking another number dropped
+ * the strip / task list until the variant was fetched AGAIN, so the newly
+ * picked number lit up only after a network round-trip. Keyed by request
+ * (task + context) and by variant id — `goTo()` always carries the resolved
+ * variant id forward, so the next task hits the cache.
+ */
+const resolvedLists = new Map<string, ResolvedList>();
+registerPrivateCacheReset(() => resolvedLists.clear());
+
+function cachedList(requestKey: string, variantId: string | undefined): ResolvedList | null {
+  return (
+    resolvedLists.get(requestKey) ??
+    (variantId ? (resolvedLists.get(`variant:${variantId}`) ?? null) : null)
+  );
+}
+
 export function useTaskNavigation(params: {
   subjectId: string;
   taskId: string;
@@ -92,21 +117,24 @@ export function useTaskNavigation(params: {
   useEffect(() => {
     if (!hasContext) return;
 
-    let cancelled = false;
     const key = `${taskId}|${collectionSlug ?? ''}|${variantId ?? ''}`;
+    if (cachedList(key, variantId)) return;
+    let cancelled = false;
     const request = variantId ? getVariant(variantId) : getVariantForTask(taskId, collectionSlug);
 
     void request
       .then((detail) => {
         if (cancelled) return;
-        setFetched({
-          key,
+        const list: ResolvedList = {
           orderedTasks: detail.tasks
             .slice()
             .sort((a, b) => a.position - b.position)
             .map((t) => ({ taskId: t.task.id, taskNumber: t.task.taskNumber })),
           resolvedVariantId: detail.variant.id,
-        });
+        };
+        resolvedLists.set(key, list);
+        resolvedLists.set(`variant:${detail.variant.id}`, list);
+        setFetched({ key, ...list });
       })
       .catch(() => {
         if (!cancelled) setFetched({ key, orderedTasks: [], resolvedVariantId: null });
@@ -117,7 +145,11 @@ export function useTaskNavigation(params: {
     };
   }, [taskId, collectionSlug, variantId, hasContext]);
 
-  const resolved = hasContext && fetched && fetched.key === requestKey ? fetched : null;
+  const resolved = hasContext
+    ? fetched && fetched.key === requestKey
+      ? fetched
+      : cachedList(requestKey, variantId)
+    : null;
   const loading = hasContext && resolved === null;
   const orderedTasks = hasCustomList ? customOrderedTasks! : (resolved?.orderedTasks ?? []);
   const resolvedVariantId = hasCustomList ? null : (resolved?.resolvedVariantId ?? null);

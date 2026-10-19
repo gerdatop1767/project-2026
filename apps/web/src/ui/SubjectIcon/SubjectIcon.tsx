@@ -14,7 +14,7 @@ export interface SubjectIconProps {
   subjectId: string;
   /** Persistent glow + thin luminous outline; readable without any animation. */
   selected?: boolean;
-  /** Fade/rise in when scrolled into view; the number staggers neighbours (~65 ms apart). */
+  /** Fade/rise in when scrolled into view; the number staggers neighbours (~30 ms apart). */
   reveal?: number | boolean;
   /** Light pointer parallax (desktop only). Meant for the larger artwork. */
   parallax?: boolean;
@@ -22,8 +22,8 @@ export interface SubjectIconProps {
   className?: string;
 }
 
-const STAGGER_MS = 65;
-const MAX_STAGGER_STEPS = 4;
+const STAGGER_MS = 30;
+const MAX_STAGGER_STEPS = 3;
 
 /**
  * The approved subject artwork with its premium micro-motion:
@@ -32,7 +32,7 @@ const MAX_STAGGER_STEPS = 4;
  * - press / tap (every pointer, via pointer events): quick dip to 0.97 and a
  *   smooth return;
  * - selected: steady halo and a thin luminous outline;
- * - reveal: opacity + translateY + scale .96 → 1 on first scroll into view.
+ * - reveal: opacity + translateY + scale .97 → 1 on first scroll into view.
  *
  * Hover/press react to the icon itself or to the nearest ancestor that
  * carries `data-subject-interactive` (the whole card), so a tap anywhere on a

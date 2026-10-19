@@ -162,7 +162,7 @@ describe('App — desktop', () => {
     restore();
   });
 
-  it('the logo opens the Учебный центр as a screen of its own, with a way back to Главная', async () => {
+  it('the logo opens the Учебный центр as a screen of its own — no "← Главная" row, the sidebar is the way around', async () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
@@ -170,8 +170,8 @@ describe('App — desktop', () => {
     expect(screen.getByRole('navigation', { name: 'Zybrilka' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/learning');
     expect(
-      within(screen.getByRole('main')).getByRole('button', { name: 'Главная' }),
-    ).toBeInTheDocument();
+      within(screen.getByRole('main')).queryByRole('button', { name: 'Главная' }),
+    ).not.toBeInTheDocument();
     restore();
   });
 
@@ -240,7 +240,7 @@ describe('App — desktop', () => {
     restore();
   });
 
-  it('opens Помощь from Menu and BackRow closes it, returning to the underlying tab', async () => {
+  it('opens Помощь from Menu; with no "← Главная" row there, the sidebar takes the visitor on', async () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
@@ -248,14 +248,16 @@ describe('App — desktop', () => {
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     await user.click(screen.getByRole('button', { name: 'Помощь' }));
     expect(screen.getByText('Нужна')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('main')).queryByRole('button', { name: /Главная/ }),
+    ).not.toBeInTheDocument();
 
-    const backRow = within(screen.getByRole('main')).getByRole('button', { name: /Главная/ });
-    await user.click(backRow);
+    await user.click(screen.getByRole('button', { name: 'Учебный центр' }));
     expect(screen.queryByText('Нужна')).not.toBeInTheDocument();
     restore();
   });
 
-  it('sidebar-level overlays (Мои ошибки, Рейтинг, Предметы, Учебный центр, Помощь) always show "Главная" as Back, never a stale previous tab', async () => {
+  it('sidebar-level overlays (Мои ошибки, Рейтинг) show no back row at all — neither "Главная" nor a stale previous tab', async () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
@@ -271,8 +273,9 @@ describe('App — desktop', () => {
     ] as const) {
       await user.click(screen.getByRole('button', { name: sidebarLabel }));
       await screen.findByText(new RegExp(screenText));
-      const backRow = within(screen.getByRole('main')).getByRole('button', { name: 'Главная' });
-      expect(backRow).toBeInTheDocument();
+      const main = within(screen.getByRole('main'));
+      expect(main.queryByRole('button', { name: 'Главная' })).not.toBeInTheDocument();
+      expect(main.queryByRole('button', { name: 'Достижения' })).not.toBeInTheDocument();
       // Re-enter Достижения before the next iteration so each screen is
       // independently checked against the same "stale tab" scenario.
       await user.click(screen.getByRole('button', { name: 'Достижения' }));
@@ -656,6 +659,21 @@ describe('App — sign-in redirects, × and removed pages', () => {
     const user = userEvent.setup();
     renderApp(null);
     await screen.findByText('Войти или создать аккаунт');
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await landingHeading();
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('after signing out, the trainer pages left in the history do not trap ×: the sign-in shown in place of one goes straight to the landing', async () => {
+    // What a sign-out leaves behind: several private pages of this visit.
+    window.history.replaceState({ zybrilka: { index: 0 } }, '', '/statistics');
+    window.history.pushState({ zybrilka: { index: 1 } }, '', '/achievements');
+    window.history.pushState({ zybrilka: { index: 2 } }, '', '/rating');
+    const user = userEvent.setup();
+    renderApp(null);
+    await screen.findByText('Войти или создать аккаунт');
+    expect(window.location.pathname).toBe('/login');
+
     await user.click(screen.getByRole('button', { name: 'Закрыть' }));
     await landingHeading();
     expect(window.location.pathname).toBe('/');

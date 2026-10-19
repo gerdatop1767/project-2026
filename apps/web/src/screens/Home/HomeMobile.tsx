@@ -7,7 +7,6 @@ import { StatRow } from '../../ui/StatRow/StatRow.js';
 import { startRealTask } from '../../lib/startTraining.js';
 import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
 import type { ProgressSummary } from '@zybrilka/shared';
-import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
@@ -102,9 +101,7 @@ export function HomeMobile() {
               value: (
                 <span className={styles.statValue}>
                   <Icon name="success" size={16} className={styles.statIconSuccess} />
-                  <AnimatedNumber
-                    value={progress ? progress.solvedTotal : progressFailed ? '—' : '···'}
-                  />
+                  {progress ? progress.solvedTotal : progressFailed ? '—' : '···'}
                 </span>
               ),
               label: 'Решено',
@@ -114,15 +111,11 @@ export function HomeMobile() {
               value: (
                 <span className={styles.statValue}>
                   <Icon name="star" size={16} className={styles.statIconGold} />
-                  <AnimatedNumber
-                    value={
-                      progress
-                        ? `${Math.round(progress.accuracyPercent)}%`
-                        : progressFailed
-                          ? '—'
-                          : '···'
-                    }
-                  />
+                  {progress
+                    ? `${Math.round(progress.accuracyPercent)}%`
+                    : progressFailed
+                      ? '—'
+                      : '···'}
                 </span>
               ),
               label: 'Правильно',

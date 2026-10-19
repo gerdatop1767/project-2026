@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useNavigation } from '../../lib/navigation.js';
+import { isSignInGateEntry, useNavigation } from '../../lib/navigation.js';
 import { useAuth } from '../../lib/authContext.js';
 import { ApiError, requestMagicLink, verifyMagicLink, vkLoginUrl } from '../../lib/api.js';
 import { telegramErrorMessage } from '../../lib/telegramErrors.js';
@@ -143,7 +143,13 @@ export function Login() {
         type="button"
         className={styles.closeButton}
         aria-label="Закрыть"
-        onClick={() => leave({ screen: 'home' })}
+        onClick={() =>
+          // In place of a private page, "back" would only reach more of
+          // them (each turned into this screen again): go to the landing.
+          isSignInGateEntry()
+            ? navigate({ screen: 'home' }, { replace: true })
+            : leave({ screen: 'home' })
+        }
       >
         <Icon name="close" size={22} />
       </button>

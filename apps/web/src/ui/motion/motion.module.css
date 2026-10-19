@@ -122,6 +122,27 @@
   min-height: 0;
 }
 
+/*
+ * Content swap: new content replacing old in place (another task, another
+ * tab's panel). `display: contents` adds no box, so the parent's own layout
+ * (flex gaps, grids) is untouched; its children fade in with a short rise.
+ * Quick on purpose — it never holds back what the user just asked for.
+ */
+.contentSwap {
+  display: contents;
+}
+
+.contentSwap > * {
+  animation: contentIn 240ms var(--easing-out) backwards;
+}
+
+@keyframes contentIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* Reduced motion: no movement at all; content simply is there. */
 @media (prefers-reduced-motion: reduce) {
   .fadeIn,
@@ -130,7 +151,8 @@
   .stagger > *,
   .screen > *,
   .screen :where(h1),
-  .screen :where(h1 + p) {
+  .screen :where(h1 + p),
+  .contentSwap > * {
     animation: none;
   }
 

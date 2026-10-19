@@ -115,12 +115,12 @@ describe('SubjectIcon — scroll reveal', () => {
     expect(disconnects).toBeGreaterThan(0);
   });
 
-  it('staggers neighbours ~65 ms apart, capped so a late scroll-in is never sluggish', () => {
+  it('staggers neighbours only ~30 ms apart, capped low — icons arrive with the page, never trail behind it', () => {
     const delays = [0, 1, 2, 9].map((index) => {
       const { container } = render(<SubjectIcon subjectId="math" reveal={index} />);
       return (container.firstElementChild as HTMLElement).style.getPropertyValue('--reveal-delay');
     });
-    expect(delays).toEqual(['0ms', '65ms', '130ms', '260ms']);
+    expect(delays).toEqual(['0ms', '30ms', '60ms', '90ms']);
   });
 
   it('is plainly visible (never hidden) when reveal is not requested', () => {

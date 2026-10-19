@@ -68,9 +68,9 @@ describe('FriendProfileMobile', () => {
 });
 
 describe('BackRow labels', () => {
-  it('/friends never shows a stray "← Достижения"/"← Рейтинг" label — only "Главная"', () => {
+  it('/friends has no back row: neither "← Главная" nor a stray "← Достижения"/"← Рейтинг"', () => {
     renderWithNav(<FriendsDesktop />);
-    expect(screen.getByText('Главная')).toBeInTheDocument();
+    expect(screen.queryByText('Главная')).not.toBeInTheDocument();
     expect(screen.queryByText('Достижения')).not.toBeInTheDocument();
     expect(screen.queryByText(/^Рейтинг$/)).not.toBeInTheDocument();
   });

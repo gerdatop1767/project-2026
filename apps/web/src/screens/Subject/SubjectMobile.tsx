@@ -20,7 +20,7 @@ import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { FavoritesList } from '../../ui/Favorites/FavoritesList.js';
 import { clsx } from '../../lib/clsx.js';
-import { FadeIn, SlideUp } from '../../ui/motion/motion.js';
+import { ContentSwap, FadeIn, SlideUp } from '../../ui/motion/motion.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectMobile.module.css';
 
@@ -274,37 +274,39 @@ export function SubjectMobile({ subjectId, collectionSlug, initialMode }: Subjec
         </>
       )}
 
-      {mode === 'topics' && !selectedTopic && (
-        <TopicsList
-          topics={topics}
-          collections={collections}
-          selectedSlug={effectiveTopicsSlug}
-          onSourceChange={setTopicsSlug}
-          onSelect={setSelectedTopic}
-        />
-      )}
-      {mode === 'topics' && selectedTopic && (
-        <TopicDetail
-          subjectName={subject.shortName}
-          topic={selectedTopic}
-          onStart={() => startTopicTraining(selectedTopic)}
-        />
-      )}
-      {mode === 'variants' && (
-        <VariantBuilder
-          taskNumberCount={content.taskNumberCount}
-          collections={collections}
-          onStart={startVariant}
-        />
-      )}
-      {mode === 'favorites' && (
-        <Card>
-          <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
-            Избранное
-          </p>
-          <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
-        </Card>
-      )}
+      <ContentSwap key={selectedTopic ? 'topicDetail' : mode}>
+        {mode === 'topics' && !selectedTopic && (
+          <TopicsList
+            topics={topics}
+            collections={collections}
+            selectedSlug={effectiveTopicsSlug}
+            onSourceChange={setTopicsSlug}
+            onSelect={setSelectedTopic}
+          />
+        )}
+        {mode === 'topics' && selectedTopic && (
+          <TopicDetail
+            subjectName={subject.shortName}
+            topic={selectedTopic}
+            onStart={() => startTopicTraining(selectedTopic)}
+          />
+        )}
+        {mode === 'variants' && (
+          <VariantBuilder
+            taskNumberCount={content.taskNumberCount}
+            collections={collections}
+            onStart={startVariant}
+          />
+        )}
+        {mode === 'favorites' && (
+          <Card>
+            <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
+              Избранное
+            </p>
+            <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
+          </Card>
+        )}
+      </ContentSwap>
 
       {!selectedTopic && (
         <>

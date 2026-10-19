@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ElementType } from 'react';
 import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
 import { serializeMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber, submitAttempt } from '../../lib/api.js';
@@ -22,7 +22,9 @@ import { TaskChrome } from '../../ui/Training/TaskChrome.js';
 import { ToolsPanelMobile, ToolsToggleButton } from '../../ui/Training/ToolsPanelMobile.js';
 import { MathAnswerField } from '../../ui/MathAnswerField/MathAnswerField.js';
 import { OtherVariantsSection } from '../../ui/Training/OtherVariantsSection.js';
-import { Collapse, SlideUp } from '../../ui/motion/motion.js';
+import { Collapse, ContentSwap, SlideUp } from '../../ui/motion/motion.js';
+import { SkeletonTask } from '../../ui/Skeleton/Skeleton.js';
+import { useTaskScreenContinuation } from '../../lib/useTaskScreenContinuation.js';
 import { MathText } from '../../ui/MathText/MathText.js';
 import { TaskExamIllustration } from '../../ui/TaskIllustration/TaskIllustration.js';
 import { PassageCard } from '../../ui/Passage/PassageCard.js';
@@ -73,6 +75,7 @@ export function TaskMobile({
   const learningSession = useActiveLearningSessionForTask(taskId);
   const { refreshStreak } = useStreakContext();
   const timer = useSolvingTimer();
+  const continuing = useTaskScreenContinuation();
 
   // The router remounts this component (key={taskId}) on every task
   // change, so state starts fresh here — no manual reset-on-taskId-change
@@ -188,172 +191,184 @@ export function TaskMobile({
     );
   }
 
+  // The chrome — header, number strip, progress — needs only what the route
+  // already says (task id and number), so it switches the moment a number is
+  // picked; only the task's own content waits for the network.
+  const sessionProgress = buildSessionProgress(taskId, taskNav.orderedTasks);
+  const chrome = (
+    <TaskChrome
+      subject={subject}
+      taskId={taskId}
+      taskNumber={taskNumber}
+      onBack={goBack}
+      numberStripRange={taskNav.orderedTasks}
+      onSelectNumber={taskNav.goTo}
+      previous={taskNav.previous}
+      next={taskNav.next}
+      onGoTo={taskNav.goTo}
+      indexInSession={sessionProgress.indexInSession}
+      totalInSession={sessionProgress.totalInSession}
+    />
+  );
+  // Switching from another task: the screen is already here — no entrance.
+  const Stack: ElementType = continuing ? 'div' : SlideUp;
+
   if (!task) {
     return (
-      <SlideUp className={styles.stack}>
-        <p className="text-body-sm text-secondary">Загрузка задания…</p>
-      </SlideUp>
+      <Stack className={styles.stack}>
+        {chrome}
+        <SkeletonTask />
+      </Stack>
     );
   }
 
-  const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks);
-
   return (
-    <SlideUp key={task.id} className={styles.stack}>
-      <TaskChrome
-        subject={subject}
-        task={task}
-        onBack={goBack}
-        numberStripRange={taskNav.orderedTasks}
-        onSelectNumber={taskNav.goTo}
-        previous={taskNav.previous}
-        next={taskNav.next}
-        onGoTo={taskNav.goTo}
-        indexInSession={sessionProgress.indexInSession}
-        totalInSession={sessionProgress.totalInSession}
-      />
+    <Stack className={styles.stack}>
+      {chrome}
 
-      <div className={styles.timerRow}>
-        <SolvingTimer timer={timer} />
-      </div>
-
-      <div className={styles.card}>
-        <div className={styles.metaRow}>
-          {learningSession && <LearningSessionBadge session={learningSession} />}
-          <DifficultyTag label={task.difficultyLabel} />
-          <span className={styles.metaChip}>
-            <Icon name="reference" size={12} /> {task.source}
-          </span>
-          <span className={styles.metaChip}>
-            <Icon name="topic" size={12} /> {task.topic}
-          </span>
-          <span className={styles.metaCode}>
-            {task.code} <Icon name="info" size={14} />
-          </span>
+      <ContentSwap>
+        <div className={styles.timerRow}>
+          <SolvingTimer timer={timer} />
         </div>
 
-        {task.passage && <PassageCard passage={task.passage} />}
-
-        <div className={clsx('text-task', styles.condition)}>
-          <MathText text={task.condition} separateInstruction />
-        </div>
-        <TaskExamIllustration
-          subjectId={task.subjectId}
-          taskNumber={task.number}
-          className={styles.taskImage}
-        />
-
-        {task.hint && (
-          <div className={styles.hintWrap}>
-            <button
-              type="button"
-              className={styles.hintSummary}
-              aria-expanded={hintOpen}
-              onClick={() => setHintOpen((v) => !v)}
-            >
-              <Icon name="hint" size={18} className={styles.hintIcon} />
-              <span className="text-body-sm" style={{ flex: 1, textAlign: 'left' }}>
-                Подсказка
-              </span>
-              <Icon name={hintOpen ? 'chevronUp' : 'chevronDown'} size={18} />
-            </button>
-            <Collapse open={hintOpen}>
-              <div className={clsx('text-body-sm', 'text-secondary', styles.hintText)}>
-                <MathText text={task.hint} />
-              </div>
-            </Collapse>
+        <div className={styles.card}>
+          <div className={styles.metaRow}>
+            {learningSession && <LearningSessionBadge session={learningSession} />}
+            <DifficultyTag label={task.difficultyLabel} />
+            <span className={styles.metaChip}>
+              <Icon name="reference" size={12} /> {task.source}
+            </span>
+            <span className={styles.metaChip}>
+              <Icon name="topic" size={12} /> {task.topic}
+            </span>
+            <span className={styles.metaCode}>
+              {task.code} <Icon name="info" size={14} />
+            </span>
           </div>
-        )}
 
-        {isEssay ? (
-          <EssayPanel
-            explanation={task.explanation}
-            sampleEssay={task.sampleEssay}
-            acknowledged={essayAck.acknowledged}
-            acknowledging={essayAck.acknowledging}
-            onAcknowledge={essayAck.acknowledge}
+          {task.passage && <PassageCard passage={task.passage} />}
+
+          <div className={clsx('text-task', styles.condition)}>
+            <MathText text={task.condition} separateInstruction />
+          </div>
+          <TaskExamIllustration
+            subjectId={task.subjectId}
+            taskNumber={task.number}
+            className={styles.taskImage}
           />
-        ) : isMultiPart ? (
-          <div className={styles.multiPartFields}>
-            {task.answerParts!.map((part) => (
-              <div key={part.id} className={styles.answerRow}>
-                <span className={styles.multiPartLabel}>{part.label})</span>
+
+          {task.hint && (
+            <div className={styles.hintWrap}>
+              <button
+                type="button"
+                className={styles.hintSummary}
+                aria-expanded={hintOpen}
+                onClick={() => setHintOpen((v) => !v)}
+              >
+                <Icon name="hint" size={18} className={styles.hintIcon} />
+                <span className="text-body-sm" style={{ flex: 1, textAlign: 'left' }}>
+                  Подсказка
+                </span>
+                <Icon name={hintOpen ? 'chevronUp' : 'chevronDown'} size={18} />
+              </button>
+              <Collapse open={hintOpen}>
+                <div className={clsx('text-body-sm', 'text-secondary', styles.hintText)}>
+                  <MathText text={task.hint} />
+                </div>
+              </Collapse>
+            </div>
+          )}
+
+          {isEssay ? (
+            <EssayPanel
+              explanation={task.explanation}
+              sampleEssay={task.sampleEssay}
+              acknowledged={essayAck.acknowledged}
+              acknowledging={essayAck.acknowledging}
+              onAcknowledge={essayAck.acknowledge}
+            />
+          ) : isMultiPart ? (
+            <div className={styles.multiPartFields}>
+              {task.answerParts!.map((part) => (
+                <div key={part.id} className={styles.answerRow}>
+                  <span className={styles.multiPartLabel}>{part.label})</span>
+                  <MathAnswerField
+                    value={partAnswers[part.id] ?? ''}
+                    onChange={(v) => setPartAnswers((prev) => ({ ...prev, [part.id]: v }))}
+                    placeholder="Ваш ответ..."
+                    disabled={checking}
+                    ariaLabel={`Ответ ${part.label})`}
+                    className={styles.mathField}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className={styles.answerRow}>
                 <MathAnswerField
-                  value={partAnswers[part.id] ?? ''}
-                  onChange={(v) => setPartAnswers((prev) => ({ ...prev, [part.id]: v }))}
-                  placeholder="Ваш ответ..."
+                  value={answer}
+                  onChange={setAnswer}
+                  placeholder="Введите ответ..."
                   disabled={checking}
-                  ariaLabel={`Ответ ${part.label})`}
+                  ariaLabel="Ответ"
                   className={styles.mathField}
                 />
+                <ToolsToggleButton
+                  toolsOpen={toolsOpen}
+                  onToggleTools={() => setToolsOpen((v) => !v)}
+                />
               </div>
-            ))}
+              <p className={clsx('text-body-sm', 'text-secondary', styles.answerHelp)}>
+                Ответ можно вводить в виде интервала, объединения интервалов или чисел, например:
+                (−∞; −1] ∪ [2; +∞)
+              </p>
+            </>
+          )}
+
+          {!isEssay && (
+            <Button
+              variant="primary"
+              fullWidth
+              loading={checking}
+              disabled={!canSubmit}
+              onClick={handleCheck}
+            >
+              Проверить ответ <Icon name="arrowRight" size={18} />
+            </Button>
+          )}
+          <div className={styles.secondaryActions}>
+            <Button
+              variant="secondary"
+              fullWidth
+              disabled={!taskNav.next}
+              onClick={() => taskNav.next && taskNav.goTo(taskNav.next)}
+            >
+              <Icon name="skip" size={16} /> {isEssay ? 'Следующее задание' : 'Пропустить'}
+            </Button>
           </div>
-        ) : (
-          <>
-            <div className={styles.answerRow}>
-              <MathAnswerField
-                value={answer}
-                onChange={setAnswer}
-                placeholder="Введите ответ..."
-                disabled={checking}
-                ariaLabel="Ответ"
-                className={styles.mathField}
-              />
-              <ToolsToggleButton
-                toolsOpen={toolsOpen}
-                onToggleTools={() => setToolsOpen((v) => !v)}
-              />
-            </div>
-            <p className={clsx('text-body-sm', 'text-secondary', styles.answerHelp)}>
-              Ответ можно вводить в виде интервала, объединения интервалов или чисел, например: (−∞;
-              −1] ∪ [2; +∞)
-            </p>
-          </>
-        )}
-
-        {!isEssay && (
-          <Button
-            variant="primary"
-            fullWidth
-            loading={checking}
-            disabled={!canSubmit}
-            onClick={handleCheck}
-          >
-            Проверить ответ <Icon name="arrowRight" size={18} />
-          </Button>
-        )}
-        <div className={styles.secondaryActions}>
-          <Button
-            variant="secondary"
-            fullWidth
-            disabled={!taskNav.next}
-            onClick={() => taskNav.next && taskNav.goTo(taskNav.next)}
-          >
-            <Icon name="skip" size={16} /> {isEssay ? 'Следующее задание' : 'Пропустить'}
-          </Button>
         </div>
-      </div>
 
-      <ToolsPanelMobile
-        open={toolsOpen}
-        onToggle={() => setToolsOpen((v) => !v)}
-        hideSummary
-        onSelect={(toolId) => {
-          if (toolId === 'calculator') setCalculatorOpen(true);
-          if (toolId === 'canvas') setCanvasOpen(true);
-        }}
-      />
+        <ToolsPanelMobile
+          open={toolsOpen}
+          onToggle={() => setToolsOpen((v) => !v)}
+          hideSummary
+          onSelect={(toolId) => {
+            if (toolId === 'calculator') setCalculatorOpen(true);
+            if (toolId === 'canvas') setCanvasOpen(true);
+          }}
+        />
 
-      <OtherVariantsSection
-        taskNumber={task.number}
-        variants={task.otherVariants}
-        open={otherOpen}
-        onToggle={() => setOtherOpen((v) => !v)}
-        onSelectVariant={handleSelectVariant}
-        onGoToList={handleGoToList}
-        summarySubtitle="Похожие задания на эту тему"
-      />
+        <OtherVariantsSection
+          taskNumber={task.number}
+          variants={task.otherVariants}
+          open={otherOpen}
+          onToggle={() => setOtherOpen((v) => !v)}
+          onSelectVariant={handleSelectVariant}
+          onGoToList={handleGoToList}
+          summarySubtitle="Похожие задания на эту тему"
+        />
+      </ContentSwap>
 
       <BottomSheet
         open={calculatorOpen}
@@ -369,6 +384,6 @@ export function TaskMobile({
         taskId={task.id}
         task={task}
       />
-    </SlideUp>
+    </Stack>
   );
 }

@@ -80,7 +80,7 @@ export function App() {
   // and Back / the × button would bounce straight into the same redirect.
   useEffect(() => {
     if (user === null && !onPublicPage) {
-      navigate({ screen: 'login' }, { replace: true });
+      navigate({ screen: 'login' }, { replace: true, signInGate: true });
     } else if (needsOnboarding && !onOnboarding && overlay?.screen !== 'login' && !onInfoPage) {
       navigate({ screen: 'onboarding' }, { replace: true });
     }

@@ -83,6 +83,8 @@ describe('HomeMobile', () => {
     renderHome();
     await waitFor(() => expect(screen.getByText('248')).toBeInTheDocument());
     expect(screen.getByText('82%')).toBeInTheDocument();
+    // Seen on every visit: plain numbers, no rolling digits.
+    expect(document.querySelector('[data-animated-number]')).toBeNull();
   });
 
   it('shows a neutral dash for streak, never a fabricated day count', () => {
