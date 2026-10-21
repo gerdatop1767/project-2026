@@ -169,7 +169,7 @@
      Content enters by rising a few px while fading in; neighbours follow
      a short stagger. Page-level content is a touch slower than controls
      (it is seen once per visit, not dozens of times a minute). */
-  --duration-enter: 460ms;
+  --duration-enter: 340ms;
   --motion-rise: 12px;
   --stagger-step: 45ms;
 

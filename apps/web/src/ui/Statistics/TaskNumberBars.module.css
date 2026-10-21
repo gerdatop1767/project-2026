@@ -104,8 +104,11 @@
   inset: 0;
   z-index: 1;
   transform: translateY(var(--level));
-  transition: transform 700ms var(--easing-out);
-  animation: rise 900ms var(--easing-out) calc(var(--i, 0) * 30ms) backwards;
+  transition: transform 600ms var(--easing-out);
+}
+
+.scroller[data-rise] .liquid {
+  animation: rise 700ms var(--easing-out) calc(min(var(--i, 0), 12) * 25ms) backwards;
 }
 
 @keyframes rise {
@@ -129,31 +132,24 @@
   max-width: none; /* the global svg rule would cut the second crest off */
   height: 0.7rem;
   fill: var(--tone-a);
-  will-change: transform;
 }
 
+/* Sways only while its column is on screen (data-live), and only once the
+   level has risen into place. */
 .wave {
   top: calc(-0.7rem + 1px);
-  animation: sway 3.6s linear infinite;
+  animation: sway 3.6s linear 700ms infinite paused;
 }
 
-/* A paler, slower swell behind, half a crest out of step with the front. */
+.col[data-live] .wave {
+  animation-play-state: running;
+}
+
+/* A paler swell behind, half a crest out of step — a static shape. */
 .waveBack {
   top: calc(-0.85rem + 1px);
   opacity: 0.4;
-  animation: swayBack 5.4s linear infinite;
-}
-
-@keyframes swayBack {
-  0% {
-    transform: translate(-50%, 0);
-  }
-  50% {
-    transform: translate(-25%, -1px);
-  }
-  100% {
-    transform: translate(0, 0);
-  }
+  transform: translateX(-25%);
 }
 
 @keyframes sway {
@@ -166,11 +162,6 @@
   100% {
     transform: translate(-50%, 0);
   }
-}
-
-.scroller[data-paused] .wave,
-.scroller[data-paused] .waveBack {
-  animation-play-state: paused;
 }
 
 .number {
@@ -216,18 +207,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .liquid {
+  .liquid,
+  .scroller[data-rise] .liquid {
     animation: none;
     transition: none;
   }
 
-  .wave,
-  .waveBack {
+  .wave {
     animation: none;
-  }
-
-  .waveBack {
-    transform: translateX(-25%);
   }
 
   .col:active .track {

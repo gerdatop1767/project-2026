@@ -4,6 +4,7 @@ import {
   SUBJECT_ICON_GLOW,
   isSubjectIconId,
   subjectIconSrc,
+  subjectIconSrcSet,
   type SubjectIconId,
 } from './subjectIcons.js';
 import { usePointerParallax, usePressFeedback, useRevealOnScroll } from './useSubjectIconMotion.js';
@@ -83,9 +84,14 @@ export function SubjectIcon({
       <span className={styles.body}>
         <img
           src={subjectIconSrc(id)}
+          srcSet={subjectIconSrcSet(id)}
+          // The large hero artwork (parallax) is ~10rem; every other use is a small tile.
+          sizes={parallax ? '160px' : '64px'}
           alt=""
           width={512}
           height={512}
+          // Icons that wait to be scrolled into view can also wait to load.
+          loading={reveal !== false ? 'lazy' : undefined}
           className={styles.image}
           decoding="async"
           draggable={false}

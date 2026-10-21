@@ -32,7 +32,7 @@ function findSubject(subjectId: string) {
  * straight from GET /progress/summary and GET /me/learning/profile.
  */
 export function Profile() {
-  const { navigate } = useNavigation();
+  const { navigate, overlay } = useNavigation();
   const identities = useIdentities();
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [learningProfile, setLearningProfile] = useState<LearningProfileResponse | null>(null);
@@ -69,7 +69,9 @@ export function Profile() {
           type="button"
           className={styles.iconButton}
           aria-label="Меню"
-          onClick={() => navigate({ screen: 'menu' })}
+          onClick={() =>
+            navigate({ screen: 'menu', from: overlay?.screen === 'profile' ? overlay : undefined })
+          }
         >
           <Icon name="settings" size={20} />
         </button>

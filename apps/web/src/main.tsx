@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import { NavigationProvider } from './lib/navigation.js';
@@ -6,7 +6,6 @@ import { LearningSessionProvider } from './lib/learningSessionContext.js';
 import { StreakProvider } from './lib/streakContext.js';
 import { AuthProvider } from './lib/authContext.js';
 import { ToastProvider } from './ui/Toast/ToastProvider.js';
-import { DesignExploration } from './design-exploration/DesignExploration.js';
 import 'katex/dist/katex.min.css';
 import './index.css';
 
@@ -20,11 +19,20 @@ if (!root) {
 // from the production app shell, and switched here rather than in
 // App/navigation so the production screen tree stays untouched.
 const isDesignExploration = window.location.hash === '#/design-exploration';
+// Its own chunk: ten concept screens no visitor of the real app needs to
+// download or parse.
+const DesignExploration = lazy(() =>
+  import('./design-exploration/DesignExploration.js').then((m) => ({
+    default: m.DesignExploration,
+  })),
+);
 
 createRoot(root).render(
   <StrictMode>
     {isDesignExploration ? (
-      <DesignExploration />
+      <Suspense fallback={null}>
+        <DesignExploration />
+      </Suspense>
     ) : (
       <NavigationProvider>
         <AuthProvider>

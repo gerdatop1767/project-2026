@@ -22,23 +22,34 @@ const WAVE_PATH =
  * has no liquid at all. The active number is outlined on its label, so
  * selection never repaints the progress colour.
  *
- * Motion: the surface sways with two transform-only keyframes per column,
- * paused while the strip is off screen; the level rises into place once.
- * With `prefers-reduced-motion` the liquid is still and simply at its level.
+ * Motion: the level rises into place once; then the front wave of each
+ * column sways (transform only) — but only while that very column is on
+ * screen (one IntersectionObserver marks columns with `data-live` directly
+ * on the DOM, no React re-render), so a 27-column strip scrolled sideways
+ * or out of view costs nothing. The back swell is a static shape. With
+ * `prefers-reduced-motion` the liquid is still and simply at its level.
  */
+/** The fill rises into place on the first view of a session only: the
+ * statistics screen is revisited often, and replaying 19–38 staggered
+ * rises each time made every visit repaint the whole strip for ~0.6 s. */
+let hasRisen = false;
+
 export function TaskNumberBars({ rows, onSelect, activeNumber = null }: TaskNumberBarsProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [onScreen, setOnScreen] = useState(true);
+  const [rise] = useState(() => !hasRisen);
+  useEffect(() => {
+    if (rows.length > 0) hasRisen = true;
+  }, [rows.length]);
 
   useEffect(() => {
     const element = ref.current;
     if (!element || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) =>
-      setOnScreen(entries.some((entry) => entry.isIntersecting)),
-    );
-    observer.observe(element);
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) entry.target.toggleAttribute('data-live', entry.isIntersecting);
+    });
+    for (const column of element.children) observer.observe(column);
     return () => observer.disconnect();
-  }, []);
+  }, [rows.length]);
 
   return (
     <div
@@ -46,7 +57,7 @@ export function TaskNumberBars({ rows, onSelect, activeNumber = null }: TaskNumb
       className={styles.scroller}
       role="list"
       aria-label="Прогресс по номерам заданий"
-      data-paused={onScreen ? undefined : true}
+      data-rise={rise || undefined}
     >
       {rows.map((row, index) => {
         const tone = progressTone(row);

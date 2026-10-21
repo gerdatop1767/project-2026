@@ -324,4 +324,20 @@ describe("AppMobile — menu (opened from Профиль's header button)", () =
       expect(screen.getByRole('button', { name: /Начать тренировку/ })).toBeInTheDocument();
     });
   });
+
+  it('keeps Профиль under the open menu, and closing the menu returns to Профиль', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    expect(await screen.findByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    // Still mounted underneath the drawer — never swapped for Home.
+    expect(screen.getByRole('heading', { name: 'Профиль', hidden: true })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Закрыть меню' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/profile');
+  });
 });

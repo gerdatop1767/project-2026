@@ -37,6 +37,7 @@ import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { FadeIn } from '../../ui/motion/motion.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { SubjectPickerDialog } from '../../ui/SubjectPicker/SubjectPicker.js';
+import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import styles from './StatisticsMobile.module.css';
 
 const subTabs = [
@@ -71,10 +72,18 @@ export function StatisticsMobile() {
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const [realProgress, setRealProgress] = useState<ProgressSummary | null>(null);
-  const [taskNumberItems, setTaskNumberItems] = useState<
-    Awaited<ReturnType<typeof getProgressByTaskNumber>>['items']
-  >([]);
-  const [topics, setTopics] = useState<ProgressByTopicResponse['items']>([]);
+  // Per-subject data is stored WITH the subject it belongs to: right after
+  // a subject switch the previous subject's numbers must never be shown
+  // under the new subject's name (they used to, until the new response
+  // landed) — until then the screen shows its loading state instead.
+  const [taskNumberData, setTaskNumberData] = useState<{
+    subjectId: string;
+    items: Awaited<ReturnType<typeof getProgressByTaskNumber>>['items'];
+  } | null>(null);
+  const [topicData, setTopicData] = useState<{
+    subjectId: string;
+    items: ProgressByTopicResponse['items'];
+  } | null>(null);
   const [mistakes, setMistakes] = useState<readonly Mistake[]>([]);
   const [selectedTaskNumber, setSelectedTaskNumber] = useState<number | null>(null);
   const [detail, setDetail] = useState<TaskNumberStatisticsDetail | null | undefined>(undefined);
@@ -92,13 +101,6 @@ export function StatisticsMobile() {
         // No backend data yet (or the request failed) — headline tiles
         // stay at their neutral zero/dash state below.
       });
-    void getMistakes()
-      .then((items) => {
-        if (!cancelled) setMistakes(items.map(toSampleMistake));
-      })
-      .catch(() => {
-        if (!cancelled) setMistakes([]);
-      });
     // "Статистика вариантов" — every real variant session the user has
     // ever started, across all subjects, never scoped to the selected
     // subject (a variant run isn't filtered the way topic/task-number
@@ -115,26 +117,55 @@ export function StatisticsMobile() {
     };
   }, []);
 
+  // The full mistakes feed only feeds the "По темам" donut — fetched when
+  // that tab is first opened, not on every visit to the overview.
+  const needsMistakes = subTab === 'byTopic';
+  useEffect(() => {
+    if (!needsMistakes) return;
+    let cancelled = false;
+    void getMistakes()
+      .then((items) => {
+        if (!cancelled) setMistakes(items.map(toSampleMistake));
+      })
+      .catch(() => {
+        if (!cancelled) setMistakes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsMistakes]);
+
   useEffect(() => {
     let cancelled = false;
-    void getProgressByTaskNumber({ subject: subject.id })
+    const id = subject.id;
+    void getProgressByTaskNumber({ subject: id })
       .then((res) => {
-        if (!cancelled) setTaskNumberItems(res.items);
+        if (!cancelled) setTaskNumberData({ subjectId: id, items: res.items });
       })
       .catch(() => {
-        if (!cancelled) setTaskNumberItems([]);
+        if (!cancelled) setTaskNumberData({ subjectId: id, items: [] });
       });
-    void getProgressByTopic({ subject: subject.id })
+    void getProgressByTopic({ subject: id })
       .then((res) => {
-        if (!cancelled) setTopics(res.items);
+        if (!cancelled) setTopicData({ subjectId: id, items: res.items });
       })
       .catch(() => {
-        if (!cancelled) setTopics([]);
+        if (!cancelled) setTopicData({ subjectId: id, items: [] });
       });
     return () => {
       cancelled = true;
     };
   }, [subject.id]);
+
+  const taskNumberItems = useMemo(
+    () => (taskNumberData?.subjectId === subject.id ? taskNumberData.items : null),
+    [taskNumberData, subject.id],
+  );
+  const topicsLoaded = topicData?.subjectId === subject.id;
+  const topics = useMemo(
+    () => (topicData?.subjectId === subject.id ? topicData.items : []),
+    [topicData, subject.id],
+  );
 
   const subjectMistakes = useMemo(
     () => mistakes.filter((m) => m.subjectId === subject.id),
@@ -150,7 +181,7 @@ export function StatisticsMobile() {
     [subjectMistakes],
   );
   const taskNumberProgress = useMemo(
-    () => toTaskNumberProgress(taskNumberItems),
+    () => toTaskNumberProgress(taskNumberItems ?? []),
     [taskNumberItems],
   );
   const subjectRow = realProgress?.bySubject.find((s) => s.subjectId === subject.id) ?? null;
@@ -168,7 +199,10 @@ export function StatisticsMobile() {
   // by-task-number grid below is built from (never the static
   // `subject.taskCount` demo field, which no longer reflects the real
   // catalog). 0 while the by-task-number request hasn't resolved yet.
-  const subjectTotalTasks = taskNumberItems.reduce((sum, row) => sum + row.total, 0);
+  const subjectTotalTasks = taskNumberItems
+    ? taskNumberItems.reduce((sum, row) => sum + row.total, 0)
+    : null;
+  const totalLabel = subjectTotalTasks ?? '···';
 
   function selectSubject(id: string) {
     setSubjectId(id);
@@ -260,7 +294,7 @@ export function StatisticsMobile() {
             </CircularProgress>
             <div>
               <p className="text-body" style={{ fontWeight: 700 }}>
-                {solvedTotal ?? '···'} из {subjectTotalTasks}
+                {solvedTotal ?? '···'} из {totalLabel}
               </p>
               <p className="text-body-sm text-secondary">заданий решено</p>
             </div>
@@ -275,11 +309,15 @@ export function StatisticsMobile() {
             >
               Нажми на номер задания, чтобы посмотреть подробную статистику
             </p>
-            <TaskNumberGrid
-              rows={taskNumberProgress}
-              onSelect={openDetail}
-              activeNumber={lastOpenedTaskNumber}
-            />
+            {taskNumberItems ? (
+              <TaskNumberGrid
+                rows={taskNumberProgress}
+                onSelect={openDetail}
+                activeNumber={lastOpenedTaskNumber}
+              />
+            ) : (
+              <Skeleton className={styles.gridPlaceholder} aria-label="Загрузка заданий" />
+            )}
           </Card>
         </FadeIn>
       )}
@@ -291,9 +329,10 @@ export function StatisticsMobile() {
               <p className="text-h3">Темы ЕГЭ</p>
             </div>
             <div className={styles.topicList}>
-              {topics.length === 0 && (
+              {topicsLoaded && topics.length === 0 && (
                 <p className="text-body-sm text-secondary">Пока нет данных по темам.</p>
               )}
+              {!topicsLoaded && <Skeleton height="3rem" aria-label="Загрузка тем" />}
               {topics.map((topic) => {
                 const percent =
                   topic.total > 0 ? Math.round((topic.completed / topic.total) * 100) : 0;
@@ -386,7 +425,7 @@ export function StatisticsMobile() {
               iconColor="var(--color-accent-primary-end)"
               label="Решено заданий"
               value={solvedTotal ?? '···'}
-              deltaLabel={`из ${subjectTotalTasks}`}
+              deltaLabel={`из ${totalLabel}`}
             />
             <StatTile
               animate
@@ -419,11 +458,15 @@ export function StatisticsMobile() {
             <div className={styles.cardHeaderRow}>
               <p className="text-h3">Прогресс по заданиям</p>
             </div>
-            <TaskNumberBars
-              rows={taskNumberProgress}
-              onSelect={openDetail}
-              activeNumber={lastOpenedTaskNumber}
-            />
+            {taskNumberItems ? (
+              <TaskNumberBars
+                rows={taskNumberProgress}
+                onSelect={openDetail}
+                activeNumber={lastOpenedTaskNumber}
+              />
+            ) : (
+              <Skeleton className={styles.barsPlaceholder} aria-label="Загрузка прогресса" />
+            )}
           </Card>
 
           <Card>
@@ -438,9 +481,10 @@ export function StatisticsMobile() {
               </button>
             </div>
             <div className={styles.topicList}>
-              {topics.length === 0 && (
+              {topicsLoaded && topics.length === 0 && (
                 <p className="text-body-sm text-secondary">Пока нет данных по темам.</p>
               )}
+              {!topicsLoaded && <Skeleton height="3rem" aria-label="Загрузка тем" />}
               {topics.map((topic) => {
                 const percent =
                   topic.total > 0 ? Math.round((topic.completed / topic.total) * 100) : 0;

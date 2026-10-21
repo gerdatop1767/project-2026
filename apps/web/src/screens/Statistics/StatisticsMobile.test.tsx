@@ -81,7 +81,9 @@ describe('StatisticsMobile — subject filter', () => {
     // /progress/summary and /mistakes are fetched once, not re-requested
     // per subject switch — they're filtered client-side instead.
     expect(vi.mocked(api.getProgressSummary)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(api.getMistakes)).toHaveBeenCalledTimes(1);
+    // The mistakes feed only serves the "По темам" donut — not fetched for
+    // the overview at all.
+    expect(vi.mocked(api.getMistakes)).not.toHaveBeenCalled();
   });
 });
 

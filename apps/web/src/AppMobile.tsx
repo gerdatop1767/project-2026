@@ -47,8 +47,15 @@ import { LearningSession } from './screens/LearningSession/LearningSession.js';
  */
 export function AppMobile() {
   const { tab, overlay, navigate, back } = useNavigation();
-  const isMenuOpen = overlay?.screen === 'menu';
-  const contentOverlay = isMenuOpen ? null : overlay;
+  const menuRoute = overlay?.screen === 'menu' ? overlay : null;
+  const isMenuOpen = menuRoute !== null;
+  // The screen the menu was opened from stays mounted under the drawer —
+  // swapping it for the tab screen behind the backdrop re-mounted and
+  // re-fetched a different screen, flashed it through the dim layer, and
+  // closing the menu then landed there instead of where the visitor was.
+  const contentOverlay = menuRoute ? (menuRoute.from ?? null) : overlay;
+  const underMenu = menuRoute?.from;
+  const closeMenu = underMenu ? () => navigate(underMenu, { replace: true }) : back;
 
   function selectTab(id: string) {
     // Профиль/Мои ошибки are real overlay screens (see navigation.tsx's
@@ -66,7 +73,7 @@ export function AppMobile() {
     navigate({ screen: id as MainTabId });
   }
 
-  const menu = <MobileMenu open={isMenuOpen} onClose={back} activeTab={tab} />;
+  const menu = <MobileMenu open={isMenuOpen} onClose={closeMenu} activeTab={tab} />;
 
   // Профиль and Мои ошибки are the two overlays that keep the bottom
   // nav visible (with their own slot highlighted) — every other

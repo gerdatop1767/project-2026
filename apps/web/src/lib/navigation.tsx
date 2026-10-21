@@ -147,7 +147,10 @@ export type OverlayRoute =
   | { screen: 'trainingRandom' }
   | { screen: 'trainingVariants' }
   | { screen: 'rating' }
-  | { screen: 'menu' }
+  /** The mobile menu drawer, drawn over the screen it was opened from.
+   * `from` is that screen, so it stays mounted underneath while the menu
+   * is open and closing the menu returns exactly there. */
+  | { screen: 'menu'; from?: OverlayRoute }
   | { screen: 'favorites' }
   | { screen: 'mockExams' }
   | { screen: 'topics' }
