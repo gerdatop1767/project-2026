@@ -43,7 +43,7 @@
 }
 
 .tab[aria-selected='true'] {
-  color: var(--color-bg-base);
+  color: var(--color-on-accent);
 }
 
 .tab:disabled {

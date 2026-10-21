@@ -38,6 +38,7 @@ import { FadeIn } from '../../ui/motion/motion.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { SubjectPickerDialog } from '../../ui/SubjectPicker/SubjectPicker.js';
 import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
+import { ActivityCharts } from '../../ui/Statistics/ActivityCharts.js';
 import styles from './StatisticsMobile.module.css';
 
 const subTabs = [
@@ -453,6 +454,8 @@ export function StatisticsMobile() {
               deltaLabel="скоро"
             />
           </div>
+
+          <ActivityCharts subjectId={subject.id} />
 
           <Card>
             <div className={styles.cardHeaderRow}>

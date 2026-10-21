@@ -12,6 +12,7 @@ vi.mock('./lib/api.js', () => ({
   listTasksByNumber: vi.fn(),
   getProgressSummary: vi.fn(() => new Promise(() => {})),
   getVariantProgress: vi.fn(() => new Promise(() => {})),
+  getProgressDaily: vi.fn(() => new Promise(() => {})),
   getTaskCountsBySubject: vi.fn(() => new Promise(() => {})),
   getProgressByTaskNumber: vi.fn(() => new Promise(() => {})),
   getProgressByTopic: vi.fn(() => new Promise(() => {})),
