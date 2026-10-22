@@ -19,6 +19,10 @@ if (!root) {
 // from the production app shell, and switched here rather than in
 // App/navigation so the production screen tree stays untouched.
 const isDesignExploration = window.location.hash === '#/design-exploration';
+// The owner-only admin panel (/admin): its own lazy chunk and router.
+// Access is decided by the API, never here (see admin/AdminApp.tsx).
+const isAdmin = /^\/admin(\/|$)/.test(window.location.pathname);
+const AdminApp = lazy(() => import('./admin/AdminApp.js').then((m) => ({ default: m.AdminApp })));
 // Its own chunk: ten concept screens no visitor of the real app needs to
 // download or parse.
 const DesignExploration = lazy(() =>
@@ -29,7 +33,11 @@ const DesignExploration = lazy(() =>
 
 createRoot(root).render(
   <StrictMode>
-    {isDesignExploration ? (
+    {isAdmin ? (
+      <Suspense fallback={null}>
+        <AdminApp />
+      </Suspense>
+    ) : isDesignExploration ? (
       <Suspense fallback={null}>
         <DesignExploration />
       </Suspense>
