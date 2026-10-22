@@ -108,7 +108,15 @@ const overviewFixture = {
   tasks: { published: 600, needs_review: 3 },
   complaints: { inPeriod: cmp(2, 0), new: 2, inProgress: 0 },
   series: Array.from({ length: 7 }, (_, i) => ({
-    bucket: ['2026-03-05', '2026-03-06', '2026-03-07', '2026-03-08', '2026-03-09', '2026-03-10', '2026-03-11'][i]!,
+    bucket: [
+      '2026-03-05',
+      '2026-03-06',
+      '2026-03-07',
+      '2026-03-08',
+      '2026-03-09',
+      '2026-03-10',
+      '2026-03-11',
+    ][i]!,
     registrations: i,
     correct: 10,
     incorrect: 5,
