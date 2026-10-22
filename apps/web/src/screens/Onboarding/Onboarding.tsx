@@ -6,12 +6,8 @@ import { getLearningProfile, saveLearningProfile } from '../../lib/api.js';
 import { selfReportedScoreOptions, targetScoreOptions } from '../../lib/learningProfileLabels.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
-import { Card } from '../../ui/Card/Card.js';
-import { Chip } from '../../ui/Chip/Chip.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { Logo } from '../../ui/Logo/Logo.js';
-import { clsx } from '../../lib/clsx.js';
-import { FadeIn } from '../../ui/motion/motion.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import { SubjectOptionList } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './Onboarding.module.css';
 
@@ -101,13 +97,14 @@ export function Onboarding() {
   }
 
   return (
-    <div className={styles.stack}>
+    <div className={styles.page}>
+      <BackdropArt />
       <div className={styles.header}>
         <button type="button" className={styles.backButton} onClick={goBack} aria-label="Назад">
           <Icon name="back" size={22} />
         </button>
         <div
-          className={styles.stepDots}
+          className={styles.progress}
           role="progressbar"
           aria-label="Шаг онбординга"
           aria-valuenow={step}
@@ -115,34 +112,51 @@ export function Onboarding() {
           aria-valuemax={TOTAL_STEPS}
         >
           {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-            <span key={i} className={clsx(styles.stepDot, i < step && styles.stepDotDone)} />
+            <span key={i} className={styles.segment}>
+              <span className={styles.segmentFill} data-done={i < step || undefined} />
+            </span>
           ))}
         </div>
       </div>
 
-      <FadeIn key={step} className={styles.content}>
+      <div key={step} className={styles.content}>
         {step === 1 && (
-          <div className={styles.centered}>
-            <Logo size={56} />
-            <h1 className="text-h1">Добро пожаловать в Zybrilka!</h1>
-            <p className="text-body text-secondary">
-              Это нужно один раз, чтобы Зубрилка могла подобрать обучение под тебя. Ответим на пару
-              вопросов.
-            </p>
-            <Button
-              variant="primary"
-              fullWidth
-              onClick={() => setStep(2)}
-              disabled={loadingProfile}
-            >
-              Начать
-            </Button>
+          <div className={styles.hero}>
+            <MascotArt
+              srcSet="/branding/v2/onboarding/welcome-480.webp 480w, /branding/v2/onboarding/welcome-720.webp 720w"
+              src="/branding/v2/onboarding/welcome-480.webp"
+              width={480}
+              height={402}
+              variant="welcome"
+            />
+            <section className={styles.glass}>
+              <h1 className={styles.heroTitle}>
+                Добро пожаловать в <span className={styles.accent}>Zybrilka</span>!
+              </h1>
+              <p className={styles.lead}>
+                Ответь на пару вопросов — и мы подберём обучение под тебя. Это нужно один раз.
+              </p>
+              <Button
+                variant="primary"
+                fullWidth
+                className={styles.cta}
+                onClick={() => setStep(2)}
+                disabled={loadingProfile}
+              >
+                Начать <Icon name="arrowRight" size={18} />
+              </Button>
+            </section>
           </div>
         )}
 
         {step === 2 && (
-          <>
-            <h1 className="text-h2">Какие предметы сдаёшь?</h1>
+          <section className={styles.glass}>
+            <h1 className={styles.title}>
+              Какие предметы <span className={styles.accent}>сдаёшь</span>?
+            </h1>
+            <p className={styles.lead}>
+              Можно выбрать несколько — потом их легко поменять в профиле.
+            </p>
             <SubjectOptionList
               multiple
               aria-label="Предметы ЕГЭ"
@@ -152,115 +166,242 @@ export function Onboarding() {
             <Button
               variant="primary"
               fullWidth
+              className={styles.cta}
               disabled={selectedSubjects.length === 0}
               onClick={() => setStep(3)}
             >
-              Далее
+              Далее <Icon name="arrowRight" size={18} />
             </Button>
-          </>
+          </section>
         )}
 
         {step === 3 && (
-          <>
-            <h1 className="text-h2">Примерно на сколько ты сейчас пишешь?</h1>
-            <p className="text-body-sm text-secondary">
+          <section className={styles.glass}>
+            <h1 className={styles.title}>
+              Примерно на сколько ты сейчас <span className={styles.accent}>пишешь</span>?
+            </h1>
+            <p className={styles.lead}>
               Это просто ориентир, а не точный результат — если не уверен, выбери «Не знаю».
             </p>
-            <div className={styles.optionList}>
-              {selectedSubjects.map((subjectId) => {
-                const subject = subjects.find((s) => s.id === subjectId);
-                return (
-                  <div key={subjectId} className={styles.skillRow}>
-                    <span className={clsx('text-body', styles.skillName)}>
-                      {subject?.shortName ?? subjectId}
-                    </span>
-                    <div className={styles.chipGrid}>
-                      {selfReportedScoreOptions.map((option) => (
-                        <Chip
-                          key={option.id}
-                          selected={levels[subjectId] === option.id}
-                          onClick={() => setLevels((prev) => ({ ...prev, [subjectId]: option.id }))}
-                        >
-                          {option.label}
-                        </Chip>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className={styles.subjectList}>
+              {selectedSubjects.map((subjectId) => (
+                <ScoreBlock
+                  key={subjectId}
+                  subjectId={subjectId}
+                  options={selfReportedScoreOptions}
+                  value={levels[subjectId]}
+                  onChange={(id) => setLevels((prev) => ({ ...prev, [subjectId]: id }))}
+                />
+              ))}
             </div>
             <Button
               variant="primary"
               fullWidth
+              className={styles.cta}
               disabled={!canContinueFromLevels}
               onClick={() => setStep(4)}
             >
-              Далее
+              Далее <Icon name="arrowRight" size={18} />
             </Button>
-          </>
+          </section>
         )}
 
         {step === 4 && (
-          <>
-            <h1 className="text-h2">Какой результат хочешь получить?</h1>
-            <div className={styles.optionList}>
-              {selectedSubjects.map((subjectId) => {
-                const subject = subjects.find((s) => s.id === subjectId);
-                return (
-                  <div key={subjectId} className={styles.skillRow}>
-                    <span className={clsx('text-body', styles.skillName)}>
-                      {subject?.shortName ?? subjectId}
-                    </span>
-                    <div className={styles.chipGrid}>
-                      {targetScoreOptions.map((option) => (
-                        <Chip
-                          key={option.id}
-                          selected={targets[subjectId] === option.id}
-                          onClick={() =>
-                            setTargets((prev) => ({ ...prev, [subjectId]: option.id }))
-                          }
-                        >
-                          {option.label}
-                        </Chip>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+          <section className={styles.glass}>
+            <h1 className={styles.title}>
+              Какой результат хочешь <span className={styles.accent}>получить</span>?
+            </h1>
+            <p className={styles.lead}>Цель поможет понять, на какие задания делать упор.</p>
+            <div className={styles.subjectList}>
+              {selectedSubjects.map((subjectId) => (
+                <ScoreBlock
+                  key={subjectId}
+                  subjectId={subjectId}
+                  options={targetScoreOptions}
+                  value={targets[subjectId]}
+                  onChange={(id) => setTargets((prev) => ({ ...prev, [subjectId]: id }))}
+                />
+              ))}
             </div>
             <Button
               variant="primary"
               fullWidth
+              className={styles.cta}
               disabled={!canContinueFromTargets}
               onClick={() => setStep(5)}
             >
-              Далее
+              Далее <Icon name="arrowRight" size={18} />
             </Button>
-          </>
+          </section>
         )}
 
         {step === 5 && (
-          <>
-            <div className={styles.centered}>
-              <h1 className="text-h2">Почти готово!</h1>
-            </div>
-            <Card>
-              <p className="text-body-sm text-secondary">
+          <div className={styles.hero}>
+            <MascotArt
+              srcSet="/branding/v2/onboarding/done-320.webp 320w, /branding/v2/onboarding/done-480.webp 480w"
+              src="/branding/v2/onboarding/done-320.webp"
+              width={320}
+              height={384}
+              variant="done"
+            />
+            <section className={styles.glass}>
+              <h1 className={styles.heroTitle}>
+                Почти <span className={styles.accent}>готово</span>!
+              </h1>
+              <p className={styles.lead}>
                 Мы сохраним твой выбор и будем подбирать тренировку под тебя по мере решения
                 заданий. Это можно изменить позже в профиле.
               </p>
-            </Card>
-            {saveError && (
-              <p className="text-body-sm" style={{ color: 'var(--color-error)' }}>
-                {saveError}
-              </p>
-            )}
-            <Button variant="primary" fullWidth onClick={finish} disabled={saving}>
-              {saving ? 'Сохраняем…' : 'Перейти к тренировкам'}
-            </Button>
-          </>
+              {saveError && (
+                <p className={styles.error} role="alert">
+                  {saveError}
+                </p>
+              )}
+              <Button
+                variant="primary"
+                fullWidth
+                className={styles.cta}
+                onClick={finish}
+                disabled={saving}
+              >
+                {saving ? 'Сохраняем…' : 'Перейти к тренировкам'}
+                {!saving && <Icon name="arrowRight" size={18} />}
+              </Button>
+            </section>
+          </div>
         )}
-      </FadeIn>
+      </div>
     </div>
+  );
+}
+
+/** One subject's score choice: icon + name + options read as one group. */
+function ScoreBlock<T extends string>({
+  subjectId,
+  options,
+  value,
+  onChange,
+}: {
+  subjectId: string;
+  options: readonly { id: T; label: string }[];
+  value: T | undefined;
+  onChange: (id: T) => void;
+}) {
+  const subject = subjects.find((s) => s.id === subjectId);
+  const name = subject?.name ?? subjectId;
+  return (
+    <div className={styles.subjectBlock} role="group" aria-label={name}>
+      <span className={styles.subjectArt} aria-hidden="true">
+        <SubjectIcon subjectId={subjectId} selected={value !== undefined} />
+      </span>
+      <div className={styles.subjectBody}>
+        <span className={styles.subjectName}>{name}</span>
+        <div className={styles.scoreRow}>
+          {options.map((option) => {
+            const selected = value === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                className={styles.score}
+                data-selected={selected || undefined}
+                aria-pressed={selected}
+                onClick={() => onChange(option.id)}
+              >
+                {selected && <Icon name="check" size={14} />}
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The mascot with a soft halo; on the last step a check badge pops in once. */
+function MascotArt({
+  src,
+  srcSet,
+  width,
+  height,
+  variant,
+}: {
+  src: string;
+  srcSet: string;
+  width: number;
+  height: number;
+  variant: 'welcome' | 'done';
+}) {
+  return (
+    <div className={styles.mascot} data-variant={variant} aria-hidden="true">
+      <span className={styles.halo} />
+      <img
+        src={src}
+        srcSet={srcSet}
+        sizes={
+          variant === 'welcome'
+            ? '(min-width: 900px) 420px, 78vw'
+            : '(min-width: 900px) 260px, 52vw'
+        }
+        width={width}
+        height={height}
+        alt=""
+        decoding="async"
+        className={styles.mascotImg}
+      />
+      {variant === 'done' && (
+        <span className={styles.doneBadge}>
+          <svg viewBox="0 0 48 48" width="100%" height="100%">
+            <circle cx="24" cy="24" r="21" fill="url(#onbDone)" />
+            <defs>
+              <linearGradient id="onbDone" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#a855f7" />
+                <stop offset="1" stopColor="#ec4899" />
+              </linearGradient>
+            </defs>
+            <path
+              d="m15 24.5 6.2 6.2L33.5 18"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={styles.doneCheck}
+            />
+          </svg>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Quiet maths in the background — outline shapes, no motion. */
+function BackdropArt() {
+  return (
+    <svg
+      className={styles.backdrop}
+      viewBox="0 0 400 800"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
+        <path d="M40 120 72 102l32 18v36l-32 18-32-18Z M40 120l32 18 32-18 M72 138v36" />
+        <path d="M318 210 352 290h-68Z M318 210l-6 80" />
+        <circle cx="330" cy="560" r="26" />
+        <path d="M30 640h70M65 605v70" opacity="0.6" />
+      </g>
+      <g fill="currentColor" fontFamily="serif" fontStyle="italic">
+        <text x="300" y="120" fontSize="44">
+          π
+        </text>
+        <text x="36" y="440" fontSize="22">
+          x² + y²
+        </text>
+        <text x="270" y="700" fontSize="20">
+          ЕГЭ
+        </text>
+      </g>
+    </svg>
   );
 }
