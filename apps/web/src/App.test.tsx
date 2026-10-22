@@ -377,7 +377,9 @@ describe('App — access gate (server-truth auth state)', () => {
     window.history.replaceState(null, '', '/onboarding');
     renderApp(null);
     expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
-    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Добро пожаловать в Zybrilka!' }),
+    ).not.toBeInTheDocument();
     await waitFor(() => expect(window.location.pathname).toBe('/'));
   });
 
@@ -427,7 +429,7 @@ describe('App — access gate (server-truth auth state)', () => {
 
   it('signed in + onboarding NOT completed (new or unfinished account): sent to onboarding, never the main menu', async () => {
     renderApp(makeAuthUser({ onboardingCompleted: false }));
-    await screen.findByText('Добро пожаловать в Zybrilka!');
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
     expect(window.location.pathname).toBe('/onboarding');
     expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
   });
@@ -435,14 +437,16 @@ describe('App — access gate (server-truth auth state)', () => {
   it('signed in + onboarding not completed: a deep link into the trainer is redirected to onboarding too', async () => {
     window.history.replaceState(null, '', '/statistics');
     renderApp(makeAuthUser({ onboardingCompleted: false }));
-    await screen.findByText('Добро пожаловать в Zybrilka!');
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
     expect(window.location.pathname).toBe('/onboarding');
   });
 
   it('signed in + onboarding completed: straight to the main menu, no onboarding, no landing', async () => {
     renderApp(makeAuthUser({ onboardingCompleted: true }));
     expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
-    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Добро пожаловать в Zybrilka!' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
     // The diagnostic/onboarding is only reachable on purpose (Профиль →
     // «Предметы ЕГЭ»), it is never auto-started for an onboarded user.
@@ -454,7 +458,9 @@ describe('App — access gate (server-truth auth state)', () => {
     const legacy = { ...makeAuthUser(), onboardingCompleted: undefined } as unknown as AuthUser;
     renderApp(legacy);
     expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
-    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Добро пожаловать в Zybrilka!' }),
+    ).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
   });
 
@@ -470,7 +476,7 @@ describe('App — access gate (server-truth auth state)', () => {
   it('signed in + onboarded: may still open onboarding on purpose (to retake it) without being bounced', async () => {
     window.history.replaceState(null, '', '/onboarding');
     renderApp(makeAuthUser({ onboardingCompleted: true }));
-    await screen.findByText('Добро пожаловать в Zybrilka!');
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
     expect(window.location.pathname).toBe('/onboarding');
   });
 
@@ -742,7 +748,7 @@ describe('App — sign-in redirects, × and removed pages', () => {
   it('a brand-new account (what VK returns for a first sign-in) is sent to onboarding by REPLACING the entry — no extra history, Back cannot loop', async () => {
     const length = window.history.length;
     renderApp(makeAuthUser({ onboardingCompleted: false }));
-    await screen.findByText('Добро пожаловать в Zybrilka!');
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
     expect(window.location.pathname).toBe('/onboarding');
     expect(window.history.length).toBe(length);
   });
@@ -751,10 +757,10 @@ describe('App — sign-in redirects, × and removed pages', () => {
     window.history.replaceState(null, '', '/onboarding');
     const user = userEvent.setup();
     renderApp(makeAuthUser({ onboardingCompleted: false }));
-    await screen.findByText('Добро пожаловать в Zybrilka!');
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
     const length = window.history.length;
     await user.click(screen.getByRole('button', { name: 'Назад' }));
-    await screen.findByText('Добро пожаловать в Zybrilka!');
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
     expect(window.location.pathname).toBe('/onboarding');
     expect(window.history.length).toBe(length);
   });
