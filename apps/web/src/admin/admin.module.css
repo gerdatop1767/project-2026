@@ -784,6 +784,7 @@
   .table.tableCards td,
   .table.tableCards td.num {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: baseline;
     gap: var(--space-3);
@@ -792,6 +793,16 @@
     text-align: right;
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  .tableCards td > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mobileSort .select {
+    flex: 1;
+    min-width: 0;
   }
 
   .tableCards td::before {
