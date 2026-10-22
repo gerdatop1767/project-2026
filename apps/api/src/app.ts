@@ -11,6 +11,7 @@ import {
   requireSession,
   withoutEncapsulation,
 } from './plugins/authSession.js';
+import { adminRoutes } from './modules/admin/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { profileRoutes } from './modules/profile/routes.js';
 import { collectionsRoutes } from './modules/collections/routes.js';
@@ -128,6 +129,8 @@ export function buildApp({
         scope.register(privateRoutes);
         scope.register(profileRoutes, { db, config: authConfig, prefix: '/api/v1' });
       });
+      // Owner-only admin API — its own scope, its own guard (admin/access.ts).
+      app.register(adminRoutes, { db, config: authConfig, prefix: '/api/v1' });
     } else {
       app.register(contentRoutes(false));
       app.register(privateRoutes);

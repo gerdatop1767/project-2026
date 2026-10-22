@@ -12,6 +12,28 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/DATABASE_URL/);
   });
 
+  describe('ADMIN_OWNER_USER_IDS', () => {
+    it('grants nobody by default', () => {
+      expect(loadConfig({}).ADMIN_OWNER_USER_IDS).toEqual([]);
+      expect(loadConfig({ ADMIN_OWNER_USER_IDS: '' }).ADMIN_OWNER_USER_IDS).toEqual([]);
+      expect(loadConfig({ ADMIN_OWNER_USER_IDS: ' , ' }).ADMIN_OWNER_USER_IDS).toEqual([]);
+    });
+
+    it('parses a comma-separated list of uuids (trimmed, lowercased)', () => {
+      const id = '0F8FAD5B-D9CB-469F-A165-70867728950E';
+      expect(loadConfig({ ADMIN_OWNER_USER_IDS: ` ${id} ` }).ADMIN_OWNER_USER_IDS).toEqual([
+        id.toLowerCase(),
+      ]);
+    });
+
+    it('fails startup on anything that is not a uuid (no silent "admin for nobody/everybody")', () => {
+      expect(() => loadConfig({ ADMIN_OWNER_USER_IDS: 'owner@example.com' })).toThrow(
+        /ADMIN_OWNER_USER_IDS/,
+      );
+      expect(() => loadConfig({ ADMIN_OWNER_USER_IDS: '*' })).toThrow(/ADMIN_OWNER_USER_IDS/);
+    });
+  });
+
   it('rejects an invalid port', () => {
     expect(() => loadConfig({ PORT: '99999' })).toThrow(/PORT/);
   });

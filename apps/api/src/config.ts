@@ -57,6 +57,21 @@ const configSchema = z
     // profile lookup) so a stalled VK endpoint can't leave the OAuth
     // callback hanging. Not an env the deploy has to set.
     VK_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(100).max(30000).default(5000),
+    // Owner-only admin panel (docs/ADMIN.md). Comma-separated ids of EXISTING
+    // `users` rows that may open /api/v1/admin/*. Unset/empty = nobody is an
+    // admin (the safe default). Set only on the server (env / secret store),
+    // never derived from anything a client sends; a malformed id fails startup
+    // instead of being silently ignored.
+    ADMIN_OWNER_USER_IDS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((id) => id.trim().toLowerCase())
+          .filter((id) => id !== ''),
+      )
+      .pipe(z.array(z.uuid()).max(5)),
   })
   .refine((c) => c.NODE_ENV !== 'production' || c.DATABASE_URL, {
     message: 'DATABASE_URL is required in production',
