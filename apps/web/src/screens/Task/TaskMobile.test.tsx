@@ -303,7 +303,9 @@ describe('TaskMobile', () => {
     const dialog = screen.getByRole('dialog', { name: 'Задание' });
     await user.click(within(dialog).getByRole('button', { name: 'Пожаловаться на задание' }));
 
-    expect(within(dialog).getByRole('status')).toHaveTextContent('Жалоба отправлена');
+    // Signed out here: the real form needs an account, so it offers sign-in
+    // (the form itself is covered in ReportTaskContent.test.tsx).
+    expect(within(dialog).getByText(/войдите в аккаунт/)).toBeInTheDocument();
   });
 
   it('renders "Другие задания" collapsed by default with real sibling tasks', async () => {

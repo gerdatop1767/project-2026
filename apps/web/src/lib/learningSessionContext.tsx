@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { track } from './analytics.js';
 import type {
   LearningSessionResponse,
   LearningSessionSummary,
@@ -137,6 +138,7 @@ export function applyLearningSessionResponse(
   if (!response) return 'none';
 
   if (response.status === 'completed') {
+    track('training_completed', { subjectId: response.subject });
     setSession({
       status: 'completed',
       sessionId: response.sessionId,

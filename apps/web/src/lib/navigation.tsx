@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { trackRoute } from './analytics.js';
 import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 
@@ -354,6 +355,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const navigate = useCallback((route: Route, options?: NavigateOptions) => {
+    trackRoute(route);
     if (isTabRoute(route)) {
       setTab(route.screen);
       setOverlay(null);

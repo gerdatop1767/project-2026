@@ -9,9 +9,11 @@
  * - stored data: packages/db/src/schema.ts (users, auth_identities,
  *   auth_sessions, magic_link_tokens, user_avatars, attempts, mistakes, …);
  * - session: httpOnly cookie, 30 days (apps/api/src/modules/auth);
- * - no third-party analytics, ads or trackers anywhere in apps/web;
- * - "Пожаловаться на задание" is still a placeholder (lib/reportTask.ts),
- *   so nothing here tells users that complaints reach anyone.
+ * - no third-party analytics, ads or trackers anywhere in apps/web; the
+ *   only analytics is first-party (lib/analytics.ts, the `zv` cookie —
+ *   apps/api/src/modules/analytics), feeding the owner's admin panel;
+ * - "Пожаловаться на задание" stores the complaint (reason, comment,
+ *   account) for review in the admin panel (apps/api modules/complaints).
  *
  * `[Заполнить: …]` marks a fact only the owner can supply (operator,
  * contact, hosting, SMTP provider). The legal pages render those marks
@@ -96,6 +98,8 @@ export const privacyPolicy: LegalDocument = {
         'Данные профиля, которые вы указываете сами: отображаемое имя и загруженное фото.',
         'Учебные данные: ваши ответы на задания, ошибки, избранные задания, выбранные предметы и ответы на вопросы при первом входе, статистика по номерам и темам, дни занятий.',
         'Технические данные: дата регистрации и последнего визита, запись о сессии входа.',
+        'Обезличенная статистика использования: открытие приложения, выбор предмета, открытие и проверка задания, переход по нашей рекламной ссылке — с привязкой к случайному идентификатору браузера (без IP-адреса и без сохранения введённых ответов гостя).',
+        'Жалобы на задания: причина и комментарий, которые вы отправили.',
       ],
     },
     {
@@ -104,13 +108,15 @@ export const privacyPolicy: LegalDocument = {
         'чтобы вы могли войти и пользоваться аккаунтом на разных устройствах;',
         'чтобы проверять ответы, сохранять ошибки и показывать статистику;',
         'чтобы подбирать задания по слабым темам;',
-        'чтобы отвечать на обращения в поддержку.',
+        'чтобы отвечать на обращения в поддержку и исправлять задания по жалобам;',
+        'чтобы понимать, как пользуются тренажёром, и улучшать его (собственная статистика, без сторонних сервисов).',
       ],
     },
     {
       heading: '4. Cookie и хранилище браузера',
       paragraphs: [
         'Для входа используется одна служебная cookie сессии. Она недоступна скриптам страницы (httpOnly) и действует 30 дней.',
+        'Для собственной статистики используется cookie со случайным идентификатором браузера. Она тоже недоступна скриптам страницы (httpOnly), не содержит личных данных и хранится до 400 дней.',
         'В хранилище браузера (localStorage и sessionStorage) сохраняются служебные значения, нужные для работы приложения. Рекламных cookie и сторонних систем аналитики на сайте нет.',
       ],
     },

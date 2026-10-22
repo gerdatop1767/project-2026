@@ -12,7 +12,9 @@ import {
   withoutEncapsulation,
 } from './plugins/authSession.js';
 import { adminRoutes } from './modules/admin/routes.js';
+import { analyticsRoutes } from './modules/analytics/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { complaintsRoutes } from './modules/complaints/routes.js';
 import { profileRoutes } from './modules/profile/routes.js';
 import { collectionsRoutes } from './modules/collections/routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
@@ -128,6 +130,19 @@ export function buildApp({
         scope.addHook('onRequest', rejectCrossSiteWrites);
         scope.register(privateRoutes);
         scope.register(profileRoutes, { db, config: authConfig, prefix: '/api/v1' });
+      });
+      app.register(async (scope) => {
+        // Product analytics + campaign links: public, per-IP throttled.
+        await scope.register(rateLimit, { global: false });
+        scope.addHook('onRequest', rejectCrossSiteWrites);
+        scope.register(analyticsRoutes, { db, config: authConfig, prefix: '/api/v1' });
+      });
+      app.register(async (scope) => {
+        // Task complaints: an account is required, throttled per account.
+        await scope.register(rateLimit, { global: false });
+        scope.addHook('onRequest', requireSession);
+        scope.addHook('onRequest', rejectCrossSiteWrites);
+        scope.register(complaintsRoutes, { db, prefix: '/api/v1' });
       });
       // Owner-only admin API — its own scope, its own guard (admin/access.ts).
       app.register(adminRoutes, { db, config: authConfig, prefix: '/api/v1' });

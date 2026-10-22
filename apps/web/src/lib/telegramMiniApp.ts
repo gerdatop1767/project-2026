@@ -56,6 +56,21 @@ export function getTelegramInitData(): string | null {
   return window.Telegram?.WebApp?.initData || launchData;
 }
 
+/**
+ * The launch's `start_param` (`t.me/<bot>?startapp=<value>`), used only to
+ * attribute a Mini App launch to a campaign — never for identity. Unsigned
+ * input; the server only accepts it if it names an active campaign.
+ */
+export function getTelegramStartParam(): string | null {
+  const initData = getTelegramInitData();
+  if (!initData) return null;
+  try {
+    return new URLSearchParams(initData).get('start_param') || null;
+  } catch {
+    return null;
+  }
+}
+
 export function isTelegramMiniApp(): boolean {
   return getTelegramInitData() !== null;
 }

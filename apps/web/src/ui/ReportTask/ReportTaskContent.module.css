@@ -11,3 +11,73 @@
   font-weight: var(--font-weight-semibold);
   text-align: left;
 }
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.reasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.legend {
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+.reason {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--color-bg-surface);
+  cursor: pointer;
+}
+
+.reason input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--color-accent-primary);
+}
+
+.commentLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.comment {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-input);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  /* 16px+ keeps iOS Safari from zooming into the field. */
+  font-size: max(1rem, 16px);
+  resize: vertical;
+}
+
+.comment:focus-visible,
+.reason:focus-within {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-body-sm);
+}
