@@ -134,7 +134,8 @@ describe('FunnelsPage', () => {
       await screen.findByText('Нет данных: события за период не собирались.'),
     ).toBeInTheDocument();
     expect(screen.getByText('За период регистраций не было.')).toBeInTheDocument();
-    expect(screen.getAllByText('нет данных').length).toBeGreaterThanOrEqual(3);
+    // Guest tiles: an unknown value is a neutral «Недостаточно данных», never 0.
+    expect(screen.getAllByText('Недостаточно данных').length).toBeGreaterThanOrEqual(3);
     expect(await screen.findByText('Пока нет когорт за этот промежуток.')).toBeInTheDocument();
   });
 

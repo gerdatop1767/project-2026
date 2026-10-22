@@ -47,12 +47,16 @@ export function Kpi({
   value,
   compare,
   hint,
+  trend,
   format = num,
 }: {
   label: string;
   value: number | null | undefined;
   compare?: Compare;
   hint?: string;
+  /** Real per-bucket values of the same measure, oldest first — drawn as a
+   * tiny line only when there are ≥3 points and any of them is non-zero. */
+  trend?: readonly number[];
   format?: (v: number | null | undefined) => string;
 }) {
   const change = compare?.changePercent ?? null;
@@ -60,7 +64,12 @@ export function Kpi({
   return (
     <div className={s.kpi}>
       <span className={s.kpiLabel}>{label}</span>
-      <span className={clsx(s.kpiValue, unknown && s.kpiValueMuted)}>{format(value)}</span>
+      <span className={s.kpiRow}>
+        <span className={clsx(s.kpiValue, unknown && s.kpiValueMuted)}>
+          {unknown ? 'Недостаточно данных' : format(value)}
+        </span>
+        {trend && <Sparkline values={trend} />}
+      </span>
       {compare && (
         <span className={s.kpiChange}>
           <span
@@ -76,6 +85,56 @@ export function Kpi({
       )}
       {hint && <span className={s.kpiChange}>{hint}</span>}
     </div>
+  );
+}
+
+/** A tiny trend line for a stat tile — decorative (aria-hidden); the
+ * number and the charts below carry the actual data. */
+export function Sparkline({ values }: { values: readonly number[] }) {
+  if (values.length < 3 || values.every((v) => v === 0)) return null;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const span = max - min || 1;
+  const w = 72;
+  const h = 26;
+  const points = values
+    .map(
+      (v, i) =>
+        `${((i / (values.length - 1)) * w).toFixed(1)},${(h - 2 - ((v - min) / span) * (h - 4)).toFixed(1)}`,
+    )
+    .join(' ');
+  return (
+    <svg className={s.sparkline} viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
+      <polyline
+        points={points}
+        fill="none"
+        stroke="var(--admin-s1)"
+        strokeWidth={1.75}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** A labelled band of a page («Ключевые показатели», «Динамика», «Подробно»). */
+export function Section({
+  title,
+  children,
+  actions,
+}: {
+  title: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <section className={s.section} aria-label={title}>
+      <div className={s.sectionHead}>
+        <h2 className={s.sectionTitle}>{title}</h2>
+        {actions}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -242,9 +301,28 @@ export function DataTable<R extends Record<string, unknown>>({
   dir?: 'asc' | 'desc';
   onSort?: (key: string) => void;
 }) {
+  const sortable = columns.filter((c) => c.sort);
   return (
     <div className={s.tableWrap}>
-      <table className={s.table}>
+      {onSort && sortable.length > 0 && (
+        <label className={s.mobileSort}>
+          Сортировка
+          <select
+            className={s.select}
+            value={sort ?? ''}
+            onChange={(e) => e.target.value && onSort(e.target.value)}
+          >
+            {!sort && <option value="">—</option>}
+            {sortable.map((c) => (
+              <option key={c.sort} value={c.sort}>
+                {c.label}
+                {c.sort === sort ? (dir === 'asc' ? ' ↑' : ' ↓') : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <table className={clsx(s.table, s.tableCards)}>
         <caption className={s.srOnly}>{caption}</caption>
         <thead>
           <tr>
@@ -279,7 +357,7 @@ export function DataTable<R extends Record<string, unknown>>({
           {rows.map((row) => (
             <tr key={rowKey(row)}>
               {columns.map((c) => (
-                <td key={c.key} className={c.numeric ? s.num : undefined}>
+                <td key={c.key} className={c.numeric ? s.num : undefined} data-label={c.label}>
                   {c.render ? c.render(row) : formatCell(row[c.key])}
                 </td>
               ))}

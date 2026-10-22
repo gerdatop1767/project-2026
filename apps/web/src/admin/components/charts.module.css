@@ -210,3 +210,9 @@
     grid-row: 2;
   }
 }
+
+.unit {
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+}
