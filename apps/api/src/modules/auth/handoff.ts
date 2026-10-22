@@ -79,7 +79,11 @@ export async function finishHandoff(
 }
 
 export type ClaimResult =
-  { status: 'ok'; userId: string } | { status: 'pending' | 'cancelled' | 'failed' | 'expired' };
+  | { status: 'ok'; userId: string }
+  /** `started`: the external browser has opened VK ID for it (so a Mini App
+   * that reloaded meanwhile should keep waiting, not start over). */
+  | { status: 'pending'; started: boolean }
+  | { status: 'cancelled' | 'failed' | 'expired' };
 
 /** The Mini App asks how its handoff went; a completed one is consumed
  * here exactly once (completed → consumed) and yields the user id. */
@@ -91,7 +95,9 @@ export async function claimHandoff(db: Database, claimToken: string): Promise<Cl
     .limit(1);
   if (!row || row.expiresAt.getTime() <= Date.now()) return { status: 'expired' };
   const status = row.status as HandoffStatus;
-  if (status === 'pending' || status === 'started') return { status: 'pending' };
+  if (status === 'pending' || status === 'started') {
+    return { status: 'pending', started: status === 'started' };
+  }
   if (status === 'cancelled' || status === 'failed') return { status };
   if (status !== 'completed' || !row.userId) return { status: 'expired' };
 

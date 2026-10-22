@@ -119,6 +119,10 @@ export type OverlayRoute =
       /** Same purpose as `task.returnTo` above — Result's back arrow
        * needs the same parent-overlay context Task had. */
       returnTo?: Route;
+      /** A guest's check: nothing was recorded, so re-fetching the task
+       * won't reveal its answer — the check response's own answer and
+       * explanation come along instead. */
+      revealed?: RevealedAnswer;
       /** The real elapsed solving time already submitted with this
        * attempt (see `useSolvingTimer`) — absent when the timer was
        * never started. Carried the same way `userAnswer` is, purely for
@@ -178,6 +182,12 @@ export type OverlayRoute =
        * before BackRow ever runs. */
       from?: Route;
     };
+
+export interface RevealedAnswer {
+  correctAnswer: string;
+  correctAnswerDisplay: string | null;
+  explanation: string;
+}
 
 export type Route = { screen: MainTabId } | OverlayRoute;
 

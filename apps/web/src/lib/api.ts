@@ -496,7 +496,7 @@ export type VkHandoffStatus = 'pending' | 'ok' | 'cancelled' | 'failed' | 'expir
 
 /** Asks whether the VK sign-in started from this Mini App has finished;
  * `ok` means this WebView now has its own session. */
-export function claimVkHandoff(): Promise<{ status: VkHandoffStatus }> {
+export function claimVkHandoff(): Promise<{ status: VkHandoffStatus; started?: boolean }> {
   return apiFetch('/auth/vk/handoff/claim', { method: 'POST' });
 }
 

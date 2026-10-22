@@ -31,6 +31,27 @@ const REFRESH_MS = 8 * 60 * 1000;
 /** Give up waiting a little after the server would expire it anyway. */
 const WAIT_LIMIT_MS = 11 * 60 * 1000;
 
+/** Set when the tap opened the browser; survives a reload of this WebView
+ * (Telegram may reload the Mini App while the visitor is in the browser),
+ * so the reloaded app waits for THAT sign-in instead of starting over. */
+const OPENED_KEY = 'zybrilka_vk_handoff_opened_at';
+function markOpened(on: boolean) {
+  try {
+    if (on) window.sessionStorage.setItem(OPENED_KEY, String(Date.now()));
+    else window.sessionStorage.removeItem(OPENED_KEY);
+  } catch {
+    // Storage blocked: a reload simply starts a fresh link.
+  }
+}
+function openedRecently(): boolean {
+  try {
+    const at = Number(window.sessionStorage.getItem(OPENED_KEY));
+    return at > 0 && Date.now() - at < WAIT_LIMIT_MS;
+  } catch {
+    return false;
+  }
+}
+
 export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<void>) {
   const [phase, setPhase] = useState<VkTelegramPhase>('preparing');
   const [notice, setNotice] = useState<VkTelegramNotice>(null);
@@ -62,13 +83,34 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
     load(mine);
   }, [load]);
 
+  // On arrival, first ask about a handoff this WebView may already have —
+  // Telegram can reload the Mini App while the visitor is in the browser:
+  // a finished sign-in is collected right away, one still open in the
+  // browser is waited for, and only otherwise a new link is prepared.
   useEffect(() => {
     if (!enabled) return;
-    load(++generation.current);
+    const mine = ++generation.current;
+    claimVkHandoff()
+      .then(async ({ status, started }) => {
+        if (generation.current !== mine) return;
+        if (status === 'ok') {
+          markOpened(false);
+          await onSignedIn();
+          setPhase('done');
+        } else if (status === 'pending' && (started || openedRecently())) {
+          setPhase('waiting');
+        } else {
+          markOpened(false);
+          load(mine);
+        }
+      })
+      .catch(() => {
+        if (generation.current === mine) load(mine);
+      });
     return () => {
       generation.current++;
     };
-  }, [enabled, load]);
+  }, [enabled, load, onSignedIn]);
 
   // Keep the prepared link fresh while the visitor reads the screen.
   useEffect(() => {
@@ -85,12 +127,14 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
       return;
     }
     setNotice(null);
+    markOpened(true);
     if (!openExternalLink(startUrl)) window.open(startUrl, '_blank', 'noopener');
     setPhase('waiting');
   }, [phase, startUrl, prepare]);
 
   /** Back to the button with a brand-new link (the old one is abandoned). */
   const restart = useCallback(() => {
+    markOpened(false);
     setNotice(null);
     prepare();
   }, [prepare]);
@@ -107,6 +151,7 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
       if (busy || finished || generation.current !== mine) return;
       if (Date.now() - startedAt > WAIT_LIMIT_MS) {
         finished = true;
+        markOpened(false);
         setNotice('expired');
         prepare();
         return;
@@ -117,6 +162,7 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
         if (finished || generation.current !== mine) return;
         if (status === 'pending') return;
         finished = true;
+        markOpened(false);
         if (status === 'ok') {
           await onSignedIn();
           setPhase('done');

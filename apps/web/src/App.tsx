@@ -62,7 +62,10 @@ export function App() {
 
   const needsOnboarding = isOnboardingPending(user);
   const onOnboarding = overlay?.screen === 'onboarding';
-  const onInfoPage = overlay !== null && infoPages.has(overlay.screen);
+  // Standalone pages that never get redirected (onboarding included): the
+  // public info pages, and the external browser's Telegram return page.
+  const onInfoPage =
+    overlay !== null && (infoPages.has(overlay.screen) || overlay.screen === 'telegramReturn');
   const guestLanding = LANDING_AS_HOME && user === null && tab === 'home' && overlay === null;
   // A guest on an account-only screen (typed/bookmarked URL, or Back into
   // one): the trainer home underneath, with the sign-in window on top.
@@ -91,11 +94,11 @@ export function App() {
 
   // `needsOnboarding && !onOnboarding` lasts one render: the effect above
   // is already navigating to /onboarding. Never flash the trainer there.
+  if (overlay?.screen === 'telegramReturn') return <TelegramReturn />;
+
   if (overlay !== null && onInfoPage) {
     return <InfoPage kind={overlay.screen as InfoPageKind} />;
   }
-
-  if (overlay?.screen === 'telegramReturn') return <TelegramReturn />;
 
   if (user === undefined || (needsOnboarding && !onOnboarding && overlay?.screen !== 'login')) {
     return <LoadingScreen />;

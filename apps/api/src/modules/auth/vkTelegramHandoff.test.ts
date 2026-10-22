@@ -110,10 +110,13 @@ describe('VK sign-in from the Telegram Mini App (external browser + handoff)', (
     expect(startUrl.origin).toBe('https://zybrilka.test');
     expect(startUrl.searchParams.get('handoff')).not.toBe(claimCookie.value);
 
-    // While the user is still in the browser, the Mini App just waits.
-    expect((await claim(claimCookie.value)).json()).toEqual({ status: 'pending' });
+    // Prepared but not opened yet.
+    expect((await claim(claimCookie.value)).json()).toEqual({ status: 'pending', started: false });
 
     const start = await browserOpens(startUrl);
+    // While the user is in the browser, the Mini App just waits (and a
+    // Mini App that reloaded meanwhile knows to keep waiting).
+    expect((await claim(claimCookie.value)).json()).toEqual({ status: 'pending', started: true });
     expect(start.statusCode).toBe(302);
     const authorize = new URL(start.headers.location as string);
     expect(authorize.origin + authorize.pathname).toBe('https://id.vk.ru/authorize');
@@ -128,8 +131,10 @@ describe('VK sign-in from the Telegram Mini App (external browser + handoff)', (
     // The code exchange happened server-side, with the PKCE verifier.
     const [, init] = fetchMock.mock.calls.find(([u]) => String(u).includes('oauth2/auth'))!;
     expect(new URLSearchParams(init.body as string).get('code_verifier')).toBeTruthy();
-    // No token or secret ever travels in the return URL.
+    // No token or secret ever travels in the return URL, and the external
+    // browser keeps no session of its own.
     expect(callback.headers.location).not.toMatch(/token|code=|session/i);
+    expect(cookieFrom(callback.headers['set-cookie'], 'session_id')).toBeUndefined();
 
     // Back in Telegram: the Mini App claims ITS OWN session.
     const claimed = await claim(claimCookie.value);
@@ -235,7 +240,7 @@ describe('VK sign-in from the Telegram Mini App (external browser + handoff)', (
       await browserOpens(second.startUrl),
       'code=z&device_id=d&state=STATE',
     );
-    expect((await claim(first.claim.value)).json()).toEqual({ status: 'pending' });
+    expect((await claim(first.claim.value)).json()).toEqual({ status: 'pending', started: false });
     expect((await claim(second.claim.value)).json().status).toBe('ok');
   });
 

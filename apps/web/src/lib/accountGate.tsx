@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from './authContext.js';
 import { useNavigation, useOptionalNavigation, type Route } from './navigation.js';
 import { SignInRequiredDialog } from '../ui/AccountGate/SignInRequiredDialog.js';

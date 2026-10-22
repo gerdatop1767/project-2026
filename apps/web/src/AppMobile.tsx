@@ -157,6 +157,7 @@ export function AppMobile() {
                 customOrderedTasks={contentOverlay.customOrderedTasks}
                 returnTo={contentOverlay.returnTo}
                 timeSpentMs={contentOverlay.timeSpentMs}
+                revealed={contentOverlay.revealed}
               />
             )}
             {contentOverlay.screen === 'learningSession' && (

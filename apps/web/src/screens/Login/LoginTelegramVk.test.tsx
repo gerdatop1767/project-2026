@@ -35,6 +35,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete window.Telegram;
+  window.sessionStorage.clear();
   openLink.mockReset();
   vi.useRealTimers();
 });
@@ -117,6 +118,33 @@ describe('Login inside the Telegram Mini App — VK ID in the external browser',
     await user.click(screen.getByRole('button', { name: 'Начать заново' }));
     await waitFor(() => expect(api.startVkHandoff).toHaveBeenCalledTimes(2));
     expect(await vkButton()).toBeInTheDocument();
+  });
+
+  it('Telegram reloaded the Mini App while VK ID was open in the browser: it keeps waiting, then signs in', async () => {
+    vi.mocked(api.claimVkHandoff).mockResolvedValueOnce({ status: 'pending', started: true });
+    const { refresh } = renderLogin();
+    expect(await screen.findByText('Ждём вход через VK ID')).toBeInTheDocument();
+    expect(api.startVkHandoff).not.toHaveBeenCalled();
+    vi.mocked(api.claimVkHandoff).mockResolvedValue({ status: 'ok' });
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it('a sign-in that finished while the Mini App was reloading is collected on arrival', async () => {
+    vi.mocked(api.claimVkHandoff).mockResolvedValueOnce({ status: 'ok' });
+    const { refresh } = renderLogin();
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(api.startVkHandoff).not.toHaveBeenCalled();
+  });
+
+  it('Telegram reloaded the Mini App right after the tap (browser not open yet): it keeps waiting for THAT sign-in', async () => {
+    window.sessionStorage.setItem('zybrilka_vk_handoff_opened_at', String(Date.now()));
+    vi.mocked(api.claimVkHandoff).mockResolvedValueOnce({ status: 'pending', started: false });
+    renderLogin();
+    expect(await screen.findByText('Ждём вход через VK ID')).toBeInTheDocument();
+    expect(api.startVkHandoff).not.toHaveBeenCalled();
   });
 
   it('VK not configured on the server (503): the button is disabled with a clear note', async () => {

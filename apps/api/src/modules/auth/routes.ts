@@ -175,7 +175,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       const claimToken = request.cookies[HANDOFF_COOKIE];
       if (!claimToken) return reply.code(200).send({ status: 'expired' });
       const result = await handoff.claimHandoff(db, claimToken);
-      if (result.status === 'pending') return reply.code(200).send({ status: 'pending' });
+      if (result.status === 'pending') {
+        return reply.code(200).send({ status: 'pending', started: result.started });
+      }
       reply.clearCookie(HANDOFF_COOKIE, {
         ...baseCookieOptions(config),
         path: HANDOFF_COOKIE_PATH,
@@ -308,18 +310,20 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         saved.data.codeVerifier,
         request.log,
       );
-      await dropPreviousSession(request, sessionId);
-      reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
-      // A sign-in for the Telegram Mini App: hand the account to it (it
-      // claims its own session — see handoff.ts) and tell this browser
-      // how to get back to Telegram.
+      // A sign-in for the Telegram Mini App: the account goes to the Mini
+      // App (it claims its OWN session — see handoff.ts); this external
+      // browser keeps no session of its own (it was only borrowed for VK
+      // ID), and is told how to get back to Telegram.
       if (handoffId) {
+        await service.logout(db, sessionId);
         const handed = await handoff.finishHandoff(db, handoffId, {
           status: 'completed',
           userId: user.id,
         });
         return toTelegramReturn(reply, handed ? 'ok' : 'expired');
       }
+      await dropPreviousSession(request, sessionId);
+      reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
       // Server-decided landing: an account whose saved learning profile
       // is not complete (brand-new, or an earlier onboarding left
       // unfinished) goes straight to onboarding; everyone else to the
