@@ -26,6 +26,7 @@ import type {
   VariantDetail,
   VariantProgressResponse,
 } from '@zybrilka/shared';
+import { registerPrivateCacheReset } from './privateCaches.js';
 
 const ANON_ID_STORAGE_KEY = 'zybrilka_anon_id';
 
@@ -70,7 +71,55 @@ export class ApiError extends Error {
   }
 }
 
+/*
+ * A short-lived read cache for the dashboard reads several screens make on
+ * every visit (progress summary, task counts, collections, statistics).
+ * Screens re-mount on every tab switch, so without it each visit to
+ * Статистика re-sent the same 5–6 requests and re-rendered as each one
+ * landed. A cached read resolves at once; a read in flight is shared.
+ *
+ * It can never show stale results after the user does something: any
+ * non-GET request (an answer, a favorite, a profile change, sign-in/out)
+ * clears it, as does a sign-out/account switch (privateCaches), and an
+ * entry lives at most READ_CACHE_TTL_MS anyway. A failed read is not kept.
+ */
+const READ_CACHE_TTL_MS = 30_000;
+const readCache = new Map<string, { at: number; generation: number; value: Promise<unknown> }>();
+let readCacheGeneration = 0;
+
+function clearReadCache() {
+  readCacheGeneration++;
+  readCache.clear();
+}
+
+registerPrivateCacheReset(clearReadCache);
+
+function cachedApiFetch<T>(path: string): Promise<T> {
+  const hit = readCache.get(path);
+  if (hit && hit.generation === readCacheGeneration && Date.now() - hit.at < READ_CACHE_TTL_MS) {
+    return hit.value as Promise<T>;
+  }
+  const generation = readCacheGeneration;
+  const value = apiFetch<T>(path);
+  readCache.set(path, { at: Date.now(), generation, value });
+  value.catch(() => {
+    if (readCache.get(path)?.value === value) readCache.delete(path);
+  });
+  return value;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const mutates = init?.method !== undefined && init.method !== 'GET';
+  if (mutates) clearReadCache();
+  try {
+    return await rawApiFetch<T>(path, init);
+  } finally {
+    // Again once it lands: a read that started meanwhile saw the old data.
+    if (mutates) clearReadCache();
+  }
+}
+
+async function rawApiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   // An absolute URL (resolved against the current origin) rather than a
   // bare relative path — Node's fetch (used by jsdom in tests) has no
   // document base URI to resolve a relative path against, unlike a real
@@ -143,7 +192,7 @@ export function getRandomTask(params: {
 }
 
 export function listCollections(): Promise<CollectionListItem[]> {
-  return apiFetch<{ items: CollectionListItem[] }>('/collections').then((r) => r.items);
+  return cachedApiFetch<{ items: CollectionListItem[] }>('/collections').then((r) => r.items);
 }
 
 export function getVariant(id: string): Promise<VariantDetail> {
@@ -195,7 +244,7 @@ export function listTasksByNumber(
  * subjects.ts. A subject with no rows here has 0 published tasks.
  */
 export function getTaskCountsBySubject(): Promise<TaskCountsBySubjectResponse> {
-  return apiFetch('/tasks/counts');
+  return cachedApiFetch('/tasks/counts');
 }
 
 /**
@@ -219,7 +268,7 @@ export function getSimilarTasks(taskId: string, limit?: number): Promise<Similar
  * packages/shared/src/learning/streak.ts. Never computed here.
  */
 export function getStreak(): Promise<StreakResponse> {
-  return apiFetch('/progress/streak');
+  return cachedApiFetch('/progress/streak');
 }
 
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {
@@ -235,11 +284,11 @@ export function acknowledgeEssay(taskId: string): Promise<EssayAckResponse> {
 }
 
 export function getMistakes(): Promise<Mistake[]> {
-  return apiFetch<{ items: Mistake[] }>('/mistakes').then((r) => r.items);
+  return cachedApiFetch<{ items: Mistake[] }>('/mistakes').then((r) => r.items);
 }
 
 export function getProgressSummary(): Promise<ProgressSummary> {
-  return apiFetch('/progress/summary');
+  return cachedApiFetch('/progress/summary');
 }
 
 /**
@@ -259,7 +308,7 @@ export function getProgressByTaskNumber(params: {
   if (params.collection) query.set('collection', params.collection);
   if (params.variant) query.set('variant', params.variant);
   const qs = query.toString();
-  return apiFetch(`/progress/by-task-number${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch(`/progress/by-task-number${qs ? `?${qs}` : ''}`);
 }
 
 /**
@@ -277,7 +326,7 @@ export function getProgressByTopic(params: {
   if (params.collection) query.set('collection', params.collection);
   if (params.variant) query.set('variant', params.variant);
   const qs = query.toString();
-  return apiFetch(`/progress/by-topic${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch(`/progress/by-topic${qs ? `?${qs}` : ''}`);
 }
 
 /**
@@ -306,7 +355,7 @@ export function getProgressDaily(
   if (params.days) query.set('days', String(params.days));
   if (params.subject) query.set('subject', params.subject);
   const qs = query.toString();
-  return apiFetch(`/progress/daily${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch(`/progress/daily${qs ? `?${qs}` : ''}`);
 }
 
 /** All of the current user's favorited task ids — see apps/api's
@@ -390,7 +439,7 @@ export function startVariantSession(variantId: string): Promise<LearningSessionR
  * `VariantProgressItem`'s doc comment for field semantics.
  */
 export function getVariantProgress(): Promise<VariantProgressResponse> {
-  return apiFetch('/progress/variants');
+  return cachedApiFetch('/progress/variants');
 }
 
 /**

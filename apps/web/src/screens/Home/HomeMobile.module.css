@@ -63,7 +63,8 @@
   justify-content: center;
   width: 3.25rem;
   height: 3.25rem;
-  animation: heroFloat 5.2s ease-in-out infinite;
+  /* Two gentle bobs, then still — not a forever-running loop on Home. */
+  animation: heroFloat 5.2s ease-in-out 2;
 }
 
 .heroTiles img {

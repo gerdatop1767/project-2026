@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
+import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 
 /**
@@ -62,6 +62,10 @@ export type OverlayRoute =
        * default "Темы" tab — absent means "let the page pick its own
        * default", same as before this existed. */
       initialMode?: SubjectModeId;
+      /** With `initialMode: 'byNumber'`: pre-selects this one task
+       * number (a task's "К списку заданий №N"). Never starts training
+       * on its own; an out-of-range number is ignored. */
+      initialTaskNumber?: number;
     }
   | {
       screen: 'task';
@@ -142,30 +146,11 @@ export type OverlayRoute =
   | { screen: 'trainingTopic' }
   | { screen: 'trainingRandom' }
   | { screen: 'trainingVariants' }
-  /** The dedicated "Задания по номерам" screen (real, not a WIP
-   * placeholder) — multi-select task numbers, two *independent*
-   * toggles per number (🎲 Случайное / 🔄 Только нерешённые — both can
-   * be on at once), and an optional shuffle of solving order. See
-   * TrainingByNumber.tsx. Reachable both from Training's mode grid and
-   * from Subject's own "Задания по номерам" tab — `from` carries
-   * whichever one it was, and an optional `subjectId`/`collectionSlug`
-   * seed the screen's own pickers, matching the `subject` overlay's
-   * own `from`/`collectionSlug` pattern. */
-  | {
-      screen: 'trainingByNumber';
-      from?: Route;
-      subjectId?: string;
-      collectionSlug?: string;
-      /** Pre-selects this one number on entry (e.g. "Другие задания
-       * №13"'s "К списку заданий №13" button) — the user can freely
-       * add/remove numbers afterward, same chips as any other entry.
-       * An out-of-range number for the resolved subject is silently
-       * ignored (TrainingByNumber's own existing out-of-range rule —
-       * see `selectSubject`), never a crash or a fake selection. */
-      initialTaskNumber?: number;
-    }
   | { screen: 'rating' }
-  | { screen: 'menu' }
+  /** The mobile menu drawer, drawn over the screen it was opened from.
+   * `from` is that screen, so it stays mounted underneath while the menu
+   * is open and closing the menu returns exactly there. */
+  | { screen: 'menu'; from?: OverlayRoute }
   | { screen: 'favorites' }
   | { screen: 'mockExams' }
   | { screen: 'topics' }
@@ -201,7 +186,6 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   learningSession: 'Тренировка',
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',
-  trainingByNumber: 'По номерам',
   rating: 'Рейтинг',
   faq: 'Вопросы и ответы',
   privacy: 'Политика конфиденциальности',
@@ -218,20 +202,17 @@ export function getRouteLabel(route: Route): string {
 /**
  * "К списку заданий №N" (Similar Tasks' `OtherVariantsSection`/
  * `OtherVariantsSectionDesktop`, both mobile and desktop) — the ONE
- * shared way every Task/Result screen builds this route, so neither
- * platform invents its own. Pre-selects `taskNumber` on
- * TrainingByNumber (see its `initialTaskNumber` doc comment) without
- * starting training; `from` matches the existing cross-source
- * "Другие задания" convention (`handleSelectVariant` elsewhere in
- * these same screens) of returning to the subject page, since this
- * leaves the current task's source/session context behind.
+ * shared way every Task/Result screen builds this route: the subject
+ * page, opened in its "По номерам" mode with №N pre-selected. A normal
+ * page in the same navigation as Темы/Варианты — Back from it simply
+ * goes back, with no extra stop on the way.
  */
 export function trainingByNumberRouteFor(subjectId: string, taskNumber: number): Route {
   return {
-    screen: 'trainingByNumber',
+    screen: 'subject',
     subjectId,
+    initialMode: 'byNumber',
     initialTaskNumber: taskNumber,
-    from: { screen: 'subject', subjectId },
   };
 }
 
@@ -337,6 +318,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const { pathname, search, hash } = window.location;
     if (isRemovedPath(pathname)) {
       writeHistory('replace', `/${hash}`, 0);
+    } else if (isLegacyPath(pathname)) {
+      const path = pathForRoute(routeFromPath(pathname + search)) ?? '/';
+      writeHistory('replace', path + hash, currentHistoryIndex(), isSignInGateEntry());
     } else {
       writeHistory('replace', pathname + search + hash, currentHistoryIndex(), isSignInGateEntry());
     }

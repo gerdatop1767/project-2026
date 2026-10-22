@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { HelpDesktop } from './HelpDesktop.js';
 import { HelpMobile } from './HelpMobile.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
+import { SUPPORT_BOT_URL } from '../../lib/telegram.js';
 
 function OverlayMarker() {
   const { overlay } = useNavigation();
@@ -39,10 +40,25 @@ describe('HelpDesktop', () => {
     expect(screen.queryByText('Статистика')).not.toBeInTheDocument();
   });
 
-  it('disables the Telegram CTA when no bot URL is configured', () => {
+  it("links the CTA and every category to the real support bot (the landing's link)", () => {
     renderWithNav(<HelpDesktop />);
-    expect(screen.queryByRole('link', { name: /Открыть бот/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/Бот скоро будет подключён/)).toBeInTheDocument();
+    const cta = screen.getByRole('link', { name: /Открыть Telegram-бота/ });
+    expect(cta).toHaveAttribute('href', SUPPORT_BOT_URL);
+    expect(cta).toHaveAttribute('target', '_blank');
+    expect(cta).toHaveAttribute('rel', 'noopener noreferrer');
+    for (const title of expectedCategories) {
+      expect(screen.getByRole('link', { name: new RegExp(title) })).toHaveAttribute(
+        'href',
+        SUPPORT_BOT_URL,
+      );
+    }
+    expect(screen.queryByText(/скоро будет подключ/)).not.toBeInTheDocument();
+  });
+
+  it('shows the landing support mascot, not the old hero picture', () => {
+    const { container } = renderWithNav(<HelpDesktop />);
+    const img = container.querySelector('img');
+    expect(img).toHaveAttribute('src', '/branding/v2/support-bison.webp');
   });
 });
 
@@ -53,6 +69,15 @@ describe('HelpMobile', () => {
     for (const title of expectedCategories) {
       expect(screen.getByText(title)).toBeInTheDocument();
     }
+  });
+
+  it('links to the real support bot as well', () => {
+    renderWithNav(<HelpMobile />);
+    expect(screen.getByRole('link', { name: /Открыть Telegram-бота/ })).toHaveAttribute(
+      'href',
+      SUPPORT_BOT_URL,
+    );
+    expect(screen.queryByText(/скоро будет подключ/)).not.toBeInTheDocument();
   });
 
   it('back button closes the overlay', async () => {

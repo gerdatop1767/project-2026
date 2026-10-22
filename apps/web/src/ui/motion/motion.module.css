@@ -79,32 +79,39 @@
 /*
  * Screen enter (DesktopShell / MobileShell wrap each screen in this, keyed by
  * screen). The wrapper itself is `display: contents`, so it adds no box and
- * the screens' own layout (e.g. `min-height: 100%` against the scroll area)
- * is exactly what it was. Its children fade in — opacity only: a transform
- * would re-anchor fixed-position children for the duration — unless they
- * already play one of the entrances above. The screen's title and its lead
- * line rise into place just behind.
+ * the screens' own layout is exactly what it was.
+ *
+ * Switching screens is the most frequent motion in the app, so it is the
+ * lightest one: the new screen is fully opaque from the first frame and
+ * only settles 6px into place (transform only — compositor work, no
+ * repaint). It used to fade every screen in from opacity 0 (and screens
+ * whose root is a SlideUp rose from 0 over 460 ms), which let the near-
+ * black page background show through every card for ~0.3–0.5 s: the
+ * "dimming" on each tab switch, and a full-screen translucent layer for
+ * weak phones / Telegram WebView to composite while the new screen's
+ * data, charts and icons were also arriving. The title and its lead line
+ * still rise in just behind — small elements, cheap.
  */
 .screen {
   display: contents;
 }
 
-.screen > :not(.fadeIn, .slideUp, .scaleIn) {
-  animation: screenFade 280ms var(--easing-out) backwards;
+.screen > * {
+  animation: screenSettle 220ms var(--easing-out) backwards;
 }
 
-@keyframes screenFade {
+@keyframes screenSettle {
   from {
-    opacity: 0;
+    transform: translateY(6px);
   }
 }
 
 .screen :where(h1) {
-  animation: slideUp var(--duration-enter) var(--easing-out) 40ms backwards;
+  animation: slideUp 320ms var(--easing-out) 30ms backwards;
 }
 
 .screen :where(h1 + p) {
-  animation: slideUp var(--duration-enter) var(--easing-out) 110ms backwards;
+  animation: slideUp 320ms var(--easing-out) 80ms backwards;
 }
 
 .collapse {

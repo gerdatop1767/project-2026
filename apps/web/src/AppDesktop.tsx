@@ -15,7 +15,6 @@ import { HelpDesktop } from './screens/Help/HelpDesktop.js';
 import { FriendsDesktop } from './screens/Friends/FriendsDesktop.js';
 import { FriendProfileDesktop } from './screens/Friends/FriendProfileDesktop.js';
 import { Training } from './screens/Training/Training.js';
-import { TrainingByNumber } from './screens/Training/TrainingByNumber.js';
 import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
 
@@ -42,6 +41,7 @@ export function AppDesktop() {
             from={overlay.from}
             collectionSlug={overlay.collectionSlug}
             initialMode={overlay.initialMode}
+            initialTaskNumber={overlay.initialTaskNumber}
           />
         )}
         {overlay.screen === 'task' && (
@@ -83,14 +83,6 @@ export function AppDesktop() {
         )}
         {overlay.screen === 'trainingVariants' && (
           <WipPlaceholder title="Варианты" note="Экран в разработке — следующий блок." />
-        )}
-        {overlay.screen === 'trainingByNumber' && (
-          <TrainingByNumber
-            subjectId={overlay.subjectId}
-            collectionSlug={overlay.collectionSlug}
-            from={overlay.from}
-            initialTaskNumber={overlay.initialTaskNumber}
-          />
         )}
         {overlay.screen === 'rating' && <RatingDesktop />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}

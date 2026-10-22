@@ -34,15 +34,15 @@ import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { RankedBarList } from '../../ui/Charts/RankedBarList.js';
 import { FadeIn } from '../../ui/motion/motion.js';
 import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
+import {
+  accuracyLinePoints,
+  labelEveryFor,
+  periodCaption,
+  periodDays,
+  periodTabs,
+  solvedBarPoints,
+} from '../../ui/Statistics/dailyCharts.js';
 import styles from './StatisticsDesktop.module.css';
-
-const periodTabs = [
-  { id: '7d', label: '7 дней' },
-  { id: '30d', label: '30 дней' },
-  { id: 'all', label: 'Все время' },
-] as const;
-
-const periodDays: Record<StatsPeriod, number> = { '7d': 7, '30d': 30, all: 90 };
 
 /**
  * Desktop Statistics (S1 Block 6, approved design —
@@ -197,7 +197,9 @@ export function StatisticsDesktop() {
     [mistakesSummary],
   );
   const points = useMemo(() => toDailyPoints(dailyItems, days), [dailyItems, days]);
-  const showEvery = points.length > 40 ? 10 : points.length > 14 ? 4 : 3;
+  const showEvery = labelEveryFor(points.length);
+  const solvedBars = useMemo(() => solvedBarPoints(points), [points]);
+  const accuracyLine = useMemo(() => accuracyLinePoints(points), [points]);
 
   return (
     <FadeIn className={styles.page}>
@@ -262,13 +264,16 @@ export function StatisticsDesktop() {
           <div className={styles.chartHeader}>
             <div className={styles.chartHeaderText}>
               <p className="text-h3">Активность по дням</p>
-              <p className="text-body-sm text-secondary">Количество решённых заданий</p>
+              <p className="text-body-sm text-secondary">
+                Решённые задания · {periodCaption(period).toLowerCase()}
+              </p>
             </div>
-            <span className={styles.metricLabel}>Решённые задания</span>
+            <span className={styles.metricLabel}>Нажми на столбец</span>
           </div>
           <BarChart
-            points={points.map((p) => ({ label: p.label, value: p.solved }))}
+            points={solvedBars}
             labelEvery={showEvery}
+            ariaLabel="Решённые задания по дням"
           />
         </Card>
 
@@ -303,12 +308,16 @@ export function StatisticsDesktop() {
           <div className={styles.chartHeader}>
             <div className={styles.chartHeaderText}>
               <p className="text-h3">Динамика правильных ответов</p>
+              <p className="text-body-sm text-secondary">
+                Процент правильных · {periodCaption(period).toLowerCase()}
+              </p>
             </div>
-            <span className={styles.metricLabel}>Процент правильных ответов</span>
+            <span className={styles.metricLabel}>Нажми на точку</span>
           </div>
           <LineChart
-            points={points.map((p) => ({ label: p.label, value: p.accuracyPercent }))}
+            points={accuracyLine}
             labelEvery={showEvery}
+            ariaLabel="Процент правильных ответов по дням"
           />
         </Card>
 

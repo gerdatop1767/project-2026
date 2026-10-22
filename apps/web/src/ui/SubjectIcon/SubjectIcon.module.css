@@ -46,7 +46,8 @@
     );
   opacity: var(--halo-opacity);
   pointer-events: none;
-  animation: halo-breathe 5.5s ease-in-out infinite;
+  /* Static on purpose: a forever-breathing glow on every icon (10 on Home,
+     9 in each picker) kept the compositor busy on every screen while idle. */
   transition: opacity 260ms var(--easing-standard);
 }
 
@@ -102,22 +103,8 @@
   --halo-opacity: 0.55;
 }
 
-.root[data-selected] .halo {
-  animation: none;
-}
-
 .root[data-selected] .ring {
   opacity: 1;
-}
-
-@keyframes halo-breathe {
-  0%,
-  100% {
-    opacity: calc(var(--halo-opacity) * 0.7);
-  }
-  50% {
-    opacity: var(--halo-opacity);
-  }
 }
 
 /* Hover: fine pointers only — touch screens never get a stuck hover state. */

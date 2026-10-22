@@ -83,15 +83,10 @@
   padding: 0.875rem 1.5rem;
   border-radius: var(--radius-pill, 999px);
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-on-accent);
   font-weight: 700;
   text-decoration: none;
   border: none;
-}
-
-.ctaDisabled {
-  background: var(--color-bg-elevated);
-  color: var(--color-text-secondary);
 }
 
 .grid {
@@ -135,4 +130,19 @@
 .categoryChevron {
   flex-shrink: 0;
   color: var(--color-text-secondary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ctaButton:focus-visible,
+.categoryCard:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 3px;
 }

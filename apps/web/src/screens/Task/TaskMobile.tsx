@@ -71,7 +71,10 @@ export function TaskMobile({
     customOrderedTasks,
     returnTo,
   });
-  const goBack = returnTo ? () => navigate(returnTo) : back;
+  // The task/result has no address of its own, so the current history
+  // entry IS the page underneath it: replace it with the exact place to
+  // return to instead of pushing a duplicate stop onto the Back stack.
+  const goBack = returnTo ? () => navigate(returnTo, { replace: true }) : back;
   const learningSession = useActiveLearningSessionForTask(taskId);
   const { refreshStreak } = useStreakContext();
   const timer = useSolvingTimer();

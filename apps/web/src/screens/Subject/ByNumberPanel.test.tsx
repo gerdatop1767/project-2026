@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TrainingByNumber } from './TrainingByNumber.js';
+import { useEffect, useState } from 'react';
+import type { CollectionListItem } from '@zybrilka/shared';
+import { ByNumberPanel, type ByNumberPanelProps } from './ByNumberPanel.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
 
@@ -56,6 +58,29 @@ const RANDOM_TASK = {
   status: 'published' as const,
 };
 
+/** The panel as the Subject page mounts it: collections come from the
+ * page's own (single) request, Back returns to the page in this mode. */
+function TrainingByNumber(props: Partial<ByNumberPanelProps>) {
+  const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
+  useEffect(() => {
+    void api.listCollections().then(setCollections);
+  }, []);
+  const subjectId = props.subjectId ?? 'math';
+  return (
+    <ByNumberPanel
+      subjectId={subjectId}
+      collections={collections}
+      returnTo={(slug) => ({
+        screen: 'subject',
+        subjectId,
+        collectionSlug: slug,
+        initialMode: 'byNumber',
+      })}
+      {...props}
+    />
+  );
+}
+
 function OverlayMarker() {
   const { overlay } = useNavigation();
   if (overlay?.screen === 'task') {
@@ -81,7 +106,7 @@ beforeEach(() => {
   vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
 });
 
-describe('TrainingByNumber', () => {
+describe('ByNumberPanel', () => {
   it('requires at least one number before starting', async () => {
     const user = userEvent.setup();
     renderScreen();
@@ -264,20 +289,39 @@ describe('TrainingByNumber', () => {
     });
   });
 
-  it("seeds the subject/collection from props (e.g. arriving from Subject's own tab)", async () => {
-    vi.mocked(api.listCollections).mockResolvedValue([
-      { ...COLLECTION, collection: { ...COLLECTION.collection, subjectId: 'russian' } },
-    ]);
+  it("uses the subject page's subject — its own numbers, no second subject picker", () => {
     renderScreen({ subjectId: 'russian' });
-    expect(await screen.findByRole('button', { name: /Русский язык/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Предмет/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Назад' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '№1' })).toBeInTheDocument();
   });
 
-  it('BackRow returns to the real `from` route instead of a hardcoded Training', async () => {
+  it('a started session returns to the subject page in "По номерам", with the chosen Сборник', async () => {
     const user = userEvent.setup();
-    renderScreen({ from: { screen: 'subject', subjectId: 'math', initialMode: 'topics' } });
-    expect(screen.getByRole('button', { name: 'Математика' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Математика' }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('subject');
+    function ReturnMarker() {
+      const { overlay } = useNavigation();
+      if (overlay?.screen !== 'task') return null;
+      const r = overlay.returnTo;
+      return (
+        <p data-testid="return">
+          {r?.screen === 'subject' ? `${r.subjectId}:${r.initialMode}:${r.collectionSlug}` : ''}
+        </p>
+      );
+    }
+    vi.mocked(api.listCollections).mockResolvedValue([COLLECTION]);
+    render(
+      <NavigationProvider>
+        <TrainingByNumber />
+        <ReturnMarker />
+      </NavigationProvider>,
+    );
+    await user.click(await screen.findByRole('button', { name: /Все источники/ }));
+    await user.click(await screen.findByRole('option', { name: 'ЕГЭ 2026 Ященко' }));
+    await user.click(screen.getByRole('button', { name: '№5' }));
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    expect(await screen.findByTestId('return')).toHaveTextContent(
+      'math:byNumber:ege-2026-yashchenko',
+    );
   });
 });
 
@@ -288,7 +332,7 @@ describe('TrainingByNumber', () => {
  * resolveSingleNumberSession's doc comment. Exercises the exact
  * real-data scenario from the bug report: #13 across 5 Ященко variants.
  */
-describe('TrainingByNumber — single-number session (navigation bugfix)', () => {
+describe('ByNumberPanel — single-number session (navigation bugfix)', () => {
   function variantTask(variant: number, taskNumber: number) {
     return { ...RANDOM_TASK, id: `v${variant}-task-${taskNumber}`, taskNumber };
   }
@@ -373,7 +417,7 @@ describe('TrainingByNumber — single-number session (navigation bugfix)', () =>
  * auto-started — the user still has to press "Начать тренировку"
  * themselves.
  */
-describe('TrainingByNumber — initialTaskNumber (pre-selects on entry, never auto-starts)', () => {
+describe('ByNumberPanel — initialTaskNumber (pre-selects on entry, never auto-starts)', () => {
   it('Test 7: №13 is already selected on entry', () => {
     renderScreen({ initialTaskNumber: 13 });
     expect(screen.getByRole('button', { name: '№13' })).toHaveAttribute('aria-pressed', 'true');

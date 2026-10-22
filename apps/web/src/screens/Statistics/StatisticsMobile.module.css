@@ -106,3 +106,15 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+
+/* Loading placeholders hold the exact space their content will take, so
+   nothing below jumps when the data lands. */
+.barsPlaceholder {
+  height: 13.5rem;
+  border-radius: var(--radius-card);
+}
+
+.gridPlaceholder {
+  height: 18rem;
+  border-radius: var(--radius-card);
+}

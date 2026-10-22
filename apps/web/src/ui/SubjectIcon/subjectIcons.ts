@@ -27,6 +27,22 @@ export function subjectIconSrc(id: SubjectIconId): string {
   return `/branding/v2/subject-icons/${SUBJECT_ICON_FILES[id]}`;
 }
 
+/**
+ * Responsive sources for the same artwork: 128/256 px WebP copies
+ * (`sized/`, ~6–30 KB) next to the 512 px PNG (~270–450 KB). Most icons are
+ * drawn at 40–56 px, so a phone downloads and decodes a 128/256 px copy
+ * instead of a half-megabyte PNG — about 1/30 of the bytes and 1/16 of
+ * the decoded bitmap memory per icon. The PNG stays the fallback.
+ */
+export function subjectIconSrcSet(id: SubjectIconId): string {
+  const base = SUBJECT_ICON_FILES[id].replace(/\.png$/, '');
+  return [
+    `/branding/v2/subject-icons/sized/${base}-128.webp 128w`,
+    `/branding/v2/subject-icons/sized/${base}-256.webp 256w`,
+    `${subjectIconSrc(id)} 512w`,
+  ].join(', ');
+}
+
 /** Each icon's own neon colour, used only for the glow / selected outline. */
 export const SUBJECT_ICON_GLOW: Record<SubjectIconId, string> = {
   math: '#2ee6a6',

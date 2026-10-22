@@ -1,22 +1,18 @@
-import { useEffect, useState } from 'react';
-import { getRouteLabel, useNavigation, type Route } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
+import { useState } from 'react';
+import { useNavigation, type Route } from '../../lib/navigation.js';
 import { getSubjectContent } from '../../data/subjectContent.js';
-import { listCollections } from '../../lib/api.js';
 import {
   resolveSingleNumberSession,
   resolveTaskBatch,
   type TaskPickFilter,
 } from '../../lib/startTraining.js';
 import type { CollectionListItem } from '@zybrilka/shared';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Chip } from '../../ui/Chip/Chip.js';
 import { Select } from '../../ui/Select/Select.js';
 import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
-import { SlideUp } from '../../ui/motion/motion.js';
-import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
-import styles from './TrainingByNumber.module.css';
+import { Card } from '../../ui/Card/Card.js';
+import styles from './ByNumberPanel.module.css';
 
 interface NumberSelection {
   /** "Ignore the selected Сборник, draw from the whole bank" — see
@@ -27,69 +23,46 @@ interface NumberSelection {
   unseen: boolean;
 }
 
-function backLabelFor(route: Route | undefined): string {
-  if (!route) return 'Тренировка';
-  if (route.screen === 'subject') {
-    return subjects.find((s) => s.id === route.subjectId)?.shortName ?? 'Предмет';
-  }
-  return getRouteLabel(route);
-}
-
-export interface TrainingByNumberProps {
-  /** Pre-selects the subject (e.g. arriving from Subject's own
-   * "Задания по номерам" tab) — absent falls back to "Математика",
-   * same default Training/TrainingByNumber always had. */
-  subjectId?: string;
-  /** Pre-selects "Сборник" — see SubjectDesktopProps for the same
-   * pattern. */
+export interface ByNumberPanelProps {
+  subjectId: string;
+  /** The subject page's already-loaded collections (one request, shared
+   * with Темы/Варианты — never fetched a second time here). */
+  collections: readonly CollectionListItem[];
+  /** Pre-selects "Сборник". */
   collectionSlug?: string;
-  /** Where Back/the resulting training session's Back arrow should
-   * return to — Training's mode grid or Subject's own tab, whichever
-   * actually opened this screen (audit: Back routing fix). Absent
-   * falls back to "Тренировка", the screen's own previous default. */
-  from?: Route;
-  /** Pre-selects this one number on entry (e.g. arriving from a task's
-   * "Другие задания №N" → "К списку заданий №N") — applied once, at
-   * mount, with both flags off (the same default `toggleNumber` gives
-   * any freshly-picked number); the user can add/remove numbers
-   * afterward exactly as if they'd clicked the chip themselves. Never
-   * starts training automatically. An out-of-range number for the
-   * resolved subject is silently ignored. */
+  /** Pre-selects this one number on entry (e.g. a task's "К списку
+   * заданий №N") — with both flags off, exactly as if the chip had been
+   * tapped; never starts training by itself. Out of range → ignored. */
   initialTaskNumber?: number;
+  /** Where the started session's Back returns — the subject page, in
+   * this mode, with the chosen Сборник. */
+  returnTo: (collectionSlug: string | undefined) => Route;
 }
 
 /**
- * Тренировка → По номерам: its own real screen, not a cramped block
- * inside Training — a user picks one or more task numbers (№1…№19)
- * and, independently per number, 🎲 Случайное / 🔄 Только нерешённые —
- * both can be on at once, they are not mutually exclusive — optionally
- * shuffles the solving order, then starts. Reuses exactly the same
- * `getRandomTask`/real `unseen` filter and `customOrderedTasks`
- * task-navigation mechanism Training/Subject's "Собери вариант"
- * already use via the shared `resolveTaskBatch` — no second
- * task-selection mechanism. One shared component for desktop/mobile
- * (same business logic, the layout itself is already responsive).
+ * "По номерам" — one of the Subject page's modes, alongside Темы,
+ * Варианты and Избранное (it used to be a separate overlay screen with
+ * its own back row and subject picker, which felt like a nested window
+ * and sent Back through an extra stop). A user picks one or more task
+ * numbers and, independently per number, 🎲 Случайное / 🔄 Только
+ * нерешённые — both can be on at once — optionally shuffles the solving
+ * order, then starts. Reuses the same `resolveTaskBatch` /
+ * `resolveSingleNumberSession` task selection as the rest of the app.
  */
-export function TrainingByNumber({
+export function ByNumberPanel({
   subjectId,
+  collections,
   collectionSlug,
-  from,
   initialTaskNumber,
-}: TrainingByNumberProps) {
+  returnTo,
+}: ByNumberPanelProps) {
   const { navigate } = useNavigation();
-  const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId ?? 'math');
-  const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   const [selectedCollectionSlug, setSelectedCollectionSlug] = useState<string | null>(
     collectionSlug ?? null,
   );
-  // Applied once, at mount — same shape toggleNumber gives any
-  // freshly-picked chip (both flags off), so the user can immediately
-  // add/remove/adjust it exactly as if they'd clicked it themselves.
-  // Out-of-range for the resolved subject → silently ignored, matching
-  // selectSubject's own existing out-of-range rule below.
   const [selection, setSelection] = useState<Record<number, NumberSelection>>(() => {
     if (!initialTaskNumber) return {};
-    const max = getSubjectContent(subjectId ?? 'math').taskNumberCount;
+    const max = getSubjectContent(subjectId).taskNumberCount;
     if (initialTaskNumber < 1 || initialTaskNumber > max) return {};
     return { [initialTaskNumber]: { random: false, unseen: false } };
   });
@@ -97,39 +70,8 @@ export function TrainingByNumber({
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void listCollections()
-      .then((items) => {
-        if (!cancelled) setCollections(items);
-      })
-      .catch(() => {
-        // "Сборник" simply stays empty/unavailable — по номерам still
-        // works without it (draws from the whole bank).
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   function thisScreenRoute(): Route {
-    return {
-      screen: 'trainingByNumber',
-      subjectId: selectedSubjectId,
-      collectionSlug: selectedCollectionSlug ?? undefined,
-      from,
-    };
-  }
-
-  // A number not valid for the newly selected subject (e.g. №19 after
-  // switching to a subject with fewer numbers) must not stay silently
-  // selected — the chip grid below it won't even render that number.
-  function selectSubject(id: string) {
-    setSelectedSubjectId(id);
-    const max = getSubjectContent(id).taskNumberCount;
-    setSelection((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([n]) => Number(n) <= max)),
-    );
+    return returnTo(selectedCollectionSlug ?? undefined);
   }
 
   function toggleNumber(number: number) {
@@ -172,7 +114,7 @@ export function TrainingByNumber({
       if (numbers.length === 1) {
         const number = numbers[0]!;
         const filter: TaskPickFilter = {
-          subject: selectedSubjectId,
+          subject: subjectId,
           taskNumber: number,
           collection: selectedCollectionSlug ?? undefined,
           random: selection[number]!.random,
@@ -203,7 +145,7 @@ export function TrainingByNumber({
       }
 
       const filters: TaskPickFilter[] = numbers.map((n) => ({
-        subject: selectedSubjectId,
+        subject: subjectId,
         taskNumber: n,
         collection: selectedCollectionSlug ?? undefined,
         random: selection[n]!.random,
@@ -241,14 +183,13 @@ export function TrainingByNumber({
     .sort((a, b) => a - b);
 
   return (
-    <SlideUp className={styles.stack}>
-      <BackRow to={from ?? { screen: 'training' }} label={backLabelFor(from)} />
-      <h1 className="text-h1">Задания по номерам</h1>
-      <p className="text-body-sm text-secondary">
-        Выбери один или несколько номеров — для каждого можно включить своё сочетание режимов.
-      </p>
-
-      <SubjectSelect label="Предмет" value={selectedSubjectId} onChange={selectSubject} />
+    <Card className={styles.stack}>
+      <div>
+        <p className="text-h3">Задания по номерам</p>
+        <p className="text-body-sm text-secondary">
+          Выбери один или несколько номеров — для каждого можно включить своё сочетание режимов.
+        </p>
+      </div>
 
       {collections.length > 0 && (
         <div>
@@ -271,7 +212,7 @@ export function TrainingByNumber({
         <SectionHeader title="Номера заданий" />
         <div className={styles.chipRow}>
           {Array.from(
-            { length: getSubjectContent(selectedSubjectId).taskNumberCount },
+            { length: getSubjectContent(subjectId).taskNumberCount },
             (_, i) => i + 1,
           ).map((number) => (
             <Chip key={number} selected={number in selection} onClick={() => toggleNumber(number)}>
@@ -333,6 +274,6 @@ export function TrainingByNumber({
       <Button variant="primary" fullWidth loading={starting} onClick={() => void handleStart()}>
         Начать тренировку
       </Button>
-    </SlideUp>
+    </Card>
   );
 }
