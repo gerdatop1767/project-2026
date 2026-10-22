@@ -33,8 +33,9 @@ export function localAvatarUrl(source: repo.AvatarSource, sha256: string): strin
  * client never re-implements the priority rules:
  *
  * name:   the user's own name  >  provider first + last name  >  none
- * avatar: uploaded image  >  provider photo URL (VK / Telegram)  >
- *         image fetched through the Telegram bot  >  none
+ * avatar: uploaded image  >  our copy of the profile provider's photo  >
+ *         provider photo URL (VK / Telegram)  >  image fetched through the
+ *         Telegram bot  >  none
  */
 export async function resolveProfile(db: Database, userId: string): Promise<ResolvedProfile> {
   const [row, avatars] = await Promise.all([
@@ -43,6 +44,10 @@ export async function resolveProfile(db: Database, userId: string): Promise<Reso
   ]);
   const uploaded = avatars.find((a) => a.source === 'user');
   const viaBot = avatars.find((a) => a.source === 'telegram');
+  // Our own copy of the photo of the provider the profile comes from.
+  const providerCopy = row.profileSource
+    ? avatars.find((a) => a.source === row.profileSource)
+    : undefined;
   const providerName = [row.firstName, row.lastName].filter(Boolean).join(' ').trim() || null;
   const customName = row.displayName?.trim() || null;
   return {
@@ -52,7 +57,9 @@ export async function resolveProfile(db: Database, userId: string): Promise<Reso
     displayName: customName ?? providerName,
     avatarUrl: uploaded
       ? localAvatarUrl('user', uploaded.sha256)
-      : (row.avatarUrl ?? (viaBot ? localAvatarUrl('telegram', viaBot.sha256) : null)),
+      : providerCopy
+        ? localAvatarUrl(providerCopy.source, providerCopy.sha256)
+        : (row.avatarUrl ?? (viaBot ? localAvatarUrl('telegram', viaBot.sha256) : null)),
     hasCustomAvatar: Boolean(uploaded),
   };
 }

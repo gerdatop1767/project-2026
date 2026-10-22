@@ -18,7 +18,7 @@ export interface ProfileRoutesOptions {
   config: Config;
 }
 
-const avatarSourceParams = z.object({ source: z.enum(['user', 'telegram']) });
+const avatarSourceParams = z.object({ source: z.enum(['user', 'telegram', 'vk']) });
 const providerParams = z.object({ provider: identityProviderSchema });
 
 /**

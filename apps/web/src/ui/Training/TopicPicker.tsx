@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import { groupTopics } from '../../data/topicGroups.js';
 import { clsx } from '../../lib/clsx.js';
 import { Icon } from '../Icon/Icon.js';
-import { Collapse } from '../motion/motion.js';
+import { Collapse, staggerClassName } from '../motion/motion.js';
 import styles from './TopicPicker.module.css';
 
 export interface PickerTopic {
@@ -110,7 +110,9 @@ export function TopicPicker({
           По запросу «{query.trim()}» тем не нашлось.
         </p>
       ) : (
-        <div className={styles.groups}>
+        // Remounted per subject/source (keyed by the caller), so the new
+        // sections arrive together in one short, capped stagger.
+        <div className={clsx(styles.groups, staggerClassName)}>
           {visible.map(({ group, topics: all, shown }) => {
             const open = searching || groups.length === 1 || openIds.has(group.id);
             const panelId = `${searchId}-${group.id}`;

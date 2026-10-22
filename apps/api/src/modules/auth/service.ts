@@ -16,6 +16,7 @@ import {
   type VerifiedTelegramUser,
 } from './telegram.js';
 import { AVATAR_MAX_BYTES } from '@zybrilka/shared';
+import { cacheProviderAvatar } from '../profile/providerAvatar.js';
 
 export { EmailNotConfiguredError } from './email.js';
 export { VkNotConfiguredError, VkRequestError, isVkConfigured } from './vk.js';
@@ -125,12 +126,10 @@ export async function completeVkLogin(
   const { userId, created } = await repo.findOrCreateUserByIdentity(db, 'vk', vkUserId);
 
   if (accessToken) {
-    await profileRepo.applyProviderProfile(
-      db,
-      userId,
-      'vk',
-      await fetchVkProfile(config, accessToken, log),
-    );
+    const profile = await fetchVkProfile(config, accessToken, log);
+    await profileRepo.applyProviderProfile(db, userId, 'vk', profile);
+    // In the background: never makes the sign-in wait on VK's image CDN.
+    void cacheProviderAvatar(db, userId, 'vk', profile.avatarUrl, log);
   }
 
   const session = await startSession(db, userId);
@@ -158,12 +157,9 @@ export async function completeVkLink(
   const { vkUserId, accessToken } = await exchangeVkCode(config, code, deviceId, codeVerifier);
   const outcome = await profileRepo.addIdentity(db, userId, 'vk', vkUserId);
   if ((outcome === 'linked' || outcome === 'already_linked') && accessToken) {
-    await profileRepo.applyProviderProfile(
-      db,
-      userId,
-      'vk',
-      await fetchVkProfile(config, accessToken, log),
-    );
+    const profile = await fetchVkProfile(config, accessToken, log);
+    await profileRepo.applyProviderProfile(db, userId, 'vk', profile);
+    void cacheProviderAvatar(db, userId, 'vk', profile.avatarUrl, log);
   }
   return outcome;
 }
@@ -191,9 +187,15 @@ async function adoptTelegramProfile(
     avatarUrl: tg.photoUrl,
   });
 
-  // The signed launch data usually includes a photo URL. When it doesn't,
-  // ask Telegram through the bot (best effort) — once, not at every login.
-  if (tg.photoUrl || !config.TELEGRAM_BOT_TOKEN) return;
+  // The signed launch data usually includes a photo URL (on t.me): keep our
+  // own copy of it, in the background, so it never has to be loaded from
+  // t.me again. When there is none, ask Telegram through the bot (best
+  // effort) — once, not at every login.
+  if (tg.photoUrl) {
+    void cacheProviderAvatar(db, userId, 'telegram', tg.photoUrl, log);
+    return;
+  }
+  if (!config.TELEGRAM_BOT_TOKEN) return;
   const existing = await profileRepo.listAvatarMeta(db, userId);
   if (existing.some((avatar) => avatar.source === 'telegram')) return;
   const bytes = await fetchTelegramProfilePhoto(config.TELEGRAM_BOT_TOKEN, tg.id, {

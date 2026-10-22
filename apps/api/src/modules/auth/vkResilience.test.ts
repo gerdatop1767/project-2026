@@ -258,7 +258,11 @@ describe('VK server-to-server calls: timeouts, safe logging, PKCE cookie handlin
             response: [{ photo_max_orig: 'https://sun9.userapi.com/orig.jpg' }],
           }),
       );
-      expect(out).toBe('');
+      // No profile warning. (Copying the photo to our own storage runs in
+      // the background afterwards; this stub serves no image, so that step
+      // may log its own coarse `avatarCache` line — never the URL.)
+      expect(out).not.toContain('vkProfile');
+      expect(out).not.toContain('userapi.com');
     });
 
     it('no sensitive value ever reaches the logs, across every failure path', async () => {

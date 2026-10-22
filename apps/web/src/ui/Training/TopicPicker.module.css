@@ -162,12 +162,18 @@
 }
 
 .topicList {
+  opacity: 0;
+  transition: opacity 180ms var(--easing-out);
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin: 0;
   padding: 0 var(--space-3) var(--space-3);
   list-style: none;
+}
+
+.groupOpen .topicList {
+  opacity: 1;
 }
 
 .topicList > li {
@@ -278,7 +284,8 @@
 @media (prefers-reduced-motion: reduce) {
   .chevron,
   .topic,
-  .group {
+  .group,
+  .topicList {
     transition: none;
   }
 }
