@@ -52,9 +52,23 @@ describe('guest mode (production auth config)', () => {
     '/api/v1/tasks/counts',
     '/api/v1/tasks/random?subject=math',
     '/api/v1/collections',
+    '/api/v1/topics?subject=math',
   ])('a guest can read task content: GET %s → 200', async (url) => {
     const res = await app.inject({ method: 'GET', url });
     expect(res.statusCode).toBe(200);
+  });
+
+  it('the public topic list has real totals and nothing personal', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/topics?subject=math' });
+    const items = res.json().items as { total: number; completed: number }[];
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((t) => t.total > 0 && t.completed === 0)).toBe(true);
+    // The personal one stays private.
+    const personal = await app.inject({
+      method: 'GET',
+      url: '/api/v1/progress/by-topic?subject=math',
+    });
+    expect(personal.statusCode).toBe(401);
   });
 
   it('a guest opens a task without its answer', async () => {

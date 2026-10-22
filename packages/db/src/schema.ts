@@ -158,6 +158,31 @@ export const authSessions = pgTable('auth_sessions', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * One-time sign-in handoff from an external browser to the Telegram Mini
+ * App (VK ID can't run inside Telegram's WebView, and the WebView does
+ * not share cookies with Safari/Chrome). The Mini App creates a row and
+ * keeps the claim secret in its own httpOnly cookie; the external browser
+ * only gets a separate start token for /auth/vk/start. The VK callback
+ * marks the row `completed` with the signed-in user; the Mini App then
+ * claims it ONCE (atomic `completed → consumed`) and gets its own
+ * session. Only SHA-256 hashes of both tokens are stored; rows live
+ * 10 minutes. A start token alone can never yield a session — only the
+ * holder of the claim cookie (the Mini App that started it) can.
+ *
+ * status: pending → started (browser opened VK) → completed | cancelled
+ * | failed → consumed (claimed by the Mini App).
+ */
+export const authHandoffs = pgTable('auth_handoffs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  claimTokenHash: text('claim_token_hash').notNull().unique(),
+  startTokenHash: text('start_token_hash').notNull().unique(),
+  status: text('status').notNull().default('pending'),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Matches apps/web's data/subjects.ts ids (math, russian, ...) so seed
 // content and the existing frontend subject list stay in sync.
 export const subjects = pgTable('subjects', {

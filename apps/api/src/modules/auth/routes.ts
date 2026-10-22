@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import * as service from './service.js';
 import { createVkPkceChallenge, buildVkAuthorizeUrl, isVkConfigured } from './vk.js';
+import * as handoff from './handoff.js';
 
 export interface AuthRoutesOptions {
   db: Database;
@@ -26,7 +27,16 @@ const vkPkceCookieSchema = z.object({
   // that account (instead of signing in). Written by this server at `start`
   // from the session, and re-checked against the session at `callback`.
   link: z.object({ userId: z.uuid() }).optional(),
+  // Present when this browser is completing a sign-in for the Telegram
+  // Mini App (see handoff.ts) — the handoff row id, written by this server.
+  handoff: z.uuid().optional(),
 });
+
+/** The Mini App's own claim secret for a VK handoff (httpOnly, only sent to
+ * the handoff endpoints). */
+const HANDOFF_COOKIE = 'vk_handoff';
+const HANDOFF_COOKIE_PATH = '/api/v1/auth/vk/handoff';
+const handoffStartQuerySchema = z.object({ handoff: z.string().min(20).max(100) });
 
 const vkCallbackQuerySchema = z.object({
   code: z.string().min(1),
@@ -122,6 +132,66 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     },
   );
 
+  /** The external browser's last stop in a Mini App sign-in: a page that
+   * says how it went and how to get back to Telegram. Status is chosen by
+   * this server, never echoed from the request. */
+  function toTelegramReturn(reply: FastifyReply, status: 'ok' | 'cancelled' | 'error' | 'expired') {
+    return reply.redirect(
+      new URL(`/telegram-return?status=${status}`, config.WEB_BASE_URL).toString(),
+    );
+  }
+
+  // Telegram Mini App → VK ID in the external browser. Called by the Mini
+  // App itself (same-origin POST from its WebView): creates a handoff,
+  // keeps its claim secret in this WebView's httpOnly cookie and returns
+  // the URL the Mini App opens with Telegram.WebApp.openLink. Each tap
+  // makes a new handoff (the cookie is replaced, the old one just expires).
+  app.post(
+    '/auth/vk/handoff',
+    { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
+    async (_request, reply) => {
+      if (!isVkConfigured(config)) {
+        return reply.code(503).send({ error: 'vk_not_configured' });
+      }
+      const { claimToken, startToken } = await handoff.createHandoff(db);
+      reply.setCookie(HANDOFF_COOKIE, claimToken, {
+        ...baseCookieOptions(config),
+        path: HANDOFF_COOKIE_PATH,
+        maxAge: handoff.HANDOFF_TTL_MS / 1000,
+      });
+      const startUrl = new URL('/api/v1/auth/vk/start', config.WEB_BASE_URL);
+      startUrl.searchParams.set('handoff', startToken);
+      return reply.code(200).send({ startUrl: startUrl.toString() });
+    },
+  );
+
+  // The Mini App asks whether its VK sign-in finished (polled while it
+  // waits, and again whenever it comes back into view). Only the holder
+  // of the claim cookie can collect the session, exactly once.
+  app.post(
+    '/auth/vk/handoff/claim',
+    { config: { rateLimit: { max: 400, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const claimToken = request.cookies[HANDOFF_COOKIE];
+      if (!claimToken) return reply.code(200).send({ status: 'expired' });
+      const result = await handoff.claimHandoff(db, claimToken);
+      if (result.status === 'pending') return reply.code(200).send({ status: 'pending' });
+      reply.clearCookie(HANDOFF_COOKIE, {
+        ...baseCookieOptions(config),
+        path: HANDOFF_COOKIE_PATH,
+      });
+      if (result.status !== 'ok') return reply.code(200).send({ status: result.status });
+      const login = await service.openSessionFor(db, result.userId);
+      await dropPreviousSession(request, login.sessionId);
+      reply.setCookie(
+        SESSION_COOKIE,
+        login.sessionId,
+        cookieOptions(config, SESSION_MAX_AGE_SECONDS),
+      );
+      return reply.code(200).send({ status: 'ok', user: login.user });
+    },
+  );
+
   // `?link=1` starts the flow from a signed-in profile to ADD VK to that
   // account. The target account is taken from the SESSION, never from the
   // URL, and is stored in the same short-lived httpOnly cookie as the PKCE
@@ -134,6 +204,15 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     if (linking && !request.sessionUserId) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
+    // A sign-in for the Telegram Mini App, opened in the external browser:
+    // the one-time start token must match a fresh, never-used handoff.
+    let handoffId: string | undefined;
+    const handoffQuery = handoffStartQuerySchema.safeParse(request.query);
+    if (!linking && handoffQuery.success) {
+      const id = await handoff.startHandoff(db, handoffQuery.data.handoff);
+      if (!id) return toTelegramReturn(reply, 'expired');
+      handoffId = id;
+    }
     const challenge = createVkPkceChallenge();
     reply.setCookie(
       VK_PKCE_COOKIE,
@@ -141,6 +220,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         state: challenge.state,
         codeVerifier: challenge.codeVerifier,
         ...(linking ? { link: { userId: request.sessionUserId } } : {}),
+        ...(handoffId ? { handoff: handoffId } : {}),
       }),
       cookieOptions(config, 600),
     );
@@ -160,6 +240,10 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     // path instead of leaving it on a raw JSON error.
     if (!query.success && typeof (request.query as { error?: unknown })?.error === 'string') {
       const early = rawCookie ? parseVkPkceCookie(rawCookie) : undefined;
+      if (early?.success && early.data.handoff) {
+        await handoff.finishHandoff(db, early.data.handoff, { status: 'cancelled' });
+        return toTelegramReturn(reply, 'cancelled');
+      }
       const target =
         early?.success && early.data.link
           ? '/profile?link=error&provider=vk'
@@ -176,6 +260,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     if (!saved.success || saved.data.state !== query.data.state) {
       return reply.code(400).send({ error: 'invalid_state' });
     }
+    const handoffId = saved.data.handoff;
     if (saved.data.link) {
       const toProfile = (outcome: string) =>
         reply.redirect(
@@ -225,6 +310,16 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       );
       await dropPreviousSession(request, sessionId);
       reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
+      // A sign-in for the Telegram Mini App: hand the account to it (it
+      // claims its own session — see handoff.ts) and tell this browser
+      // how to get back to Telegram.
+      if (handoffId) {
+        const handed = await handoff.finishHandoff(db, handoffId, {
+          status: 'completed',
+          userId: user.id,
+        });
+        return toTelegramReturn(reply, handed ? 'ok' : 'expired');
+      }
       // Server-decided landing: an account whose saved learning profile
       // is not complete (brand-new, or an earlier onboarding left
       // unfinished) goes straight to onboarding; everyone else to the
@@ -235,6 +330,18 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         : new URL('/onboarding', config.WEB_BASE_URL).toString();
       return reply.redirect(landing);
     } catch (error) {
+      if (handoffId) {
+        await handoff.finishHandoff(db, handoffId, { status: 'failed' });
+        if (error instanceof service.VkRequestError) {
+          request.log.error(
+            { vkLogin: error.kind, status: error.status, vkError: error.vkError, handoff: true },
+            'VK login failed',
+          );
+        } else if (!(error instanceof service.VkNotConfiguredError)) {
+          request.log.error({ err: error, handoff: true }, 'VK login failed');
+        }
+        return toTelegramReturn(reply, 'error');
+      }
       if (error instanceof service.VkNotConfiguredError) {
         return reply.code(503).send({ error: 'vk_not_configured' });
       }

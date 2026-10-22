@@ -91,6 +91,13 @@ export async function verifyMagicLink(db: Database, token: string): Promise<Logi
   return { sessionId, sessionExpiresAt, user: await loadAuthUser(db, userId), created };
 }
 
+/** A fresh session for an already-identified user (the Telegram Mini App
+ * claiming a completed VK handoff — see handoff.ts). */
+export async function openSessionFor(db: Database, userId: string): Promise<LoginResult> {
+  const session = await startSession(db, userId);
+  return { ...session, user: await loadAuthUser(db, userId), created: false };
+}
+
 async function startSession(
   db: Database,
   userId: string,

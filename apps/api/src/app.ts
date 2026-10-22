@@ -24,7 +24,7 @@ import { recommendationRoutes } from './modules/learning/recommendation/routes.j
 import { learningPathRoutes } from './modules/learning/learningPath/routes.js';
 import { learningSessionRoutes } from './modules/learning/learningSession/routes.js';
 import { mistakesRoutes } from './modules/mistakes/routes.js';
-import { progressRoutes } from './modules/progress/routes.js';
+import { progressRoutes, publicTopicsRoutes } from './modules/progress/routes.js';
 import { tasksRoutes } from './modules/tasks/routes.js';
 import { variantsRoutes } from './modules/variants/routes.js';
 
@@ -78,6 +78,7 @@ export function buildApp({
         scope.register(collectionsRoutes, { db, prefix: '/api/v1' });
         scope.register(taskStatisticsRoutes, { db, prefix: '/api/v1' });
         scope.register(taskSimilarityRoutes, { db, prefix: '/api/v1' });
+        scope.register(publicTopicsRoutes, { db, prefix: '/api/v1' });
       };
 
     // Everything personal — statistics, mistakes, favorites, learning

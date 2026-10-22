@@ -162,6 +162,13 @@
       "when": 1792189630542,
       "tag": "0022_glorious_jane_foster",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792656654017,
+      "tag": "0023_auth_handoffs",
+      "breakpoints": true
     }
   ]
 }

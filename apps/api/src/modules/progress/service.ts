@@ -106,7 +106,7 @@ export async function getByTaskNumberWithTotals(
 
 export async function getByTopicWithTotals(
   db: Database,
-  userId: string,
+  userId: string | null,
   filters: ProgressByTopicQuery,
 ): Promise<ProgressByTopicResponse> {
   const items = await repo.getByTopicWithTotals(db, userId, filters);
