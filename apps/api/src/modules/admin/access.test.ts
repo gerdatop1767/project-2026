@@ -199,3 +199,39 @@ describe('admin API access (owner only)', () => {
     await closed.close();
   });
 });
+
+describe('/auth/me isOwner hint', () => {
+  it('is true only for the configured owner, false for others and guests', async () => {
+    const testDb = await createSeededTestDb();
+    const [owner] = await testDb.db.insert(schema.users).values({}).returning();
+    const [other] = await testDb.db.insert(schema.users).values({}).returning();
+    const cookieFor = async (userId: string) => {
+      const id = randomUUID();
+      await testDb.db
+        .insert(schema.authSessions)
+        .values({ id, userId, expiresAt: new Date(Date.now() + 3_600_000) });
+      return `session_id=${id}`;
+    };
+    const app = buildApp({
+      version: 'test',
+      db: testDb.db,
+      authConfig: loadConfig({ NODE_ENV: 'test', ADMIN_OWNER_USER_IDS: owner!.id }),
+    });
+    const me = async (cookie?: string) =>
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/v1/auth/me',
+          headers: cookie ? { cookie } : {},
+        })
+      ).json() as { user: { id: string } | null; isOwner?: boolean };
+    expect((await me(await cookieFor(owner!.id))).isOwner).toBe(true);
+    expect((await me(await cookieFor(other!.id))).isOwner).toBeUndefined();
+    expect(await me()).toEqual({ user: null });
+    // The response never carries the owner list itself.
+    const body = JSON.stringify(await me(await cookieFor(other!.id)));
+    expect(body).not.toContain(owner!.id);
+    await app.close();
+    await testDb.close();
+  });
+});

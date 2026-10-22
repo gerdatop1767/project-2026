@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MobileMenu } from './MobileMenu.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
+import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 
 function OverlayMarker() {
   const { overlay, tab } = useNavigation();
@@ -88,5 +89,32 @@ describe('MobileMenu', () => {
     await user.click(toggle);
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
     expect(window.localStorage.getItem('zybrilka-theme')).toBe('dark');
+  });
+});
+
+describe('MobileMenu — owner link', () => {
+  function renderAs(user: ReturnType<typeof makeAuthUser> | null, isOwner: boolean) {
+    render(
+      <TestAuthProvider user={user} isOwner={isOwner}>
+        <NavigationProvider>
+          <MobileMenu open onClose={vi.fn()} activeTab="home" />
+        </NavigationProvider>
+      </TestAuthProvider>,
+    );
+  }
+
+  it('the owner sees «Админ-панель» linking to /admin', () => {
+    renderAs(makeAuthUser(), true);
+    expect(screen.getByRole('link', { name: /Админ-панель/ })).toHaveAttribute('href', '/admin');
+  });
+
+  it('a regular user does not', () => {
+    renderAs(makeAuthUser(), false);
+    expect(screen.queryByRole('link', { name: /Админ-панель/ })).not.toBeInTheDocument();
+  });
+
+  it('a guest does not', () => {
+    renderAs(null, false);
+    expect(screen.queryByRole('link', { name: /Админ-панель/ })).not.toBeInTheDocument();
   });
 });

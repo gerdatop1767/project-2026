@@ -23,7 +23,7 @@ import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { FavoritesList } from '../../ui/Favorites/FavoritesList.js';
 import { clsx } from '../../lib/clsx.js';
-import { ContentSwap, FadeIn, SlideUp } from '../../ui/motion/motion.js';
+import { ContentSwap, FadeIn, SlideUp, staggerDelay } from '../../ui/motion/motion.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectMobile.module.css';
 
@@ -440,7 +440,7 @@ function TopicsList({
         {topics.map((topic, index) => {
           const percent = topic.total > 0 ? Math.round((topic.completed / topic.total) * 100) : 0;
           return (
-            <FadeIn key={topic.topicId} delayMs={index * 25}>
+            <FadeIn key={topic.topicId} delayMs={staggerDelay(index)}>
               <button type="button" className={styles.topicRow} onClick={() => onSelect(topic)}>
                 <span className={styles.topicBody}>
                   <p className="text-body-sm" style={{ fontWeight: 700 }}>

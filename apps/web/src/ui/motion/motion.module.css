@@ -9,7 +9,7 @@
  */
 
 .fadeIn {
-  animation: fadeIn 320ms var(--easing-out) backwards;
+  animation: fadeIn 260ms var(--easing-out) backwards;
 }
 
 @keyframes fadeIn {
@@ -42,13 +42,13 @@
 }
 
 /*
- * Stagger: every direct child rises in turn (~45 ms apart, capped so a long
- * list never makes the user wait). Decorative only — nothing is blocked
+ * Stagger: every direct child rises in turn (~28 ms apart, capped at the
+ * 7th child so a long list never makes the user wait). Decorative only — nothing is blocked
  * while it plays.
  */
 .stagger > * {
   animation: slideUp var(--duration-enter) var(--easing-out) backwards;
-  animation-delay: calc(min(var(--stagger-index, 0), 8) * var(--stagger-step));
+  animation-delay: calc(min(var(--stagger-index, 0), 6) * var(--stagger-step));
 }
 
 .stagger > :nth-child(2) {
@@ -81,37 +81,27 @@
  * screen). The wrapper itself is `display: contents`, so it adds no box and
  * the screens' own layout is exactly what it was.
  *
- * Switching screens is the most frequent motion in the app, so it is the
- * lightest one: the new screen is fully opaque from the first frame and
- * only settles 6px into place (transform only — compositor work, no
- * repaint). It used to fade every screen in from opacity 0 (and screens
- * whose root is a SlideUp rose from 0 over 460 ms), which let the near-
- * black page background show through every card for ~0.3–0.5 s: the
- * "dimming" on each tab switch, and a full-screen translucent layer for
- * weak phones / Telegram WebView to composite while the new screen's
- * data, charts and icons were also arriving. The title and its lead line
- * still rise in just behind — small elements, cheap.
+ * The whole screen fades in while settling 8px into place — one movement
+ * for the page, opacity + transform only (compositor work). It replaces the
+ * screen root's own SlideUp on purpose (same element, higher specificity):
+ * earlier the two fought, leaving only a 6px nudge with no fade, while the
+ * nested per-card cascades still played — pages looked abrupt and then
+ * "dripped" in top to bottom. Children no longer run their own long
+ * cascades (see `staggerDelay`), so the page arrives as one piece.
  */
 .screen {
   display: contents;
 }
 
 .screen > * {
-  animation: screenSettle 220ms var(--easing-out) backwards;
+  animation: screenIn 260ms var(--easing-out) backwards;
 }
 
-@keyframes screenSettle {
+@keyframes screenIn {
   from {
-    transform: translateY(6px);
+    opacity: 0;
+    transform: translateY(8px);
   }
-}
-
-.screen :where(h1) {
-  animation: slideUp 320ms var(--easing-out) 30ms backwards;
-}
-
-.screen :where(h1 + p) {
-  animation: slideUp 320ms var(--easing-out) 80ms backwards;
 }
 
 .collapse {
@@ -157,8 +147,6 @@
   .scaleIn,
   .stagger > *,
   .screen > *,
-  .screen :where(h1),
-  .screen :where(h1 + p),
   .contentSwap > * {
     animation: none;
   }

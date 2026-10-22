@@ -191,11 +191,22 @@
     transform var(--duration-fast) ease;
 }
 
+a.row {
+  text-decoration: none;
+}
+
+/* Owner-only entry to the admin panel: the same row, a quieter gold rim
+   so it reads as "special" without shouting. */
+.rowOwner .rowIcon {
+  color: var(--color-gold);
+}
+
 .row[data-static] {
   cursor: default;
 }
 
-button.row:active {
+button.row:active,
+a.row:active {
   transform: scale(0.985);
 }
 
@@ -207,12 +218,14 @@ button.row:active {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  button.row:hover {
+  button.row:hover,
+  a.row:hover {
     background: color-mix(in srgb, var(--color-accent-primary) 14%, var(--color-bg-elevated));
     box-shadow: inset 0 0 0 1px var(--panel-rim);
   }
 
-  button.row:hover .rowChevron {
+  button.row:hover .rowChevron,
+  a.row:hover .rowChevron {
     transform: translateX(2px);
   }
 

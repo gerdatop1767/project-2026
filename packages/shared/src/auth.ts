@@ -51,5 +51,9 @@ export type AuthUser = z.infer<typeof authUserSchema>;
 
 export const meResponseSchema = z.object({
   user: authUserSchema.nullable(),
+  /** The signed-in user is the project owner (server-side
+   * ADMIN_OWNER_USER_IDS). A UI hint for the «Админ-панель» link only —
+   * the admin API checks access on every request regardless. */
+  isOwner: z.boolean().optional(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;

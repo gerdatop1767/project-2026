@@ -171,7 +171,7 @@
      (it is seen once per visit, not dozens of times a minute). */
   --duration-enter: 340ms;
   --motion-rise: 12px;
-  --stagger-step: 45ms;
+  --stagger-step: 28ms;
 
   /* ---- Layout ---- */
   --bottom-nav-height: 4rem; /* 64px */

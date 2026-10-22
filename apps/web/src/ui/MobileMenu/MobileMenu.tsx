@@ -126,7 +126,7 @@ export interface MobileMenuProps {
  */
 export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
   const { navigateGuarded: navigate, isGuest } = useAccountGate();
-  const { user, logout } = useAuth();
+  const { user, logout, isOwner } = useAuth();
   const [logoutError, setLogoutError] = useState(false);
   const [theme, setTheme] = useTheme();
   const darkTheme = theme === 'dark';
@@ -297,6 +297,15 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
               <span className={styles.plainLabel}>Помощь</span>
               <Icon name="chevronRight" size={18} className={styles.navChevron} />
             </button>
+            {isOwner && (
+              <a className={clsx(styles.plainItem, styles.plainLink)} href="/admin">
+                <span className={styles.plainIcon} style={{ color: 'var(--color-gold)' }}>
+                  <Icon name="shield" size={20} />
+                </span>
+                <span className={styles.plainLabel}>Админ-панель</span>
+                <Icon name="chevronRight" size={18} className={styles.navChevron} />
+              </a>
+            )}
             {isGuest ? (
               <button
                 type="button"

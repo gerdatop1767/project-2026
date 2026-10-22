@@ -19,6 +19,7 @@ function renderMenu({
   logout = vi.fn(async () => {}),
   onClose = vi.fn(),
   user = makeAuthUser() as ReturnType<typeof makeAuthUser> | null,
+  isOwner = false,
 } = {}) {
   render(
     <AuthContext.Provider
@@ -28,6 +29,7 @@ function renderMenu({
         logout,
         updateUser: () => {},
         telegramError: null,
+        isOwner,
       }}
     >
       <NavigationProvider>
@@ -113,5 +115,17 @@ describe('DesktopMenu', () => {
     expect(screen.queryByRole('button', { name: /Выйти/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Войти или зарегистрироваться/ }));
     expect(screen.getByTestId('state')).toHaveTextContent('login');
+  });
+});
+
+describe('DesktopMenu — owner link', () => {
+  it('shows «Админ-панель» only to the owner', () => {
+    renderMenu({ isOwner: true });
+    expect(screen.getByRole('link', { name: /Админ-панель/ })).toHaveAttribute('href', '/admin');
+  });
+
+  it('hides it from a regular user and a guest', () => {
+    renderMenu({ isOwner: false });
+    expect(screen.queryByRole('link', { name: /Админ-панель/ })).not.toBeInTheDocument();
   });
 });

@@ -676,3 +676,173 @@
     animation: none;
   }
 }
+
+/* ---- Visual system refresh: sections, KPI sparklines, mobile cards ---- */
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kpiRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sparkline {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* KPI tiles: frosted surface with a fine top highlight. */
+.kpi {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-tint) 4%, transparent), transparent 40%),
+    color-mix(in srgb, var(--color-bg-surface) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent-primary-end) 55%, transparent),
+    transparent
+  );
+}
+
+.kpiValueMuted {
+  font-size: var(--font-size-body-sm);
+}
+
+.mobileSort {
+  display: none;
+}
+
+/* Phones: every data table becomes a list of cards (label: value rows);
+   the first column is the card's title. Sorting moves to a select. */
+@media (max-width: 640px) {
+  .mobileSort {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-label);
+  }
+
+  .tableCards,
+  .tableCards tbody,
+  .tableCards tr,
+  .tableCards td {
+    display: block;
+    width: 100%;
+  }
+
+  .tableCards thead {
+    display: none;
+  }
+
+  .tableCards tr {
+    margin-bottom: var(--space-2);
+    padding: var(--space-3);
+    border-radius: 1rem;
+    background: var(--color-bg-surface);
+    box-shadow: inset 0 0 0 1px var(--admin-rim);
+  }
+
+  .tableCards tbody tr:hover {
+    background: var(--color-bg-surface);
+  }
+
+  .table.tableCards td,
+  .table.tableCards td.num {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 3px 0;
+    border: none;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .tableCards td > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mobileSort .select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tableCards td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 50%;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-label);
+    text-align: left;
+  }
+
+  .table.tableCards td:first-child {
+    padding-bottom: var(--space-2);
+    font-weight: var(--font-weight-semibold);
+    text-align: left;
+  }
+
+  .tableCards td:first-child::before {
+    display: none;
+  }
+
+  .tableWrap:has(.tableCards) {
+    overflow-x: visible;
+  }
+}
+
+.navGroup {
+  margin: var(--space-4) var(--space-3) var(--space-1);
+  color: var(--color-text-disabled);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.navGroup:first-of-type {
+  margin-top: 0;
+}
+
+.sidebar {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}

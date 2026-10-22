@@ -132,17 +132,21 @@ export function LineSeriesChart({
   series,
   title,
   labelEvery,
+  unit,
 }: {
   rows: ChartRow[];
   series: Series[];
   title: string;
   labelEvery?: number;
+  /** What the y-axis counts, e.g. «человек», «ответов». */
+  unit?: string;
 }) {
   const [asTable, setAsTable] = useState(false);
   const { active, handlers } = useHover(rows.length);
   const max = niceMax(
     Math.max(0, ...rows.flatMap((r) => series.map((sr) => r.values[sr.key] ?? 0))),
   );
+  if (rows.length === 0) return <p className={s.muted}>Нет данных за период.</p>;
   const n = rows.length;
   const xPct = (i: number) => (n > 1 ? (i / (n - 1)) * 100 : 50);
   const y = (v: number) => H - (v / max) * H;
@@ -150,6 +154,7 @@ export function LineSeriesChart({
   return (
     <div>
       <div className={c.chartHead}>
+        {unit && <span className={c.unit}>{unit}</span>}
         <Legend series={series} />
         <button type="button" className={c.toggle} onClick={() => setAsTable((v) => !v)}>
           {asTable ? 'График' : 'Таблица'}
@@ -242,10 +247,12 @@ export function StackedBarsChart({
   rows,
   series,
   title,
+  unit,
 }: {
   rows: ChartRow[];
   series: Series[];
   title: string;
+  unit?: string;
 }) {
   const [asTable, setAsTable] = useState(false);
   const { active, handlers } = useHover(rows.length);
@@ -256,6 +263,7 @@ export function StackedBarsChart({
   return (
     <div>
       <div className={c.chartHead}>
+        {unit && <span className={c.unit}>{unit}</span>}
         <Legend series={series} />
         <button type="button" className={c.toggle} onClick={() => setAsTable((v) => !v)}>
           {asTable ? 'График' : 'Таблица'}

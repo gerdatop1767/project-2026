@@ -2,7 +2,7 @@ import { useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { FadeIn, SlideUp } from '../../ui/motion/motion.js';
+import { FadeIn, SlideUp, staggerDelay } from '../../ui/motion/motion.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import {
   FeatureIcon,
@@ -63,7 +63,7 @@ export function SubjectCatalogMobile() {
         {stats.map((stat, index) => (
           <FadeIn
             key={stat.label}
-            delayMs={index * 40}
+            delayMs={staggerDelay(index)}
             className={styles.statCard}
             style={{ ['--card-glow' as string]: featureIconGlow(stat.icon) }}
           >
@@ -80,7 +80,7 @@ export function SubjectCatalogMobile() {
 
       <div className={styles.list}>
         {subjects.map((subject, index) => (
-          <FadeIn key={subject.id} delayMs={index * 30}>
+          <FadeIn key={subject.id} delayMs={staggerDelay(index)}>
             <button
               type="button"
               className={styles.subjectRow}

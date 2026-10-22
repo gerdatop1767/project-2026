@@ -125,7 +125,15 @@ export function QualityPage() {
       key: 'signals',
       label: 'Сигналы',
       render: (r) => (
-        <ul className={s.small} style={{ margin: 0, paddingLeft: '1rem', minWidth: '16rem' }}>
+        <ul
+          className={s.small}
+          style={{
+            margin: 0,
+            paddingLeft: '1rem',
+            minWidth: 'min(16rem, 100%)',
+            textAlign: 'left',
+          }}
+        >
           {r.signals.map((sg) => (
             <li key={sg.type}>
               <Badge tone={behavioural.has(sg.type) ? 'warn' : 'info'}>{signalText[sg.type]}</Badge>{' '}
