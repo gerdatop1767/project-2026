@@ -40,6 +40,7 @@ import { growthReport } from './reports/growth.js';
 import { healthReport } from './reports/health.js';
 import { overviewReport } from './reports/overview.js';
 import { qualityReport } from './reports/quality.js';
+import { streaksReport } from './reports/streaks.js';
 import {
   adminSettingsSchema,
   loadSettings,
@@ -245,6 +246,12 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   app.get('/admin/retention', async (request) =>
     retentionReport(db, parse(retentionQuery, request.query)),
   );
+
+  // ── Серии ────────────────────────────────────────────────────────────
+  app.get('/admin/streaks', async (request) => {
+    const period = periodOf(request);
+    return { period: describePeriod(period), ...(await streaksReport(db, period)) };
+  });
 
   // ── Кампании и ссылки ────────────────────────────────────────────────
   const linkFor = (slug: string) => ({
