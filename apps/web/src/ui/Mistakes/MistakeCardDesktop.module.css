@@ -52,6 +52,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Multi-line conditions (lists, display formulas) stay a two-line
+     preview; the full text is one click away in «Разобрать». */
+  max-height: 3em;
 }
 
 .date {
@@ -78,6 +81,14 @@
   flex-direction: column;
   gap: var(--space-2);
   width: 9.5rem;
+}
+
+.actions > * {
+  white-space: nowrap;
+}
+
+.actions svg {
+  flex-shrink: 0;
 }
 
 .solveSimilarButton {

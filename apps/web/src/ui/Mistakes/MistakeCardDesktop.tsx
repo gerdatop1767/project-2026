@@ -59,9 +59,9 @@ export function MistakeCardDesktop({
           {mistake.topic}
         </span>
         <p className={`text-h3 ${styles.title}`}>Задание {mistake.taskNumber}</p>
-        <p className={`text-body-sm ${styles.condition}`}>
+        <div className={`text-body-sm ${styles.condition}`}>
           <InlineMathText text={mistake.condition} />
-        </p>
+        </div>
         <p className={styles.date}>{formatDateShort(mistake.date)}</p>
       </div>
 
