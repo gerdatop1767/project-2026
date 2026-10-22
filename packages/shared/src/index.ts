@@ -30,3 +30,4 @@ export * from './learning/learningSession.js';
 export * as solutionEngine from './solutionEngine/index.js';
 export * as solutionTemplates from './solutionTemplates/index.js';
 export * from './canonicalSolutionDto.js';
+export * from './streakTiers.js';

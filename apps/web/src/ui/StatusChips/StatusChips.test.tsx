@@ -146,3 +146,60 @@ describe('StatusChips — streak-increase animation', () => {
     expect(document.querySelector('[class*="chipStreakUp"]')).toBeInTheDocument();
   });
 });
+
+describe('StatusChips — streak flame tiers', () => {
+  const streakOf = (n: number) => ({
+    currentStreak: n,
+    lastActiveDate: '2026-10-03',
+    isActiveToday: true,
+  });
+  const renderWith = () =>
+    render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+          <RefreshButton />
+        </StreakProvider>
+      </TestAuthProvider>,
+    );
+  const flame = () => document.querySelector('svg[data-tier]')!;
+
+  it.each([
+    [0, '0'],
+    [1, '1'],
+    [5, '2'],
+    [15, '3'],
+    [30, '4'],
+    [40, '5'],
+    [60, '6'],
+    [120, '6'],
+  ])('%i days draws tier %s (0 = no lit flame)', async (days, tier) => {
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(days));
+    renderWith();
+    await waitFor(() => expect(flame()).toHaveAttribute('data-tier', tier));
+    expect(screen.getByLabelText(new RegExp(`Серия: ${days} `))).toBeInTheDocument();
+  });
+
+  it('the level-up burst plays only when a real refresh crosses into a new tier', async () => {
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(4));
+    const user = userEvent.setup();
+    renderWith();
+    await waitFor(() => expect(flame()).toHaveAttribute('data-tier', '1'));
+    expect(flame()).not.toHaveAttribute('data-level-up');
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(5));
+    await user.click(screen.getByRole('button', { name: 'refresh' }));
+    await waitFor(() => expect(flame()).toHaveAttribute('data-level-up'));
+    expect(flame()).toHaveAttribute('data-tier', '2');
+  });
+
+  it('a higher streak within the same tier pulses but does not burst', async () => {
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(6));
+    const user = userEvent.setup();
+    renderWith();
+    await waitFor(() => expect(flame()).toHaveAttribute('data-tier', '2'));
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(7));
+    await user.click(screen.getByRole('button', { name: 'refresh' }));
+    await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
+    expect(flame()).not.toHaveAttribute('data-level-up');
+  });
+});
