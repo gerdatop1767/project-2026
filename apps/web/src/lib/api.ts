@@ -302,6 +302,16 @@ export function getMistakes(): Promise<Mistake[]> {
   return cachedApiFetch<{ items: Mistake[] }>('/mistakes').then((r) => r.items);
 }
 
+/** «Убрать из ошибок»: hides one of the user's own mistakes (history and
+ * the task itself stay). Reversible with `restoreMistake`. */
+export function dismissMistake(id: string): Promise<{ id: string; status: string }> {
+  return apiFetch(`/mistakes/${id}/dismiss`, { method: 'POST' });
+}
+
+export function restoreMistake(id: string): Promise<{ id: string; status: string }> {
+  return apiFetch(`/mistakes/${id}/restore`, { method: 'POST' });
+}
+
 export function getProgressSummary(): Promise<ProgressSummary> {
   return cachedApiFetch('/progress/summary');
 }

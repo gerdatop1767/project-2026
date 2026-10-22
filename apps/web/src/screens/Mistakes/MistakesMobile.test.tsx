@@ -9,6 +9,8 @@ import * as api from '../../lib/api.js';
 vi.mock('../../lib/api.js', () => ({
   getMistakes: vi.fn(),
   getSimilarTasks: vi.fn(() => Promise.resolve([])),
+  dismissMistake: vi.fn(),
+  restoreMistake: vi.fn(),
 }));
 
 const apiMistakes = [
@@ -177,5 +179,101 @@ describe('MistakesMobile — "Решить похожее" (deterministic simila
     resolveSimilar([{ taskId: 'aaaaaaaa-0000-0000-0000-000000000001', taskNumber: 15, score: 80 }]);
     await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:'));
     expect(api.getSimilarTasks).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MistakesMobile — subject, removal, header', () => {
+  const russian = {
+    ...apiMistakes[0]!,
+    id: 'r1',
+    taskId: '33333333-3333-3333-3333-333333333333',
+    subjectId: 'russian',
+    taskNumber: 9,
+    topicName: 'Правописание корней',
+    conditionMd: 'Укажите варианты ответов с безударной гласной',
+  };
+
+  it('switching the subject swaps the list and the stats together (no stale cards)', async () => {
+    vi.mocked(api.getMistakes).mockResolvedValue([...apiMistakes, russian]);
+    const user = userEvent.setup();
+    renderScreen();
+    expect(await screen.findByText(apiMistakes[0]!.conditionMd)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Математика/ }));
+    await user.click(await screen.findByRole('radio', { name: /Русский/ }));
+    expect(await screen.findByText(russian.conditionMd)).toBeInTheDocument();
+    expect(screen.queryByText(apiMistakes[0]!.conditionMd)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Русский/ })).toBeInTheDocument();
+    // Back to math: its own cards again.
+    await user.click(screen.getByRole('button', { name: /Русский/ }));
+    await user.click(await screen.findByRole('radio', { name: /Математика/ }));
+    expect(await screen.findByText(apiMistakes[0]!.conditionMd)).toBeInTheDocument();
+    expect(screen.queryByText(russian.conditionMd)).not.toBeInTheDocument();
+  });
+
+  it('a subject without mistakes shows its own empty state, not the old list', async () => {
+    vi.mocked(api.getMistakes).mockResolvedValue(apiMistakes);
+    const user = userEvent.setup();
+    renderScreen();
+    await screen.findByText(apiMistakes[0]!.conditionMd);
+    await user.click(screen.getByRole('button', { name: /Математика/ }));
+    await user.click(await screen.findByRole('radio', { name: /Физика/ }));
+    expect(await screen.findByText(/По предмету «Физика» ошибок нет/)).toBeInTheDocument();
+    expect(screen.queryByText(apiMistakes[0]!.conditionMd)).not.toBeInTheDocument();
+  });
+
+  it('has no separate «Выбрать» button; «Начать» stays', async () => {
+    vi.mocked(api.getMistakes).mockResolvedValue(apiMistakes);
+    renderScreen();
+    await screen.findByText(apiMistakes[0]!.conditionMd);
+    expect(screen.queryByRole('button', { name: /Выбрать$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Начать/ })).toBeInTheDocument();
+  });
+
+  it('× removes the card only after the server confirms, with an undo', async () => {
+    vi.mocked(api.getMistakes).mockResolvedValue(apiMistakes);
+    let confirm!: () => void;
+    vi.mocked(api.dismissMistake).mockImplementation(
+      () => new Promise((resolve) => (confirm = () => resolve({ id: 'm1', status: 'dismissed' }))),
+    );
+    vi.mocked(api.restoreMistake).mockResolvedValue({ id: 'm1', status: 'open' });
+    const user = userEvent.setup();
+    renderScreen();
+    await screen.findByText(apiMistakes[0]!.conditionMd);
+    const remove = screen.getByRole('button', { name: 'Убрать из ошибок (задание 15)' });
+    await user.click(remove);
+    // In flight: still listed, the × is disabled (a second tap can't fire twice).
+    expect(screen.getByText(apiMistakes[0]!.conditionMd)).toBeInTheDocument();
+    expect(remove).toBeDisabled();
+    await user.click(remove);
+    expect(api.dismissMistake).toHaveBeenCalledTimes(1);
+    confirm();
+    await waitFor(() =>
+      expect(screen.queryByText(apiMistakes[0]!.conditionMd)).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByText(/Задание №15 убрано из ошибок/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Вернуть' }));
+    expect(api.restoreMistake).toHaveBeenCalledWith('m1');
+  });
+
+  it('a failed removal keeps the card and says so', async () => {
+    vi.mocked(api.getMistakes).mockResolvedValue(apiMistakes);
+    vi.mocked(api.dismissMistake).mockRejectedValue(new Error('500'));
+    const user = userEvent.setup();
+    renderScreen();
+    await screen.findByText(apiMistakes[0]!.conditionMd);
+    await user.click(screen.getByRole('button', { name: 'Убрать из ошибок (задание 15)' }));
+    expect(await screen.findByText(/Не удалось убрать задание/)).toBeInTheDocument();
+    expect(screen.getByText(apiMistakes[0]!.conditionMd)).toBeInTheDocument();
+  });
+
+  it('a failed load is an error with retry, never «все разобраны»', async () => {
+    vi.mocked(api.getMistakes).mockRejectedValueOnce(new Error('offline'));
+    const user = userEvent.setup();
+    renderScreen();
+    expect(await screen.findByText('Не удалось загрузить ошибки')).toBeInTheDocument();
+    expect(screen.queryByText('Все ошибки разобраны!')).not.toBeInTheDocument();
+    vi.mocked(api.getMistakes).mockResolvedValue(apiMistakes);
+    await user.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByText(apiMistakes[0]!.conditionMd)).toBeInTheDocument();
   });
 });
