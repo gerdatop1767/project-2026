@@ -230,3 +230,9 @@
     transition-duration: 1ms;
   }
 }
+
+/* The owner's «Админ-панель» row is a real link (it leaves the trainer). */
+.plainLink {
+  color: inherit;
+  text-decoration: none;
+}

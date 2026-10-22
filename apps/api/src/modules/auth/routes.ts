@@ -7,6 +7,7 @@ import {
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
+import { isAdminUser } from '../admin/access.js';
 import { recordSignIn } from '../analytics/recorder.js';
 import * as service from './service.js';
 import { createVkPkceChallenge, buildVkAuthorizeUrl, isVkConfigured } from './vk.js';
@@ -428,7 +429,12 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     // A cookie that no longer maps to a live session (expired, revoked,
     // deleted) is dropped so the browser stops sending it.
     if (!user) clearSessionCookie(reply, config);
-    return reply.code(200).send({ user });
+    // Only tells THIS signed-in user whether they are the owner, so the app
+    // can show its «Админ-панель» link. Purely a UI hint: every admin
+    // endpoint checks the same server-side list again on its own.
+    // Present only when true, so everyone else's response is unchanged.
+    const isOwner = user !== null && isAdminUser(config.ADMIN_OWNER_USER_IDS, user.id);
+    return reply.code(200).send(isOwner ? { user, isOwner } : { user });
   });
 
   app.post('/auth/logout', async (request, reply) => {

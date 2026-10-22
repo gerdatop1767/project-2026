@@ -62,7 +62,7 @@ export interface DesktopMenuProps {
  */
 export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
   const { tab, overlay, navigate } = useNavigation();
-  const { user, logout } = useAuth();
+  const { user, logout, isOwner } = useAuth();
   const [theme, setTheme] = useTheme();
   const [logoutError, setLogoutError] = useState(false);
   // The screen Menu is layered over, captured before any item can
@@ -185,6 +185,19 @@ export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
               <Icon name="chevronRight" size={18} className={styles.rowChevron} />
             </button>
           </div>
+
+          {isOwner && (
+            <a className={clsx(styles.row, styles.rowOwner)} href="/admin">
+              <span className={styles.rowIcon}>
+                <Icon name="shield" size={20} />
+              </span>
+              <span className={styles.rowText}>
+                <span className={styles.rowLabel}>Админ-панель</span>
+                <span className={styles.rowCaption}>Статистика, жалобы и управление</span>
+              </span>
+              <Icon name="chevronRight" size={18} className={styles.rowChevron} />
+            </a>
+          )}
 
           <div className={styles.divider} role="separator" />
 

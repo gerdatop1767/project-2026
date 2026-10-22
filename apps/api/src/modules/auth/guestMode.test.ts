@@ -63,6 +63,12 @@ describe('guest mode (production auth config)', () => {
     const items = res.json().items as { total: number; completed: number }[];
     expect(items.length).toBeGreaterThan(0);
     expect(items.every((t) => t.total > 0 && t.completed === 0)).toBe(true);
+    // Each topic says its slug (for grouping) and the EGE numbers it really has.
+    for (const t of res.json().items as { topicSlug: string; taskNumbers: number[] }[]) {
+      expect(t.topicSlug).toMatch(/^[a-z0-9-]+$/);
+      expect(t.taskNumbers.length).toBeGreaterThan(0);
+      expect([...t.taskNumbers].sort((a, b) => a - b)).toEqual(t.taskNumbers);
+    }
     // The personal one stays private.
     const personal = await app.inject({
       method: 'GET',

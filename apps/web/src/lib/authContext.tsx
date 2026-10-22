@@ -47,6 +47,10 @@ interface AuthContextValue {
   /** Why the automatic Telegram sign-in failed (`null` = not attempted or
    * fine). A short server code such as `telegram_data_expired`. */
   readonly telegramError: string | null;
+  /** The server says the signed-in user is the project owner (from
+   * `/auth/me`). Only decides whether the «Админ-панель» link shows — the
+   * admin API checks access itself on every request. */
+  readonly isOwner: boolean;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
@@ -55,6 +59,7 @@ export const AuthContext = createContext<AuthContextValue>({
   logout: async () => {},
   updateUser: () => {},
   telegramError: null,
+  isOwner: false,
 });
 
 /** After an explicit sign-out inside Telegram, don't sign straight back in
@@ -99,6 +104,8 @@ export function AuthProvider({
   // "signed out / switched account".
   const currentUserId = useRef<string | null | undefined>(undefined);
   const [telegramError, setTelegramError] = useState<string | null>(null);
+  // Which account the server last confirmed as the owner (null = none).
+  const [ownerId, setOwnerId] = useState<string | null>(null);
 
   const applyUser = useCallback((next: AuthUser | null) => {
     const previousId = currentUserId.current;
@@ -138,7 +145,22 @@ export function AuthProvider({
   const refresh = useCallback(
     () =>
       getCurrentUser()
-        .then(async (res) => applyUser(res.user ?? (await signInWithTelegram())))
+        .then(async (res) => {
+          if (res.user) {
+            setOwnerId(res.isOwner ? res.user.id : null);
+            applyUser(res.user);
+            return;
+          }
+          const viaTelegram = await signInWithTelegram();
+          applyUser(viaTelegram);
+          // A fresh Mini App sign-in: ask once more for the owner hint.
+          if (viaTelegram) {
+            const again = await getCurrentUser();
+            setOwnerId(again.user && again.isOwner ? again.user.id : null);
+          } else {
+            setOwnerId(null);
+          }
+        })
         .catch(() => {
           // No backend / offline — treat as signed out rather than
           // leaving the UI stuck on "checking". Private data is
@@ -179,8 +201,15 @@ export function AuthProvider({
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, refresh, logout, updateUser, telegramError }),
-    [user, refresh, logout, updateUser, telegramError],
+    () => ({
+      user,
+      refresh,
+      logout,
+      updateUser,
+      telegramError,
+      isOwner: Boolean(user && ownerId === user.id),
+    }),
+    [user, refresh, logout, updateUser, telegramError, ownerId],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
