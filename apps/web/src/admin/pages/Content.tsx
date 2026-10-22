@@ -1048,7 +1048,8 @@ export function TaskPage({ id = '' }: { id?: string }) {
                   <ul className={s.small} style={{ paddingLeft: '1.25rem' }}>
                     {d.history.map((h) => (
                       <li key={h.id}>
-                        <span className={s.muted}>{dateTime(h.createdAt)}</span> · {historyText(h)}
+                        <span className={s.muted}>{dateTime(h.createdAt)}</span> ·{' '}
+                        <span>{historyText(h)}</span>
                         {h.result !== 'ok' && <> · {h.result}</>}
                       </li>
                     ))}

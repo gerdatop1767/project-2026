@@ -252,7 +252,7 @@ describe('SubjectPage', () => {
     mockFetch(() => ({ status: 200, body: subjectDetail }));
     renderAt('/admin/content/subjects/math', <SubjectPage id="math" />);
     expect(await screen.findByRole('heading', { name: 'Математика' })).toBeInTheDocument();
-    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(screen.getByText('Точность').nextSibling).toHaveTextContent('60%');
     expect(screen.getByRole('link', { name: '№6' })).toHaveAttribute(
       'href',
       '/admin/content?period=30d&subject=math&number=6',
