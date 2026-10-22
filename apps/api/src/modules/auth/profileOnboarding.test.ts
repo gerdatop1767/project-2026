@@ -410,10 +410,13 @@ describe('VK profile data, onboarding routing, private API and logout', () => {
   });
 
   describe('private API is closed to unauthenticated callers', () => {
+    // Task content is open to guests (guest mode, see guestMode.test.ts);
+    // everything personal stays behind a session.
     const privateUrls = [
-      '/api/v1/tasks?subject=math',
-      '/api/v1/tasks/counts',
       '/api/v1/progress/summary',
+      '/api/v1/progress/daily',
+      '/api/v1/progress/by-task-number?subject=math',
+      '/api/v1/progress/variants',
       '/api/v1/me/learning-profile',
       '/api/v1/mistakes',
     ];
