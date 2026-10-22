@@ -60,7 +60,7 @@ describe('product analytics, campaign links, attribution, complaints', () => {
 
   const events = (type: string) =>
     testDb.db.select().from(schema.analyticsEvents).where(eq(schema.analyticsEvents.type, type));
-  const visitorCookie = (res: { cookies: { name: string; value: string }[] }) =>
+  const visitorCookie = (res: { cookies: { name: string; value: string; httpOnly?: boolean }[] }) =>
     res.cookies.find((c) => c.name === 'zv');
 
   describe('POST /api/v1/events', () => {

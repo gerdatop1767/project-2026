@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyPluginAsync, type FastifyServerOptions } from 'fastify';
 import type { Config } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { RequestMetrics, registerRequestMetrics } from './plugins/requestMetrics.js';
 import { registerAnonUser } from './plugins/anonUser.js';
 import {
   registerAuthSession,
@@ -58,6 +59,10 @@ export function buildApp({
   trustProxy,
 }: AppOptions) {
   const app = Fastify({ logger, trustProxy });
+  // Route-pattern/status/duration of recent requests, in memory only —
+  // read by the admin «Техническое состояние» page.
+  const requestMetrics = new RequestMetrics();
+  registerRequestMetrics(app, requestMetrics);
   app.register(healthRoutes, { version, checkDb });
 
   if (db) {
@@ -145,7 +150,13 @@ export function buildApp({
         scope.register(complaintsRoutes, { db, prefix: '/api/v1' });
       });
       // Owner-only admin API — its own scope, its own guard (admin/access.ts).
-      app.register(adminRoutes, { db, config: authConfig, prefix: '/api/v1' });
+      app.register(adminRoutes, {
+        db,
+        config: authConfig,
+        metrics: requestMetrics,
+        version,
+        prefix: '/api/v1',
+      });
     } else {
       app.register(contentRoutes(false));
       app.register(privateRoutes);
