@@ -17,6 +17,7 @@ import { LearningSessionResultAction } from '../../ui/LearningSession/LearningSe
 import type { SampleTask, TaskVariant } from '../../data/sampleTask.js';
 import { subjects } from '../../data/subjects.js';
 import { getProgressSummary } from '../../lib/api.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
 import { CanvasWorkspaceMobile } from '../../ui/CanvasWorkspace/CanvasWorkspaceMobile.js';
@@ -119,8 +120,11 @@ export function ResultMobile({
     };
   }, [taskId, subjectId, taskNumber]);
 
+  const { isGuest } = useAccountGate();
   useEffect(() => {
     let cancelled = false;
+    // A guest's answers aren't recorded, so there is no accuracy to show.
+    if (isGuest) return;
     void getProgressSummary()
       .then((data) => {
         if (!cancelled) setAccuracyPercent(Math.round(data.accuracyPercent));
@@ -132,7 +136,7 @@ export function ResultMobile({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   if (loadError) {
     return (

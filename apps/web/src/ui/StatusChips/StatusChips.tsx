@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon/Icon.js';
 import { clsx } from '../../lib/clsx.js';
 import { useStreakContext } from '../../lib/streakContext.js';
+import { useAuth } from '../../lib/authContext.js';
+import { useNavigation } from '../../lib/navigation.js';
 import styles from './StatusChips.module.css';
 
 export interface StatusChipsProps {
@@ -24,6 +26,36 @@ export interface StatusChipsProps {
  * honest "0", not hidden behind the placeholder forever.
  */
 export function StatusChips({ className }: StatusChipsProps) {
+  const { user } = useAuth();
+  if (user === null) return <GuestChip className={className} />;
+  return <AccountChips className={className} />;
+}
+
+/**
+ * Guest mode: in place of streak/level (there is no history to count) a
+ * quiet «Гость · Войти» chip — the way into an account, never a nag.
+ */
+function GuestChip({ className }: StatusChipsProps) {
+  const { navigate } = useNavigation();
+  return (
+    <div className={clsx(styles.row, className)}>
+      <button
+        type="button"
+        className={clsx(styles.chip, styles.guestChip)}
+        onClick={() => navigate({ screen: 'login' })}
+        aria-label="Гость. Войти или зарегистрироваться"
+      >
+        <Icon name="profile" size={18} className={styles.guestIcon} />
+        <span className={styles.chipText}>
+          <span className={styles.chipLabel}>Гость</span>
+          <span className={styles.chipValue}>Войти</span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function AccountChips({ className }: StatusChipsProps) {
   const { streak } = useStreakContext();
   const previousStreakRef = useRef<number | null>(null);
   const [justIncreased, setJustIncreased] = useState(false);

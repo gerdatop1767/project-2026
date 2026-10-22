@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLearningProfile, getProgressSummary } from '../../lib/api.js';
+import { useAuth } from '../../lib/authContext.js';
+import { GuestProfileCard } from '../../ui/AccountGate/GuestProfileCard.js';
 import type { LearningProfileResponse, ProgressSummary } from '@zybrilka/shared';
 import { selfReportedScoreLabel, targetScoreLabel } from '../../lib/learningProfileLabels.js';
 import { subjects as staticSubjects } from '../../data/subjects.js';
@@ -32,6 +34,34 @@ function findSubject(subjectId: string) {
  * straight from GET /progress/summary and GET /me/learning/profile.
  */
 export function Profile() {
+  const { user } = useAuth();
+  return user === null ? <GuestProfile /> : <AccountProfile />;
+}
+
+/** Guest mode: the header and its menu stay; no personal data is loaded. */
+function GuestProfile() {
+  const { navigate, overlay } = useNavigation();
+  return (
+    <SlideUp className={styles.stack}>
+      <div className={styles.headerRow}>
+        <h1 className="text-h1">Профиль</h1>
+        <button
+          type="button"
+          className={styles.iconButton}
+          aria-label="Меню"
+          onClick={() =>
+            navigate({ screen: 'menu', from: overlay?.screen === 'profile' ? overlay : undefined })
+          }
+        >
+          <Icon name="settings" size={20} />
+        </button>
+      </div>
+      <GuestProfileCard />
+    </SlideUp>
+  );
+}
+
+function AccountProfile() {
   const { navigate, overlay } = useNavigation();
   const identities = useIdentities();
   const [progress, setProgress] = useState<ProgressSummary | null>(null);

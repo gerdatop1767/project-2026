@@ -48,3 +48,28 @@
 /* No left-rail variant: the mobile shell is a phone-width column even on
    tablets (>=768px; the real desktop shell starts at 1024px and has its own
    sidebar), so a 6rem rail inside that column covered the page content. */
+
+.iconWrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+/* Guest mode: intentionally unavailable, not broken — dimmed with a lock. */
+.item[data-locked] {
+  color: var(--color-text-disabled);
+}
+
+.lock {
+  position: absolute;
+  right: -7px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  box-shadow: 0 0 0 1.5px var(--color-bg-surface);
+  color: var(--color-text-secondary);
+}

@@ -4,7 +4,8 @@ import { Icon } from '../Icon/Icon.js';
 import type { IconName } from '../Icon/icons.js';
 import { SubjectTile } from '../SubjectTile/SubjectTile.js';
 import { Avatar } from '../Leaderboard/Avatar.js';
-import { useNavigation, type MainTabId, type OverlayRoute } from '../../lib/navigation.js';
+import { type MainTabId, type OverlayRoute } from '../../lib/navigation.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { useAuth } from '../../lib/authContext.js';
 import { displayName } from '../../lib/userDisplay.js';
 import { useTheme } from '../../lib/theme.js';
@@ -124,7 +125,7 @@ export interface MobileMenuProps {
  * everywhere else.
  */
 export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
-  const { navigate } = useNavigation();
+  const { navigateGuarded: navigate, isGuest } = useAccountGate();
   const { user, logout } = useAuth();
   const [logoutError, setLogoutError] = useState(false);
   const [theme, setTheme] = useTheme();
@@ -186,7 +187,9 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
               <p className={`text-body ${styles.profileName}`} style={{ fontWeight: 700 }}>
                 Профиль
               </p>
-              <p className="text-body-sm text-secondary">{displayName(user) ?? 'Имя не задано'}</p>
+              <p className="text-body-sm text-secondary">
+                {isGuest ? 'Гость — без аккаунта' : (displayName(user) ?? 'Имя не задано')}
+              </p>
             </div>
             <Icon name="chevronRight" size={18} className={styles.navChevron} />
           </button>
@@ -294,21 +297,35 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
               <span className={styles.plainLabel}>Помощь</span>
               <Icon name="chevronRight" size={18} className={styles.navChevron} />
             </button>
-            <button
-              type="button"
-              className={styles.plainItem}
-              aria-label="Выйти из аккаунта"
-              onClick={() => {
-                setLogoutError(false);
-                logout().catch(() => setLogoutError(true));
-              }}
-            >
-              <span className={styles.plainIcon}>
-                <Icon name="logout" size={20} />
-              </span>
-              <span className={styles.plainLabel}>Выйти</span>
-              <Icon name="chevronRight" size={18} className={styles.navChevron} />
-            </button>
+            {isGuest ? (
+              <button
+                type="button"
+                className={styles.plainItem}
+                onClick={() => go({ screen: 'login' })}
+              >
+                <span className={styles.plainIcon}>
+                  <Icon name="profile" size={20} />
+                </span>
+                <span className={styles.plainLabel}>Войти или зарегистрироваться</span>
+                <Icon name="chevronRight" size={18} className={styles.navChevron} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.plainItem}
+                aria-label="Выйти из аккаунта"
+                onClick={() => {
+                  setLogoutError(false);
+                  logout().catch(() => setLogoutError(true));
+                }}
+              >
+                <span className={styles.plainIcon}>
+                  <Icon name="logout" size={20} />
+                </span>
+                <span className={styles.plainLabel}>Выйти</span>
+                <Icon name="chevronRight" size={18} className={styles.navChevron} />
+              </button>
+            )}
             {logoutError && (
               <p role="alert" className="text-body-sm">
                 Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.

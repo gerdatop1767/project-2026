@@ -329,6 +329,21 @@ export function getProgressByTopic(params: {
   return cachedApiFetch(`/progress/by-topic${qs ? `?${qs}` : ''}`);
 }
 
+/** The public topic list (names + published-task totals; `completed` is
+ * always 0) — what a guest's «По теме» / «Темы» are built from. */
+export function getTopics(params: {
+  subject?: string;
+  collection?: string;
+  variant?: string;
+}): Promise<ProgressByTopicResponse> {
+  const query = new URLSearchParams();
+  if (params.subject) query.set('subject', params.subject);
+  if (params.collection) query.set('collection', params.collection);
+  if (params.variant) query.set('variant', params.variant);
+  const qs = query.toString();
+  return cachedApiFetch(`/topics${qs ? `?${qs}` : ''}`);
+}
+
 /**
  * Statistics 2.0 — the "По номерам → №N" detail (real attempts/
  * errors/skills/speed-signal breakdown for one subject+taskNumber).
@@ -468,6 +483,21 @@ export function verifyMagicLink(token: string): Promise<{ user: AuthUser }> {
  * credentials set up yet — never a URL that only looks like it works. */
 export function vkLoginUrl(): string {
   return new URL('/api/v1/auth/vk/start', window.location.origin).toString();
+}
+
+/** Telegram Mini App → VK ID in the external browser: prepares a one-time
+ * handoff (the claim secret stays in this WebView's httpOnly cookie) and
+ * returns the URL to open with Telegram's `openLink`. */
+export function startVkHandoff(): Promise<{ startUrl: string }> {
+  return apiFetch('/auth/vk/handoff', { method: 'POST' });
+}
+
+export type VkHandoffStatus = 'pending' | 'ok' | 'cancelled' | 'failed' | 'expired';
+
+/** Asks whether the VK sign-in started from this Mini App has finished;
+ * `ok` means this WebView now has its own session. */
+export function claimVkHandoff(): Promise<{ status: VkHandoffStatus }> {
+  return apiFetch('/auth/vk/handoff/claim', { method: 'POST' });
 }
 
 /** The current session's user, or `null` when signed out — never

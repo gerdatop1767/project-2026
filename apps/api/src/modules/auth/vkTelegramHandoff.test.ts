@@ -153,9 +153,7 @@ describe('VK sign-in from the Telegram Mini App (external browser + handoff)', (
     // Single use: a second claim (or a replayed start link) gets nothing.
     expect((await claim(claimCookie.value)).json()).toEqual({ status: 'expired' });
     const replay = await browserOpens(startUrl);
-    expect(replay.headers.location).toBe(
-      'https://zybrilka.test/telegram-return?status=expired',
-    );
+    expect(replay.headers.location).toBe('https://zybrilka.test/telegram-return?status=expired');
   });
 
   it('the same VK account signs into the same user (existing progress is kept, nothing is overwritten)', async () => {
@@ -199,9 +197,7 @@ describe('VK sign-in from the Telegram Mini App (external browser + handoff)', (
       await browserOpens(startUrl),
       'code=c&device_id=d&state=STATE',
     );
-    expect(callback.headers.location).toBe(
-      'https://zybrilka.test/telegram-return?status=error',
-    );
+    expect(callback.headers.location).toBe('https://zybrilka.test/telegram-return?status=error');
     expect((await claim(claimCookie.value)).json()).toEqual({ status: 'failed' });
   });
 
@@ -227,9 +223,7 @@ describe('VK sign-in from the Telegram Mini App (external browser + handoff)', (
       method: 'GET',
       url: `/api/v1/auth/vk/start?handoff=${'x'.repeat(43)}`,
     });
-    expect(forged.headers.location).toBe(
-      'https://zybrilka.test/telegram-return?status=expired',
-    );
+    expect(forged.headers.location).toBe('https://zybrilka.test/telegram-return?status=expired');
   });
 
   it('tapping the button again simply starts a fresh handoff; the old one cannot be claimed into a session', async () => {

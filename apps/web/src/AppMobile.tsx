@@ -5,6 +5,7 @@ import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
 import { MobileMenu } from './ui/MobileMenu/MobileMenu.js';
 import { TaskMobile } from './screens/Task/TaskMobile.js';
 import { ResultMobile } from './screens/Result/ResultMobile.js';
+import { useAccountGate } from './lib/accountGate.js';
 import { useNavigation, type MainTabId } from './lib/navigation.js';
 import { HomeMobile } from './screens/Home/HomeMobile.js';
 import { StatisticsMobile } from './screens/Statistics/StatisticsMobile.js';
@@ -57,7 +58,17 @@ export function AppMobile() {
   const underMenu = menuRoute?.from;
   const closeMenu = underMenu ? () => navigate(underMenu, { replace: true }) : back;
 
+  const { isGuest, requireAccount } = useAccountGate();
+  const navItems = isGuest
+    ? defaultBottomNavItems.map((item) =>
+        item.id === 'statistics' || item.id === 'mistakes' ? { ...item, locked: true } : item,
+      )
+    : defaultBottomNavItems;
+
   function selectTab(id: string) {
+    // Guest mode: these two need an account — explain, stay where we are.
+    if (id === 'statistics' && !requireAccount('statistics')) return;
+    if (id === 'mistakes' && !requireAccount('mistakes')) return;
     // Профиль/Мои ошибки are real overlay screens (see navigation.tsx's
     // doc comments), not MainTabIds, so they need their own navigate()
     // — unlike every other overlay entry, the bottom nav stays visible
@@ -87,13 +98,9 @@ export function AppMobile() {
     (contentOverlay.screen === 'profile' || contentOverlay.screen === 'mistakes');
 
   const nav = !contentOverlay ? (
-    <BottomNav items={defaultBottomNavItems} activeId={tab} onSelect={selectTab} />
+    <BottomNav items={navItems} activeId={tab} onSelect={selectTab} />
   ) : showsBottomNavOverlay ? (
-    <BottomNav
-      items={defaultBottomNavItems}
-      activeId={contentOverlay.screen}
-      onSelect={selectTab}
-    />
+    <BottomNav items={navItems} activeId={contentOverlay.screen} onSelect={selectTab} />
   ) : undefined;
 
   return (

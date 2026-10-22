@@ -161,6 +161,11 @@ export type OverlayRoute =
   /** Public info pages, readable signed in or out and rendered outside
    * the app shells (see App.tsx): FAQ, privacy policy, terms of use. */
   | { screen: 'faq' }
+  /** The marketing landing, kept for later (see lib/features.ts). */
+  | { screen: 'landing' }
+  /** The external browser's last page of a VK sign-in started in the
+   * Telegram Mini App (see screens/TelegramReturn). */
+  | { screen: 'telegramReturn' }
   | { screen: 'privacy' }
   | { screen: 'terms' }
   | { screen: 'notifications' }
@@ -389,6 +394,12 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   );
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
+}
+
+/** Like useNavigation, but null outside a NavigationProvider (for hooks
+ * that must also work in isolated component tests). */
+export function useOptionalNavigation(): NavigationContextValue | null {
+  return useContext(NavigationContext);
 }
 
 export function useNavigation(): NavigationContextValue {

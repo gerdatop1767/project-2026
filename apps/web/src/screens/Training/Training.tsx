@@ -4,10 +4,13 @@ import { getSubjectContent } from '../../data/subjectContent.js';
 import {
   getProgressByTopic,
   getRandomTask,
+  getTopics,
+  getVariant,
   listCollections,
   startLearningSession,
   startVariantSession,
 } from '../../lib/api.js';
+import { useAccountGate, type AccountFeature } from '../../lib/accountGate.js';
 import type { CollectionListItem, ProgressByTopicResponse } from '@zybrilka/shared';
 import {
   applyLearningSessionResponse,
@@ -97,8 +100,21 @@ const amountOptions: readonly { id: AmountId; icon: IconName; label: string }[] 
  * real Mistakes screen. "Умная тренировка" is untouched — the real
  * backend learning session, its own `limit`.
  */
+/** Modes built from a personal history — a guest is told they need an account. */
+const accountModes: Partial<Record<TrainingMode['id'], AccountFeature>> = {
+  mistakes: 'mistakes',
+  smart: 'smartTraining',
+};
+
 export function Training() {
   const { navigate } = useNavigation();
+  const { isGuest, requireAccount } = useAccountGate();
+
+  /** «Только нерешённые» needs to know what you solved — an account. */
+  function toggleUnseen(on: boolean, set: (value: boolean) => void) {
+    if (!on && !requireAccount('unseen')) return;
+    set(!on);
+  }
   const { setSession } = useLearningSessionContext();
   const [subjectId, setSubjectId] = useState('math');
   const [modeId, setModeId] = useState<TrainingMode['id']>('topic');
@@ -148,7 +164,9 @@ export function Training() {
   // tab already uses) — never a static/fake list.
   useEffect(() => {
     let cancelled = false;
-    void getProgressByTopic({ subject: subjectId, collection: collectionSlug ?? undefined })
+    // A guest gets the public topic list (same shape, nothing personal).
+    const loadTopics = isGuest ? getTopics : getProgressByTopic;
+    void loadTopics({ subject: subjectId, collection: collectionSlug ?? undefined })
       .then((res) => {
         if (!cancelled) setTopics(res.items);
       })
@@ -158,7 +176,7 @@ export function Training() {
     return () => {
       cancelled = true;
     };
-  }, [subjectId, collectionSlug]);
+  }, [subjectId, collectionSlug, isGuest]);
 
   function selectSubject(id: string) {
     setSubjectId(id);
@@ -241,6 +259,30 @@ export function Training() {
         }
         if (!resolved) {
           setStartError('Выбери вариант, чтобы начать.');
+          return;
+        }
+        // A guest: the variant's own tasks, in order, in the normal task
+        // screen — the tracked variant session needs an account.
+        if (isGuest) {
+          const detail = await getVariant(resolved);
+          const first = detail.tasks[0];
+          if (!first) {
+            setStartError('Не удалось начать вариант — попробуй ещё раз.');
+            return;
+          }
+          navigate({
+            screen: 'task',
+            subjectId: first.task.subjectId,
+            taskNumber: first.task.taskNumber,
+            taskId: first.task.id,
+            variantId: resolved,
+            collectionSlug: collectionSlug ?? undefined,
+            customOrderedTasks: detail.tasks.map((t) => ({
+              taskId: t.task.id,
+              taskNumber: t.task.taskNumber,
+            })),
+            returnTo: { screen: 'training' },
+          });
           return;
         }
         // A real VARIANT session (Statistics 2.0's "Статистика
@@ -337,7 +379,12 @@ export function Training() {
                 type="button"
                 className={clsx(styles.modeCard, selected && styles.modeCardSelected)}
                 aria-pressed={selected}
-                onClick={() => setModeId(mode.id)}
+                data-locked={(isGuest && accountModes[mode.id] !== undefined) || undefined}
+                onClick={() => {
+                  const feature = accountModes[mode.id];
+                  if (feature && !requireAccount(feature)) return;
+                  setModeId(mode.id);
+                }}
               >
                 <span
                   className={styles.modeIcon}
@@ -349,6 +396,11 @@ export function Training() {
                   <span className="text-body">{mode.label}</span>
                   <span className="text-body-sm text-secondary">{mode.description}</span>
                 </span>
+                {isGuest && accountModes[mode.id] && (
+                  <span className={styles.modeLock} aria-label="нужен вход">
+                    <Icon name="lock" size={16} />
+                  </span>
+                )}
                 {selected && (
                   <span className={styles.modeCheck}>
                     <Icon name="check" size={20} />
@@ -389,7 +441,7 @@ export function Training() {
               <Chip
                 icon="retry"
                 selected={variantUnseen}
-                onClick={() => setVariantUnseen((v) => !v)}
+                onClick={() => toggleUnseen(variantUnseen, setVariantUnseen)}
               >
                 Только нерешённые
               </Chip>
@@ -471,7 +523,7 @@ export function Training() {
                     <Chip
                       icon="retry"
                       selected={topicUnseen}
-                      onClick={() => setTopicUnseen((v) => !v)}
+                      onClick={() => toggleUnseen(topicUnseen, setTopicUnseen)}
                     >
                       Только нерешённые
                     </Chip>
@@ -518,7 +570,11 @@ export function Training() {
                 <Chip icon="dice" selected={smartRandom} onClick={() => setSmartRandom((v) => !v)}>
                   Случайное
                 </Chip>
-                <Chip icon="retry" selected={smartUnseen} onClick={() => setSmartUnseen((v) => !v)}>
+                <Chip
+                  icon="retry"
+                  selected={smartUnseen}
+                  onClick={() => toggleUnseen(smartUnseen, setSmartUnseen)}
+                >
                   Только нерешённые
                 </Chip>
               </div>

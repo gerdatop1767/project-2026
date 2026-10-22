@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigation, type Route } from '../../lib/navigation.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { getSubjectContent } from '../../data/subjectContent.js';
 import {
   resolveSingleNumberSession,
@@ -57,6 +58,7 @@ export function ByNumberPanel({
   returnTo,
 }: ByNumberPanelProps) {
   const { navigate } = useNavigation();
+  const { requireAccount } = useAccountGate();
   const [selectedCollectionSlug, setSelectedCollectionSlug] = useState<string | null>(
     collectionSlug ?? null,
   );
@@ -86,6 +88,8 @@ export function ByNumberPanel({
   }
 
   function toggleFlag(number: number, flag: 'random' | 'unseen') {
+    // «Только нерешённые» needs to know what you solved — an account.
+    if (flag === 'unseen' && !selection[number]?.unseen && !requireAccount('unseen')) return;
     setSelection((prev) =>
       number in prev
         ? { ...prev, [number]: { ...prev[number]!, [flag]: !prev[number]![flag] } }

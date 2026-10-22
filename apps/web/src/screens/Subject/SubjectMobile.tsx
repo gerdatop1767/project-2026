@@ -7,10 +7,12 @@ import {
   getProgressByTopic,
   getProgressSummary,
   getTaskCountsBySubject,
+  getTopics,
   listCollections,
 } from '../../lib/api.js';
 import { getSubjectContent, type SubjectModeId } from '../../data/subjectContent.js';
 import { ByNumberPanel } from './ByNumberPanel.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Chip } from '../../ui/Chip/Chip.js';
@@ -76,7 +78,13 @@ export function SubjectMobile({
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const content = getSubjectContent(subject.id);
 
-  const [mode, setMode] = useState<SubjectModeId>(initialMode ?? 'topics');
+  const { isGuest, requireAccount } = useAccountGate();
+  // A guest's progress isn't kept: "—", never a loading dots forever.
+  const pending = isGuest ? '—' : '···';
+  // Избранное lives in an account — a guest starts on Темы instead.
+  const [mode, setMode] = useState<SubjectModeId>(
+    isGuest && initialMode === 'favorites' ? 'topics' : (initialMode ?? 'topics'),
+  );
   const [selectedTopic, setSelectedTopic] = useState<TopicProgressItem | null>(null);
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   const [collectionsLoaded, setCollectionsLoaded] = useState(false);
@@ -96,22 +104,24 @@ export function SubjectMobile({
 
   useEffect(() => {
     let cancelled = false;
-    void getProgressSummary()
-      .then((data) => {
-        if (cancelled) return;
-        const entry = data.bySubject.find((s) => s.subjectId === subject.id);
-        // "Решено" is uniqueSolved (distinct tasks with >=1 correct
-        // attempt), not solved (an attempt-row count) — see the
-        // nav/stats bugfix report.
-        setSolved(entry?.uniqueSolved ?? 0);
-        setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSolved(0);
-          setAccuracyPercent(0);
-        }
-      });
+    // Solved/accuracy are personal — a guest has none to load.
+    if (!isGuest)
+      void getProgressSummary()
+        .then((data) => {
+          if (cancelled) return;
+          const entry = data.bySubject.find((s) => s.subjectId === subject.id);
+          // "Решено" is uniqueSolved (distinct tasks with >=1 correct
+          // attempt), not solved (an attempt-row count) — see the
+          // nav/stats bugfix report.
+          setSolved(entry?.uniqueSolved ?? 0);
+          setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSolved(0);
+            setAccuracyPercent(0);
+          }
+        });
     void getTaskCountsBySubject()
       .then((res) => {
         if (cancelled) return;
@@ -124,7 +134,7 @@ export function SubjectMobile({
     return () => {
       cancelled = true;
     };
-  }, [subject.id]);
+  }, [subject.id, isGuest]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,7 +161,9 @@ export function SubjectMobile({
   // per-subject content topics can't be reused here.
   useEffect(() => {
     let cancelled = false;
-    void getProgressByTopic({
+    // A guest gets the public topic list (same shape, nothing personal).
+    const loadTopics = isGuest ? getTopics : getProgressByTopic;
+    void loadTopics({
       subject: subject.id,
       collection: effectiveTopicsSlug ?? undefined,
     })
@@ -164,7 +176,7 @@ export function SubjectMobile({
     return () => {
       cancelled = true;
     };
-  }, [subject.id, effectiveTopicsSlug]);
+  }, [subject.id, effectiveTopicsSlug, isGuest]);
 
   // Where Task's back arrow returns — this subject page in whichever
   // mode/source is currently active (audit Block 3), so Subject → Task
@@ -213,6 +225,7 @@ export function SubjectMobile({
   }
 
   function selectMode(id: SubjectModeId) {
+    if (id === 'favorites' && !requireAccount('favorites')) return;
     setMode(id);
     setSelectedTopic(null);
   }
@@ -249,11 +262,12 @@ export function SubjectMobile({
             <div className={styles.heroStats}>
               <span className={styles.heroStat}>
                 <Icon name="target" size={14} />
-                <strong>{solved ?? '···'}</strong> решено
+                <strong>{solved ?? pending}</strong> решено
               </span>
               <span className={styles.heroStat}>
                 <Icon name="progress" size={14} />
-                <strong>{accuracyPercent !== null ? `${accuracyPercent}%` : '···'}</strong> точность
+                <strong>{accuracyPercent !== null ? `${accuracyPercent}%` : pending}</strong>{' '}
+                точность
               </span>
             </div>
           </Card>
@@ -328,12 +342,12 @@ export function SubjectMobile({
             <div className={styles.progressRing}>
               <CircularProgress value={accuracyPercent ?? 0} size={96} strokeWidth={9}>
                 <span className="text-h2">
-                  {accuracyPercent !== null ? `${accuracyPercent}%` : '···'}
+                  {accuracyPercent !== null ? `${accuracyPercent}%` : pending}
                 </span>
               </CircularProgress>
             </div>
             <p className="text-body-sm text-secondary" style={{ textAlign: 'center' }}>
-              {solved ?? '···'} из {totalTasks ?? '—'} заданий решено
+              {solved ?? pending} из {totalTasks ?? '—'} заданий решено
             </p>
           </Card>
 
