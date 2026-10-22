@@ -1,0 +1,97 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6) var(--space-4);
+  background:
+    radial-gradient(
+      80% 50% at 50% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 18%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-base);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 26rem;
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-modal);
+  background: var(--color-bg-surface);
+  box-shadow:
+    var(--shadow-e2),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 20%, transparent);
+  text-align: center;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  margin-top: var(--space-2);
+  border-radius: 999px;
+}
+
+.icon[data-tone='ok'] {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.icon[data-tone='bad'] {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-h3);
+  line-height: var(--line-height-h3);
+  color: var(--color-text-primary);
+}
+
+.text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 3rem;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-button);
+  background: var(--gradient-primary);
+  color: var(--color-on-accent);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+}
+
+.action:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 3px;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-8);
+  border-radius: var(--radius-card);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  text-align: left;
+}

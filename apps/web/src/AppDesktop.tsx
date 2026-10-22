@@ -69,6 +69,7 @@ export function AppDesktop() {
             customOrderedTasks={overlay.customOrderedTasks}
             returnTo={overlay.returnTo}
             timeSpentMs={overlay.timeSpentMs}
+            revealed={overlay.revealed}
           />
         )}
         {overlay.screen === 'learningSession' && (

@@ -1,5 +1,11 @@
+import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
 import { useEffect, useState } from 'react';
-import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
+import {
+  trainingByNumberRouteFor,
+  useNavigation,
+  type Route,
+  type RevealedAnswer,
+} from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
@@ -17,6 +23,7 @@ import { LearningSessionResultAction } from '../../ui/LearningSession/LearningSe
 import type { SampleTask, TaskVariant } from '../../data/sampleTask.js';
 import { subjects } from '../../data/subjects.js';
 import { getProgressSummary } from '../../lib/api.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
 import { CanvasWorkspaceMobile } from '../../ui/CanvasWorkspace/CanvasWorkspaceMobile.js';
@@ -54,6 +61,8 @@ export interface ResultMobileProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time chip is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** A guest's check — see the `result` route's `revealed`. */
+  revealed?: RevealedAnswer;
 }
 
 const XP_REWARD = 20;
@@ -76,6 +85,7 @@ export function ResultMobile({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  revealed,
 }: ResultMobileProps) {
   const { navigate, back } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
@@ -109,7 +119,7 @@ export function ResultMobile({
     void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
-        setTask(toSampleTask(fetchedTask, siblings));
+        setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -117,10 +127,13 @@ export function ResultMobile({
     return () => {
       cancelled = true;
     };
-  }, [taskId, subjectId, taskNumber]);
+  }, [taskId, subjectId, taskNumber, revealed]);
 
+  const { isGuest } = useAccountGate();
   useEffect(() => {
     let cancelled = false;
+    // A guest's answers aren't recorded, so there is no accuracy to show.
+    if (isGuest) return;
     void getProgressSummary()
       .then((data) => {
         if (!cancelled) setAccuracyPercent(Math.round(data.accuracyPercent));
@@ -132,7 +145,7 @@ export function ResultMobile({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   if (loadError) {
     return (

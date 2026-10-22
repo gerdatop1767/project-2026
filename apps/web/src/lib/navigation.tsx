@@ -119,6 +119,10 @@ export type OverlayRoute =
       /** Same purpose as `task.returnTo` above — Result's back arrow
        * needs the same parent-overlay context Task had. */
       returnTo?: Route;
+      /** A guest's check: nothing was recorded, so re-fetching the task
+       * won't reveal its answer — the check response's own answer and
+       * explanation come along instead. */
+      revealed?: RevealedAnswer;
       /** The real elapsed solving time already submitted with this
        * attempt (see `useSolvingTimer`) — absent when the timer was
        * never started. Carried the same way `userAnswer` is, purely for
@@ -161,6 +165,11 @@ export type OverlayRoute =
   /** Public info pages, readable signed in or out and rendered outside
    * the app shells (see App.tsx): FAQ, privacy policy, terms of use. */
   | { screen: 'faq' }
+  /** The marketing landing, kept for later (see lib/features.ts). */
+  | { screen: 'landing' }
+  /** The external browser's last page of a VK sign-in started in the
+   * Telegram Mini App (see screens/TelegramReturn). */
+  | { screen: 'telegramReturn' }
   | { screen: 'privacy' }
   | { screen: 'terms' }
   | { screen: 'notifications' }
@@ -173,6 +182,12 @@ export type OverlayRoute =
        * before BackRow ever runs. */
       from?: Route;
     };
+
+export interface RevealedAnswer {
+  correctAnswer: string;
+  correctAnswerDisplay: string | null;
+  explanation: string;
+}
 
 export type Route = { screen: MainTabId } | OverlayRoute;
 
@@ -389,6 +404,12 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   );
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
+}
+
+/** Like useNavigation, but null outside a NavigationProvider (for hooks
+ * that must also work in isolated component tests). */
+export function useOptionalNavigation(): NavigationContextValue | null {
+  return useContext(NavigationContext);
 }
 
 export function useNavigation(): NavigationContextValue {

@@ -228,7 +228,9 @@ export const attemptResultSchema = z.object({
    * presentation-only LaTeX form, never used for grading. */
   correctAnswerDisplay: z.string().nullable(),
   explanation: z.string(),
-  attemptId: z.uuid(),
+  /** null when a guest's answer was checked but, having no account,
+   * nothing was recorded. */
+  attemptId: z.uuid().nullable(),
   mistakeId: z.uuid().nullable(),
   // Present only for multi_part tasks — per-part breakdown of a single logical attempt.
   parts: z.array(attemptPartResultSchema).optional(),

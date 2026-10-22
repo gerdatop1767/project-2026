@@ -475,3 +475,42 @@
   background: var(--gradient-primary);
   color: #fff;
 }
+
+/* Guest mode: a quiet one-line way into an account, never a nag. */
+.guestHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent-primary) 10%, var(--color-bg-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 22%, transparent);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.guestHintIcon {
+  flex-shrink: 0;
+  color: var(--color-accent-primary-end);
+}
+
+.guestHintText {
+  min-width: 0;
+}
+
+.guestHintLink {
+  color: var(--color-accent-primary-end);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.guestHint:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}

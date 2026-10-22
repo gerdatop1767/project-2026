@@ -190,7 +190,8 @@ export async function getByTaskNumberWithTotals(
  */
 export async function getByTopicWithTotals(
   db: Database,
-  userId: string,
+  /** null: the public topic list (a guest) — totals only, nothing personal. */
+  userId: string | null,
   filters: ProgressByTopicQuery,
 ) {
   const conditions = [
@@ -213,18 +214,21 @@ export async function getByTopicWithTotals(
     .where(where)
     .groupBy(schema.tasks.topicId, schema.topics.name);
 
-  const completed = await db
-    .select({
-      topicId: schema.tasks.topicId,
-      completed: countDistinct(schema.tasks.id),
-    })
-    .from(schema.tasks)
-    .innerJoin(
-      schema.attempts,
-      and(eq(schema.attempts.taskId, schema.tasks.id), eq(schema.attempts.userId, userId)),
-    )
-    .where(where)
-    .groupBy(schema.tasks.topicId);
+  const completed =
+    userId === null
+      ? []
+      : await db
+          .select({
+            topicId: schema.tasks.topicId,
+            completed: countDistinct(schema.tasks.id),
+          })
+          .from(schema.tasks)
+          .innerJoin(
+            schema.attempts,
+            and(eq(schema.attempts.taskId, schema.tasks.id), eq(schema.attempts.userId, userId)),
+          )
+          .where(where)
+          .groupBy(schema.tasks.topicId);
 
   const completedByTopic = new Map(completed.map((row) => [row.topicId, row.completed]));
 

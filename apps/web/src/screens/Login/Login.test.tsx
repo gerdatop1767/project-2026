@@ -317,3 +317,28 @@ describe('Login — returning from a cancelled VK ID consent (?vk=cancelled)', (
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
+
+describe('Login — VK ID on the regular website', () => {
+  it('is the usual full-page redirect to the API start URL (no Telegram handoff)', async () => {
+    const user = userEvent.setup();
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...original,
+        search: '',
+        set href(url: string) {
+          assign(url);
+        },
+      },
+    });
+    try {
+      renderLogin();
+      await user.click(screen.getByRole('button', { name: /Продолжить через VK ID/ }));
+      expect(assign).toHaveBeenCalledWith('https://api.test/api/v1/auth/vk/start');
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
+  });
+});

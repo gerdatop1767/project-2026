@@ -118,6 +118,38 @@ Telegram.
    for Mini Apps), use `zybrilka.ru`.
 3. Redeploy the API (after PR merge) so the new variables are picked up.
 
+## 3a. VK ID inside the Mini App (external browser + handoff)
+
+VK ID cannot run inside Telegram's WebView, and the WebView does not share
+cookies with Safari/Chrome — a session created there never reaches the Mini
+App. So inside Telegram «Продолжить через VK ID» works like this:
+
+1. When the sign-in screen opens, the Mini App calls
+   `POST /api/v1/auth/vk/handoff`. The server stores a handoff (only SHA-256
+   hashes, 10-minute TTL), puts the **claim** secret into the WebView's own
+   httpOnly cookie `vk_handoff` (path `/api/v1/auth/vk/handoff`) and returns
+   a start URL with a separate one-time **start** token.
+2. The tap calls `Telegram.WebApp.openLink(startUrl)` synchronously (Telegram
+   honours it only in response to a tap) — the external browser opens.
+3. `GET /api/v1/auth/vk/start?handoff=…` marks the handoff started (once) and
+   runs the normal VK ID flow: PKCE S256, `state` in the httpOnly `vk_pkce`
+   cookie, server-side code exchange with the client secret.
+4. The callback checks `state`, marks the handoff completed (or cancelled /
+   failed) and sends the browser to `/telegram-return?status=…` — a page that
+   says how to get back to Telegram. The browser keeps **no** session.
+5. Back in Telegram the Mini App calls `POST /api/v1/auth/vk/handoff/claim`
+   (polling every 2.5 s and immediately when it becomes visible again): the
+   handoff is consumed exactly once and the WebView gets its own `session_id`.
+
+No token, code or session id ever travels in a URL; the start token alone can
+never produce a session. On the regular website VK ID is unchanged (full-page
+redirect).
+
+**Returning to Telegram.** A browser page cannot switch apps by itself. The
+return page explains it in words; set `VITE_TELEGRAM_MINI_APP_URL` (web build,
+e.g. `https://t.me/<bot>/<app>`) to also show a «Вернуться в Telegram» button.
+The Mini App usually stays open in the background, so switching back is enough.
+
 ## 4. How to verify (manual, on a phone)
 
 1. Open the bot in Telegram → tap the menu button / Mini App link.
@@ -193,6 +225,16 @@ sign-in itself succeeds. Telegram Desktop / iOS / Android apps are not affected.
   so they are covered by the existing database backups.
 
 ## 6. What is NOT verified (read before trusting)
+
+- VK ID from the Mini App was verified end to end in Chromium with two
+  separate cookie jars (WebView vs browser) and VK's endpoints stubbed (the
+  build machine cannot reach VK). Not yet verified on a real phone: that
+  Telegram iOS/Android opens `openLink` in Safari/Chrome (not its in-app
+  browser — the user's «Open links in» setting may matter), and that the
+  Mini App keeps running in the background while the user is in the
+  browser (if Telegram reloads it, the claim cookie survives and the next
+  check still completes the sign-in within 10 minutes).
+
 
 - **Telegram, end to end**: signature verification is tested against an
   independent signer written from the documented algorithm, but it has not

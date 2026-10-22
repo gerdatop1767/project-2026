@@ -1,5 +1,11 @@
+import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
 import { useEffect, useState } from 'react';
-import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
+import {
+  trainingByNumberRouteFor,
+  useNavigation,
+  type Route,
+  type RevealedAnswer,
+} from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
@@ -54,6 +60,8 @@ export interface ResultDesktopProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** A guest's check — see the `result` route's `revealed`. */
+  revealed?: RevealedAnswer;
 }
 
 const XP_REWARD = 20;
@@ -77,6 +85,7 @@ export function ResultDesktop({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  revealed,
 }: ResultDesktopProps) {
   const { navigate, back } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
@@ -123,7 +132,7 @@ export function ResultDesktop({
     void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
-        setTask(toSampleTask(fetchedTask, siblings));
+        setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -131,7 +140,7 @@ export function ResultDesktop({
     return () => {
       cancelled = true;
     };
-  }, [taskId, subjectId, taskNumber]);
+  }, [taskId, subjectId, taskNumber, revealed]);
 
   if (loadError) {
     return (

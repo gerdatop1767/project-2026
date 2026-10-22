@@ -62,7 +62,7 @@ export interface DesktopMenuProps {
  */
 export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
   const { tab, overlay, navigate } = useNavigation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [theme, setTheme] = useTheme();
   const [logoutError, setLogoutError] = useState(false);
   // The screen Menu is layered over, captured before any item can
@@ -188,22 +188,35 @@ export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
 
           <div className={styles.divider} role="separator" />
 
-          <button
-            type="button"
-            className={clsx(styles.row, styles.rowDanger)}
-            onClick={() => {
-              setLogoutError(false);
-              logout().catch(() => setLogoutError(true));
-            }}
-          >
-            <span className={styles.rowIcon}>
-              <Icon name="logout" size={20} />
-            </span>
-            <span className={styles.rowText}>
-              <span className={styles.rowLabel}>Выйти</span>
-            </span>
-            <Icon name="chevronRight" size={18} className={styles.rowChevron} />
-          </button>
+          {user === null ? (
+            <button type="button" className={styles.row} onClick={() => go({ screen: 'login' })}>
+              <span className={styles.rowIcon}>
+                <Icon name="profile" size={20} />
+              </span>
+              <span className={styles.rowText}>
+                <span className={styles.rowLabel}>Войти или зарегистрироваться</span>
+                <span className={styles.rowCaption}>Сохраняй прогресс, статистику и ошибки</span>
+              </span>
+              <Icon name="chevronRight" size={18} className={styles.rowChevron} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={clsx(styles.row, styles.rowDanger)}
+              onClick={() => {
+                setLogoutError(false);
+                logout().catch(() => setLogoutError(true));
+              }}
+            >
+              <span className={styles.rowIcon}>
+                <Icon name="logout" size={20} />
+              </span>
+              <span className={styles.rowText}>
+                <span className={styles.rowLabel}>Выйти</span>
+              </span>
+              <Icon name="chevronRight" size={18} className={styles.rowChevron} />
+            </button>
+          )}
           {logoutError && (
             <p role="alert" className={styles.error}>
               Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.

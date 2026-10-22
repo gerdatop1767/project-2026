@@ -155,6 +155,15 @@ export function TaskMobile({
           customOrderedTasks,
           returnTo,
           timeSpentMs,
+          // A guest's answer was checked but not recorded (attemptId null).
+          revealed:
+            result.attemptId === null
+              ? {
+                  correctAnswer: result.correctAnswer,
+                  correctAnswerDisplay: result.correctAnswerDisplay,
+                  explanation: result.explanation,
+                }
+              : undefined,
         });
       })
       .finally(() => setChecking(false));

@@ -1,4 +1,5 @@
 import { useNavigation, type Route } from '../../lib/navigation.js';
+import { accountFeatureForRoute, useAccountGate } from '../../lib/accountGate.js';
 import { Icon } from '../Icon/Icon.js';
 import type { IconName } from '../Icon/icons.js';
 import { clsx } from '../../lib/clsx.js';
@@ -44,23 +45,28 @@ const sidebarItems: readonly SidebarItem[] = [
  * target of BackRow.
  */
 export function DesktopSidebar() {
-  const { tab, overlay, navigate } = useNavigation();
+  const { tab, overlay } = useNavigation();
+  const { isGuest, navigateGuarded } = useAccountGate();
   const currentId = overlay?.screen ?? (tab === 'home' ? 'learningCenter' : tab);
 
   return (
     <nav className={styles.sidebar} aria-label="Zybrilka">
       {sidebarItems.map((item) => {
         const isActive = item.id === currentId;
+        const locked = isGuest && accountFeatureForRoute(item.route) !== null;
         return (
           <button
             key={item.id}
             type="button"
             className={clsx(styles.sidebarItem, isActive && styles.sidebarItemActive)}
             aria-current={isActive ? 'page' : undefined}
-            onClick={() => navigate(item.route)}
+            aria-label={locked ? `${item.label} — нужен вход` : undefined}
+            data-locked={locked || undefined}
+            onClick={() => navigateGuarded(item.route)}
           >
             <Icon name={item.icon} size={20} filled={isActive} />
             {item.label}
+            {locked && <Icon name="lock" size={14} className={styles.sidebarLock} />}
           </button>
         );
       })}

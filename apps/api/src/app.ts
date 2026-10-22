@@ -24,7 +24,7 @@ import { recommendationRoutes } from './modules/learning/recommendation/routes.j
 import { learningPathRoutes } from './modules/learning/learningPath/routes.js';
 import { learningSessionRoutes } from './modules/learning/learningSession/routes.js';
 import { mistakesRoutes } from './modules/mistakes/routes.js';
-import { progressRoutes } from './modules/progress/routes.js';
+import { progressRoutes, publicTopicsRoutes } from './modules/progress/routes.js';
 import { tasksRoutes } from './modules/tasks/routes.js';
 import { variantsRoutes } from './modules/variants/routes.js';
 
@@ -60,24 +60,36 @@ export function buildApp({
   if (db) {
     // With `authConfig` (production) the ONLY identity is a server-side
     // session: the client-supplied `x-anon-id` header is not read at all
-    // (it was never a security boundary — anyone could invent ids), and
-    // every route except /health and /api/v1/auth/* answers 401 without a
-    // valid session. Without `authConfig` (the pre-auth test setups) the
+    // (it was never a security boundary — anyone could invent ids). Task
+    // content and answer checking are open to guests; every personal route
+    // (statistics, mistakes, favorites, learning, profile) answers 401
+    // without a valid session. Without `authConfig` (the pre-auth test setups) the
     // legacy anonymous-header behavior is kept exactly as it was.
     void registerAnonUser(app, db, { trustHeader: !authConfig });
 
+    // Task content and answer checking — open to guests in production
+    // (guest mode: anyone can train without an account; a guest's answer
+    // is checked but never recorded, see tasks/service.submitAttempt).
+    const contentRoutes =
+      (allowGuestAttempts: boolean): FastifyPluginAsync =>
+      async (scope) => {
+        scope.register(tasksRoutes, { db, allowGuestAttempts, prefix: '/api/v1' });
+        scope.register(variantsRoutes, { db, prefix: '/api/v1' });
+        scope.register(collectionsRoutes, { db, prefix: '/api/v1' });
+        scope.register(taskStatisticsRoutes, { db, prefix: '/api/v1' });
+        scope.register(taskSimilarityRoutes, { db, prefix: '/api/v1' });
+        scope.register(publicTopicsRoutes, { db, prefix: '/api/v1' });
+      };
+
+    // Everything personal — statistics, mistakes, favorites, learning
+    // profile/sessions/recommendations: a session is required (401).
     const privateRoutes: FastifyPluginAsync = async (scope) => {
-      scope.register(tasksRoutes, { db, prefix: '/api/v1' });
-      scope.register(variantsRoutes, { db, prefix: '/api/v1' });
-      scope.register(collectionsRoutes, { db, prefix: '/api/v1' });
       scope.register(mistakesRoutes, { db, prefix: '/api/v1' });
       scope.register(progressRoutes, { db, prefix: '/api/v1' });
       scope.register(favoritesRoutes, { db, prefix: '/api/v1' });
       scope.register(learningProfileRoutes, { db, prefix: '/api/v1' });
       scope.register(learningRoutes, { db, prefix: '/api/v1' });
-      scope.register(taskStatisticsRoutes, { db, prefix: '/api/v1' });
       scope.register(errorSignaturesRoutes, { db, prefix: '/api/v1' });
-      scope.register(taskSimilarityRoutes, { db, prefix: '/api/v1' });
       scope.register(recommendationRoutes, { db, prefix: '/api/v1' });
       scope.register(learningPathRoutes, { db, prefix: '/api/v1' });
       scope.register(learningSessionRoutes, { db, prefix: '/api/v1' });
@@ -104,6 +116,12 @@ export function buildApp({
         authScope.addHook('onRequest', rejectCrossSiteWrites);
         authScope.register(authRoutes, { db, config: authConfig, prefix: '/api/v1' });
       });
+      app.register(async (guestScope) => {
+        // Throttles guests' answer checks only (see tasks/routes.ts).
+        await guestScope.register(rateLimit, { global: false });
+        guestScope.addHook('onRequest', rejectCrossSiteWrites);
+        guestScope.register(contentRoutes(true));
+      });
       app.register(async (scope) => {
         scope.addHook('onRequest', requireSession);
         scope.addHook('onRequest', rejectCrossSiteWrites);
@@ -111,6 +129,7 @@ export function buildApp({
         scope.register(profileRoutes, { db, config: authConfig, prefix: '/api/v1' });
       });
     } else {
+      app.register(contentRoutes(false));
       app.register(privateRoutes);
     }
   }

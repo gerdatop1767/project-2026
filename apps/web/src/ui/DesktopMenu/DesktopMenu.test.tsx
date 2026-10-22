@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { DesktopMenu } from './DesktopMenu.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { AuthContext } from '../../lib/authContext.js';
+import { makeAuthUser } from '../../lib/authTestUtils.js';
 
 function State() {
   const { overlay, tab } = useNavigation();
@@ -14,11 +15,15 @@ function State() {
   );
 }
 
-function renderMenu({ logout = vi.fn(async () => {}), onClose = vi.fn() } = {}) {
+function renderMenu({
+  logout = vi.fn(async () => {}),
+  onClose = vi.fn(),
+  user = makeAuthUser() as ReturnType<typeof makeAuthUser> | null,
+} = {}) {
   render(
     <AuthContext.Provider
       value={{
-        user: null,
+        user,
         refresh: async () => {},
         logout,
         updateUser: () => {},
@@ -100,5 +105,13 @@ describe('DesktopMenu', () => {
     rerender(tree(false));
     expect(opener).toHaveFocus();
     opener.remove();
+  });
+
+  it('for a guest: no «Выйти», a way in instead', async () => {
+    const user = userEvent.setup();
+    renderMenu({ user: null });
+    expect(screen.queryByRole('button', { name: /Выйти/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Войти или зарегистрироваться/ }));
+    expect(screen.getByTestId('state')).toHaveTextContent('login');
   });
 });

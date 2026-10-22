@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -28,7 +29,9 @@ export function HomeMobile() {
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   // Until the summary arrives the stats read "···" (a real 0 would be a
   // claim), and "—" if it could not be loaded at all.
-  const [progressFailed, setProgressFailed] = useState(false);
+  const [progressFailedState, setProgressFailed] = useState(false);
+  const { isGuest } = useAccountGate();
+  const progressFailed = progressFailedState || isGuest;
   // Real published-task counts per subject (one request) — replaces the
   // static `subject.taskCount` demo numbers. null until loaded; a
   // subject absent from the response has 0 published tasks.
@@ -36,13 +39,15 @@ export function HomeMobile() {
 
   useEffect(() => {
     let cancelled = false;
-    void getProgressSummary()
-      .then((data) => {
-        if (!cancelled) setProgress(data);
-      })
-      .catch(() => {
-        if (!cancelled) setProgressFailed(true);
-      });
+    // A guest has no saved progress: the stats honestly read "—".
+    if (!isGuest)
+      void getProgressSummary()
+        .then((data) => {
+          if (!cancelled) setProgress(data);
+        })
+        .catch(() => {
+          if (!cancelled) setProgressFailed(true);
+        });
     void getTaskCountsBySubject()
       .then((res) => {
         if (cancelled) return;
@@ -56,7 +61,7 @@ export function HomeMobile() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   return (
     <SlideUp className={styles.stack}>
@@ -137,6 +142,20 @@ export function HomeMobile() {
           ]}
         />
       </div>
+
+      {isGuest && (
+        <button
+          type="button"
+          className={styles.guestHint}
+          onClick={() => navigate({ screen: 'login' })}
+        >
+          <Icon name="profile" size={18} className={styles.guestHintIcon} />
+          <span className={styles.guestHintText}>
+            Ты занимаешься как гость — прогресс не сохраняется.{' '}
+            <span className={styles.guestHintLink}>Войти</span>
+          </span>
+        </button>
+      )}
 
       <div>
         <div className={styles.sectionHeader}>

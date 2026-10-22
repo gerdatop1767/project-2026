@@ -310,22 +310,34 @@ describe('App — access gate (server-truth auth state)', () => {
     expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
   });
 
-  it('signed out: `/` is the public landing, not the trainer', async () => {
+  it('signed out: `/` opens the trainer as a GUEST — the marketing landing is hidden, not deleted', async () => {
     renderApp(null);
-    await screen.findByText(/Подготовка к/);
-    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
+    // A quiet way into an account instead of streak/level.
+    expect(screen.getByRole('button', { name: /Гость/ })).toBeInTheDocument();
   });
 
-  it('signed out: the desktop landing has no app sidebar', async () => {
+  it('signed out (desktop): the trainer with its sidebar; Статистика and Мои ошибки are visibly locked', async () => {
     const restore = mockDesktop(true);
-    renderApp(null);
-    await screen.findByText(/Подготовка к/);
-    expect(screen.queryByRole('navigation', { name: 'Zybrilka' })).not.toBeInTheDocument();
-    restore();
+    try {
+      renderApp(null);
+      const nav = await screen.findByRole('navigation', { name: 'Zybrilka' });
+      expect(
+        within(nav).getByRole('button', { name: 'Статистика — нужен вход' }),
+      ).toBeInTheDocument();
+      expect(
+        within(nav).getByRole('button', { name: 'Мои ошибки — нужен вход' }),
+      ).toBeInTheDocument();
+      expect(within(nav).getByRole('button', { name: 'Тренировка' })).toBeInTheDocument();
+    } finally {
+      restore();
+    }
   });
 
-  it('"Начать бесплатно" on the landing opens the unified auth screen', async () => {
+  it('the landing is kept at /landing, and its CTA still opens the unified auth screen', async () => {
+    window.history.replaceState(null, '', '/landing');
     const user = userEvent.setup();
     renderApp(null);
     await screen.findByText(/Подготовка к/);
@@ -334,26 +346,47 @@ describe('App — access gate (server-truth auth state)', () => {
     expect(window.location.pathname).toBe('/login');
   });
 
-  it.each([
-    '/statistics',
-    '/training',
-    '/subjects',
-    '/subjects/math',
-    '/profile',
-    '/training/mistakes',
-    '/learning/session/abc',
-    '/onboarding',
-    '/rating',
-  ])(
-    'signed out: deep link %s shows the login screen and rewrites the URL to /login',
+  it.each(['/training', '/subjects', '/subjects/math', '/rating'])(
+    'signed out: %s opens for a guest — no redirect to sign-in',
     async (path) => {
       window.history.replaceState(null, '', path);
       renderApp(null);
-      await screen.findByText('Войти или создать аккаунт');
-      await waitFor(() => expect(window.location.pathname).toBe('/login'));
-      expect(screen.queryByText('Мой профиль')).not.toBeInTheDocument();
+      await waitFor(() => expect(window.location.pathname).toBe(path));
+      expect(screen.queryByText('Войти или создать аккаунт')).not.toBeInTheDocument();
     },
   );
+
+  it.each([
+    ['/statistics', 'Статистика — после входа'],
+    ['/training/mistakes', 'Мои ошибки — после входа'],
+    ['/learning/session/abc', 'Умная тренировка — после входа'],
+  ])(
+    'signed out: account-only %s → the trainer home with a «нужна регистрация» window, never a blank page',
+    async (path, title) => {
+      window.history.replaceState(null, '', path);
+      renderApp(null);
+      expect(await screen.findByRole('dialog', { name: title })).toBeInTheDocument();
+      await waitFor(() => expect(window.location.pathname).toBe('/'));
+      expect(
+        screen.getByRole('button', { name: 'Войти или зарегистрироваться' }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it('signed out: /onboarding never shows the welcome to a guest — home instead', async () => {
+    window.history.replaceState(null, '', '/onboarding');
+    renderApp(null);
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+  });
+
+  it('signed out: Профиль is an honest guest card with the way in', async () => {
+    window.history.replaceState(null, '', '/profile');
+    renderApp(null);
+    expect(await screen.findByText('Ты занимаешься как гость')).toBeInTheDocument();
+    expect(screen.queryByText('Мой профиль')).not.toBeInTheDocument();
+  });
 
   it('signed out: static info pages stay reachable', async () => {
     window.history.replaceState(null, '', '/help');
@@ -425,11 +458,13 @@ describe('App — access gate (server-truth auth state)', () => {
     expect(window.location.pathname).toBe('/');
   });
 
-  it('unknown onboarding status never grants access: signed OUT stays signed out whatever else is in the payload', async () => {
+  it('unknown onboarding status never grants access: signed OUT stays a guest — Статистика stays locked', async () => {
     window.history.replaceState(null, '', '/statistics');
     renderApp(null);
-    await screen.findByText('Войти или создать аккаунт');
-    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('dialog', { name: 'Статистика — после входа' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Прогресс по заданиям')).not.toBeInTheDocument();
   });
 
   it('signed in + onboarded: may still open onboarding on purpose (to retake it) without being bounced', async () => {
@@ -628,67 +663,61 @@ describe('App — sign-in redirects, × and removed pages', () => {
 
   const landingHeading = () => screen.findByRole('heading', { level: 1, name: /Подготовка к/ });
 
-  it('a guest who opens a private link is sent to sign-in WITHOUT leaving that link behind, so × lands on the landing — every time', async () => {
-    window.history.replaceState(null, '', '/statistics');
+  it('a guest tapping Статистика gets the window OVER the current screen; «Войти» opens sign-in; × comes back', async () => {
     const user = userEvent.setup();
     renderApp(null);
-    await screen.findByText('Войти или создать аккаунт');
-    await waitFor(() => expect(window.location.pathname).toBe('/login'));
-    const length = window.history.length;
-
-    // First ×: nothing of the app behind the sign-in, so it closes IN PLACE
-    // (replace — no entry added, no bounce into the private link).
-    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
-    await landingHeading();
+    await screen.findByText(/Готов к новой/);
+    await user.click(screen.getByRole('button', { name: 'Статистика — нужен вход' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'Статистика — после входа' }),
+    ).toBeInTheDocument();
+    // The current screen is untouched underneath, the address too.
     expect(window.location.pathname).toBe('/');
-    expect(window.history.length).toBe(length);
+    expect(screen.getByText(/Готов к новой/, { exact: false })).toBeTruthy();
 
-    // Open sign-in again from the landing and close it again: now there IS
-    // an app entry behind it, so × is a real Back — and it works again.
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await user.click(screen.getAllByRole('button', { name: /Начать бесплатно/ })[0]!);
-      await screen.findByText('Войти или создать аккаунт');
-      await user.click(screen.getByRole('button', { name: 'Закрыть' }));
-      await landingHeading();
-      await waitFor(() => expect(window.location.pathname).toBe('/'));
-    }
+    await user.click(screen.getByRole('button', { name: 'Войти или зарегистрироваться' }));
+    await screen.findByText('Войти или создать аккаунт');
+    expect(window.location.pathname).toBe('/login');
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
   });
 
-  it('sign-in opened straight by URL (nothing behind it): × shows the landing instead of leaving the site', async () => {
+  it('«Не сейчас» closes the window and leaves the guest exactly where they were', async () => {
+    const user = userEvent.setup();
+    renderApp(null);
+    await screen.findByText(/Готов к новой/);
+    await user.click(screen.getByRole('button', { name: 'Мои ошибки — нужен вход' }));
+    await screen.findByRole('dialog', { name: 'Мои ошибки — после входа' });
+    await user.click(screen.getByRole('button', { name: 'Не сейчас' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Мои ошибки — после входа' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('sign-in opened straight by URL (nothing behind it): × lands in the trainer, never leaves the site', async () => {
     window.history.replaceState(null, '', '/login');
     const user = userEvent.setup();
     renderApp(null);
     await screen.findByText('Войти или создать аккаунт');
     await user.click(screen.getByRole('button', { name: 'Закрыть' }));
-    await landingHeading();
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
   });
 
-  it('after signing out, the trainer pages left in the history do not trap ×: the sign-in shown in place of one goes straight to the landing', async () => {
-    // What a sign-out leaves behind: several private pages of this visit.
-    window.history.replaceState({ zybrilka: { index: 0 } }, '', '/statistics');
-    window.history.pushState({ zybrilka: { index: 1 } }, '', '/achievements');
-    window.history.pushState({ zybrilka: { index: 2 } }, '', '/rating');
-    const user = userEvent.setup();
-    renderApp(null);
-    await screen.findByText('Войти или создать аккаунт');
-    expect(window.location.pathname).toBe('/login');
-
-    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
-    await landingHeading();
-    expect(window.location.pathname).toBe('/');
-  });
-
-  it("sign-in opened from the landing's CTA: × is a real Back to the landing", async () => {
+  it("sign-in opened from the kept landing's CTA: × is a real Back to the landing", async () => {
+    window.history.replaceState(null, '', '/landing');
     const user = userEvent.setup();
     renderApp(null);
     await landingHeading();
     await user.click(screen.getAllByRole('button', { name: /Начать бесплатно/ })[0]!);
     await screen.findByText('Войти или создать аккаунт');
-    expect(window.location.pathname).toBe('/login');
     await user.click(screen.getByRole('button', { name: 'Закрыть' }));
     await landingHeading();
-    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    await waitFor(() => expect(window.location.pathname).toBe('/landing'));
   });
 
   it('a signed-in visitor returning from VK to "/" lands in the app (Учебный центр), never on Помощь', async () => {
@@ -730,10 +759,10 @@ describe('App — sign-in redirects, × and removed pages', () => {
     expect(window.history.length).toBe(length);
   });
 
-  it('the removed /about page: a guest gets the landing, the address is corrected to /', async () => {
+  it('the removed /about page: a guest gets the trainer home, the address is corrected to /', async () => {
     window.history.replaceState(null, '', '/about');
     renderApp(null);
-    await landingHeading();
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
     await waitFor(() => expect(window.location.pathname).toBe('/'));
     expect(screen.queryByText(/Наши принципы/)).not.toBeInTheDocument();
   });
@@ -750,7 +779,8 @@ describe('App — sign-in redirects, × and removed pages', () => {
     restore();
   });
 
-  it("the guest's only support entry points open a window over the page: no navigation to /help", async () => {
+  it("the kept landing's support entry point opens a window over the page: no navigation to /help", async () => {
+    window.history.replaceState(null, '', '/landing');
     const user = userEvent.setup();
     renderApp(null);
     await landingHeading();
@@ -758,7 +788,7 @@ describe('App — sign-in redirects, × and removed pages', () => {
       within(screen.getByRole('contentinfo')).getByRole('button', { name: 'Поддержка' }),
     );
     expect(await screen.findByRole('dialog', { name: /Нужна помощь/ })).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/');
+    expect(window.location.pathname).toBe('/landing');
     // The landing is still rendered behind the window.
     expect(
       screen.getByRole('heading', { level: 1, hidden: true, name: /Подготовка к/ }),

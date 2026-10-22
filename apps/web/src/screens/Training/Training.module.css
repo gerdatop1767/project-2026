@@ -72,3 +72,15 @@
   flex-shrink: 0;
   color: var(--color-accent-primary);
 }
+
+/* Guest mode: a mode built from a personal history — dimmed, with a lock. */
+.modeCard[data-locked] .modeIcon,
+.modeCard[data-locked] .modeText {
+  opacity: 0.6;
+}
+
+.modeLock {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--color-text-secondary);
+}

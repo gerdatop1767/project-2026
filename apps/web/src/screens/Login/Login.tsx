@@ -3,6 +3,8 @@ import { isSignInGateEntry, useNavigation } from '../../lib/navigation.js';
 import { useAuth } from '../../lib/authContext.js';
 import { ApiError, requestMagicLink, verifyMagicLink, vkLoginUrl } from '../../lib/api.js';
 import { telegramErrorMessage } from '../../lib/telegramErrors.js';
+import { isInTelegramWebView } from '../../lib/telegramMiniApp.js';
+import { useVkTelegramSignIn, type VkTelegramNotice } from '../../lib/useVkTelegramSignIn.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Input } from '../../ui/Input/Input.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -17,6 +19,13 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // into the trainer — long enough to register as a real confirmation,
 // short enough that the redirect still feels automatic, not stalled.
 const SUCCESS_REDIRECT_DELAY_MS = 1200;
+
+const vkTelegramNotices: Record<Exclude<VkTelegramNotice, null>, string> = {
+  cancelled: 'Вход через VK ID отменён. Можно попробовать ещё раз.',
+  failed: 'Не удалось войти через VK ID. Попробуйте ещё раз или войдите по почте.',
+  expired: 'Время на вход истекло. Нажмите «Продолжить через VK ID» ещё раз.',
+  error: 'Не удалось подготовить вход через VK ID. Проверьте соединение и попробуйте снова.',
+};
 
 const benefits = [
   '10 000+ заданий по всем предметам ЕГЭ',
@@ -133,7 +142,17 @@ export function Login() {
     }
   }
 
+  // Inside the Telegram Mini App VK ID opens in the external browser and
+  // the account is handed back here (see useVkTelegramSignIn); on the
+  // website it is the usual full-page redirect.
+  const [inTelegram] = useState(isInTelegramWebView);
+  const vkTelegram = useVkTelegramSignIn(inTelegram, refresh);
+
   function handleVkClick() {
+    if (inTelegram) {
+      vkTelegram.open();
+      return;
+    }
     window.location.href = vkLoginUrl();
   }
 
@@ -266,14 +285,41 @@ export function Login() {
                   Вход через VK ID отменён. Попробуйте ещё раз или войдите по почте.
                 </p>
               )}
-              <Button
-                variant="secondary"
-                fullWidth
-                className={styles.vkButton}
-                onClick={handleVkClick}
-              >
-                <VkIcon size={20} /> Продолжить через VK ID
-              </Button>
+              {inTelegram && vkTelegram.notice && (
+                <p role="status" className={styles.formError}>
+                  {vkTelegramNotices[vkTelegram.notice]}
+                </p>
+              )}
+              {inTelegram && vkTelegram.phase === 'waiting' ? (
+                <div className={styles.vkWaiting} role="status" aria-live="polite">
+                  <Icon name="spinner" size={24} className={styles.stateSpinner} />
+                  <p className={styles.vkWaitingTitle}>Ждём вход через VK ID</p>
+                  <p className={styles.stateText}>
+                    Мы открыли VK ID в браузере. Войдите там и вернитесь в Telegram — вход
+                    подхватится автоматически.
+                  </p>
+                  <Button variant="secondary" fullWidth onClick={vkTelegram.restart}>
+                    Начать заново
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  className={styles.vkButton}
+                  onClick={handleVkClick}
+                  loading={inTelegram && vkTelegram.phase === 'preparing'}
+                  disabled={inTelegram && vkTelegram.phase === 'unavailable'}
+                >
+                  <VkIcon size={20} /> Продолжить через VK ID
+                </Button>
+              )}
+              {inTelegram && vkTelegram.phase === 'ready' && (
+                <p className={styles.vkHint}>Откроется в браузере, затем вернитесь в Telegram</p>
+              )}
+              {inTelegram && vkTelegram.phase === 'unavailable' && (
+                <p className={styles.vkHint}>Вход через VK ID сейчас недоступен</p>
+              )}
 
               <div className={styles.divider}>
                 <span>или</span>

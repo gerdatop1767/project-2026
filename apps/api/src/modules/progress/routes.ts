@@ -107,3 +107,23 @@ export const progressRoutes: FastifyPluginAsync<ProgressRoutesOptions> = async (
     );
   });
 };
+
+/**
+ * The public topic list (names + how many published tasks each has) for
+ * Тренировка → «По теме» and a subject's «Темы» — open to guests. Same
+ * shape as /progress/by-topic, but `completed` is always 0 here: nothing
+ * personal is read, whoever asks. Signed-in screens keep using
+ * /progress/by-topic for their real progress.
+ */
+export const publicTopicsRoutes: FastifyPluginAsync<ProgressRoutesOptions> = async (
+  app,
+  { db },
+) => {
+  app.get('/topics', async (request, reply) => {
+    const query = progressByTopicQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.code(400).send({ error: 'invalid_query', issues: query.error.issues });
+    }
+    return service.getByTopicWithTotals(db, null, query.data);
+  });
+};

@@ -203,10 +203,18 @@ export async function getRandomTask(
   return row && toPublicTask(row);
 }
 
+/**
+ * Grades an answer and — for a signed-in user — records it. A guest
+ * (`userId === null`) gets exactly the same grading and explanation but
+ * NOTHING is written: no attempt, mistake, streak day, skill or task
+ * statistics. A guest has no account, and an id a client could claim
+ * (like the old `x-anon-id`) must never let their answers land in
+ * someone else's profile or skew everyone's task statistics.
+ */
 export async function submitAttempt(
   db: Database,
   taskId: string,
-  userId: string,
+  userId: string | null,
   input: AttemptRequest,
 ): Promise<AttemptResult | undefined> {
   const row = await repo.getTaskById(db, taskId);
@@ -232,6 +240,17 @@ export async function submitAttempt(
       : checkAnswer(answerRaw, row.task.correctAnswer, {
           digitSetOrderInsensitive: row.task.digitSetOrderInsensitive,
         });
+
+  if (userId === null) {
+    return {
+      correct,
+      correctAnswer: row.task.correctAnswer,
+      correctAnswerDisplay: row.task.correctAnswerDisplay,
+      explanation: row.task.explanationMd,
+      attemptId: null,
+      mistakeId: null,
+    };
+  }
 
   // One transaction: the attempt, its mistakes update, and the skill
   // statistics it feeds (ZUBRILKA LEARNING INTELLIGENCE Phase 3) must
@@ -285,7 +304,7 @@ export async function submitAttempt(
 async function submitMultiPartAttempt(
   db: Database,
   row: repo.TaskWithTopic,
-  userId: string,
+  userId: string | null,
   answer: Readonly<Record<string, string>>,
   timeSpentMs: number | undefined,
 ): Promise<AttemptResult> {
@@ -295,6 +314,19 @@ async function submitMultiPartAttempt(
   const grading = spec
     ? gradeMultiPart(spec, answer)
     : { parts: [], correctParts: 0, totalParts: 0, status: 'all_incorrect' as const };
+
+  const graded = {
+    correct: grading.status === 'all_correct',
+    correctAnswer: row.task.correctAnswer,
+    correctAnswerDisplay: row.task.correctAnswerDisplay,
+    explanation: row.task.explanationMd,
+    parts: [...grading.parts],
+    correctParts: grading.correctParts,
+    totalParts: grading.totalParts,
+    partStatus: grading.status,
+  };
+  // A guest: graded, never recorded (see submitAttempt).
+  if (userId === null) return { ...graded, attemptId: null, mistakeId: null };
 
   const wrongParts = grading.parts.filter((p) => !p.correct).map((p) => p.id);
   const { attempt, mistakeId } = await db.transaction(async (tx) => {
@@ -330,16 +362,5 @@ async function submitMultiPartAttempt(
     return { attempt, mistakeId };
   });
 
-  return {
-    correct: grading.status === 'all_correct',
-    correctAnswer: row.task.correctAnswer,
-    correctAnswerDisplay: row.task.correctAnswerDisplay,
-    explanation: row.task.explanationMd,
-    attemptId: attempt.id,
-    mistakeId,
-    parts: [...grading.parts],
-    correctParts: grading.correctParts,
-    totalParts: grading.totalParts,
-    partStatus: grading.status,
-  };
+  return { ...graded, attemptId: attempt.id, mistakeId };
 }
