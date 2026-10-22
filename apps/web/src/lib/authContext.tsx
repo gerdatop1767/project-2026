@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { startAnalytics } from './analytics.js';
 import type { AuthUser } from '@zybrilka/shared';
 import { getCurrentUser, loginWithTelegram, logout as apiLogout, onUnauthorized } from './api.js';
 import { telegramErrorCode } from './telegramErrors.js';
@@ -149,6 +150,7 @@ export function AuthProvider({
 
   useEffect(() => {
     prepareTelegramApp();
+    startAnalytics();
   }, []);
 
   useEffect(() => {

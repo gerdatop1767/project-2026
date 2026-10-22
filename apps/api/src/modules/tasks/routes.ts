@@ -2,6 +2,7 @@ import type { Database } from '@zybrilka/db';
 import { attemptRequestSchema, randomTaskQuerySchema, taskListQuerySchema } from '@zybrilka/shared';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { readVisitorId, recordEvent, safely } from '../analytics/recorder.js';
 import * as service from './service.js';
 
 export interface TasksRoutesOptions {
@@ -114,6 +115,21 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (
       throw error;
     }
     if (!result) return reply.code(404).send({ error: 'task_not_found' });
+    // Production only (the legacy anonymous setup has no visitor cookie):
+    // one `answer_checked` event per checked answer — a signed-in one keyed
+    // by its attempt id so it can never count twice; never the answer itself.
+    if (allowGuestAttempts) {
+      await safely(request, () =>
+        recordEvent(db, {
+          type: 'answer_checked',
+          visitorId: readVisitorId(request),
+          userId: request.sessionUserId,
+          taskId: params.data.id,
+          props: { correct: result.correct, guest: !request.sessionUserId },
+          dedupKey: result.attemptId ? `attempt:${result.attemptId}` : null,
+        }),
+      );
+    }
     return result;
   });
 

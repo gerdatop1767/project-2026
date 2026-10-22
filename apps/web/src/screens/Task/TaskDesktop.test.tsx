@@ -422,7 +422,7 @@ describe('TaskDesktop', () => {
   });
 
   describe('report task (canvas mobile fix block — "Пожаловаться на задание")', () => {
-    it('opens from the warning icon and shows a placeholder confirmation once reported', async () => {
+    it('opens from the warning icon; signed out it asks to sign in', async () => {
       const user = userEvent.setup();
       renderTask();
       await screen.findByText(CONDITION);
@@ -431,7 +431,9 @@ describe('TaskDesktop', () => {
       const dialog = screen.getByRole('dialog', { name: 'Задание' });
       await user.click(within(dialog).getByRole('button', { name: 'Пожаловаться на задание' }));
 
-      expect(within(dialog).getByRole('status')).toHaveTextContent('Жалоба отправлена');
+      // Signed out here: the real form needs an account, so it offers sign-in
+      // (the form itself is covered in ReportTaskContent.test.tsx).
+      expect(within(dialog).getByText(/войдите в аккаунт/)).toBeInTheDocument();
     });
 
     it('no longer shows the old bare "Ещё" (three dots) button', async () => {

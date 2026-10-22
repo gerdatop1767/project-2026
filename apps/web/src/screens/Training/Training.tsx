@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { trackSubject } from '../../lib/analytics.js';
 import { useNavigation } from '../../lib/navigation.js';
 import { getSubjectContent } from '../../data/subjectContent.js';
 import {
@@ -179,6 +180,7 @@ export function Training() {
   }, [subjectId, collectionSlug, isGuest]);
 
   function selectSubject(id: string) {
+    trackSubject(id);
     setSubjectId(id);
     setTopicId(null);
     setTopicNumbers(new Set());

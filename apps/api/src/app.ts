@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyPluginAsync, type FastifyServerOptions } from 'fastify';
 import type { Config } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { RequestMetrics, registerRequestMetrics } from './plugins/requestMetrics.js';
 import { registerAnonUser } from './plugins/anonUser.js';
 import {
   registerAuthSession,
@@ -11,7 +12,10 @@ import {
   requireSession,
   withoutEncapsulation,
 } from './plugins/authSession.js';
+import { adminRoutes } from './modules/admin/routes.js';
+import { analyticsRoutes } from './modules/analytics/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { complaintsRoutes } from './modules/complaints/routes.js';
 import { profileRoutes } from './modules/profile/routes.js';
 import { collectionsRoutes } from './modules/collections/routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
@@ -55,6 +59,10 @@ export function buildApp({
   trustProxy,
 }: AppOptions) {
   const app = Fastify({ logger, trustProxy });
+  // Route-pattern/status/duration of recent requests, in memory only —
+  // read by the admin «Техническое состояние» page.
+  const requestMetrics = new RequestMetrics();
+  registerRequestMetrics(app, requestMetrics);
   app.register(healthRoutes, { version, checkDb });
 
   if (db) {
@@ -127,6 +135,27 @@ export function buildApp({
         scope.addHook('onRequest', rejectCrossSiteWrites);
         scope.register(privateRoutes);
         scope.register(profileRoutes, { db, config: authConfig, prefix: '/api/v1' });
+      });
+      app.register(async (scope) => {
+        // Product analytics + campaign links: public, per-IP throttled.
+        await scope.register(rateLimit, { global: false });
+        scope.addHook('onRequest', rejectCrossSiteWrites);
+        scope.register(analyticsRoutes, { db, config: authConfig, prefix: '/api/v1' });
+      });
+      app.register(async (scope) => {
+        // Task complaints: an account is required, throttled per account.
+        await scope.register(rateLimit, { global: false });
+        scope.addHook('onRequest', requireSession);
+        scope.addHook('onRequest', rejectCrossSiteWrites);
+        scope.register(complaintsRoutes, { db, prefix: '/api/v1' });
+      });
+      // Owner-only admin API — its own scope, its own guard (admin/access.ts).
+      app.register(adminRoutes, {
+        db,
+        config: authConfig,
+        metrics: requestMetrics,
+        version,
+        prefix: '/api/v1',
       });
     } else {
       app.register(contentRoutes(false));

@@ -169,6 +169,13 @@
       "when": 1792656654017,
       "tag": "0023_auth_handoffs",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792660685532,
+      "tag": "0024_admin_analytics",
+      "breakpoints": true
     }
   ]
 }

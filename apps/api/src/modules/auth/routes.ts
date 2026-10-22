@@ -7,6 +7,7 @@ import {
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
+import { recordSignIn } from '../analytics/recorder.js';
 import * as service from './service.js';
 import { createVkPkceChallenge, buildVkAuthorizeUrl, isVkConfigured } from './vk.js';
 import * as handoff from './handoff.js';
@@ -119,8 +120,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
       }
       try {
-        const { sessionId, user } = await service.verifyMagicLink(db, body.data.token);
+        const { sessionId, user, created } = await service.verifyMagicLink(db, body.data.token);
         await dropPreviousSession(request, sessionId);
+        await recordSignIn(db, request, { userId: user.id, created, method: 'email' });
         reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
         return reply.code(200).send({ user });
       } catch (error) {
@@ -185,6 +187,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       if (result.status !== 'ok') return reply.code(200).send({ status: result.status });
       const login = await service.openSessionFor(db, result.userId);
       await dropPreviousSession(request, login.sessionId);
+      // The account itself was registered (if new) in the external browser's
+      // VK callback; here the Mini App's own visitor is linked to it.
+      await recordSignIn(db, request, { userId: result.userId, created: false, method: 'vk' });
       reply.setCookie(
         SESSION_COOKIE,
         login.sessionId,
@@ -302,7 +307,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       }
     }
     try {
-      const { sessionId, user } = await service.completeVkLogin(
+      const { sessionId, user, created } = await service.completeVkLogin(
         db,
         config,
         query.data.code,
@@ -310,6 +315,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         saved.data.codeVerifier,
         request.log,
       );
+      await recordSignIn(db, request, { userId: user.id, created, method: 'vk' });
       // A sign-in for the Telegram Mini App: the account goes to the Mini
       // App (it claims its OWN session — see handoff.ts); this external
       // browser keeps no session of its own (it was only borrowed for VK
@@ -379,6 +385,11 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
           log: request.log,
         });
         await dropPreviousSession(request, result.sessionId);
+        await recordSignIn(db, request, {
+          userId: result.user.id,
+          created: result.created,
+          method: 'telegram',
+        });
         reply.setCookie(
           SESSION_COOKIE,
           result.sessionId,

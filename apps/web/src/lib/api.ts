@@ -279,6 +279,21 @@ export function submitAttempt(taskId: string, request: AttemptRequest): Promise<
 }
 
 /** "Я решил" for an essay task — not a graded attempt, see EssayAckResponse's doc comment. */
+export type ComplaintReason =
+  'wrong_answer' | 'condition_error' | 'typo' | 'bad_explanation' | 'display_problem' | 'other';
+
+/** «Пожаловаться на задание» — needs a session (401 otherwise). */
+export function reportTask(
+  taskId: string,
+  reason: ComplaintReason,
+  comment?: string,
+): Promise<{ id: string; status: 'created' | 'already_reported' }> {
+  return apiFetch(`/tasks/${taskId}/complaints`, {
+    method: 'POST',
+    body: JSON.stringify(comment ? { reason, comment } : { reason }),
+  });
+}
+
 export function acknowledgeEssay(taskId: string): Promise<EssayAckResponse> {
   return apiFetch(`/tasks/${taskId}/essay-ack`, { method: 'POST' });
 }

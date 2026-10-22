@@ -475,6 +475,8 @@ export const attempts = pgTable(
   (table) => [
     index('attempts_user_task_idx').on(table.userId, table.taskId),
     index('attempts_task_idx').on(table.taskId),
+    // Admin period aggregates (solves per day, DAU) scan by time.
+    index('attempts_created_idx').on(table.createdAt),
   ],
 );
 
@@ -894,5 +896,174 @@ export const userDailyActivity = pgTable(
   },
   (table) => [
     uniqueIndex('user_daily_activity_user_date_idx').on(table.userId, table.activityDate),
+  ],
+);
+
+/**
+ * Admin analytics (docs/ADMIN.md). A VISITOR is one browser (or one
+ * Telegram WebView) identified by a random id in the first-party httpOnly
+ * `zv` cookie — not a person and not personal data: no IP, no user agent,
+ * no fingerprint. It is what makes guests countable at all (a guest has
+ * no `users` row and must never get one). `userId` is set when a signed-in
+ * account is seen with this cookie (the latest one wins); `campaignId` is
+ * the first campaign link this browser arrived through (first touch), with
+ * its time so attribution can apply a window.
+ */
+export const analyticsVisitors = pgTable(
+  'analytics_visitors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    /** 'web' | 'telegram' — where this cookie jar lives (as first reported). */
+    client: text('client'),
+    campaignId: uuid('campaign_id').references(() => campaigns.id),
+    campaignTouchedAt: timestamp('campaign_touched_at', { withTimezone: true }),
+    userId: uuid('user_id').references(() => users.id),
+  },
+  (table) => [
+    index('analytics_visitors_created_idx').on(table.createdAt),
+    index('analytics_visitors_campaign_idx').on(table.campaignId),
+    index('analytics_visitors_user_idx').on(table.userId),
+  ],
+);
+
+/**
+ * Product events, append-only. Only what the metrics need: type, time,
+ * who (visitor and/or user), what (subject/task/campaign) and a few small
+ * attributes in `props` (e.g. `{ correct: true }`). Never an entered
+ * answer, an IP, a URL query string or a secret. `dedupKey` makes
+ * recording idempotent: a client event carries its own random id, a
+ * server event a natural key (e.g. the attempt id), so a retry can never
+ * count twice.
+ */
+export const analyticsEvents = pgTable(
+  'analytics_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: text('type').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+    visitorId: uuid('visitor_id'),
+    userId: uuid('user_id').references(() => users.id),
+    subjectId: text('subject_id'),
+    taskId: uuid('task_id'),
+    campaignId: uuid('campaign_id'),
+    props: jsonb('props').$type<Record<string, string | number | boolean>>(),
+    dedupKey: text('dedup_key').unique(),
+  },
+  (table) => [
+    index('analytics_events_type_time_idx').on(table.type, table.occurredAt),
+    index('analytics_events_visitor_idx').on(table.visitorId, table.occurredAt),
+    index('analytics_events_user_idx').on(table.userId, table.occurredAt),
+    index('analytics_events_campaign_idx').on(table.campaignId, table.occurredAt),
+  ],
+);
+
+export const campaignStatuses = ['active', 'disabled', 'archived'] as const;
+
+/**
+ * A tracked link (docs/ADMIN.md §Кампании). The public link is
+ * `/api/v1/go/<slug>`; it records a click and redirects to `targetPath`,
+ * which is always a path inside this site (validated against an allow
+ * list on write and resolved against WEB_BASE_URL on redirect — never an
+ * arbitrary URL, so the link can't be an open redirect).
+ */
+export const campaigns = pgTable(
+  'campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    source: text('source').notNull(),
+    channel: text('channel').notNull(),
+    creative: text('creative'),
+    targetPath: text('target_path').notNull().default('/'),
+    status: text('status', { enum: campaignStatuses }).notNull().default('active'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('campaigns_slug_idx').on(table.slug)],
+);
+
+/**
+ * How an account came to be: written once, at registration, from the
+ * visitor cookie of the request that created it. `campaignId` only when
+ * that visitor arrived through a campaign link within the attribution
+ * window — otherwise null ("неизвестный/прямой источник"), never guessed.
+ */
+export const userAttributions = pgTable(
+  'user_attributions',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    visitorId: uuid('visitor_id'),
+    campaignId: uuid('campaign_id').references(() => campaigns.id),
+    method: text('method').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('user_attributions_campaign_idx').on(table.campaignId)],
+);
+
+export const complaintReasons = [
+  'wrong_answer',
+  'condition_error',
+  'typo',
+  'bad_explanation',
+  'display_problem',
+  'other',
+] as const;
+export const complaintStatuses = ['new', 'in_progress', 'fixed', 'rejected'] as const;
+
+/** «Пожаловаться на задание» — one row per submitted complaint. */
+export const taskComplaints = pgTable(
+  'task_complaints',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    reason: text('reason', { enum: complaintReasons }).notNull(),
+    comment: text('comment'),
+    status: text('status', { enum: complaintStatuses }).notNull().default('new'),
+    /** Visible to admins only. */
+    internalComment: text('internal_comment'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('task_complaints_status_created_idx').on(table.status, table.createdAt),
+    index('task_complaints_task_idx').on(table.taskId),
+    index('task_complaints_user_idx').on(table.userId),
+  ],
+);
+
+/**
+ * Every admin action (and every refused attempt to reach the admin API by
+ * a signed-in non-admin). Append-only: the migration installs a trigger
+ * that rejects UPDATE and DELETE, so not even the API can rewrite it.
+ * `details` holds safe, small context (old → new status etc.), never a
+ * secret, token or full personal record.
+ */
+export const adminAuditLog = pgTable(
+  'admin_audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    action: text('action').notNull(),
+    objectType: text('object_type'),
+    objectId: text('object_id'),
+    result: text('result').notNull(),
+    details: jsonb('details').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('admin_audit_log_created_idx').on(table.createdAt),
+    index('admin_audit_log_object_idx').on(table.objectType, table.objectId),
   ],
 );
