@@ -211,7 +211,9 @@ export async function getByTopicWithTotals(
       total: count(),
       // The EGE numbers this topic's tasks actually have, so the client can
       // offer only numbers that exist in it (never an empty pick).
-      taskNumbers: sql<number[]>`array_agg(DISTINCT ${schema.tasks.taskNumber} ORDER BY ${schema.tasks.taskNumber})`,
+      taskNumbers: sql<
+        number[]
+      >`array_agg(DISTINCT ${schema.tasks.taskNumber} ORDER BY ${schema.tasks.taskNumber})`,
     })
     .from(schema.tasks)
     .innerJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
