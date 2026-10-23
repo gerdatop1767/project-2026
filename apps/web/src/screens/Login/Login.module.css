@@ -203,6 +203,95 @@
   color: var(--color-error);
 }
 
+.emailBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.modeTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-tint, #000) 6%, transparent);
+}
+
+.modeTab {
+  min-height: 40px;
+  border: none;
+  border-radius: calc(var(--radius-input) - 4px);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.modeTab[aria-selected='true'] {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 4px color-mix(in srgb, #000 12%, transparent);
+}
+
+.modeTab:focus-visible,
+.linkButton:focus-visible,
+.showPassword:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+.modeHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.passwordField {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.passwordField > :first-child {
+  align-self: stretch;
+}
+
+.showPassword,
+.linkButton {
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--color-accent-primary-end);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.linkButton {
+  text-align: left;
+}
+
+.altLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.formNote {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-success);
+}
+
 .consent {
   margin: 0;
   font-size: 0.75rem;

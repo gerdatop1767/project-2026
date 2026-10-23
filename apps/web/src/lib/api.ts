@@ -515,6 +515,52 @@ export function verifyMagicLink(token: string): Promise<{ user: AuthUser }> {
   return apiFetch('/auth/verify', { method: 'POST', body: JSON.stringify({ token }) });
 }
 
+// ------------------------------------------------- email + password
+
+/** Starts a registration: the server emails a confirmation link. The
+ * answer is the same whether or not the address already has an account
+ * (`ApiError` 400 weak_password / 429 / 502 / 503 otherwise). */
+export function registerWithEmail(email: string, password: string): Promise<{ ok: true }> {
+  return apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) });
+}
+
+/** Opens the registration link: creates the account and signs in
+ * (ApiError 410 expired, 400 used/invalid, 409 already registered). */
+export function confirmRegistration(token: string): Promise<{ user: AuthUser }> {
+  return apiFetch('/auth/register/confirm', { method: 'POST', body: JSON.stringify({ token }) });
+}
+
+/** A new confirmation letter, by address or by an old (expired) link. */
+export function resendConfirmation(
+  input: { email: string } | { token: string },
+): Promise<{ ok: true }> {
+  return apiFetch('/auth/register/resend', { method: 'POST', body: JSON.stringify(input) });
+}
+
+/** ApiError 401 `invalid_credentials` for any wrong combination. */
+export function loginWithPassword(email: string, password: string): Promise<{ user: AuthUser }> {
+  return apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+}
+
+export function requestPasswordReset(email: string): Promise<{ ok: true }> {
+  return apiFetch('/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email }) });
+}
+
+/** Is this reset link still usable? (ApiError 410 expired / 400 invalid) */
+export function checkPasswordResetToken(token: string): Promise<{ ok: true }> {
+  return apiFetch('/auth/password/reset/check', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}
+
+export function resetPassword(token: string, password: string): Promise<{ user: AuthUser }> {
+  return apiFetch('/auth/password/reset', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 /** The VK ID "Продолжить через ВКонтакте" button's target — a plain
  * navigation (not a fetch), since this must trigger a real browser
  * redirect to id.vk.com. Resolves to this API's own `/auth/vk/start`,
