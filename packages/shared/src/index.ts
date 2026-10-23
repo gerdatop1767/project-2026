@@ -31,3 +31,4 @@ export * as solutionEngine from './solutionEngine/index.js';
 export * as solutionTemplates from './solutionTemplates/index.js';
 export * from './canonicalSolutionDto.js';
 export * from './streakTiers.js';
+export * from './xp.js';

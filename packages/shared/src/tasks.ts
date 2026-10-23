@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { attemptXpSchema } from './xp.js';
 import { canonicalSolutionDtoSchema } from './canonicalSolutionDto.js';
 
 /**
@@ -237,5 +238,8 @@ export const attemptResultSchema = z.object({
   correctParts: z.number().int().nonnegative().optional(),
   totalParts: z.number().int().nonnegative().optional(),
   partStatus: multiPartStatusSchema.optional(),
+  /** Signed-in attempts only: XP this answer earned (0 when none) and the
+   * account's total/level after it — all decided server-side (docs/XP.md). */
+  xp: attemptXpSchema.optional(),
 });
 export type AttemptResult = z.infer<typeof attemptResultSchema>;

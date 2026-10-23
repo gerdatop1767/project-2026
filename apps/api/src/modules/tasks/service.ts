@@ -17,6 +17,7 @@ import {
   type TaskWithSolution,
 } from '@zybrilka/shared';
 import * as repo from './repo.js';
+import * as xpService from '../xp/service.js';
 import { getCanonicalSolutionForTask } from './canonicalSolution.js';
 import { updateSkillStatisticsForTaskAttempt } from '../learning/service.js';
 import { updateTaskStatistics } from '../learning/taskStatistics/service.js';
@@ -255,7 +256,10 @@ export async function submitAttempt(
   // One transaction: the attempt, its mistakes update, and the skill
   // statistics it feeds (ZUBRILKA LEARNING INTELLIGENCE Phase 3) must
   // never diverge — either all three are written, or none are.
-  const { attempt, mistakeId } = await db.transaction(async (tx) => {
+  const { attempt, mistakeId, xp } = await db.transaction(async (tx) => {
+    // XP first takes this account's ledger lock (and imports pre-XP
+    // history once) so the award below sees a settled total.
+    const totalBefore = await xpService.prepareForAward(tx, userId);
     const attempt = await repo.createAttempt(tx, {
       userId,
       taskId,
@@ -288,7 +292,17 @@ export async function submitAttempt(
       },
       attempt.createdAt,
     );
-    return { attempt, mistakeId };
+    // XP is decided here, from this server-graded attempt, in the same
+    // transaction: no XP without the attempt, no attempt without its XP.
+    const xp = await xpService.awardForAttempt(tx, {
+      userId,
+      task: row.task,
+      attemptId: attempt.id,
+      correct,
+      at: attempt.createdAt,
+      totalBefore,
+    });
+    return { attempt, mistakeId, xp };
   });
 
   return {
@@ -298,6 +312,7 @@ export async function submitAttempt(
     explanation: row.task.explanationMd,
     attemptId: attempt.id,
     mistakeId,
+    xp,
   };
 }
 
@@ -329,7 +344,8 @@ async function submitMultiPartAttempt(
   if (userId === null) return { ...graded, attemptId: null, mistakeId: null };
 
   const wrongParts = grading.parts.filter((p) => !p.correct).map((p) => p.id);
-  const { attempt, mistakeId } = await db.transaction(async (tx) => {
+  const { attempt, mistakeId, xp } = await db.transaction(async (tx) => {
+    const totalBefore = await xpService.prepareForAward(tx, userId);
     const attempt = await repo.createAttempt(tx, {
       userId,
       taskId: row.task.id,
@@ -359,8 +375,17 @@ async function submitMultiPartAttempt(
       },
       attempt.createdAt,
     );
-    return { attempt, mistakeId };
+    // Only an all-parts-correct answer counts as correct for XP.
+    const xp = await xpService.awardForAttempt(tx, {
+      userId,
+      task: row.task,
+      attemptId: attempt.id,
+      correct: grading.status === 'all_correct',
+      at: attempt.createdAt,
+      totalBefore,
+    });
+    return { attempt, mistakeId, xp };
   });
 
-  return { ...graded, attemptId: attempt.id, mistakeId };
+  return { ...graded, attemptId: attempt.id, mistakeId, xp };
 }

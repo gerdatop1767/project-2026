@@ -128,20 +128,57 @@ export const userAvatars = pgTable(
 );
 
 /**
- * One-time magic-link sign-in tokens. Never stores the raw token —
+ * One-time emailed-link tokens (sign-in, registration, password reset).
+ * Never stores the raw token —
  * only its SHA-256 hash (service layer), so a leaked DB row alone
  * can't be replayed as a valid link. `email` is lowercased/trimmed
  * before insert. A token is single-use (`consumedAt` set on first
  * successful verify) and short-lived (`expiresAt`, enforced
  * server-side on verify, not just by the email client).
  */
-export const magicLinkTokens = pgTable('magic_link_tokens', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull(),
-  tokenHash: text('token_hash').notNull().unique(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+export const emailTokenPurposes = ['sign_in', 'register', 'reset_password'] as const;
+
+export const magicLinkTokens = pgTable(
+  'magic_link_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * What the emailed link does (docs/EMAIL_AUTH.md): `sign_in` — the
+     * original passwordless link; `register` — confirms a new email+password
+     * account (the account is created only when it is opened); `reset_password`
+     * — sets a new password. A token is only ever accepted for its own
+     * purpose. Existing rows are `sign_in` (column default).
+     */
+    purpose: text('purpose', { enum: emailTokenPurposes }).notNull().default('sign_in'),
+    /** `register` only: the scrypt hash of the chosen password, held until
+     * the address is confirmed. Never the password itself. */
+    passwordHash: text('password_hash'),
+    /** `reset_password` only: the account whose password it resets. */
+    userId: uuid('user_id').references(() => users.id),
+  },
+  (table) => [index('magic_link_tokens_email_purpose_idx').on(table.email, table.purpose)],
+);
+
+/**
+ * Password sign-in for an email account. The address itself lives in
+ * `auth_identities` (provider 'email') — one place, so one email can never
+ * belong to two accounts; this row only adds a password to that account.
+ * Created when a registration is confirmed or a password is set through a
+ * reset link (both prove the mailbox). `passwordHash` is a self-describing
+ * scrypt string (apps/api auth/password.ts), never the password.
+ */
+export const emailCredentials = pgTable('email_credentials', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id),
+  passwordHash: text('password_hash').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /**
@@ -1074,4 +1111,64 @@ export const adminAuditLog = pgTable(
     index('admin_audit_log_created_idx').on(table.createdAt),
     index('admin_audit_log_object_idx').on(table.objectType, table.objectId),
   ],
+);
+
+/** What an XP event was for — mirrors `xpEventKinds` in @zybrilka/shared. */
+export const xpEventKinds = ['task_first_solve', 'task_review'] as const;
+
+/**
+ * XP ledger (docs/XP.md): one row per award, never updated or deleted.
+ * `dedupKey` names the result being rewarded (`task:<id>:first`,
+ * `task:<id>:review:<YYYY-MM-DD>`), and the unique (userId, dedupKey)
+ * index is what makes an award idempotent: a replayed or concurrent
+ * request for the same result inserts nothing. Written in the same
+ * transaction as the attempt that earned it and as `user_xp`, so the
+ * ledger and the total can never diverge.
+ */
+export const xpEvents = pgTable(
+  'xp_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    amount: integer('amount').notNull(),
+    kind: text('kind', { enum: xpEventKinds }).notNull(),
+    /** What kind of thing earned it ('task' for now). */
+    sourceType: text('source_type').notNull(),
+    sourceId: uuid('source_id'),
+    /** The graded attempt behind it; null for awards rebuilt from history. */
+    attemptId: uuid('attempt_id').references(() => attempts.id),
+    dedupKey: text('dedup_key').notNull(),
+    /** The rule inputs at award time (difficulty, rule version…). */
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('xp_events_user_dedup_idx').on(table.userId, table.dedupKey),
+    index('xp_events_user_created_idx').on(table.userId, table.createdAt),
+    index('xp_events_user_source_idx').on(table.userId, table.sourceId),
+    index('xp_events_created_idx').on(table.createdAt),
+  ],
+);
+
+/**
+ * Running XP total per user — always the sum of that user's `xp_events`
+ * (updated in the same transaction as each insert). The level is never
+ * stored: it is derived from `totalXp` by `levelForXp` in @zybrilka/shared.
+ * `historyImportedAt` marks that correct answers given before XP existed
+ * have been turned into events (done once, lazily — see apps/api xp/service.ts).
+ * Indexed by `totalXp` for a future rating.
+ */
+export const userXp = pgTable(
+  'user_xp',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    totalXp: integer('total_xp').notNull().default(0),
+    historyImportedAt: timestamp('history_imported_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('user_xp_total_idx').on(table.totalXp)],
 );

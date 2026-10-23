@@ -8,6 +8,7 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import * as service from './service.js';
+import * as xpService from '../xp/service.js';
 
 const taskNumberParamsSchema = z.object({ taskNumber: z.coerce.number().int().positive() });
 
@@ -17,7 +18,34 @@ export interface ProgressRoutesOptions {
   db: Database;
 }
 
+const xpHistoryQuerySchema = z.object({ cursor: z.string().max(200).optional() });
+
 export const progressRoutes: FastifyPluginAsync<ProgressRoutesOptions> = async (app, { db }) => {
+  // Level and XP (docs/XP.md): the header chip and the «Уровень» page both
+  // read this, so they always show the same server-computed numbers.
+  app.get('/progress/xp', async (request, reply) => {
+    if (!request.userId) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+    return xpService.getXpSummary(db, request.userId);
+  });
+
+  app.get('/progress/xp/history', async (request, reply) => {
+    if (!request.userId) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+    const query = xpHistoryQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    try {
+      return await xpService.getXpHistory(db, request.userId, query.data.cursor);
+    } catch (error) {
+      if (error instanceof xpService.InvalidCursorError) {
+        return reply.code(400).send({ error: 'invalid_cursor' });
+      }
+      throw error;
+    }
+  });
+
   app.get('/progress/summary', async (request, reply) => {
     if (!request.userId) {
       return reply.code(400).send({ error: 'missing_anon_id' });

@@ -97,18 +97,18 @@ describe('Support window on the public landing', () => {
     await user.click(footerSupport());
     await user.click(within(dialog()).getByRole('button', { name: 'Закрыть' }));
     await closed();
-    expect(footerSupport()).toHaveFocus();
+    await waitFor(() => expect(footerSupport()).toHaveFocus());
 
     await user.click(footerSupport());
     await user.keyboard('{Escape}');
     await closed();
-    expect(footerSupport()).toHaveFocus();
+    await waitFor(() => expect(footerSupport()).toHaveFocus());
 
     await user.click(footerSupport());
     const backdrop = dialog().parentElement!.querySelector('[aria-hidden="true"]')!;
     await user.click(backdrop);
     await closed();
-    expect(footerSupport()).toHaveFocus();
+    await waitFor(() => expect(footerSupport()).toHaveFocus());
   });
 
   it('hands focus back only AFTER the page is no longer inert (an inert page refuses focus in a real browser)', async () => {
@@ -165,7 +165,7 @@ describe('Support window on the public landing', () => {
 
     await user.keyboard('{Escape}');
     await closed();
-    expect(footerSupport()).toHaveFocus();
+    await waitFor(() => expect(footerSupport()).toHaveFocus());
   });
 
   it('makes the page behind inert and stops it scrolling while open, and restores both on close', async () => {
@@ -180,8 +180,8 @@ describe('Support window on the public landing', () => {
 
     await user.keyboard('{Escape}');
     await closed();
-    expect(root).not.toHaveAttribute('inert');
-    expect(document.body.style.overflow).toBe('auto');
+    await waitFor(() => expect(root).not.toHaveAttribute('inert'));
+    await waitFor(() => expect(document.body.style.overflow).toBe('auto'));
   });
 
   it('can be opened again after closing', async () => {
@@ -224,7 +224,7 @@ describe('Support window on the other public pages', () => {
     expect(window.location.pathname).toBe('/');
     await user.keyboard('{Escape}');
     await closed();
-    expect(ask).toHaveFocus();
+    await waitFor(() => expect(ask).toHaveFocus());
   });
 
   it('the legal pages\' footer "Поддержка" opens it too', async () => {
@@ -273,6 +273,6 @@ describe('useSupportDialog', () => {
     expect(dialog()).toBeInTheDocument();
     await user.keyboard('{Escape}');
     await closed();
-    expect(screen.getByText('help-me')).toHaveFocus();
+    await waitFor(() => expect(screen.getByText('help-me')).toHaveFocus());
   });
 });

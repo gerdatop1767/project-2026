@@ -1,19 +1,17 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { isSignInGateEntry, useNavigation } from '../../lib/navigation.js';
 import { useAuth } from '../../lib/authContext.js';
-import { ApiError, requestMagicLink, verifyMagicLink, vkLoginUrl } from '../../lib/api.js';
+import { verifyMagicLink, vkLoginUrl } from '../../lib/api.js';
 import { telegramErrorMessage } from '../../lib/telegramErrors.js';
 import { isInTelegramWebView } from '../../lib/telegramMiniApp.js';
 import { useVkTelegramSignIn, type VkTelegramNotice } from '../../lib/useVkTelegramSignIn.js';
 import { Button } from '../../ui/Button/Button.js';
-import { Input } from '../../ui/Input/Input.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Logo } from '../../ui/Logo/Logo.js';
 import { VkIcon } from '../../ui/VkIcon/VkIcon.js';
 import { clsx } from '../../lib/clsx.js';
+import { EmailAuthForms, EmailLinkFlow, type EmailMode } from './EmailAuth.js';
 import styles from './Login.module.css';
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // How long the "Готово!" success state shows before auto-redirecting
 // into the trainer — long enough to register as a real confirmation,
@@ -34,11 +32,12 @@ const benefits = [
 ];
 
 /**
- * Unified sign-up/sign-in screen (S3 auth) — one flow for new and
- * returning users alike (email magic-link + VK ID), matching the
- * backend's own find-or-create identity resolution: there is no
- * separate "create account" vs "log in" step server-side, so this
- * screen doesn't pretend there is one either.
+ * Sign-in / sign-up screen: VK ID, email + password (registration with a
+ * confirmation letter, sign-in, password reset — EmailAuth.tsx, backed by
+ * docs/EMAIL_AUTH.md) and the passwordless email link. Emailed links come
+ * back here: `?token=` (passwordless sign-in), `?confirm=` (finish
+ * registration), `?reset=` (new password); `?mode=register` opens the
+ * registration tab.
  *
  * Rendered standalone (see App.tsx's `showLogin`), outside the normal
  * dark app shell: the approved reference is a dedicated light page,
@@ -56,11 +55,19 @@ export function Login() {
   const { navigate, leave } = useNavigation();
   const { user, refresh, telegramError } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [fieldError, setFieldError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  // Read once: the emailed links and the requested tab.
+  const [params] = useState(() => new URLSearchParams(window.location.search));
+  const [link, setLink] = useState<{ kind: 'confirm' | 'reset'; token: string } | null>(() => {
+    const confirm = params.get('confirm');
+    const reset = params.get('reset');
+    if (confirm) return { kind: 'confirm', token: confirm };
+    if (reset) return { kind: 'reset', token: reset };
+    return null;
+  });
+  const [emailMode, setEmailMode] = useState<EmailMode>(() =>
+    params.get('mode') === 'register' ? 'register' : 'signin',
+  );
+  const [doneTitle, setDoneTitle] = useState('Готово!');
 
   // VK ID sends the user back here with `?vk=cancelled` when they backed
   // out of (or denied) the VK consent screen — say so instead of leaving
@@ -108,38 +115,25 @@ export function Login() {
       );
       return () => window.clearTimeout(id);
     }
-    if (user && verifyState === 'idle') {
+    if (user && verifyState === 'idle' && !link) {
       navigate({ screen: 'home' }, { replace: true });
     }
-  }, [user, verifyState, navigate]);
+  }, [user, verifyState, navigate, link]);
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (submitting) return; // double-submit guard
-    const trimmed = email.trim();
-    if (!EMAIL_PATTERN.test(trimmed)) {
-      setFieldError('Введите корректный email');
-      return;
-    }
-    setFieldError(null);
-    setFormError(null);
-    setSubmitting(true);
-    try {
-      await requestMagicLink(trimmed);
-      setSent(true);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 503) {
-        setFormError(
-          'Отправка писем сейчас недоступна — попробуйте позже или войдите через VK ID.',
-        );
-      } else if (error instanceof ApiError && error.status === 429) {
-        setFormError('Слишком много попыток. Подождите немного и попробуйте снова.');
-      } else {
-        setFormError('Не удалось отправить письмо. Проверьте email и попробуйте снова.');
-      }
-    } finally {
-      setSubmitting(false);
-    }
+  // Any email flow that ends signed in: pull the new server session into
+  // the app first (so the gate never sees a half-signed-in state), then
+  // the same «Готово» panel and redirect as the passwordless link.
+  async function handleSignedIn(title: string) {
+    await refresh();
+    setDoneTitle(title);
+    setVerifyState('done');
+  }
+
+  // Leaving an emailed-link page: drop the token from the address bar.
+  function leaveLink(mode?: EmailMode) {
+    navigate({ screen: 'login' }, { replace: true });
+    setLink(null);
+    if (mode) setEmailMode(mode);
   }
 
   // Inside the Telegram Mini App VK ID opens in the external browser and
@@ -184,7 +178,7 @@ export function Login() {
             <>
               <h1 className={styles.headline}>Войти или создать аккаунт</h1>
               <p className={styles.subtext}>
-                Без пароля: продолжите через VK ID или получите ссылку для входа на почту.
+                Через VK ID или по почте — с паролем или по одноразовой ссылке.
               </p>
               <ul className={styles.benefits}>
                 {benefits.map((benefit) => (
@@ -237,7 +231,7 @@ export function Login() {
           {verifyState === 'done' && (
             <div className={styles.statePanel}>
               <Icon name="success" size={40} className={styles.stateIconSuccess} />
-              <p className={clsx('text-h3', styles.stateTitle)}>Готово!</p>
+              <p className={clsx('text-h3', styles.stateTitle)}>{doneTitle}</p>
               <p className={styles.stateText}>Вы вошли в Zybrilka. Переходим в тренажёр…</p>
               <Button fullWidth onClick={() => navigate({ screen: 'home' }, { replace: true })}>
                 Перейти сейчас
@@ -264,21 +258,17 @@ export function Login() {
             </div>
           )}
 
-          {verifyState === 'idle' && sent && (
-            <div className={styles.statePanel}>
-              <Icon name="mail" size={40} className={styles.stateIconSuccess} />
-              <p className={clsx('text-h3', styles.stateTitle)}>Проверьте почту</p>
-              <p className={styles.stateText}>
-                Мы отправили на <strong>{email.trim()}</strong> письмо со ссылкой для входа — это
-                ссылка, не код: просто откройте её, чтобы войти. Ссылка действует 15 минут.
-              </p>
-              <Button variant="secondary" fullWidth onClick={() => setSent(false)}>
-                Отправить другое письмо
-              </Button>
-            </div>
+          {verifyState === 'idle' && link && (
+            <EmailLinkFlow
+              key={link.token}
+              kind={link.kind}
+              token={link.token}
+              onSignedIn={handleSignedIn}
+              onDone={leaveLink}
+            />
           )}
 
-          {verifyState === 'idle' && !sent && (
+          {verifyState === 'idle' && !link && (
             <>
               {vkCancelled && (
                 <p role="status" className={styles.formError}>
@@ -325,32 +315,18 @@ export function Login() {
                 <span>или</span>
               </div>
 
-              <form onSubmit={handleSubmit} className={styles.form} noValidate>
-                <Input
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  label="Email"
-                  placeholder="you@example.com"
-                  leadingIcon="mail"
-                  value={email}
-                  disabled={submitting}
-                  errorText={fieldError ?? undefined}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    if (fieldError) setFieldError(null);
-                  }}
-                />
-                {formError && <p className={styles.formError}>{formError}</p>}
-                {telegramError && (
-                  <p role="alert" className={styles.formError}>
-                    {telegramErrorMessage(telegramError)}
-                  </p>
-                )}
-                <Button type="submit" fullWidth loading={submitting}>
-                  Продолжить с почтой
-                </Button>
-              </form>
+              <EmailAuthForms
+                key={emailMode}
+                initialMode={emailMode}
+                onSignedIn={handleSignedIn}
+                extraError={
+                  telegramError && (
+                    <p role="alert" className={styles.formError}>
+                      {telegramErrorMessage(telegramError)}
+                    </p>
+                  )
+                }
+              />
 
               <p className={styles.consent}>
                 Продолжая, вы соглашаетесь с условиями использования Zybrilka и обработкой

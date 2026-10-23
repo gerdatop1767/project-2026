@@ -3,7 +3,7 @@ import { Icon } from '../Icon/Icon.js';
 import { clsx } from '../../lib/clsx.js';
 import { useStreakContext } from '../../lib/streakContext.js';
 import { useAuth } from '../../lib/authContext.js';
-import { useNavigation } from '../../lib/navigation.js';
+import { useNavigation, useOptionalNavigation } from '../../lib/navigation.js';
 import { streakTier } from '@zybrilka/shared';
 import { StreakFlame } from './StreakFlame.js';
 import styles from './StatusChips.module.css';
@@ -27,8 +27,9 @@ export interface StatusChipsProps {
  * two platforms can never show a different streak number: there is
  * one `StreakProvider` fetch, read here on both shells.
  *
- * Level/XP has no backend behind it yet (see CLAUDE.md — explicitly
- * deferred) and keeps the neutral "—" placeholder. Streak is real:
+ * Level is real too: `GET /progress/xp` (server-side XP ledger, level
+ * derived from total XP — docs/XP.md), read from the same provider; the
+ * chip is a button that opens the «Уровень» page. Streak is real:
  * `useStreakContext()` reflects `GET /progress/streak`'s
  * server-computed (Europe/Moscow) state — `null` while still loading
  * shows the same "—" placeholder rather than a fabricated 0, but a
@@ -66,7 +67,22 @@ function GuestChip({ className }: StatusChipsProps) {
 }
 
 function AccountChips({ className }: StatusChipsProps) {
-  const { streak } = useStreakContext();
+  const { streak, xp } = useStreakContext();
+  const navigation = useOptionalNavigation();
+  const previousLevelRef = useRef<number | null>(null);
+  const [levelBumped, setLevelBumped] = useState(false);
+
+  useEffect(() => {
+    if (xp === null) return;
+    const previous = previousLevelRef.current;
+    previousLevelRef.current = xp.level;
+    // Only a real rise after a known value — never on first load.
+    if (previous !== null && xp.level > previous) {
+      setLevelBumped(true);
+      const id = window.setTimeout(() => setLevelBumped(false), 900);
+      return () => window.clearTimeout(id);
+    }
+  }, [xp]);
   const previousStreakRef = useRef<number | null>(null);
   const [justIncreased, setJustIncreased] = useState(false);
   const [levelUp, setLevelUp] = useState(false);
@@ -115,15 +131,39 @@ function AccountChips({ className }: StatusChipsProps) {
           </span>
         </span>
       </div>
-      <div className={clsx(styles.chip, styles.levelChip)}>
-        <div className={styles.levelChipRow}>
+      <button
+        type="button"
+        className={clsx(
+          styles.chip,
+          styles.levelChip,
+          styles.levelButton,
+          levelBumped && styles.chipStreakUp,
+        )}
+        onClick={() => navigation?.navigate({ screen: 'level' })}
+        aria-label={
+          xp === null
+            ? 'Уровень загружается. Открыть страницу уровня'
+            : xp.isMaxLevel
+              ? `Уровень ${xp.level}, максимальный. Открыть страницу уровня`
+              : `Уровень ${xp.level}, до следующего ${xp.xpToNextLevel} XP. Открыть страницу уровня`
+        }
+      >
+        <span className={styles.levelChipRow}>
           <Icon name="crown" size={20} className={styles.crownIcon} />
-          <span className={styles.chipText}>
+          <span className={styles.chipText} aria-hidden="true">
             <span className={styles.chipLabel}>Уровень</span>
-            <span className={styles.chipValue}>—</span>
+            <span className={styles.chipValue}>{xp === null ? '—' : xp.level}</span>
           </span>
-        </div>
-      </div>
+        </span>
+        {xp !== null && (
+          <span className={styles.levelBar} aria-hidden="true">
+            <span
+              className={styles.levelBarFill}
+              style={{ width: `${Math.round(xp.progress * 100)}%` }}
+            />
+          </span>
+        )}
+      </button>
     </div>
   );
 }

@@ -1,6 +1,12 @@
 import type { Database } from '@zybrilka/db';
 import {
+  emailTokenRequestSchema,
+  forgotPasswordRequestSchema,
   magicLinkRequestSchema,
+  passwordLoginRequestSchema,
+  registerRequestSchema,
+  resendConfirmationRequestSchema,
+  resetPasswordRequestSchema,
   telegramInitDataRequestSchema,
   verifyMagicLinkRequestSchema,
 } from '@zybrilka/shared';
@@ -12,10 +18,15 @@ import { recordSignIn } from '../analytics/recorder.js';
 import * as service from './service.js';
 import { createVkPkceChallenge, buildVkAuthorizeUrl, isVkConfigured } from './vk.js';
 import * as handoff from './handoff.js';
+import * as emailPassword from './emailPassword.js';
+import { EmailSendError } from './email.js';
+import { EmailThrottle } from './emailThrottle.js';
 
 export interface AuthRoutesOptions {
   db: Database;
   config: Config;
+  /** Per-address letter limit; tests pass one with their own clock. */
+  emailThrottle?: EmailThrottle;
 }
 
 const SESSION_COOKIE = 'session_id';
@@ -78,7 +89,10 @@ function clearSessionCookie(reply: FastifyReply, config: Config) {
   reply.clearCookie(SESSION_COOKIE, baseCookieOptions(config));
 }
 
-export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { db, config }) => {
+export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
+  app,
+  { db, config, emailThrottle: givenThrottle },
+) => {
   // A new sign-in replaces the browser's session cookie; the session it
   // replaces must not stay valid on the server (shared device, account switch).
   async function dropPreviousSession(request: FastifyRequest, newSessionId: string) {
@@ -131,6 +145,184 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
           return reply.code(400).send({ error: 'invalid_or_expired_token' });
         }
         throw error;
+      }
+    },
+  );
+
+  // ------------------------------------------- email + password (EMAIL_AUTH.md)
+  const emailThrottle = givenThrottle ?? new EmailThrottle();
+
+  /** Maps the email flows' errors to responses. Never echoes SMTP details:
+   * the log gets a coarse code, the client a fixed error name. */
+  function emailFlowError(request: FastifyRequest, reply: FastifyReply, error: unknown) {
+    if (error instanceof service.EmailNotConfiguredError) {
+      request.log.error({ mail: 'not_configured' }, 'Email requested but SMTP is not configured');
+      return reply.code(503).send({ error: 'email_not_configured' });
+    }
+    if (error instanceof EmailSendError) {
+      request.log.error(
+        { mail: 'send_failed', code: error.code, responseCode: error.responseCode },
+        'Email could not be sent',
+      );
+      return reply.code(502).send({ error: 'email_send_failed' });
+    }
+    if (error instanceof emailPassword.ThrottledError) {
+      return reply
+        .code(429)
+        .header('retry-after', String(error.retryAfterSeconds))
+        .send({ error: 'too_many_requests', retryAfterSeconds: error.retryAfterSeconds });
+    }
+    if (error instanceof emailPassword.PasswordRejectedError) {
+      return reply.code(400).send({ error: 'weak_password', problem: error.problem });
+    }
+    if (error instanceof emailPassword.TokenExpiredError) {
+      return reply.code(410).send({ error: 'token_expired' });
+    }
+    if (error instanceof emailPassword.TokenInvalidError) {
+      return reply.code(400).send({ error: 'invalid_or_used_token' });
+    }
+    if (error instanceof emailPassword.AlreadyRegisteredError) {
+      return reply.code(409).send({ error: 'already_registered' });
+    }
+    throw error;
+  }
+
+  async function signIn(request: FastifyRequest, reply: FastifyReply, result: service.LoginResult) {
+    await dropPreviousSession(request, result.sessionId);
+    await recordSignIn(db, request, {
+      userId: result.user.id,
+      created: result.created,
+      method: 'email',
+    });
+    reply.setCookie(
+      SESSION_COOKIE,
+      result.sessionId,
+      cookieOptions(config, SESSION_MAX_AGE_SECONDS),
+    );
+    return reply.code(200).send({ user: result.user, created: result.created });
+  }
+
+  // Same answer whether or not the address already has an account.
+  app.post(
+    '/auth/register',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = registerRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      try {
+        await emailPassword.register(
+          db,
+          config,
+          emailThrottle,
+          body.data.email,
+          body.data.password,
+        );
+      } catch (error) {
+        return emailFlowError(request, reply, error);
+      }
+      return reply.code(200).send({ ok: true });
+    },
+  );
+
+  app.post(
+    '/auth/register/confirm',
+    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = emailTokenRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_or_used_token' });
+      try {
+        return await signIn(
+          request,
+          reply,
+          await emailPassword.confirmRegistration(db, body.data.token),
+        );
+      } catch (error) {
+        return emailFlowError(request, reply, error);
+      }
+    },
+  );
+
+  app.post(
+    '/auth/register/resend',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = resendConfirmationRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      try {
+        await emailPassword.resendConfirmation(db, config, emailThrottle, body.data);
+      } catch (error) {
+        return emailFlowError(request, reply, error);
+      }
+      return reply.code(200).send({ ok: true });
+    },
+  );
+
+  // One error for "no such address", "no password" and "wrong password".
+  app.post(
+    '/auth/login',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = passwordLoginRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      try {
+        return await signIn(
+          request,
+          reply,
+          await emailPassword.loginWithPassword(db, body.data.email, body.data.password),
+        );
+      } catch (error) {
+        if (error instanceof emailPassword.InvalidCredentialsError) {
+          return reply.code(401).send({ error: 'invalid_credentials' });
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post(
+    '/auth/password/forgot',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = forgotPasswordRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      try {
+        await emailPassword.forgotPassword(db, config, emailThrottle, body.data.email);
+      } catch (error) {
+        return emailFlowError(request, reply, error);
+      }
+      return reply.code(200).send({ ok: true });
+    },
+  );
+
+  app.post(
+    '/auth/password/reset/check',
+    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = emailTokenRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_or_used_token' });
+      try {
+        await emailPassword.checkResetToken(db, body.data.token);
+      } catch (error) {
+        return emailFlowError(request, reply, error);
+      }
+      return reply.code(200).send({ ok: true });
+    },
+  );
+
+  app.post(
+    '/auth/password/reset',
+    { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = resetPasswordRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      try {
+        return await signIn(
+          request,
+          reply,
+          await emailPassword.resetPassword(db, body.data.token, body.data.password),
+        );
+      } catch (error) {
+        return emailFlowError(request, reply, error);
       }
     },
   );
