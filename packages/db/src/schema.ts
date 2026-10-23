@@ -1075,3 +1075,63 @@ export const adminAuditLog = pgTable(
     index('admin_audit_log_object_idx').on(table.objectType, table.objectId),
   ],
 );
+
+/** What an XP event was for — mirrors `xpEventKinds` in @zybrilka/shared. */
+export const xpEventKinds = ['task_first_solve', 'task_review'] as const;
+
+/**
+ * XP ledger (docs/XP.md): one row per award, never updated or deleted.
+ * `dedupKey` names the result being rewarded (`task:<id>:first`,
+ * `task:<id>:review:<YYYY-MM-DD>`), and the unique (userId, dedupKey)
+ * index is what makes an award idempotent: a replayed or concurrent
+ * request for the same result inserts nothing. Written in the same
+ * transaction as the attempt that earned it and as `user_xp`, so the
+ * ledger and the total can never diverge.
+ */
+export const xpEvents = pgTable(
+  'xp_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    amount: integer('amount').notNull(),
+    kind: text('kind', { enum: xpEventKinds }).notNull(),
+    /** What kind of thing earned it ('task' for now). */
+    sourceType: text('source_type').notNull(),
+    sourceId: uuid('source_id'),
+    /** The graded attempt behind it; null for awards rebuilt from history. */
+    attemptId: uuid('attempt_id').references(() => attempts.id),
+    dedupKey: text('dedup_key').notNull(),
+    /** The rule inputs at award time (difficulty, rule version…). */
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('xp_events_user_dedup_idx').on(table.userId, table.dedupKey),
+    index('xp_events_user_created_idx').on(table.userId, table.createdAt),
+    index('xp_events_user_source_idx').on(table.userId, table.sourceId),
+    index('xp_events_created_idx').on(table.createdAt),
+  ],
+);
+
+/**
+ * Running XP total per user — always the sum of that user's `xp_events`
+ * (updated in the same transaction as each insert). The level is never
+ * stored: it is derived from `totalXp` by `levelForXp` in @zybrilka/shared.
+ * `historyImportedAt` marks that correct answers given before XP existed
+ * have been turned into events (done once, lazily — see apps/api xp/service.ts).
+ * Indexed by `totalXp` for a future rating.
+ */
+export const userXp = pgTable(
+  'user_xp',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    totalXp: integer('total_xp').notNull().default(0),
+    historyImportedAt: timestamp('history_imported_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('user_xp_total_idx').on(table.totalXp)],
+);
