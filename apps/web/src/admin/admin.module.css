@@ -846,3 +846,20 @@
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
+
+/* Copy button + its status (and the manual-copy field when the browser refuses). */
+.copyGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+}
+
+.copyGroup .textarea {
+  flex-basis: 100%;
+}
+
+.search {
+  min-width: min(100%, 16rem);
+}

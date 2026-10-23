@@ -220,6 +220,8 @@ export function TaskMobile({
       onGoTo={taskNav.goTo}
       indexInSession={sessionProgress.indexInSession}
       totalInSession={sessionProgress.totalInSession}
+      reportScreen="task"
+      variantId={taskNav.variantId ?? variantId}
     />
   );
   // Switching from another task: the screen is already here — no entrance.

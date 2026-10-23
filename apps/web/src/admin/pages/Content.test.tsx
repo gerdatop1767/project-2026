@@ -283,7 +283,7 @@ describe('TaskPage', () => {
     expect(screen.queryByRole('link', { name: 'ФИПИ' })).toBeNull();
     expect(screen.getByText('Уравнения')).toBeInTheDocument();
     expect(screen.getByText('Статус: Черновик → Опубликовано')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Неверный ответ' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Неправильный ответ в задании' })).toHaveAttribute(
       'href',
       '/admin/complaints/c0ffee00-0000-4000-8000-000000000001',
     );

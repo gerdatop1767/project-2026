@@ -25,6 +25,7 @@ import {
   complaintListQuerySchema,
   complaintsListReport,
   complaintUpdateSchema,
+  DuplicateTargetError,
   updateComplaint,
 } from './reports/complaints.js';
 import {
@@ -318,18 +319,27 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   );
   app.get('/admin/complaints/:id', async (request, reply) => {
     const { id } = parse(idParams, request.params, 'invalid_id');
-    return (await complaintCardReport(db, id)) ?? notFound(reply);
+    return (await complaintCardReport(db, id, config.WEB_BASE_URL)) ?? notFound(reply);
   });
   app.patch('/admin/complaints/:id', async (request, reply) => {
     const { id } = parse(idParams, request.params, 'invalid_id');
     const patch = parse(complaintUpdateSchema, request.body, 'invalid_body');
-    const changed = await updateComplaint(db, id, patch);
+    let changed: Awaited<ReturnType<typeof updateComplaint>>;
+    try {
+      changed = await updateComplaint(db, id, patch, actor(request));
+    } catch (error) {
+      if (error instanceof DuplicateTargetError) throw new BadInput(error.code);
+      throw error;
+    }
     if (!changed) return notFound(reply);
     const details: Record<string, unknown> = {};
-    if (patch.status && patch.status !== changed.before.status) {
-      details.status = { from: changed.before.status, to: patch.status };
+    if (changed.status && changed.status !== changed.before.status) {
+      details.status = { from: changed.before.status, to: changed.status };
     }
     if (patch.internalComment !== undefined) details.internalCommentChanged = true;
+    if (patch.duplicateOf !== undefined) {
+      details.duplicateOf = changed.after.duplicateOfId;
+    }
     await audit(request, {
       action: 'complaint.updated',
       objectType: 'complaint',

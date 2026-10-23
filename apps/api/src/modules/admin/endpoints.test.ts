@@ -249,6 +249,88 @@ describe('admin endpoints (as the owner)', () => {
         status: { from: 'new', to: 'fixed' },
         internalCommentChanged: true,
       });
+      expect(upd.json().handledByUserId).toBe(owner);
+    });
+
+    it('search by RPT number or id, sort by date, and mark a duplicate', async () => {
+      const [first] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({
+          taskId: tasks[1]!.id,
+          userId: student,
+          reason: 'condition_error',
+          createdAt: new Date(Date.now() - 3_600_000),
+        })
+        .returning();
+      const [second] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({ taskId: tasks[1]!.id, userId: student, reason: 'condition_error' })
+        .returning();
+
+      const byNumber = (await get(`/api/v1/admin/complaints?q=RPT-${second!.reportNumber}`)).json();
+      expect(byNumber.items.map((i: { id: string }) => i.id)).toEqual([second!.id]);
+      const byUuid = (await get(`/api/v1/admin/complaints?q=${first!.id}`)).json();
+      expect(byUuid.items.map((i: { id: string }) => i.id)).toEqual([first!.id]);
+      const byTask = (await get(`/api/v1/admin/complaints?q=${tasks[1]!.id}`)).json();
+      expect(byTask.total).toBeGreaterThanOrEqual(2);
+      expect((await get('/api/v1/admin/complaints?q=garbage')).json().total).toBe(0);
+
+      const oldest = (
+        await get(`/api/v1/admin/complaints?taskId=${tasks[1]!.id}&sort=oldest`)
+      ).json();
+      expect(oldest.items.map((i: { id: string }) => i.id)).toEqual([first!.id, second!.id]);
+      const newest = (
+        await get(`/api/v1/admin/complaints?taskId=${tasks[1]!.id}&sort=newest`)
+      ).json();
+      expect(newest.items[0].id).toBe(second!.id);
+
+      const self = await send('PATCH', `/api/v1/admin/complaints/${second!.id}`, {
+        duplicateOf: `RPT-${second!.reportNumber}`,
+      });
+      expect(self.json()).toEqual({ error: 'duplicate_self' });
+      const missing = await send('PATCH', `/api/v1/admin/complaints/${second!.id}`, {
+        duplicateOf: 'RPT-999999',
+      });
+      expect(missing.json()).toEqual({ error: 'duplicate_not_found' });
+      const dup = await send('PATCH', `/api/v1/admin/complaints/${second!.id}`, {
+        duplicateOf: `RPT-${first!.reportNumber}`,
+      });
+      expect(dup.statusCode).toBe(200);
+      expect(dup.json()).toMatchObject({ duplicateOfId: first!.id, status: 'rejected' });
+      const card = (await get(`/api/v1/admin/complaints/${second!.id}`)).json();
+      expect(card.complaint.duplicateOf).toBe(first!.reportNumber);
+      expect(card.report.duplicateOf).toBe(first!.reportNumber);
+    });
+
+    it('the card carries the real task data for the Claude report — nothing invented', async () => {
+      const [c] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({
+          taskId: tasks[2]!.id,
+          userId: student,
+          reason: 'wrong_answer',
+          comment: 'Ответ 5, а не 4',
+        })
+        .returning();
+      const [task] = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.id, tasks[2]!.id));
+      const card = (await get(`/api/v1/admin/complaints/${c!.id}`)).json();
+      expect(card.report).toMatchObject({
+        reportNumber: c!.reportNumber,
+        id: c!.id,
+        taskId: task!.id,
+        taskNumber: task!.taskNumber,
+        reason: 'wrong_answer',
+        comment: 'Ответ 5, а не 4',
+        statement: task!.conditionMd,
+        statementFromSnapshot: false, // inserted directly: no snapshot
+        taskChangedSinceReport: null,
+        context: null,
+        adminUrl: `${WEB}/admin/complaints/${c!.id}`,
+      });
+      expect(card.complaint.taskStatement).toBe(task!.conditionMd);
     });
   });
 

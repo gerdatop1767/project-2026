@@ -296,7 +296,10 @@ describe('product analytics, campaign links, attribution, complaints', () => {
 
     it.each([
       [{ reason: 'spam' }, 400],
-      [{ reason: 'typo', comment: 'x'.repeat(1001) }, 400],
+      [{ reason: 'wrong_answer', comment: 'x'.repeat(1001) }, 400],
+      [{ reason: 'typo', comment: 'устаревшая категория' }, 400],
+      [{ reason: 'wrong_answer', context: { screen: 'task', path: 'https://evil.example/' } }, 400],
+      [{ reason: 'wrong_answer', context: { screen: 'hacker' } }, 400],
     ])('rejects invalid input %j', async (payload, code) => {
       const user = await signedIn();
       const res = await app.inject({
@@ -313,10 +316,82 @@ describe('product analytics, campaign links, attribution, complaints', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/v1/tasks/${randomUUID()}/complaints`,
-        payload: { reason: 'typo' },
+        payload: { reason: 'condition_error' },
         headers: { cookie: user.cookie },
       });
       expect(res.statusCode).toBe(404);
+    });
+
+    it('keeps the task id, the context and a snapshot of the task as it was', async () => {
+      const user = await signedIn();
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${task.id}/complaints`,
+        payload: {
+          reason: 'answer_check',
+          context: { screen: 'task', path: '/task/abc?from=training' },
+        },
+        headers: { cookie: user.cookie },
+      });
+      expect(res.statusCode).toBe(201);
+      expect(res.json().reportId).toMatch(/^RPT-\d+$/);
+      const [row] = await testDb.db
+        .select()
+        .from(schema.taskComplaints)
+        .where(eq(schema.taskComplaints.id, res.json().id));
+      expect(row).toMatchObject({
+        taskId: task.id,
+        userId: user.userId,
+        reason: 'answer_check',
+        comment: null,
+        context: { screen: 'task', path: '/task/abc?from=training' },
+      });
+      const [snap] = await testDb.db
+        .select()
+        .from(schema.taskSnapshots)
+        .where(eq(schema.taskSnapshots.id, row!.snapshotId!));
+      expect(snap!.taskId).toBe(task.id);
+      expect(snap!.content.correctAnswer).toBe(task.correctAnswer);
+
+      // A second complaint about the same task version shares the snapshot.
+      const other = await signedIn();
+      const again = await app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${task.id}/complaints`,
+        payload: { reason: 'wrong_topic' },
+        headers: { cookie: other.cookie },
+      });
+      const [second] = await testDb.db
+        .select({ snapshotId: schema.taskComplaints.snapshotId })
+        .from(schema.taskComplaints)
+        .where(eq(schema.taskComplaints.id, again.json().id));
+      expect(second!.snapshotId).toBe(row!.snapshotId);
+    });
+
+    it("«Другая причина» needs the user's own text", async () => {
+      const user = await signedIn();
+      const send = (payload: object) =>
+        app.inject({
+          method: 'POST',
+          url: `/api/v1/tasks/${task.id}/complaints`,
+          payload,
+          headers: { cookie: user.cookie },
+        });
+      for (const payload of [{ reason: 'other' }, { reason: 'other', comment: '   ' }]) {
+        const res = await send(payload);
+        expect(res.statusCode).toBe(400);
+        expect(res.json()).toEqual({ error: 'comment_required' });
+      }
+      const ok = await send({ reason: 'other', comment: 'Картинка не совпадает с условием' });
+      expect(ok.statusCode).toBe(201);
+    });
+
+    it('a user cannot read complaints at all — the list is admin-only', async () => {
+      const user = await signedIn();
+      for (const url of ['/api/v1/admin/complaints', `/api/v1/admin/complaints/${randomUUID()}`]) {
+        const res = await app.inject({ method: 'GET', url, headers: { cookie: user.cookie } });
+        expect(res.statusCode).toBe(403);
+      }
     });
   });
 });

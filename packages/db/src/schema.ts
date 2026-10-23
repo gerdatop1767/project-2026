@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   customType,
   date,
@@ -6,6 +7,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -1051,21 +1053,71 @@ export const userAttributions = pgTable(
   (table) => [index('user_attributions_campaign_idx').on(table.campaignId)],
 );
 
+/**
+ * Complaint categories. A plain `text` column (no DB enum/CHECK), so this
+ * list can grow without a migration. `typo` is legacy: no longer offered in
+ * the form, but kept so older complaints still read correctly. The form's
+ * own list and labels live in @zybrilka/shared (complaints.ts).
+ */
 export const complaintReasons = [
   'wrong_answer',
   'condition_error',
   'typo',
   'bad_explanation',
   'display_problem',
+  'answer_check',
+  'wrong_topic',
+  'duplicate',
   'other',
 ] as const;
 export const complaintStatuses = ['new', 'in_progress', 'fixed', 'rejected'] as const;
+
+/** Where in the app a complaint was sent from (validated, small). */
+export interface ComplaintContext {
+  screen: string;
+  path?: string;
+  variantId?: string;
+}
+
+/**
+ * What a task looked like when someone complained about it: condition,
+ * answer and explanation as they were, so a complaint stays readable after
+ * the task is edited. One row per task VERSION (`task_updated_at`), shared
+ * by every complaint about that version — the big fields are never copied
+ * into each complaint.
+ */
+export const taskSnapshots = pgTable(
+  'task_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    taskUpdatedAt: timestamp('task_updated_at', { withTimezone: true }).notNull(),
+    content: jsonb('content')
+      .$type<{
+        conditionMd: string;
+        imageUrl: string | null;
+        answerOptions: readonly string[] | null;
+        correctAnswer: string;
+        correctAnswerDisplay: string | null;
+        explanationMd: string;
+        topicId: string | null;
+        contentHash: string | null;
+      }>()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('task_snapshots_task_version_idx').on(table.taskId, table.taskUpdatedAt)],
+);
 
 /** «Пожаловаться на задание» — one row per submitted complaint. */
 export const taskComplaints = pgTable(
   'task_complaints',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    /** Human-readable number, shown as `RPT-<n>`. */
+    reportNumber: serial('report_number').notNull(),
     taskId: uuid('task_id')
       .notNull()
       .references(() => tasks.id),
@@ -1077,11 +1129,21 @@ export const taskComplaints = pgTable(
     status: text('status', { enum: complaintStatuses }).notNull().default('new'),
     /** Visible to admins only. */
     internalComment: text('internal_comment'),
+    /** Screen/path the complaint was sent from; null for older complaints. */
+    context: jsonb('context').$type<ComplaintContext>(),
+    /** The task as it was when reported; null for older complaints. */
+    snapshotId: uuid('snapshot_id').references(() => taskSnapshots.id),
+    /** Marked by an admin as a duplicate of this earlier complaint. */
+    duplicateOfId: uuid('duplicate_of_id').references((): AnyPgColumn => taskComplaints.id),
+    /** The admin who last changed the status. */
+    handledByUserId: uuid('handled_by_user_id').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex('task_complaints_report_number_idx').on(table.reportNumber),
+    index('task_complaints_created_idx').on(table.createdAt),
     index('task_complaints_status_created_idx').on(table.status, table.createdAt),
     index('task_complaints_task_idx').on(table.taskId),
     index('task_complaints_user_idx').on(table.userId),

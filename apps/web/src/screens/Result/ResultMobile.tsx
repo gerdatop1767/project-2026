@@ -226,6 +226,8 @@ export function ResultMobile({
         onGoTo={taskNav.goTo}
         indexInSession={sessionProgress.indexInSession}
         totalInSession={sessionProgress.totalInSession}
+        reportScreen="result"
+        variantId={taskNav.variantId ?? variantId}
       />
 
       <div

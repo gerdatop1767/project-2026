@@ -16,7 +16,7 @@
  * - no third-party analytics, ads or trackers anywhere in apps/web; the
  *   only analytics is first-party (lib/analytics.ts, the `zv` cookie —
  *   apps/api/src/modules/analytics), feeding the owner's admin panel;
- * - "Пожаловаться на задание" stores the complaint (reason, comment,
+ * - «Сообщить об ошибке» stores the complaint (reason, comment,
  *   account) for review in the admin panel (apps/api modules/complaints).
  *
  * `[Заполнить: …]` marks a fact only the owner can supply (operator,
