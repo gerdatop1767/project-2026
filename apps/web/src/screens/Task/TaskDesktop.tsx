@@ -304,7 +304,7 @@ export function TaskDesktop({
                   <button
                     type="button"
                     className={styles.iconButton}
-                    aria-label="Пожаловаться на задание"
+                    aria-label="Сообщить об ошибке в задании"
                     onClick={() => setReportOpen(true)}
                   >
                     <Icon name="warning" size={18} />
@@ -463,8 +463,14 @@ export function TaskDesktop({
             taskId={task.id}
             task={task}
           />
-          <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Задание">
-            <ReportTaskContent taskId={task.id} />
+          <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Сообщить об ошибке">
+            <ReportTaskContent
+              key={task.id}
+              taskId={task.id}
+              screen="task"
+              variantId={taskNav.variantId ?? variantId}
+              onClose={() => setReportOpen(false)}
+            />
           </Modal>
         </>
       )}

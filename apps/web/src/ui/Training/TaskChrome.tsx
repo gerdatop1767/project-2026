@@ -32,6 +32,9 @@ export interface TaskChromeProps {
    * which are just a safe single-item default (see taskAdapter.ts). */
   indexInSession: number;
   totalInSession: number;
+  /** Where «Сообщить об ошибке» is sent from (stored with the report). */
+  reportScreen?: 'task' | 'result';
+  variantId?: string;
 }
 
 /**
@@ -55,6 +58,8 @@ export function TaskChrome({
   onGoTo,
   indexInSession,
   totalInSession,
+  reportScreen = 'task',
+  variantId,
 }: TaskChromeProps) {
   const progressPercent = (indexInSession / totalInSession) * 100;
   const favorite = useFavorite(taskId);
@@ -76,7 +81,7 @@ export function TaskChrome({
         <button
           type="button"
           className={styles.iconButton}
-          aria-label="Пожаловаться на задание"
+          aria-label="Сообщить об ошибке в задании"
           onClick={() => setReportOpen(true)}
         >
           <Icon name="warning" size={20} />
@@ -92,8 +97,18 @@ export function TaskChrome({
         </button>
       </div>
 
-      <BottomSheet open={reportOpen} onClose={() => setReportOpen(false)} title="Задание">
-        <ReportTaskContent taskId={taskId} />
+      <BottomSheet
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title="Сообщить об ошибке"
+      >
+        <ReportTaskContent
+          key={taskId}
+          taskId={taskId}
+          screen={reportScreen}
+          variantId={variantId}
+          onClose={() => setReportOpen(false)}
+        />
       </BottomSheet>
 
       <div className={styles.navRow}>

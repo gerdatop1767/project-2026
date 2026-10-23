@@ -1,4 +1,6 @@
 import {
+  type AnyPgColumn,
+  bigint,
   boolean,
   customType,
   date,
@@ -6,6 +8,8 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
+  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -1051,21 +1055,71 @@ export const userAttributions = pgTable(
   (table) => [index('user_attributions_campaign_idx').on(table.campaignId)],
 );
 
+/**
+ * Complaint categories. A plain `text` column (no DB enum/CHECK), so this
+ * list can grow without a migration. `typo` is legacy: no longer offered in
+ * the form, but kept so older complaints still read correctly. The form's
+ * own list and labels live in @zybrilka/shared (complaints.ts).
+ */
 export const complaintReasons = [
   'wrong_answer',
   'condition_error',
   'typo',
   'bad_explanation',
   'display_problem',
+  'answer_check',
+  'wrong_topic',
+  'duplicate',
   'other',
 ] as const;
 export const complaintStatuses = ['new', 'in_progress', 'fixed', 'rejected'] as const;
+
+/** Where in the app a complaint was sent from (validated, small). */
+export interface ComplaintContext {
+  screen: string;
+  path?: string;
+  variantId?: string;
+}
+
+/**
+ * What a task looked like when someone complained about it: condition,
+ * answer and explanation as they were, so a complaint stays readable after
+ * the task is edited. One row per task VERSION (`task_updated_at`), shared
+ * by every complaint about that version — the big fields are never copied
+ * into each complaint.
+ */
+export const taskSnapshots = pgTable(
+  'task_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    taskUpdatedAt: timestamp('task_updated_at', { withTimezone: true }).notNull(),
+    content: jsonb('content')
+      .$type<{
+        conditionMd: string;
+        imageUrl: string | null;
+        answerOptions: readonly string[] | null;
+        correctAnswer: string;
+        correctAnswerDisplay: string | null;
+        explanationMd: string;
+        topicId: string | null;
+        contentHash: string | null;
+      }>()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('task_snapshots_task_version_idx').on(table.taskId, table.taskUpdatedAt)],
+);
 
 /** «Пожаловаться на задание» — one row per submitted complaint. */
 export const taskComplaints = pgTable(
   'task_complaints',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    /** Human-readable number, shown as `RPT-<n>`. */
+    reportNumber: serial('report_number').notNull(),
     taskId: uuid('task_id')
       .notNull()
       .references(() => tasks.id),
@@ -1077,11 +1131,21 @@ export const taskComplaints = pgTable(
     status: text('status', { enum: complaintStatuses }).notNull().default('new'),
     /** Visible to admins only. */
     internalComment: text('internal_comment'),
+    /** Screen/path the complaint was sent from; null for older complaints. */
+    context: jsonb('context').$type<ComplaintContext>(),
+    /** The task as it was when reported; null for older complaints. */
+    snapshotId: uuid('snapshot_id').references(() => taskSnapshots.id),
+    /** Marked by an admin as a duplicate of this earlier complaint. */
+    duplicateOfId: uuid('duplicate_of_id').references((): AnyPgColumn => taskComplaints.id),
+    /** The admin who last changed the status. */
+    handledByUserId: uuid('handled_by_user_id').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex('task_complaints_report_number_idx').on(table.reportNumber),
+    index('task_complaints_created_idx').on(table.createdAt),
     index('task_complaints_status_created_idx').on(table.status, table.createdAt),
     index('task_complaints_task_idx').on(table.taskId),
     index('task_complaints_user_idx').on(table.userId),
@@ -1110,6 +1174,161 @@ export const adminAuditLog = pgTable(
   (table) => [
     index('admin_audit_log_created_idx').on(table.createdAt),
     index('admin_audit_log_object_idx').on(table.objectType, table.objectId),
+  ],
+);
+
+/**
+ * Private chats that started the Telegram bot (/start). The only audience a
+ * bot may write to on its own: Telegram refuses to message someone who
+ * never started it, and broadcasts go to these rows only. `userId` links the
+ * chat to an account when that Telegram user has signed in (auth_identities
+ * provider 'telegram'); the bot never creates accounts itself. No username
+ * or name is stored. `blockedAt` is set when Telegram says the user blocked
+ * the bot (403) and cleared by their next /start.
+ */
+export const telegramBotChats = pgTable(
+  'telegram_bot_chats',
+  {
+    chatId: bigint('chat_id', { mode: 'number' }).primaryKey(),
+    userId: uuid('user_id').references(() => users.id),
+    startCount: integer('start_count').notNull().default(1),
+    firstStartedAt: timestamp('first_started_at', { withTimezone: true }).notNull().defaultNow(),
+    lastStartedAt: timestamp('last_started_at', { withTimezone: true }).notNull().defaultNow(),
+    blockedAt: timestamp('blocked_at', { withTimezone: true }),
+  },
+  (table) => [index('telegram_bot_chats_user_idx').on(table.userId)],
+);
+
+export const outboxStatuses = ['pending', 'sending', 'sent', 'skipped', 'failed'] as const;
+
+/**
+ * Owner notifications waiting for the worker to send them to Telegram
+ * (docs/TELEGRAM_BOT.md). The API only inserts a row — never talks to
+ * Telegram inside a request — so a Telegram outage can't break a sign-up or
+ * a complaint. `dedupKey` makes an event notify at most once (e.g.
+ * `registration:<userId>`). `payload` holds ids and short texts only.
+ */
+export const telegramOutbox = pgTable(
+  'telegram_outbox',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    dedupKey: text('dedup_key'),
+    status: text('status', { enum: outboxStatuses }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Short failure code (e.g. `network`, `no_recipients`) — never message text. */
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('telegram_outbox_dedup_idx').on(table.dedupKey),
+    index('telegram_outbox_status_next_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
+export const broadcastStatuses = [
+  'draft',
+  'awaiting_confirmation',
+  'sending',
+  'completed',
+  'completed_with_errors',
+  'cancelled',
+] as const;
+/** One image with the text as its caption, or images then the text separately. */
+export const broadcastMediaModes = ['caption', 'separate'] as const;
+export const broadcastTestStatuses = ['pending', 'sent', 'failed', 'no_recipients'] as const;
+
+/**
+ * A message to every Telegram chat that started the bot (docs/TELEGRAM_BOT.md).
+ * Created and confirmed in the admin panel; sent by the worker only after
+ * the explicit confirmation (`awaiting_confirmation` → `sending` is one
+ * conditional update, so it can't be started twice). Counters are kept here
+ * so history needs no per-recipient scan.
+ */
+export const broadcasts = pgTable(
+  'broadcasts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    authorUserId: uuid('author_user_id')
+      .notNull()
+      .references(() => users.id),
+    status: text('status', { enum: broadcastStatuses }).notNull().default('draft'),
+    /** Telegram HTML subset (validated by @zybrilka/shared telegramHtml). */
+    text: text('text').notNull().default(''),
+    mediaMode: text('media_mode', { enum: broadcastMediaModes }).notNull().default('caption'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    confirmedByUserId: uuid('confirmed_by_user_id').references(() => users.id),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** Snapshot taken when sending starts; null before. */
+    recipientsTotal: integer('recipients_total'),
+    sentCount: integer('sent_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    blockedCount: integer('blocked_count').notNull().default(0),
+    /** «Отправить себе»: requested → the worker sends the content to the owners. */
+    testRequestedAt: timestamp('test_requested_at', { withTimezone: true }),
+    testStatus: text('test_status', { enum: broadcastTestStatuses }),
+  },
+  (table) => [index('broadcasts_status_created_idx').on(table.status, table.createdAt)],
+);
+
+/** Images of a broadcast, in the order they were added (`position`). */
+export const broadcastAttachments = pgTable(
+  'broadcast_attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    broadcastId: uuid('broadcast_id')
+      .notNull()
+      .references(() => broadcasts.id),
+    position: integer('position').notNull(),
+    contentType: text('content_type').notNull(),
+    data: bytea('data').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    /** Telegram's id after the first upload; reused for every other recipient. */
+    telegramFileId: text('telegram_file_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('broadcast_attachments_position_idx').on(table.broadcastId, table.position),
+  ],
+);
+
+export const broadcastDeliveryStatuses = [
+  'pending',
+  'in_flight',
+  'sent',
+  'failed',
+  'blocked',
+] as const;
+
+/**
+ * One row per (broadcast, chat), created in one INSERT … SELECT when sending
+ * starts — the audience is never loaded into memory. The primary key makes a
+ * chat get a broadcast at most once; `in_flight` rows found after a restart
+ * are closed as failed (`interrupted`), never sent again. Only the chat id
+ * and a short error code are kept — no names, no message text.
+ */
+export const broadcastDeliveries = pgTable(
+  'broadcast_deliveries',
+  {
+    broadcastId: uuid('broadcast_id')
+      .notNull()
+      .references(() => broadcasts.id),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    status: text('status', { enum: broadcastDeliveryStatuses }).notNull().default('pending'),
+    errorCode: text('error_code'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.broadcastId, table.chatId] }),
+    index('broadcast_deliveries_status_idx').on(table.broadcastId, table.status),
   ],
 );
 

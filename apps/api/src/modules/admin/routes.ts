@@ -25,6 +25,7 @@ import {
   complaintListQuerySchema,
   complaintsListReport,
   complaintUpdateSchema,
+  DuplicateTargetError,
   updateComplaint,
 } from './reports/complaints.js';
 import {
@@ -48,6 +49,14 @@ import {
   saveSettings,
 } from './reports/settings.js';
 import { userCardReport, userListQuerySchema, usersListReport } from './reports/users.js';
+import {
+  adminNotificationSettingsSchema,
+  loadNotificationSettings,
+  notificationsReport,
+  saveNotificationSettings,
+} from './reports/notifications.js';
+import { enqueueNotification } from '../notifications/outbox.js';
+import { broadcastRoutes } from './broadcasts.js';
 
 export interface AdminRoutesOptions {
   db: Database;
@@ -318,18 +327,27 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   );
   app.get('/admin/complaints/:id', async (request, reply) => {
     const { id } = parse(idParams, request.params, 'invalid_id');
-    return (await complaintCardReport(db, id)) ?? notFound(reply);
+    return (await complaintCardReport(db, id, config.WEB_BASE_URL)) ?? notFound(reply);
   });
   app.patch('/admin/complaints/:id', async (request, reply) => {
     const { id } = parse(idParams, request.params, 'invalid_id');
     const patch = parse(complaintUpdateSchema, request.body, 'invalid_body');
-    const changed = await updateComplaint(db, id, patch);
+    let changed: Awaited<ReturnType<typeof updateComplaint>>;
+    try {
+      changed = await updateComplaint(db, id, patch, actor(request));
+    } catch (error) {
+      if (error instanceof DuplicateTargetError) throw new BadInput(error.code);
+      throw error;
+    }
     if (!changed) return notFound(reply);
     const details: Record<string, unknown> = {};
-    if (patch.status && patch.status !== changed.before.status) {
-      details.status = { from: changed.before.status, to: patch.status };
+    if (changed.status && changed.status !== changed.before.status) {
+      details.status = { from: changed.before.status, to: changed.status };
     }
     if (patch.internalComment !== undefined) details.internalCommentChanged = true;
+    if (patch.duplicateOf !== undefined) {
+      details.duplicateOf = changed.after.duplicateOfId;
+    }
     await audit(request, {
       action: 'complaint.updated',
       objectType: 'complaint',
@@ -351,7 +369,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   app.get('/admin/health', async () => healthReport(db, metrics, version));
   app.get('/admin/alerts', async () => ({
     ...(await computeAlerts(db, metrics, await loadSettings(db))),
-    channels: notificationChannels,
+    channels: notificationChannels(Boolean(config.TELEGRAM_BOT_TOKEN)),
     notObservable: ['import_failure'],
   }));
 
@@ -362,7 +380,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       .max(64)
       .regex(/^[a-z_.]*$/)
       .optional(),
-    objectType: z.enum(['task', 'complaint', 'campaign', 'user', 'settings', 'export']).optional(),
+    objectType: z
+      .enum(['task', 'complaint', 'campaign', 'user', 'settings', 'export', 'broadcast'])
+      .optional(),
     objectId: z.string().max(64).optional(),
     page: z.coerce.number().int().min(1).max(10_000).default(1),
     pageSize: z.coerce.number().int().min(10).max(100).default(50),
@@ -394,7 +414,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   app.get('/admin/settings', async () => ({
     settings: await loadSettings(db),
     defaults: adminSettingsSchema.parse({}),
-    channels: notificationChannels,
+    channels: notificationChannels(Boolean(config.TELEGRAM_BOT_TOKEN)),
     integrations: {
       yandexWebmaster: 'not_connected',
       googleSearchConsole: 'not_connected',
@@ -413,6 +433,44 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     });
     return { settings: next };
   });
+
+  // ── Рассылки (только черновики и подтверждение; шлёт worker) ──────────
+  await app.register(broadcastRoutes, { db });
+
+  // ── Уведомления в Telegram (только владельцу) ─────────────────────────
+  app.get('/admin/notifications', async () =>
+    notificationsReport(db, config.ADMIN_OWNER_USER_IDS, Boolean(config.TELEGRAM_BOT_TOKEN)),
+  );
+  app.put('/admin/notifications', async (request) => {
+    const next = parse(adminNotificationSettingsSchema.strict(), request.body, 'invalid_body');
+    const before = await loadNotificationSettings(db);
+    await saveNotificationSettings(db, next);
+    await audit(request, {
+      action: 'notifications.updated',
+      objectType: 'settings',
+      objectId: 'admin.notifications',
+      result: 'ok',
+      details: { before, after: next },
+    });
+    return { settings: next };
+  });
+  app.post(
+    '/admin/notifications/test',
+    { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      await enqueueNotification(db, request.log, {
+        kind: 'test',
+        data: { at: new Date().toISOString() },
+      });
+      await audit(request, {
+        action: 'notifications.test',
+        objectType: 'settings',
+        objectId: 'admin.notifications',
+        result: 'ok',
+      });
+      return reply.code(202).send({ queued: true });
+    },
+  );
 
   // ── CSV ──────────────────────────────────────────────────────────────
   app.get('/admin/export/:kind', async (request, reply) => {

@@ -308,14 +308,13 @@ describe('TaskMobile', () => {
     expect(within(reopened).getByRole('button', { name: 'Отменить' })).toBeEnabled();
   });
 
-  it('opens "Пожаловаться на задание" from the header warning icon (canvas mobile fix block)', async () => {
+  it('opens «Сообщить об ошибке» from the header warning icon (canvas mobile fix block)', async () => {
     const user = userEvent.setup();
     renderTask();
     await screen.findByText(CONDITION);
 
-    await user.click(screen.getByRole('button', { name: 'Пожаловаться на задание' }));
-    const dialog = screen.getByRole('dialog', { name: 'Задание' });
-    await user.click(within(dialog).getByRole('button', { name: 'Пожаловаться на задание' }));
+    await user.click(screen.getByRole('button', { name: 'Сообщить об ошибке в задании' }));
+    const dialog = screen.getByRole('dialog', { name: 'Сообщить об ошибке' });
 
     // Signed out here: the real form needs an account, so it offers sign-in
     // (the form itself is covered in ReportTaskContent.test.tsx).

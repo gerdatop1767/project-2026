@@ -1,4 +1,11 @@
 import { useState } from 'react';
+import {
+  buildClaudeReport,
+  buildShortReport,
+  formatReportId,
+  type ComplaintReportData,
+} from '@zybrilka/shared';
+import { CopyButton } from '../components/CopyButton.js';
 import { PageHead } from '../components/Shell.js';
 import {
   Badge,
@@ -29,6 +36,7 @@ type ComplaintStatus = 'new' | 'in_progress' | 'fixed' | 'rejected';
 
 type ComplaintRow = {
   id: string;
+  reportNumber: number;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -42,6 +50,9 @@ type ComplaintRow = {
   internalComment: string | null;
   userId: string | null;
   otherComplaints: number;
+  context: { screen: string; path?: string; variantId?: string } | null;
+  duplicateOf: number | null;
+  handledByUserId: string | null;
 };
 
 interface ComplaintList {
@@ -54,6 +65,7 @@ interface ComplaintList {
 
 type OtherComplaint = {
   id: string;
+  reportNumber: number;
   reason: string;
   status: ComplaintStatus;
   comment: string | null;
@@ -67,16 +79,37 @@ interface AuditEntry {
   details: {
     status?: { from: string; to: string };
     internalCommentChanged?: boolean;
+    duplicateOf?: string | null;
   } | null;
   actorUserId: string | null;
   createdAt: string;
 }
 
 interface ComplaintCard {
-  complaint: ComplaintRow & { taskPreview: string | null; taskStatus: string };
+  complaint: ComplaintRow & {
+    taskStatus: string;
+    taskStatement: string;
+    taskAnswer: string;
+    taskExplanation: string;
+    snapshot: {
+      statement: string;
+      answer: string;
+      explanation: string;
+      taskUpdatedAt: string | null;
+    } | null;
+  };
+  report: ComplaintReportData;
   others: OtherComplaint[];
   history: AuditEntry[];
 }
+
+const screenText: Record<string, string> = {
+  task: 'Задание',
+  result: 'Результат проверки',
+  variant: 'Вариант',
+  mistakes: 'Мои ошибки',
+  other: 'Другое',
+};
 
 const PAGE_SIZE = 25;
 const statuses: ComplaintStatus[] = ['new', 'in_progress', 'fixed', 'rejected'];
@@ -113,9 +146,13 @@ export function ComplaintsPage() {
   const reasonParam = p.get('reason');
   const reason = reasonParam && reasons.includes(reasonParam) ? reasonParam : undefined;
   const subject = p.get('subject') ?? undefined;
+  const q = p.get('q')?.trim() || undefined;
+  const sortParam = p.get('sort');
+  const sort = sortParam === 'newest' || sortParam === 'oldest' ? sortParam : undefined;
   const page = Math.max(1, Number(p.get('page')) || 1);
-  const filters = { status, reason, subject };
-  const hasFilters = Boolean(status || reason || subject);
+  const filters = { status, reason, subject, q, sort };
+  const hasFilters = Boolean(status || reason || subject || q);
+  const [search, setSearch] = useState(q ?? '');
   const query = useAdminQuery<ComplaintList>('/complaints', {
     ...filters,
     page,
@@ -134,7 +171,7 @@ export function ComplaintsPage() {
       label: 'ID',
       render: (r) => (
         <AdminLink to={`/admin/complaints/${r.id}`} className={`${s.link} ${s.mono}`} title={r.id}>
-          {shortId(r.id)}
+          {formatReportId(r.reportNumber)}
         </AdminLink>
       ),
     },
@@ -165,7 +202,18 @@ export function ComplaintsPage() {
           <span className={s.muted}>—</span>
         ),
     },
-    { key: 'status', label: 'Статус', render: (r) => <StatusBadge status={r.status} /> },
+    {
+      key: 'status',
+      label: 'Статус',
+      render: (r) => (
+        <>
+          <StatusBadge status={r.status} />
+          {r.duplicateOf !== null && (
+            <span className={s.small}> дубликат {formatReportId(r.duplicateOf)}</span>
+          )}
+        </>
+      ),
+    },
     { key: 'otherComplaints', label: 'Ещё жалоб на задание', numeric: true },
     {
       key: 'userId',
@@ -213,6 +261,29 @@ export function ComplaintsPage() {
           ]}
           onChange={(v) => setFilter({ status: v === 'all' ? null : v })}
         />
+        <form
+          className={s.filters}
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setFilter({ q: search.trim() || null });
+          }}
+        >
+          <label className={`${s.field} ${s.search}`}>
+            Поиск по ID
+            <input
+              className={s.input}
+              type="search"
+              value={search}
+              placeholder="RPT-12, ID жалобы или задания"
+              maxLength={64}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          <button type="submit" className={s.button}>
+            Найти
+          </button>
+        </form>
         <div className={s.filters}>
           <label className={s.field}>
             Причина
@@ -242,6 +313,20 @@ export function ComplaintsPage() {
                   {name}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className={s.field}>
+            Сортировка
+            <select
+              className={s.select}
+              value={sort ?? 'new'}
+              onChange={(e) =>
+                setFilter({ sort: e.target.value === 'new' ? null : e.target.value })
+              }
+            >
+              <option value="new">Сначала новые необработанные</option>
+              <option value="newest">По дате: новые сверху</option>
+              <option value="oldest">По дате: старые сверху</option>
             </select>
           </label>
         </div>
@@ -295,6 +380,9 @@ function historyText(entry: AuditEntry): string {
     );
   }
   if (entry.details?.internalCommentChanged) parts.push('изменён внутренний комментарий');
+  if (entry.details && 'duplicateOf' in entry.details) {
+    parts.push(entry.details.duplicateOf ? 'отмечена как дубликат' : 'снята отметка «дубликат»');
+  }
   if (parts.length === 0)
     parts.push(entry.action === 'complaint.updated' ? 'изменение' : entry.action);
   return parts.join('; ');
@@ -312,6 +400,7 @@ export function ComplaintPage({ id = '' }: Record<string, string>) {
   const [writeError, setWriteError] = useState<unknown>(null);
   const [comment, setComment] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [duplicateOf, setDuplicateOf] = useState('');
 
   const back = (
     <AdminLink to="/admin/complaints" className={`${s.link} ${s.backLink}`}>
@@ -349,6 +438,19 @@ export function ComplaintPage({ id = '' }: Record<string, string>) {
       setBusy(false);
     }
   };
+  const markDuplicate = async (value: string | null) => {
+    setBusy(true);
+    setWriteError(null);
+    try {
+      await adminApi.patch(path, { duplicateOf: value });
+      setDuplicateOf('');
+      query.reload();
+    } catch (e) {
+      setWriteError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
   const saveComment = async (text: string) => {
     setBusy(true);
     setWriteError(null);
@@ -374,16 +476,31 @@ export function ComplaintPage({ id = '' }: Record<string, string>) {
           return (
             <>
               <PageHead
-                title={`Жалоба ${shortId(c.id)}`}
+                title={`Жалоба ${formatReportId(c.reportNumber)}`}
                 subtitle={
                   <p className={s.subtitle}>
                     {reasonText(c.reason)} · <StatusBadge status={c.status} />
+                    {c.duplicateOf !== null && <> · дубликат {formatReportId(c.duplicateOf)}</>}
                   </p>
                 }
               />
               <div className={s.grid}>
                 <Note>Все изменения записываются в журнал действий.</Note>
                 {writeError !== null && <ErrorState error={writeError} compact />}
+                <Card
+                  title="Передать в работу"
+                  note="Структурированный отчёт: задание, ответ, текст пользователя, контекст"
+                >
+                  <div className={s.toolbar}>
+                    <CopyButton
+                      text={buildClaudeReport(d.report)}
+                      label="Скопировать для Claude"
+                      primary
+                    />
+                    <CopyButton text={buildShortReport(d.report)} label="Краткая версия" />
+                    <CopyButton text={formatReportId(c.reportNumber)} label="ID жалобы" />
+                  </div>
+                </Card>
                 <Card title="Статус">
                   <div className={s.toolbar}>
                     {transitions
@@ -404,6 +521,8 @@ export function ComplaintPage({ id = '' }: Record<string, string>) {
                 <div className={s.cols2}>
                   <Card title="Жалоба">
                     <dl className={s.dl}>
+                      <dt>Номер</dt>
+                      <dd className={s.mono}>{formatReportId(c.reportNumber)}</dd>
                       <dt>ID</dt>
                       <dd className={s.mono}>{c.id}</dd>
                       <dt>Создана</dt>
@@ -419,6 +538,27 @@ export function ComplaintPage({ id = '' }: Record<string, string>) {
                       <dt>Статус</dt>
                       <dd>
                         <StatusBadge status={c.status} />
+                      </dd>
+                      <dt>Откуда</dt>
+                      <dd>
+                        {c.context ? (
+                          <>
+                            {screenText[c.context.screen] ?? c.context.screen}
+                            {c.context.path && (
+                              <span className={`${s.mono} ${s.small}`}> {c.context.path}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className={s.muted}>не сохранено</span>
+                        )}
+                      </dd>
+                      <dt>Обработал</dt>
+                      <dd>
+                        {c.handledByUserId ? (
+                          <span className={s.mono}>{shortId(c.handledByUserId)}</span>
+                        ) : (
+                          <span className={s.muted}>—</span>
+                        )}
                       </dd>
                       <dt>Отправитель</dt>
                       <dd>
@@ -450,51 +590,136 @@ export function ComplaintPage({ id = '' }: Record<string, string>) {
                       <dd>{c.taskNumber ?? '—'}</dd>
                       <dt>Год</dt>
                       <dd>{c.sourceYear ?? '—'}</dd>
+                      <dt>Источник</dt>
+                      <dd>{d.report.source ?? '—'}</dd>
+                      <dt>Вариант</dt>
+                      <dd>{d.report.variant ?? '—'}</dd>
+                      <dt>ID задания</dt>
+                      <dd className={s.mono}>{c.taskId}</dd>
                       <dt>Статус задания</dt>
                       <dd>{taskStatusText[c.taskStatus] ?? c.taskStatus}</dd>
                     </dl>
-                    <p className={s.small}>Начало условия:</p>
-                    <div className={s.preview}>
-                      {c.taskPreview || <span className={s.muted}>Условие пустое.</span>}
-                    </div>
                   </Card>
                 </div>
-                <Card title="Внутренний комментарий" note="Виден только в админке">
-                  <form
-                    className={s.grid}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void saveComment(commentValue);
-                    }}
-                  >
-                    <label className={s.field}>
-                      Комментарий
-                      <textarea
-                        className={s.textarea}
-                        value={commentValue}
-                        maxLength={2000}
-                        onChange={(e) => {
-                          setComment(e.target.value);
-                          setSaved(false);
-                        }}
-                      />
-                    </label>
-                    <div className={s.toolbar}>
-                      <button
-                        type="submit"
-                        className={`${s.button} ${s.buttonPrimary}`}
-                        disabled={busy || commentValue === (c.internalComment ?? '')}
-                      >
-                        Сохранить
-                      </button>
-                      {saved && (
-                        <span role="status" className={s.muted}>
-                          Сохранено
-                        </span>
-                      )}
-                    </div>
-                  </form>
+                <Card
+                  title={c.snapshot ? 'Задание на момент жалобы' : 'Условие задания'}
+                  note={
+                    c.snapshot
+                      ? d.report.taskChangedSinceReport
+                        ? 'Задание с тех пор изменено — ниже версия, которую видел пользователь'
+                        : 'С тех пор задание не менялось'
+                      : 'Снимок не сохранён (жалоба старше этой функции) — показана текущая версия'
+                  }
+                >
+                  <p className={s.small}>Условие</p>
+                  <div className={s.preview}>
+                    {(c.snapshot?.statement ?? c.taskStatement) || (
+                      <span className={s.muted}>Условие пустое.</span>
+                    )}
+                  </div>
+                  <dl className={s.dl}>
+                    <dt>Ответ</dt>
+                    <dd className={s.mono}>{c.snapshot?.answer ?? c.taskAnswer}</dd>
+                  </dl>
+                  <details>
+                    <summary className={s.small}>Решение / объяснение</summary>
+                    <div className={s.preview}>{c.snapshot?.explanation ?? c.taskExplanation}</div>
+                  </details>
+                  {c.snapshot && d.report.taskChangedSinceReport && (
+                    <details>
+                      <summary className={s.small}>Текущая версия задания</summary>
+                      <div className={s.preview}>{c.taskStatement}</div>
+                      <p className={s.small}>
+                        Ответ сейчас: <span className={s.mono}>{c.taskAnswer}</span>
+                      </p>
+                    </details>
+                  )}
                 </Card>
+                <div className={s.cols2}>
+                  <Card title="Дубликат">
+                    {c.duplicateOf !== null ? (
+                      <div className={s.toolbar}>
+                        <span>
+                          Дубликат жалобы <strong>{formatReportId(c.duplicateOf)}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          className={s.button}
+                          disabled={busy}
+                          onClick={() => void markDuplicate(null)}
+                        >
+                          Снять отметку
+                        </button>
+                      </div>
+                    ) : (
+                      <form
+                        className={s.filters}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (duplicateOf.trim()) void markDuplicate(duplicateOf.trim());
+                        }}
+                      >
+                        <label className={s.field}>
+                          Исходная жалоба
+                          <input
+                            className={s.input}
+                            value={duplicateOf}
+                            placeholder="RPT-12"
+                            maxLength={64}
+                            onChange={(e) => setDuplicateOf(e.target.value)}
+                          />
+                        </label>
+                        <button
+                          type="submit"
+                          className={s.button}
+                          disabled={busy || !duplicateOf.trim()}
+                        >
+                          Отметить как дубликат
+                        </button>
+                      </form>
+                    )}
+                    <p className={s.small}>
+                      Дубликат закрывается со статусом «Отклонена»; работа ведётся по исходной
+                      жалобе.
+                    </p>
+                  </Card>
+                  <Card title="Внутренний комментарий" note="Виден только в админке">
+                    <form
+                      className={s.grid}
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void saveComment(commentValue);
+                      }}
+                    >
+                      <label className={s.field}>
+                        Комментарий
+                        <textarea
+                          className={s.textarea}
+                          value={commentValue}
+                          maxLength={2000}
+                          onChange={(e) => {
+                            setComment(e.target.value);
+                            setSaved(false);
+                          }}
+                        />
+                      </label>
+                      <div className={s.toolbar}>
+                        <button
+                          type="submit"
+                          className={`${s.button} ${s.buttonPrimary}`}
+                          disabled={busy || commentValue === (c.internalComment ?? '')}
+                        >
+                          Сохранить
+                        </button>
+                        {saved && (
+                          <span role="status" className={s.muted}>
+                            Сохранено
+                          </span>
+                        )}
+                      </div>
+                    </form>
+                  </Card>
+                </div>
                 <Card title="Другие жалобы на это задание">
                   {d.others.length === 0 ? (
                     <p className={s.muted}>Других жалоб нет.</p>
@@ -513,7 +738,7 @@ export function ComplaintPage({ id = '' }: Record<string, string>) {
                               className={`${s.link} ${s.mono}`}
                               title={r.id}
                             >
-                              {shortId(r.id)}
+                              {formatReportId(r.reportNumber)}
                             </AdminLink>
                           ),
                         },

@@ -2,7 +2,7 @@ import type { Database } from '@zybrilka/db';
 import { sql } from 'drizzle-orm';
 import type { Period } from '../period.js';
 import { campaignsReport } from './campaigns.js';
-import { complaintListQuerySchema } from './complaints.js';
+import { complaintFilters, complaintListQuerySchema } from './complaints.js';
 import { rows } from './common.js';
 import { subjectDetailReport, subjectsReport } from './content.js';
 import { toCsv } from './csv.js';
@@ -21,6 +21,15 @@ export const exportKinds = [
   'quality',
 ] as const;
 export type ExportKind = (typeof exportKinds)[number];
+
+/** A filter the export can't read — answered as 400 (the admin error
+ * handler maps any status below 500), never as a server error. */
+export class ExportQueryError extends Error {
+  readonly statusCode = 400;
+  constructor() {
+    super('invalid_query');
+  }
+}
 
 /** Hard cap on exported rows — larger sets are cut and the audit entry says so. */
 export const EXPORT_MAX_ROWS = 50_000;
@@ -148,25 +157,32 @@ export async function exportCsv(
       );
     }
     case 'complaints': {
-      const q = complaintListQuerySchema.parse({ ...(query as object), page: 1, pageSize: 100 });
+      const parsed = complaintListQuerySchema.safeParse({
+        ...(query as object),
+        page: 1,
+        pageSize: 100,
+      });
+      if (!parsed.success) throw new ExportQueryError();
+      // The page's own filters (incl. the RPT / complaint / task id search),
+      // within the chosen period.
       const where = sql.join(
         [
           sql`c.created_at >= ${period.startUtc.toISOString()}::timestamptz AND c.created_at < ${period.endUtc.toISOString()}::timestamptz`,
-          ...(q.status ? [sql`c.status = ${q.status}`] : []),
-          ...(q.reason ? [sql`c.reason = ${q.reason}`] : []),
-          ...(q.subject ? [sql`t.subject_id = ${q.subject}`] : []),
+          complaintFilters(parsed.data),
         ],
         sql` AND `,
       );
       const records = await rows<Record<string, unknown>>(
         db,
-        sql`SELECT c.id, c.created_at::text AS "createdAt", t.subject_id AS "subjectId", c.task_id AS "taskId",
+        sql`SELECT 'RPT-' || c.report_number AS "reportId", c.id, c.created_at::text AS "createdAt",
+          t.subject_id AS "subjectId", c.task_id AS "taskId",
           t.task_number AS "taskNumber", c.reason, c.comment, c.status, c.user_id AS "userId"
           FROM task_complaints c JOIN tasks t ON t.id = c.task_id WHERE ${where}
           ORDER BY c.created_at DESC LIMIT ${EXPORT_MAX_ROWS + 1}`,
       );
       return done(
         [
+          { key: 'reportId', label: 'Жалоба' },
           { key: 'id', label: 'ID' },
           { key: 'createdAt', label: 'Дата' },
           { key: 'subjectId', label: 'Предмет' },

@@ -20,6 +20,7 @@ import {
 } from '../components/ui.js';
 import { AdminApiError, adminApi } from '../adminApi.js';
 import { bucketLabel, dateTime, num, pct } from '../format.js';
+import { CopyButton } from '../components/CopyButton.js';
 import { AdminLink, useAdminRouter } from '../router.js';
 import { useAdminQuery } from '../useAdminQuery.js';
 import s from '../admin.module.css';
@@ -118,34 +119,6 @@ function StatusBadge({ status }: { status: CampaignStatus }) {
 function laterText(value: number, eligible: number): string {
   if (!eligible) return 'ещё рано';
   return `${num(value)} из ${num(eligible)} (${pct(value / eligible)})`;
-}
-
-/** Copies a text; says plainly when the browser does not allow it. */
-function CopyButton({ text, label = 'Скопировать' }: { text: string; label?: string }) {
-  const [state, setState] = useState<'idle' | 'done' | 'failed'>('idle');
-  return (
-    <span className={s.toolbar}>
-      <button
-        type="button"
-        className={s.button}
-        onClick={async () => {
-          try {
-            if (!navigator.clipboard?.writeText) throw new Error('no clipboard');
-            await navigator.clipboard.writeText(text);
-            setState('done');
-          } catch {
-            setState('failed');
-          }
-        }}
-      >
-        {label}
-      </button>
-      <span className={s.small} aria-live="polite">
-        {state === 'done' && 'Скопировано'}
-        {state === 'failed' && 'Не удалось скопировать — выделите ссылку и скопируйте вручную.'}
-      </span>
-    </span>
-  );
 }
 
 function CreateCampaignForm({ onCreated }: { onCreated: () => void }) {

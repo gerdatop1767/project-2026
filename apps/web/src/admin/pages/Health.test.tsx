@@ -91,7 +91,7 @@ describe('HealthPage', () => {
     expect(await screen.findByText('Рост ошибок API')).toBeInTheDocument();
     expect(screen.getByText('Критично')).toBeInTheDocument();
     expect(screen.getByText('Внимание')).toBeInTheDocument();
-    expect(screen.getByText(/не подключены/)).toBeInTheDocument();
+    expect(screen.getByText(/Эти тревоги видны только здесь/)).toBeInTheDocument();
     expect(screen.getByText(/сбои импорта заданий/)).toBeInTheDocument();
     expect(screen.getAllByRole('button').map((b) => b.textContent)).not.toContain('Перезапустить');
     expect(fetchMock.mock.calls.every((c) => (c[1] as RequestInit).method === 'GET')).toBe(true);

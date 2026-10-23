@@ -3,6 +3,7 @@ import type { Database } from '@zybrilka/db';
 import { eq, sql } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Config } from '../../config.js';
+import { enqueueNotification } from '../notifications/outbox.js';
 
 /**
  * First-party, privacy-minimal product analytics (docs/ADMIN.md §События).
@@ -165,6 +166,28 @@ export async function recordSignIn(
       .insert(schema.userAttributions)
       .values({ userId: sign.userId, visitorId: knownVisitor, campaignId, method: sign.method })
       .onConflictDoNothing();
+    const [campaign] = campaignId
+      ? await db
+          .select({ name: schema.campaigns.name })
+          .from(schema.campaigns)
+          .where(eq(schema.campaigns.id, campaignId))
+      : [];
+    // Owner notification — at most once per account (dedup key), queued for
+    // the worker; never blocks the sign-in.
+    await enqueueNotification(
+      db,
+      request.log,
+      {
+        kind: 'registration',
+        data: {
+          userId: sign.userId,
+          method: sign.method,
+          at: new Date().toISOString(),
+          campaign: campaign?.name ?? null,
+        },
+      },
+      `registration:${sign.userId}`,
+    );
   });
 }
 

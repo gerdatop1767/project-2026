@@ -86,8 +86,12 @@ export async function saveSettings(db: Database, settings: AdminSettings) {
     });
 }
 
-/** External notification channels: none is connected — nothing is ever sent. */
-export const notificationChannels = {
-  telegram: 'not_connected',
-  email: 'not_connected',
-} as const;
+/** External notification channels. Telegram carries the owner notifications
+ * set up in «Уведомления» (when the bot token is configured); the threshold
+ * alerts of this module are shown in the panel only. No email is sent. */
+export function notificationChannels(botConfigured: boolean) {
+  return {
+    telegram: botConfigured ? 'connected' : 'not_connected',
+    email: 'not_connected',
+  } as const;
+}

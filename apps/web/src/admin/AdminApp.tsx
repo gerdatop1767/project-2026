@@ -33,6 +33,9 @@ const ComplaintPage = page(() => import('./pages/Complaints.js'), 'ComplaintPage
 const QualityPage = page(() => import('./pages/Quality.js'), 'QualityPage');
 const HealthPage = page(() => import('./pages/Health.js'), 'HealthPage');
 const ManagePage = page(() => import('./pages/Manage.js'), 'ManagePage');
+const NotificationsPage = page(() => import('./pages/Notifications.js'), 'NotificationsPage');
+const BroadcastsPage = page(() => import('./pages/Broadcasts.js'), 'BroadcastsPage');
+const BroadcastPage = page(() => import('./pages/Broadcasts.js'), 'BroadcastPage');
 
 const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin', OverviewPage],
@@ -50,6 +53,9 @@ const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin/complaints/:id', ComplaintPage],
   ['/admin/quality', QualityPage],
   ['/admin/health', HealthPage],
+  ['/admin/broadcasts', BroadcastsPage],
+  ['/admin/broadcasts/:id', BroadcastPage],
+  ['/admin/notifications', NotificationsPage],
   ['/admin/manage', ManagePage],
 ];
 

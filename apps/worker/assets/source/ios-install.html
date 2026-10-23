@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Зубрилка — установка на iPhone и iPad</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <style>
+      body {
+        width: 1080px;
+        height: 1600px;
+        overflow: hidden;
+      }
+      .frame {
+        position: relative;
+        height: 100%;
+        padding: 64px 64px 48px;
+        background:
+          radial-gradient(70% 40% at 100% 0%, rgba(139, 20, 245, 0.4), transparent 70%), var(--bg);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+      h1 {
+        font-family: Unbounded, Inter, sans-serif;
+        font-weight: 800;
+        font-size: 50px;
+        line-height: 1.15;
+      }
+      h1 em {
+        font-style: normal;
+        background: linear-gradient(90deg, var(--violet), var(--violet-end));
+        -webkit-background-clip: text;
+        color: transparent;
+      }
+      .lead {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 28px;
+      }
+      header img {
+        width: 190px;
+        flex: none;
+      }
+      ol {
+        list-style: none;
+        padding: 0;
+        margin-top: 36px;
+        display: grid;
+        gap: 22px;
+      }
+      li {
+        display: grid;
+        grid-template-columns: 64px 1fr 330px;
+        align-items: center;
+        gap: 26px;
+        padding: 22px 26px;
+        border-radius: 28px;
+        background: var(--surface);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+      .num {
+        display: grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--violet), var(--violet-end));
+        font-family: Unbounded, Inter, sans-serif;
+        font-weight: 800;
+        font-size: 30px;
+      }
+      .text b {
+        display: block;
+        font-size: 33px;
+        line-height: 1.2;
+      }
+      .text span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 24px;
+      }
+      /* Schematic phone UI — light, like Safari's own sheets. */
+      .ui {
+        height: 150px;
+        border-radius: 22px;
+        background: #f2f2f7;
+        color: #111;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        position: relative;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 22px;
+        border-radius: 16px;
+        background: #fff;
+        font-size: 26px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+      .toolbar {
+        display: flex;
+        gap: 34px;
+        align-items: center;
+      }
+      .toolbar svg {
+        width: 44px;
+        height: 44px;
+        color: #8e8e93;
+      }
+      .toolbar .hit {
+        color: #0a84ff;
+        padding: 10px;
+        border-radius: 14px;
+        outline: 4px solid var(--violet-end);
+        outline-offset: 2px;
+      }
+      .menu {
+        width: 280px;
+        border-radius: 16px;
+        background: #fff;
+        font-size: 22px;
+      }
+      .menu div {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 11px 16px;
+        border-bottom: 1px solid #e5e5ea;
+      }
+      .menu .hit {
+        background: rgba(206, 61, 253, 0.16);
+        outline: 4px solid var(--violet-end);
+        border-radius: 10px;
+        font-weight: 700;
+      }
+      .menu .dim {
+        color: #8e8e93;
+      }
+      .sheet {
+        width: 290px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 26px;
+      }
+      .sheet .cancel {
+        color: #0a84ff;
+      }
+      .sheet .add {
+        color: #0a84ff;
+        font-weight: 700;
+        padding: 8px 14px;
+        border-radius: 12px;
+        outline: 4px solid var(--violet-end);
+      }
+      .home {
+        display: grid;
+        grid-template-columns: repeat(4, 56px);
+        gap: 14px;
+        padding: 10px 18px;
+        border-radius: 18px;
+        background: linear-gradient(160deg, #2a2a5a, #503080);
+      }
+      .home i {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.28);
+      }
+      .home img {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        outline: 4px solid #fff;
+      }
+      footer {
+        margin-top: 26px;
+        padding: 22px 26px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--muted);
+        font-size: 23px;
+        line-height: 1.4;
+      }
+      footer b {
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <header>
+        <div>
+          <h1>Зубрилка на <em>экране «Домой»</em></h1>
+          <p class="lead">iPhone и iPad · только через Safari · без App Store</p>
+        </div>
+        <img src="../../../web/public/branding/v2/support-bison.webp" alt="" />
+      </header>
+      <ol>
+        <li>
+          <div class="num">1</div>
+          <div class="text"><b>Открой сайт в Safari</b><span>zybrilka.ru</span></div>
+          <div class="ui">
+            <div class="bar">
+              <svg
+                width="30"
+                height="30"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#0a84ff"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M15.5 8.5l-2 5-5 2 2-5z" fill="#0a84ff" />
+              </svg>
+              zybrilka.ru
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="num">2</div>
+          <div class="text"><b>Нажми «Поделиться»</b><span>квадрат со стрелкой вверх</span></div>
+          <div class="ui">
+            <div class="toolbar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+              <svg
+                class="hit"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M12 3v12M7 8l5-5 5 5" />
+                <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+              </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14l-8-4z" />
+              </svg>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="num">3</div>
+          <div class="text">
+            <b>Выбери «На экран Домой»</b
+            ><span>Add to Home Screen — пролистай меню, если не видно</span>
+          </div>
+          <div class="ui">
+            <div class="menu">
+              <div class="dim"><span>Скопировать</span><span>⧉</span></div>
+              <div class="hit"><span>На экран «Домой»</span><span>⊞</span></div>
+              <div class="dim"><span>Добавить закладку</span><span>☆</span></div>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="num">4</div>
+          <div class="text"><b>Нажми «Добавить»</b><span>в правом верхнем углу</span></div>
+          <div class="ui">
+            <div class="sheet">
+              <span class="cancel">Отменить</span><span class="add">Добавить</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="num">5</div>
+          <div class="text">
+            <b>Запускай с иконки</b><span>Зубрилка откроется как приложение</span>
+          </div>
+          <div class="ui">
+            <div class="home">
+              <i></i><i></i><i></i
+              ><img src="../../../web/public/branding/v2/logo-icon-desktop.png" alt="" /> <i></i
+              ><i></i><i></i><i></i>
+            </div>
+          </div>
+        </li>
+      </ol>
+      <footer>
+        <b>Это схема, а не скриншот.</b> Устанавливай именно через Safari. В разных версиях iOS
+        кнопка «Поделиться» и пункты меню могут быть расположены немного иначе — например,
+        «Поделиться» бывает в меню «•••».
+      </footer>
+    </div>
+  </body>
+</html>

@@ -190,6 +190,34 @@
       "when": 1792751753339,
       "tag": "0026_email_password",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792773767370,
+      "tag": "0027_complaint_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792774721206,
+      "tag": "0028_telegram_bot_chats",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792775044948,
+      "tag": "0029_telegram_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792775840600,
+      "tag": "0030_broadcasts",
+      "breakpoints": true
     }
   ]
 }

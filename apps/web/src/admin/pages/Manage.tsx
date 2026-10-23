@@ -75,7 +75,7 @@ const tabs = [
   { value: 'audit', label: 'Журнал действий' },
   { value: 'settings', label: 'Пороги' },
   { value: 'export', label: 'Выгрузки' },
-  { value: 'notifications', label: 'Оповещения' },
+  { value: 'notifications', label: 'Интеграции' },
 ] as const;
 type Tab = (typeof tabs)[number]['value'];
 
@@ -719,9 +719,9 @@ function NotificationsSection() {
     <QueryView query={query}>
       {(d) => (
         <div className={s.cols2}>
-          <Card title="Каналы оповещений">
+          <Card title="Уведомления в Telegram">
             <dl className={s.dl}>
-              <dt>Telegram</dt>
+              <dt>Telegram-бот</dt>
               <dd>
                 <Badge>{connectionText(d.channels.telegram)}</Badge>
               </dd>
@@ -731,11 +731,15 @@ function NotificationsSection() {
               </dd>
             </dl>
             <p className={s.small}>
-              Тревоги показываются на странице{' '}
+              Что присылать и кому — в разделе{' '}
+              <AdminLink className={s.link} to="/admin/notifications">
+                «Уведомления»
+              </AdminLink>
+              . Тревоги по порогам видны только на странице{' '}
               <AdminLink className={s.link} to="/admin/health">
                 «Техническое состояние»
               </AdminLink>
-              . Наружу ничего не отправляется, пока не настроен защищённый канал.
+              .
             </p>
           </Card>
           <Card title="Интеграции">

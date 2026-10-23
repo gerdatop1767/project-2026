@@ -249,6 +249,139 @@ describe('admin endpoints (as the owner)', () => {
         status: { from: 'new', to: 'fixed' },
         internalCommentChanged: true,
       });
+      expect(upd.json().handledByUserId).toBe(owner);
+    });
+
+    it('search by RPT number or id, sort by date, and mark a duplicate', async () => {
+      const [first] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({
+          taskId: tasks[1]!.id,
+          userId: student,
+          reason: 'condition_error',
+          createdAt: new Date(Date.now() - 3_600_000),
+        })
+        .returning();
+      const [second] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({ taskId: tasks[1]!.id, userId: student, reason: 'condition_error' })
+        .returning();
+
+      const byNumber = (await get(`/api/v1/admin/complaints?q=RPT-${second!.reportNumber}`)).json();
+      expect(byNumber.items.map((i: { id: string }) => i.id)).toEqual([second!.id]);
+      const byUuid = (await get(`/api/v1/admin/complaints?q=${first!.id}`)).json();
+      expect(byUuid.items.map((i: { id: string }) => i.id)).toEqual([first!.id]);
+      const byTask = (await get(`/api/v1/admin/complaints?q=${tasks[1]!.id}`)).json();
+      expect(byTask.total).toBeGreaterThanOrEqual(2);
+      expect((await get('/api/v1/admin/complaints?q=garbage')).json().total).toBe(0);
+
+      const oldest = (
+        await get(`/api/v1/admin/complaints?taskId=${tasks[1]!.id}&sort=oldest`)
+      ).json();
+      expect(oldest.items.map((i: { id: string }) => i.id)).toEqual([first!.id, second!.id]);
+      const newest = (
+        await get(`/api/v1/admin/complaints?taskId=${tasks[1]!.id}&sort=newest`)
+      ).json();
+      expect(newest.items[0].id).toBe(second!.id);
+
+      const self = await send('PATCH', `/api/v1/admin/complaints/${second!.id}`, {
+        duplicateOf: `RPT-${second!.reportNumber}`,
+      });
+      expect(self.json()).toEqual({ error: 'duplicate_self' });
+      const missing = await send('PATCH', `/api/v1/admin/complaints/${second!.id}`, {
+        duplicateOf: 'RPT-999999',
+      });
+      expect(missing.json()).toEqual({ error: 'duplicate_not_found' });
+      const dup = await send('PATCH', `/api/v1/admin/complaints/${second!.id}`, {
+        duplicateOf: `RPT-${first!.reportNumber}`,
+      });
+      expect(dup.statusCode).toBe(200);
+      expect(dup.json()).toMatchObject({ duplicateOfId: first!.id, status: 'rejected' });
+      const card = (await get(`/api/v1/admin/complaints/${second!.id}`)).json();
+      expect(card.complaint.duplicateOf).toBe(first!.reportNumber);
+      expect(card.report.duplicateOf).toBe(first!.reportNumber);
+    });
+
+    it('the CSV export applies exactly the list’s search and filters', async () => {
+      const [a] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({ taskId: tasks[0]!.id, userId: student, reason: 'wrong_topic', comment: 'csv-a' })
+        .returning();
+      const [b] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({ taskId: tasks[2]!.id, userId: student, reason: 'wrong_topic', comment: 'csv-b' })
+        .returning();
+      const csv = async (query: string) => {
+        const res = await get(`/api/v1/admin/export/complaints?period=30d&${query}`);
+        expect(res.statusCode, query).toBe(200);
+        return res.body;
+      };
+      const listIds = async (query: string) =>
+        (await get(`/api/v1/admin/complaints?pageSize=100&${query}`))
+          .json()
+          .items.map((i: { id: string }) => i.id)
+          .sort();
+      const csvIds = (body: string) =>
+        [...body.matchAll(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g)]
+          .map((m) => m[0])
+          .filter((id, i, all) => all.indexOf(id) === i);
+      // Search by RPT number, by complaint id and by task id.
+      const byNumber = await csv(`q=RPT-${a!.reportNumber}`);
+      expect(byNumber).toContain(`RPT-${a!.reportNumber}`);
+      expect(byNumber).toContain('csv-a');
+      expect(byNumber).not.toContain('csv-b');
+      const byId = await csv(`q=${b!.id}`);
+      expect(byId).toContain('csv-b');
+      expect(byId).not.toContain('csv-a');
+      const byTask = await csv(`q=${tasks[2]!.id}`);
+      expect(byTask).toContain('csv-b');
+      expect(byTask).not.toContain('csv-a');
+      // Same rows as the list for the same filters.
+      for (const query of [
+        `q=${tasks[2]!.id}`,
+        'reason=wrong_topic',
+        'reason=wrong_topic&status=new',
+      ]) {
+        const complaintIds = csvIds(await csv(query)).filter((id) => [a!.id, b!.id].includes(id));
+        const fromList = (await listIds(query)).filter((id: string) => [a!.id, b!.id].includes(id));
+        expect(complaintIds.sort(), query).toEqual(fromList);
+      }
+      // A search that is no id matches nothing, as in the list.
+      expect(await csv('q=garbage')).not.toMatch(/csv-a|csv-b/);
+      // An unreadable filter is a 400, not a server error.
+      const bad = await get('/api/v1/admin/export/complaints?period=30d&status=closed');
+      expect(bad.statusCode).toBe(400);
+    });
+
+    it('the card carries the real task data for the Claude report — nothing invented', async () => {
+      const [c] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({
+          taskId: tasks[2]!.id,
+          userId: student,
+          reason: 'wrong_answer',
+          comment: 'Ответ 5, а не 4',
+        })
+        .returning();
+      const [task] = await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.id, tasks[2]!.id));
+      const card = (await get(`/api/v1/admin/complaints/${c!.id}`)).json();
+      expect(card.report).toMatchObject({
+        reportNumber: c!.reportNumber,
+        id: c!.id,
+        taskId: task!.id,
+        taskNumber: task!.taskNumber,
+        reason: 'wrong_answer',
+        comment: 'Ответ 5, а не 4',
+        statement: task!.conditionMd,
+        statementFromSnapshot: false, // inserted directly: no snapshot
+        taskChangedSinceReport: null,
+        context: null,
+        adminUrl: `${WEB}/admin/complaints/${c!.id}`,
+      });
+      expect(card.complaint.taskStatement).toBe(task!.conditionMd);
     });
   });
 
@@ -325,7 +458,10 @@ describe('admin endpoints (as the owner)', () => {
       .select()
       .from(schema.adminAuditLog)
       .where(eq(schema.adminAuditLog.action, 'export.csv'));
-    expect(audit.length).toBe(7);
+    // Every export is audited (other tests export too, so check by kind).
+    expect(new Set(audit.map((e) => e.objectId))).toEqual(
+      new Set(['users', 'overview', 'subjects', 'numbers', 'campaigns', 'complaints', 'quality']),
+    );
   });
 
   it('the audit log lists actions and cannot be changed through the API', async () => {

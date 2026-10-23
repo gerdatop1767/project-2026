@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { PageHead } from '../components/Shell.js';
 import { Badge, Card, DataTable, Note, QueryView, ValueOrNoData } from '../components/ui.js';
 import { dateTime, num, pct } from '../format.js';
+import { AdminLink } from '../router.js';
 import { useAdminQuery } from '../useAdminQuery.js';
 import s from '../admin.module.css';
 
@@ -36,7 +37,6 @@ interface Alerts {
 
 const REFRESH_MS = 60_000;
 
-const channelText: Record<string, string> = { telegram: 'Telegram', email: 'почта' };
 const notObservableText: Record<string, string> = { import_failure: 'сбои импорта заданий' };
 
 function uptime(seconds: number): string {
@@ -135,11 +135,12 @@ export function HealthPage() {
           </QueryView>
           {alerts.data && (
             <Note>
-              Оповещения видны только здесь: внешние каналы (
-              {Object.keys(alerts.data.channels)
-                .map((k) => channelText[k] ?? k)
-                .join(', ')}
-              ) не подключены.
+              Эти тревоги видны только здесь. В Telegram приходят только уведомления, настроенные в
+              разделе{' '}
+              <AdminLink className={s.link} to="/admin/notifications">
+                «Уведомления»
+              </AdminLink>{' '}
+              (регистрации, сбои сайта, жалобы).
               {alerts.data.notObservable.length > 0 &&
                 ` Не отслеживаются: ${alerts.data.notObservable
                   .map((k) => notObservableText[k] ?? k)

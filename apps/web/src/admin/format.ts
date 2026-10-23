@@ -1,3 +1,4 @@
+import { complaintReasonLabels } from '@zybrilka/shared';
 /** Formatting helpers. Unknown values render as «нет данных», never 0. */
 const nf = new Intl.NumberFormat('ru-RU');
 
@@ -77,20 +78,14 @@ export const subjectNames: Record<string, string> = {
   history: 'История',
 };
 
-export const complaintReasonText: Record<string, string> = {
-  wrong_answer: 'Неверный ответ',
-  condition_error: 'Ошибка в условии',
-  typo: 'Опечатка',
-  bad_explanation: 'Плохое объяснение',
-  display_problem: 'Проблема отображения',
-  other: 'Другое',
-};
+/** Labels shared with the user's form (@zybrilka/shared). */
+export const complaintReasonText: Record<string, string> = complaintReasonLabels;
 
 export const complaintStatusText: Record<string, string> = {
   new: 'Новая',
   in_progress: 'В работе',
-  fixed: 'Исправлено',
-  rejected: 'Отклонено',
+  fixed: 'Исправлена',
+  rejected: 'Отклонена',
 };
 
 export const taskStatusText: Record<string, string> = {
