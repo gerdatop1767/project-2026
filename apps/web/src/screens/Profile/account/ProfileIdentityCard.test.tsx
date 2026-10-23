@@ -34,7 +34,7 @@ const prepare = vi.fn(
 const identityList = (providers: ('email' | 'vk' | 'telegram')[]): IdentitiesState => ({
   data: {
     identities: providers.map((provider) => ({ provider, linkedAt: '2026-03-05T10:00:00.000Z' })),
-    available: { vk: true, telegram: true },
+    available: { vk: true, telegram: true, yandex: true },
     canUnlink: providers.length > 1,
   } satisfies IdentitiesResponse,
   failed: false,

@@ -13,15 +13,8 @@ vi.mock('../../lib/api.js', async () => {
   return {
     ...actual,
     getCurrentUser: vi.fn(() => Promise.resolve({ user: null })),
-    requestMagicLink: vi.fn(),
-    verifyMagicLink: vi.fn(),
-    registerWithEmail: vi.fn(),
-    confirmRegistration: vi.fn(),
-    resendConfirmation: vi.fn(),
     loginWithPassword: vi.fn(),
-    requestPasswordReset: vi.fn(),
-    checkPasswordResetToken: vi.fn(),
-    resetPassword: vi.fn(),
+    yandexLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/yandex/start'),
     vkLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/vk/start'),
   };
 });
@@ -36,26 +29,29 @@ function renderLogin(path = '/login') {
 }
 
 describe('Login — layout', () => {
-  it('shows the headline, VK ID, the Вход/Регистрация tabs, email + password and consent text', () => {
+  it('offers VK ID and Yandex ID, and no email registration or emailed links', () => {
     renderLogin();
     expect(screen.getByText('Войти или создать аккаунт')).toBeInTheDocument();
-    expect(screen.getByText('Продолжить через VK ID')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Вход' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Регистрация' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'password');
-    expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Забыли пароль?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Продолжить через VK ID/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeInTheDocument();
     expect(screen.getByText(/условиями использования/)).toBeInTheDocument();
+    // Nothing that sends a letter or creates an account by email.
+    expect(screen.queryByRole('tab', { name: 'Регистрация' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Зарегистрироваться/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Забыли пароль/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ссылк[уа] для входа/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/письм/)).not.toBeInTheDocument();
+    // The password form for existing accounts is folded away.
+    expect(screen.queryByLabelText('Пароль')).not.toBeInTheDocument();
   });
 
-  it('?mode=register opens the registration tab', () => {
-    renderLogin('/login?mode=register');
-    expect(screen.getByRole('tab', { name: 'Регистрация' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Зарегистрироваться' })).toBeInTheDocument();
+  it('old emailed links (?confirm=, ?reset=, ?token=) no longer do anything', () => {
+    for (const path of ['/login?confirm=abc', '/login?reset=abc', '/login?token=abc']) {
+      const { unmount } = renderLogin(path);
+      expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Новый пароль')).not.toBeInTheDocument();
+      unmount();
+    }
   });
 });
 
@@ -69,30 +65,62 @@ describe('Login — theme', () => {
       expect(container.querySelector('[style*="--color"]')).toBeNull();
       expect(document.documentElement).toHaveAttribute('data-theme', theme);
       expect(screen.getByText('Продолжить через VK ID')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeInTheDocument();
       unmount();
     }
   });
 });
 
-describe('Login — password sign-in', () => {
-  it('validates on the client before calling the API', async () => {
+describe('Login — Yandex ID', () => {
+  it('is a full-page redirect to the API start URL', async () => {
     const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText('Email'), 'not-an-email');
-    await user.click(screen.getByRole('button', { name: 'Войти' }));
-    expect(screen.getByText('Введите корректный email')).toBeInTheDocument();
-    await user.clear(screen.getByLabelText('Email'));
-    await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    await user.click(screen.getByRole('button', { name: 'Войти' }));
-    expect(screen.getByText('Введите пароль')).toBeInTheDocument();
-    expect(api.loginWithPassword).not.toHaveBeenCalled();
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...original,
+        search: '',
+        set href(url: string) {
+          assign(url);
+        },
+      },
+    });
+    try {
+      renderLogin();
+      await user.click(screen.getByRole('button', { name: /Войти через Яндекс/ }));
+      expect(assign).toHaveBeenCalledWith('https://api.test/api/v1/auth/yandex/start');
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
   });
 
-  it('signs in and shows the success state', async () => {
-    vi.mocked(api.loginWithPassword).mockResolvedValue({ user: makeAuthUser() });
+  it.each([
+    ['cancelled', 'Вход через Яндекс отменён'],
+    ['error', 'Не удалось войти через Яндекс'],
+    ['invalid_state', 'Сеанс входа через Яндекс устарел'],
+    ['not_configured', 'Вход через Яндекс пока не настроен'],
+    ['email_in_use', 'подключите Яндекс в профиле'],
+    ['<script>', 'Не удалось войти через Яндекс'],
+  ])('explains ?yandex=%s and cleans the address', async (code, text) => {
+    renderLogin(`/login?yandex=${encodeURIComponent(code)}`);
+    expect(screen.getByRole('status')).toHaveTextContent(text);
+    await waitFor(() => expect(window.location.search).toBe(''));
+  });
+});
+
+describe('Login — existing email + password accounts', () => {
+  async function openForm() {
     const user = userEvent.setup();
     renderLogin();
+    await user.click(screen.getByRole('button', { name: /Уже есть аккаунт с почтой и паролем/ }));
+    return user;
+  }
+
+  it('signs in with email and password', async () => {
+    vi.mocked(api.loginWithPassword).mockResolvedValue({ user: makeAuthUser() });
+    const user = await openForm();
+    expect(screen.queryByText(/Зарегистрироваться|Забыли пароль/)).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('Email'), ' student@example.com ');
     await user.type(screen.getByLabelText('Пароль'), 'Ege2026-strong');
     await user.click(screen.getByRole('button', { name: 'Войти' }));
@@ -100,199 +128,20 @@ describe('Login — password sign-in', () => {
     expect(api.loginWithPassword).toHaveBeenCalledWith('student@example.com', 'Ege2026-strong');
   });
 
-  it('a wrong password gets one neutral message that also mentions confirmation', async () => {
+  it('validates before calling the API and shows one neutral error', async () => {
     vi.mocked(api.loginWithPassword).mockRejectedValue(
       new ApiError(401, { error: 'invalid_credentials' }),
     );
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    await user.type(screen.getByLabelText('Пароль'), 'whatever-1');
+    const user = await openForm();
+    await user.type(screen.getByLabelText('Email'), 'nope');
     await user.click(screen.getByRole('button', { name: 'Войти' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Неверная почта или пароль');
-    expect(screen.getByRole('alert')).toHaveTextContent('подтвердите почту');
-  });
-
-  it('can show the password and blocks a double submit', async () => {
-    let resolve: (() => void) | undefined;
-    vi.mocked(api.loginWithPassword).mockImplementation(
-      () => new Promise((r) => (resolve = () => r({ user: makeAuthUser() }))),
-    );
-    const user = userEvent.setup();
-    renderLogin();
+    expect(screen.getByRole('alert')).toHaveTextContent('Введите корректный email');
+    expect(api.loginWithPassword).not.toHaveBeenCalled();
+    await user.clear(screen.getByLabelText('Email'));
     await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    await user.type(screen.getByLabelText('Пароль'), 'Ege2026-strong');
-    await user.click(screen.getByRole('button', { name: 'Показать пароль' }));
-    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'text');
-    const submit = screen.getByRole('button', { name: 'Войти' });
-    await user.click(submit);
-    await user.click(submit);
-    expect(api.loginWithPassword).toHaveBeenCalledTimes(1);
-    resolve?.();
-  });
-});
-
-describe('Login — registration', () => {
-  async function register(email = 'new@example.com', password = 'Ege2026-strong') {
-    const user = userEvent.setup();
-    renderLogin();
-    await user.click(screen.getByRole('tab', { name: 'Регистрация' }));
-    await user.type(screen.getByLabelText('Email'), email);
-    await user.type(screen.getByLabelText('Пароль'), password);
-    await user.click(screen.getByRole('button', { name: 'Зарегистрироваться' }));
-    return user;
-  }
-
-  it('sends the registration and shows «Подтвердите почту» with a timed resend', async () => {
-    vi.mocked(api.registerWithEmail).mockResolvedValue({ ok: true });
-    await register();
-    expect(await screen.findByText('Подтвердите почту')).toBeInTheDocument();
-    expect(screen.getByText(/new@example\.com/)).toBeInTheDocument();
-    expect(api.registerWithEmail).toHaveBeenCalledWith('new@example.com', 'Ege2026-strong');
-    expect(screen.getByRole('button', { name: /Отправить ещё раз через \d+ сек/ })).toBeDisabled();
-  });
-
-  it('too short a password is caught before the API', async () => {
-    await register('new@example.com', 'short');
-    expect(screen.getByText(/не короче 8 символов/)).toBeInTheDocument();
-    expect(api.registerWithEmail).not.toHaveBeenCalled();
-  });
-
-  it('shows the server password rule', async () => {
-    vi.mocked(api.registerWithEmail).mockRejectedValue(
-      new ApiError(400, { error: 'weak_password', problem: 'too_simple' }),
-    );
-    await register('new@example.com', '12345678');
-    expect(await screen.findByText(/Пароль слишком простой/)).toBeInTheDocument();
-  });
-
-  it('never claims a letter was sent when sending is unavailable or fails', async () => {
-    vi.mocked(api.registerWithEmail).mockRejectedValueOnce(
-      new ApiError(503, { error: 'email_not_configured' }),
-    );
-    const user = await register();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Отправка писем сейчас недоступна');
-    expect(screen.queryByText('Подтвердите почту')).not.toBeInTheDocument();
-
-    vi.mocked(api.registerWithEmail).mockRejectedValueOnce(
-      new ApiError(502, { error: 'email_send_failed' }),
-    );
-    await user.click(screen.getByRole('button', { name: 'Зарегистрироваться' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось отправить письмо');
-
-    vi.mocked(api.registerWithEmail).mockRejectedValueOnce(
-      new ApiError(429, { error: 'too_many_requests', retryAfterSeconds: 42 }),
-    );
-    await user.click(screen.getByRole('button', { name: 'Зарегистрироваться' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('через 42 сек');
-  });
-});
-
-describe('Login — confirmation link (?confirm=)', () => {
-  it('confirms, signs in and says the address is confirmed', async () => {
-    vi.mocked(api.confirmRegistration).mockResolvedValue({ user: makeAuthUser() });
-    renderLogin('/login?confirm=tok-123');
-    expect(screen.getByText('Подтверждаем почту…')).toBeInTheDocument();
-    expect(await screen.findByText('Почта подтверждена!')).toBeInTheDocument();
-    expect(api.confirmRegistration).toHaveBeenCalledTimes(1);
-  });
-
-  it('an expired link offers a new letter', async () => {
-    vi.mocked(api.confirmRegistration).mockRejectedValue(
-      new ApiError(410, { error: 'token_expired' }),
-    );
-    vi.mocked(api.resendConfirmation).mockResolvedValue({ ok: true });
-    const user = userEvent.setup();
-    renderLogin('/login?confirm=old-token-123');
-    expect(await screen.findByText('Срок действия ссылки истёк')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Отправить новое письмо' }));
-    expect(api.resendConfirmation).toHaveBeenCalledWith({ token: 'old-token-123' });
-    expect(await screen.findByText(/мы отправили новое письмо/)).toBeInTheDocument();
-  });
-
-  it('a used link and an existing account are explained', async () => {
-    vi.mocked(api.confirmRegistration).mockRejectedValueOnce(
-      new ApiError(409, { error: 'already_registered' }),
-    );
-    const { unmount } = renderLogin('/login?confirm=t1-xxxxxxxxxxxxxxx');
-    expect(await screen.findByText('Аккаунт уже есть')).toBeInTheDocument();
-    unmount();
-    vi.mocked(api.confirmRegistration).mockRejectedValueOnce(
-      new ApiError(400, { error: 'invalid_or_used_token' }),
-    );
-    renderLogin('/login?confirm=t2-xxxxxxxxxxxxxxx');
-    expect(await screen.findByText('Ссылка недействительна')).toBeInTheDocument();
-  });
-});
-
-describe('Login — password reset', () => {
-  it('requests a reset link with a neutral confirmation', async () => {
-    vi.mocked(api.requestPasswordReset).mockResolvedValue({ ok: true });
-    const user = userEvent.setup();
-    renderLogin();
-    await user.click(screen.getByRole('button', { name: 'Забыли пароль?' }));
-    await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    await user.click(screen.getByRole('button', { name: 'Отправить ссылку' }));
-    expect(await screen.findByText(/Если аккаунт с этим адресом есть/)).toBeInTheDocument();
-    expect(api.requestPasswordReset).toHaveBeenCalledWith('student@example.com');
-  });
-
-  it('?reset= checks the link, takes a new password and signs in', async () => {
-    vi.mocked(api.checkPasswordResetToken).mockResolvedValue({ ok: true });
-    vi.mocked(api.resetPassword).mockResolvedValue({ user: makeAuthUser() });
-    const user = userEvent.setup();
-    renderLogin('/login?reset=reset-token-123');
-    await user.type(await screen.findByLabelText('Новый пароль'), 'Brand-new-pass-7');
-    await user.click(screen.getByRole('button', { name: 'Сохранить пароль' }));
-    expect(await screen.findByText('Пароль изменён!')).toBeInTheDocument();
-    expect(api.resetPassword).toHaveBeenCalledWith('reset-token-123', 'Brand-new-pass-7');
-  });
-
-  it('an expired reset link leads back to the request form', async () => {
-    vi.mocked(api.checkPasswordResetToken).mockRejectedValue(
-      new ApiError(410, { error: 'token_expired' }),
-    );
-    const user = userEvent.setup();
-    renderLogin('/login?reset=reset-token-old');
-    expect(await screen.findByText('Срок действия ссылки истёк')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Запросить новую ссылку' }));
-    expect(screen.getByText('Восстановление пароля')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Отправить ссылку' })).toBeInTheDocument();
-  });
-});
-
-describe('Login — passwordless link (kept)', () => {
-  it('still sends a sign-in link from «Войти по ссылке без пароля»', async () => {
-    vi.mocked(api.requestMagicLink).mockResolvedValue({ ok: true });
-    const user = userEvent.setup();
-    renderLogin();
-    await user.click(screen.getByRole('button', { name: 'Войти по ссылке без пароля' }));
-    await user.type(screen.getByLabelText('Email'), '  student@example.com  ');
-    await user.click(screen.getByRole('button', { name: 'Получить ссылку для входа' }));
-    await waitFor(() => expect(screen.getByText('Проверьте почту')).toBeInTheDocument());
-    expect(api.requestMagicLink).toHaveBeenCalledWith('student@example.com');
-    expect(screen.getByText(/это ссылка, не код/)).toBeInTheDocument();
-  });
-});
-
-describe('Login — magic-link verification (?token=...)', () => {
-  it('shows a loading state, then success, then auto-redirects into the trainer using the real server session', async () => {
-    vi.mocked(api.verifyMagicLink).mockResolvedValue({
-      user: makeAuthUser({ id: 'u1', email: 'student@example.com' }),
-    });
-    renderLogin('/login?token=good-token');
-    expect(screen.getByText('Входим…')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Готово!')).toBeInTheDocument());
-    expect(api.verifyMagicLink).toHaveBeenCalledWith('good-token');
-  });
-
-  it('shows an honest error state when the token is invalid/expired, never a fake success', async () => {
-    vi.mocked(api.verifyMagicLink).mockRejectedValue(
-      new ApiError(400, { error: 'invalid_or_expired_token' }),
-    );
-    renderLogin('/login?token=bad-token');
-    await waitFor(() => expect(screen.getByText('Ссылка недействительна')).toBeInTheDocument());
-    expect(screen.queryByText('Готово!')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Пароль'), 'wrong-pass-1');
+    await user.click(screen.getByRole('button', { name: 'Войти' }));
+    expect(await screen.findByText('Неверная почта или пароль.')).toBeInTheDocument();
   });
 });
 
@@ -352,10 +201,11 @@ describe('Login — the close (×) button', () => {
 
     // It sits inside no <form>, and using it never triggers form validation.
     expect(close.closest('form')).toBeNull();
+    await user.click(screen.getByRole('button', { name: /Уже есть аккаунт с почтой и паролем/ }));
     await user.type(screen.getByLabelText('Email'), 'not-an-email');
     await user.click(close);
     expect(screen.queryByText('Введите корректный email')).not.toBeInTheDocument();
-    expect(api.requestMagicLink).not.toHaveBeenCalled();
+    expect(api.loginWithPassword).not.toHaveBeenCalled();
   });
 
   it('opened directly by URL (nothing behind it): closes to the public Home in place — never about:blank, no extra entry', async () => {
@@ -448,7 +298,7 @@ describe('Login — returning from a cancelled VK ID consent (?vk=cancelled)', (
     renderLogin('/login?vk=cancelled');
     expect(screen.getByRole('status')).toHaveTextContent('Вход через VK ID отменён');
     expect(screen.getByRole('button', { name: /Продолжить через VK ID/ })).toBeEnabled();
-    expect(screen.getByLabelText('Email')).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeEnabled();
     await waitFor(() => expect(window.location.search).toBe(''));
     expect(window.location.pathname).toBe('/login');
     // The message stays for this visit even though the flag left the URL.

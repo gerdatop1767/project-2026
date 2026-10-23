@@ -28,7 +28,7 @@ const AVATAR_SERVER_ERRORS: Record<string, string> = {
   invalid_image: 'Сервер не принял это изображение. Подойдёт JPG, PNG или WebP от 64×64 пикселей.',
 };
 
-const PROVIDER_SHORT = { vk: 'VK ID', telegram: 'Telegram' } as const;
+const PROVIDER_SHORT = { vk: 'VK ID', telegram: 'Telegram', yandex: 'Яндекс ID' } as const;
 
 function networkOrServerText(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.status === 401) {

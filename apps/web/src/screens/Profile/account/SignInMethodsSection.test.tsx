@@ -24,7 +24,7 @@ const identities = (
   extra: Partial<IdentitiesResponse> = {},
 ): IdentitiesResponse => ({
   identities: providers.map((provider) => ({ provider, linkedAt: at })),
-  available: { vk: true, telegram: true },
+  available: { vk: true, telegram: true, yandex: true },
   canUnlink: providers.length > 1,
   ...extra,
 });
@@ -51,7 +51,7 @@ describe('SignInMethodsSection', () => {
   it('lists linked methods and offers the ones that can be added', async () => {
     vi.mocked(api.getIdentities).mockResolvedValue(identities(['email']));
     renderSection();
-    expect(await screen.findByText('Почта (ссылка для входа)')).toBeInTheDocument();
+    expect(await screen.findByText('Почта и пароль')).toBeInTheDocument();
     expect(screen.getByText('ВКонтакте')).toBeInTheDocument();
     expect(screen.getByText('Откройте Зубрилку в Telegram, чтобы подключить')).toBeInTheDocument();
     // Single method: nothing can be disconnected.
@@ -60,12 +60,34 @@ describe('SignInMethodsSection', () => {
 
   it('hides providers that are not configured on the server', async () => {
     vi.mocked(api.getIdentities).mockResolvedValue(
-      identities(['email'], { available: { vk: false, telegram: false } }),
+      identities(['email'], { available: { vk: false, telegram: false, yandex: false } }),
     );
     renderSection();
-    await screen.findByText('Почта (ссылка для входа)');
+    await screen.findByText('Почта и пароль');
     expect(screen.queryByText('ВКонтакте')).not.toBeInTheDocument();
     expect(screen.queryByText('Telegram')).not.toBeInTheDocument();
+    expect(screen.queryByText('Яндекс ID')).not.toBeInTheDocument();
+  });
+
+  it('«Подключить» for Yandex starts the server-side link flow with a full-page redirect', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email']));
+    const { navigateTo } = renderSection();
+    const row = (await screen.findByText('Яндекс ID')).closest('li')!;
+    await user.click(row.querySelector('button')!);
+    expect(navigateTo).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/auth/yandex/start?link=1'),
+    );
+  });
+
+  it('explains the result of connecting Yandex (no automatic merge)', async () => {
+    window.history.replaceState(null, '', '/profile?link=taken&provider=yandex');
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email']));
+    renderSection();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Мы не объединяем профили автоматически',
+    );
+    expect(window.location.search).toBe('');
   });
 
   it('«Подключить» for VK starts the server-side link flow with a full-page redirect', async () => {

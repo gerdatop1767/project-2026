@@ -55,6 +55,12 @@ function renderLogin(refresh = vi.fn(async () => {})) {
 const vkButton = () => screen.findByRole('button', { name: /Продолжить через VK ID/ });
 
 describe('Login inside the Telegram Mini App — VK ID in the external browser', () => {
+  it('does not offer Yandex ID inside the Mini App (Telegram signs the user in there)', async () => {
+    renderLogin();
+    await vkButton();
+    expect(screen.queryByRole('button', { name: /Войти через Яндекс/ })).not.toBeInTheDocument();
+  });
+
   it('prepares the handoff up front, and the tap opens VK ID in the external browser via Telegram.WebApp.openLink', async () => {
     const user = userEvent.setup();
     renderLogin();
