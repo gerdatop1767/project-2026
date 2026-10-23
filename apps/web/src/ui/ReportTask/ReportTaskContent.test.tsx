@@ -26,7 +26,10 @@ describe('ReportTaskContent', () => {
   it('opens straight on the eight categories', () => {
     render(<ReportTaskContent taskId="task-1" />);
     const radios = screen.getAllByRole('radio');
-    expect(radios.map((r) => r.closest('label')!.textContent)).toEqual([
+    // The name is the title alone; the hint is the description.
+    expect(
+      radios.map((r) => document.getElementById(r.getAttribute('aria-labelledby')!)!.textContent),
+    ).toEqual([
       'Неправильный ответ в задании',
       'Ошибка в условии',
       'Ошибка в решении или объяснении',
@@ -127,9 +130,18 @@ describe('ReportTaskContent', () => {
     const user = userEvent.setup();
     render(<ReportTaskContent taskId="task-1" onClose={onClose} />);
     await user.click(screen.getByRole('radio', { name: 'Ошибка в условии' }));
-    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await user.click(screen.getByRole('button', { name: 'Отмена' }));
     expect(onClose).toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('each reason carries a short hint as its description', () => {
+    render(<ReportTaskContent taskId="task-1" />);
+    expect(screen.getByRole('radio', { name: 'Ошибка в условии' })).toHaveAccessibleDescription(
+      'Условие неполное или некорректное',
+    );
+    expect(screen.getByPlaceholderText('Опишите подробнее, в чём проблема…')).toBeInTheDocument();
+    expect(screen.getByText('0 / 1000')).toBeInTheDocument();
   });
 
   it('a guest is offered sign-in, never a form that cannot be sent', () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Modal } from './Modal.js';
@@ -21,6 +22,45 @@ describe('Modal', () => {
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Удалить задачу?')).toBeInTheDocument();
+  });
+
+  it('a subtitle becomes the dialog description', () => {
+    render(
+      <Modal
+        open
+        onClose={() => {}}
+        title="Сообщить об ошибке"
+        subtitle="Помогите нам"
+        icon="warning"
+      >
+        …
+      </Modal>,
+    );
+    expect(screen.getByRole('dialog', { name: 'Сообщить об ошибке' })).toHaveAccessibleDescription(
+      'Помогите нам',
+    );
+  });
+
+  it('gives focus back to the button that opened it', async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Открыть
+          </button>
+          <Modal open={open} onClose={() => setOpen(false)} title="Окно">
+            …
+          </Modal>
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole('button', { name: 'Открыть' }));
+    expect(screen.getByRole('dialog')).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Открыть' })).toHaveFocus();
   });
 
   it('calls onClose when the close button is pressed', async () => {

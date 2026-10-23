@@ -1,6 +1,7 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useId, useRef, useState, type FormEvent } from 'react';
 import {
   COMPLAINT_COMMENT_MAX,
+  complaintReasonHints,
   complaintReasonLabels,
   offeredComplaintReasons,
   type ComplaintContextInput,
@@ -8,8 +9,32 @@ import {
 import { ApiError, reportTask, type ComplaintReason } from '../../lib/api.js';
 import { useAuth } from '../../lib/authContext.js';
 import { useOptionalNavigation } from '../../lib/navigation.js';
+import { clsx } from '../../lib/clsx.js';
 import { Button } from '../Button/Button.js';
+import { Icon } from '../Icon/Icon.js';
+import type { IconName } from '../Icon/icons.js';
 import styles from './ReportTaskContent.module.css';
+
+/** The surrounding Modal / BottomSheet: header and footer stay, the list scrolls. */
+export const reportPanelClassName = styles.panel;
+
+/** Shared title / subtitle / icon for the surrounding Modal / BottomSheet. */
+export const reportDialogHeader = {
+  title: 'Сообщить об ошибке',
+  subtitle: 'Помогите нам делать задания лучше',
+  icon: 'warning',
+} as const satisfies { title: string; subtitle: string; icon: IconName };
+
+const reasonIcons: Record<(typeof offeredComplaintReasons)[number], IconName> = {
+  wrong_answer: 'checklist',
+  condition_error: 'variant',
+  bad_explanation: 'hint',
+  display_problem: 'image',
+  answer_check: 'link',
+  wrong_topic: 'tag',
+  duplicate: 'copy',
+  other: 'more',
+};
 
 export interface ReportTaskContentProps {
   taskId: string;
@@ -54,6 +79,7 @@ export function ReportTaskContent({
   const [reportId, setReportId] = useState<string | null>(null);
   // A double tap must never send twice, even before React re-renders.
   const inFlight = useRef(false);
+  const idPrefix = useId();
 
   const closeButton = onClose && (
     <Button type="button" variant="secondary" onClick={onClose} fullWidth>
@@ -115,51 +141,85 @@ export function ReportTaskContent({
   }
 
   return (
-    <form className={styles.form} onSubmit={submit}>
-      <fieldset className={styles.reasons}>
-        <legend className={styles.legend}>Что не так с заданием?</legend>
-        {offeredComplaintReasons.map((id) => (
-          <label key={id} className={styles.reason}>
-            <input
-              type="radio"
-              name="complaint-reason"
-              value={id}
-              checked={reason === id}
-              onChange={() => setReason(id)}
-            />
-            {complaintReasonLabels[id]}
+    <form className={clsx(styles.form, styles.formLayout)} onSubmit={submit}>
+      <div className={styles.body}>
+        <fieldset className={styles.reasons}>
+          <legend className={styles.legend}>Что не так с заданием?</legend>
+          {offeredComplaintReasons.map((id) => {
+            const titleId = `${idPrefix}-${id}-title`;
+            const hintId = `${idPrefix}-${id}-hint`;
+            return (
+              <label
+                key={id}
+                className={clsx(styles.reason, reason === id && styles.reasonSelected)}
+              >
+                <input
+                  className={styles.radio}
+                  type="radio"
+                  name="complaint-reason"
+                  value={id}
+                  checked={reason === id}
+                  aria-labelledby={titleId}
+                  aria-describedby={hintId}
+                  onChange={() => setReason(id)}
+                />
+                <span className={styles.reasonIcon} aria-hidden="true">
+                  <Icon name={reasonIcons[id]} size={20} />
+                </span>
+                <span className={styles.reasonText}>
+                  <span id={titleId} className={styles.reasonTitle}>
+                    {complaintReasonLabels[id]}
+                  </span>
+                  <span id={hintId} className={styles.reasonHint}>
+                    {complaintReasonHints[id]}
+                  </span>
+                </span>
+                <span className={styles.indicator} aria-hidden="true" />
+              </label>
+            );
+          })}
+        </fieldset>
+        <div className={styles.commentBlock}>
+          <label htmlFor={`${idPrefix}-comment`} className={styles.commentLabel}>
+            {commentRequired ? 'Опишите проблему (обязательно)' : 'Комментарий (необязательно)'}
           </label>
-        ))}
-      </fieldset>
-      <label className={styles.commentLabel}>
-        {commentRequired ? 'Опишите проблему (обязательно)' : 'Комментарий (необязательно)'}
-        <textarea
-          className={styles.comment}
-          value={comment}
-          maxLength={COMPLAINT_COMMENT_MAX}
-          rows={3}
-          required={commentRequired}
-          aria-describedby="complaint-comment-count"
-          onChange={(e) => setComment(e.target.value)}
-        />
-        <span id="complaint-comment-count" className={styles.counter}>
-          {comment.length} / {COMPLAINT_COMMENT_MAX}
-        </span>
-      </label>
-      {state === 'error' && (
-        <p className={styles.error} role="alert">
-          Не удалось отправить. Попробуйте ещё раз.
-        </p>
-      )}
-      {state === 'rate_limited' && (
-        <p className={styles.error} role="alert">
-          Слишком много сообщений подряд. Попробуйте позже.
-        </p>
-      )}
-      <Button type="submit" disabled={!canSend} loading={state === 'sending'} fullWidth>
-        Отправить
-      </Button>
-      {closeButton}
+          <textarea
+            id={`${idPrefix}-comment`}
+            className={styles.comment}
+            value={comment}
+            maxLength={COMPLAINT_COMMENT_MAX}
+            rows={3}
+            required={commentRequired}
+            placeholder="Опишите подробнее, в чём проблема…"
+            aria-describedby={`${idPrefix}-count`}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          <span id={`${idPrefix}-count`} className={styles.counter}>
+            {comment.length} / {COMPLAINT_COMMENT_MAX}
+          </span>
+        </div>
+        {state === 'error' && (
+          <p className={styles.error} role="alert">
+            Не удалось отправить. Попробуйте ещё раз.
+          </p>
+        )}
+        {state === 'rate_limited' && (
+          <p className={styles.error} role="alert">
+            Слишком много сообщений подряд. Попробуйте позже.
+          </p>
+        )}
+      </div>
+      <div className={styles.footer}>
+        {onClose && (
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Отмена
+          </Button>
+        )}
+        <Button type="submit" disabled={!canSend} loading={state === 'sending'}>
+          <Icon name="send" size={18} />
+          Отправить
+        </Button>
+      </div>
     </form>
   );
 }
