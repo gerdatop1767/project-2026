@@ -128,20 +128,57 @@ export const userAvatars = pgTable(
 );
 
 /**
- * One-time magic-link sign-in tokens. Never stores the raw token —
+ * One-time emailed-link tokens (sign-in, registration, password reset).
+ * Never stores the raw token —
  * only its SHA-256 hash (service layer), so a leaked DB row alone
  * can't be replayed as a valid link. `email` is lowercased/trimmed
  * before insert. A token is single-use (`consumedAt` set on first
  * successful verify) and short-lived (`expiresAt`, enforced
  * server-side on verify, not just by the email client).
  */
-export const magicLinkTokens = pgTable('magic_link_tokens', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull(),
-  tokenHash: text('token_hash').notNull().unique(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+export const emailTokenPurposes = ['sign_in', 'register', 'reset_password'] as const;
+
+export const magicLinkTokens = pgTable(
+  'magic_link_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * What the emailed link does (docs/EMAIL_AUTH.md): `sign_in` — the
+     * original passwordless link; `register` — confirms a new email+password
+     * account (the account is created only when it is opened); `reset_password`
+     * — sets a new password. A token is only ever accepted for its own
+     * purpose. Existing rows are `sign_in` (column default).
+     */
+    purpose: text('purpose', { enum: emailTokenPurposes }).notNull().default('sign_in'),
+    /** `register` only: the scrypt hash of the chosen password, held until
+     * the address is confirmed. Never the password itself. */
+    passwordHash: text('password_hash'),
+    /** `reset_password` only: the account whose password it resets. */
+    userId: uuid('user_id').references(() => users.id),
+  },
+  (table) => [index('magic_link_tokens_email_purpose_idx').on(table.email, table.purpose)],
+);
+
+/**
+ * Password sign-in for an email account. The address itself lives in
+ * `auth_identities` (provider 'email') — one place, so one email can never
+ * belong to two accounts; this row only adds a password to that account.
+ * Created when a registration is confirmed or a password is set through a
+ * reset link (both prove the mailbox). `passwordHash` is a self-describing
+ * scrypt string (apps/api auth/password.ts), never the password.
+ */
+export const emailCredentials = pgTable('email_credentials', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id),
+  passwordHash: text('password_hash').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /**

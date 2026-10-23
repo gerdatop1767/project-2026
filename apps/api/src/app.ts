@@ -15,6 +15,7 @@ import {
 import { adminRoutes } from './modules/admin/routes.js';
 import { analyticsRoutes } from './modules/analytics/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
+import type { EmailThrottle } from './modules/auth/emailThrottle.js';
 import { complaintsRoutes } from './modules/complaints/routes.js';
 import { profileRoutes } from './modules/profile/routes.js';
 import { collectionsRoutes } from './modules/collections/routes.js';
@@ -48,6 +49,9 @@ export interface AppOptions {
   /** Forwarded to Fastify. Needed behind a reverse proxy so `request.ip`
    * (what the auth rate limits key on) is the real client, not the proxy. */
   trustProxy?: boolean;
+  /** Per-address auth-letter limit (modules/auth/emailThrottle.ts); a
+   * default one is created when omitted — tests pass their own clock. */
+  emailThrottle?: EmailThrottle;
 }
 
 export function buildApp({
@@ -57,6 +61,7 @@ export function buildApp({
   db,
   authConfig,
   trustProxy,
+  emailThrottle,
 }: AppOptions) {
   const app = Fastify({ logger, trustProxy });
   // Route-pattern/status/duration of recent requests, in memory only —
@@ -122,7 +127,12 @@ export function buildApp({
         // Sign-in POSTs (magic-link verify, Telegram) are same-origin fetches
         // from our own pages; a cross-site one would be login CSRF.
         authScope.addHook('onRequest', rejectCrossSiteWrites);
-        authScope.register(authRoutes, { db, config: authConfig, prefix: '/api/v1' });
+        authScope.register(authRoutes, {
+          db,
+          config: authConfig,
+          emailThrottle,
+          prefix: '/api/v1',
+        });
       });
       app.register(async (guestScope) => {
         // Throttles guests' answer checks only (see tasks/routes.ts).

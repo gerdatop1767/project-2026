@@ -183,6 +183,13 @@
       "when": 1792750900810,
       "tag": "0025_xp",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792751753339,
+      "tag": "0026_email_password",
+      "breakpoints": true
     }
   ]
 }
