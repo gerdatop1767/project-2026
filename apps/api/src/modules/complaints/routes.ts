@@ -5,6 +5,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { readVisitorId, recordEvent, safely } from '../analytics/recorder.js';
+import { enqueueNotification } from '../notifications/outbox.js';
 
 export interface ComplaintsRoutesOptions {
   db: Database;
@@ -89,8 +90,13 @@ export const complaintsRoutes: FastifyPluginAsync<ComplaintsRoutesOptions> = asy
       }
 
       const [task] = await db
-        .select({ id: schema.tasks.id })
+        .select({
+          id: schema.tasks.id,
+          taskNumber: schema.tasks.taskNumber,
+          subjectName: schema.subjects.name,
+        })
         .from(schema.tasks)
+        .leftJoin(schema.subjects, eq(schema.subjects.id, schema.tasks.subjectId))
         .where(eq(schema.tasks.id, params.data.id))
         .limit(1);
       if (!task) return reply.code(404).send({ error: 'task_not_found' });
@@ -140,6 +146,25 @@ export const complaintsRoutes: FastifyPluginAsync<ComplaintsRoutesOptions> = asy
           props: { reason: body.data.reason },
           dedupKey: `complaint:${created!.id}`,
         }),
+      );
+      // Owner notification, queued for the worker (never blocks the reply).
+      await enqueueNotification(
+        db,
+        request.log,
+        {
+          kind: 'complaint',
+          data: {
+            complaintId: created!.id,
+            reportNumber: created!.reportNumber,
+            subjectName: task.subjectName,
+            taskId: task.id,
+            taskNumber: task.taskNumber,
+            reason: body.data.reason,
+            comment: comment && comment.length > 300 ? `${comment.slice(0, 299)}…` : comment,
+            at: new Date().toISOString(),
+          },
+        },
+        `complaint:${created!.id}`,
       );
       return reply.code(201).send({
         id: created!.id,

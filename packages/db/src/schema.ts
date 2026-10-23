@@ -1198,6 +1198,36 @@ export const telegramBotChats = pgTable(
   (table) => [index('telegram_bot_chats_user_idx').on(table.userId)],
 );
 
+export const outboxStatuses = ['pending', 'sending', 'sent', 'skipped', 'failed'] as const;
+
+/**
+ * Owner notifications waiting for the worker to send them to Telegram
+ * (docs/TELEGRAM_BOT.md). The API only inserts a row — never talks to
+ * Telegram inside a request — so a Telegram outage can't break a sign-up or
+ * a complaint. `dedupKey` makes an event notify at most once (e.g.
+ * `registration:<userId>`). `payload` holds ids and short texts only.
+ */
+export const telegramOutbox = pgTable(
+  'telegram_outbox',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    dedupKey: text('dedup_key'),
+    status: text('status', { enum: outboxStatuses }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Short failure code (e.g. `network`, `no_recipients`) — never message text. */
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('telegram_outbox_dedup_idx').on(table.dedupKey),
+    index('telegram_outbox_status_next_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
 /** What an XP event was for — mirrors `xpEventKinds` in @zybrilka/shared. */
 export const xpEventKinds = ['task_first_solve', 'task_review'] as const;
 

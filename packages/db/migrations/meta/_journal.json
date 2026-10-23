@@ -204,6 +204,13 @@
       "when": 1792774721206,
       "tag": "0028_telegram_bot_chats",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792775044948,
+      "tag": "0029_telegram_outbox",
+      "breakpoints": true
     }
   ]
 }

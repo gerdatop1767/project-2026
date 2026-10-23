@@ -13,6 +13,7 @@ export * from './learningProfile.js';
 export * from './profile.js';
 export * from './complaints.js';
 export * from './telegramBot.js';
+export * from './adminNotifications.js';
 export * from './learning/skill.js';
 export * from './learning/mastery.js';
 export * from './learning/taskDifficulty.js';

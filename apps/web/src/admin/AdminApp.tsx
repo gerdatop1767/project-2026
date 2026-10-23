@@ -33,6 +33,7 @@ const ComplaintPage = page(() => import('./pages/Complaints.js'), 'ComplaintPage
 const QualityPage = page(() => import('./pages/Quality.js'), 'QualityPage');
 const HealthPage = page(() => import('./pages/Health.js'), 'HealthPage');
 const ManagePage = page(() => import('./pages/Manage.js'), 'ManagePage');
+const NotificationsPage = page(() => import('./pages/Notifications.js'), 'NotificationsPage');
 
 const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin', OverviewPage],
@@ -50,6 +51,7 @@ const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin/complaints/:id', ComplaintPage],
   ['/admin/quality', QualityPage],
   ['/admin/health', HealthPage],
+  ['/admin/notifications', NotificationsPage],
   ['/admin/manage', ManagePage],
 ];
 

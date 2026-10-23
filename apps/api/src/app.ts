@@ -28,6 +28,8 @@ import { recommendationRoutes } from './modules/learning/recommendation/routes.j
 import { learningPathRoutes } from './modules/learning/learningPath/routes.js';
 import { learningSessionRoutes } from './modules/learning/learningSession/routes.js';
 import { mistakesRoutes } from './modules/mistakes/routes.js';
+import { enqueueNotification } from './modules/notifications/outbox.js';
+import { errorKind, SiteErrorNotifier } from './modules/notifications/siteErrors.js';
 import { progressRoutes, publicTopicsRoutes } from './modules/progress/routes.js';
 import { tasksRoutes } from './modules/tasks/routes.js';
 import { variantsRoutes } from './modules/variants/routes.js';
@@ -66,6 +68,27 @@ export function buildApp({
   app.register(healthRoutes, { version, checkDb });
 
   if (db) {
+    // Server errors (5xx) → an owner notification, grouped with a cooldown
+    // (modules/notifications). /health is left to the worker's own probe:
+    // its 503 means "database down", which the database can't record anyway.
+    const siteErrors = new SiteErrorNotifier(
+      (data) => void enqueueNotification(db, app.log, { kind: 'site_error', data }),
+    );
+    const failedWith = new WeakMap<object, string>();
+    app.addHook('onError', async (request, _reply, error) => {
+      failedWith.set(request, errorKind(error));
+    });
+    app.addHook('onResponse', async (request, reply) => {
+      const route = request.routeOptions.url ?? '(unmatched)';
+      if (reply.statusCode < 500 || route === '/health') return;
+      siteErrors.record({
+        method: request.method,
+        route,
+        status: reply.statusCode,
+        error: failedWith.get(request) ?? 'response',
+      });
+    });
+
     // With `authConfig` (production) the ONLY identity is a server-side
     // session: the client-supplied `x-anon-id` header is not read at all
     // (it was never a security boundary — anyone could invent ids). Task

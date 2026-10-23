@@ -863,3 +863,35 @@
 .search {
   min-width: min(100%, 16rem);
 }
+
+/* On/off rows (Уведомления). */
+.switchList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.switchRow {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: 0.75rem;
+  background: var(--color-bg-base);
+}
+
+.switchLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.switch {
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  accent-color: var(--color-accent-primary);
+}

@@ -22,6 +22,8 @@ try {
     telegram,
     polling: config.TELEGRAM_BOT_POLLING,
     siteUrl: config.WEB_BASE_URL,
+    ownerIds: config.ADMIN_OWNER_USER_IDS,
+    healthUrl: config.API_HEALTH_URL,
   });
 
   const shutdown = async (signal: string) => {

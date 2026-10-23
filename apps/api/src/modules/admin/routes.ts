@@ -49,6 +49,13 @@ import {
   saveSettings,
 } from './reports/settings.js';
 import { userCardReport, userListQuerySchema, usersListReport } from './reports/users.js';
+import {
+  adminNotificationSettingsSchema,
+  loadNotificationSettings,
+  notificationsReport,
+  saveNotificationSettings,
+} from './reports/notifications.js';
+import { enqueueNotification } from '../notifications/outbox.js';
 
 export interface AdminRoutesOptions {
   db: Database;
@@ -361,7 +368,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   app.get('/admin/health', async () => healthReport(db, metrics, version));
   app.get('/admin/alerts', async () => ({
     ...(await computeAlerts(db, metrics, await loadSettings(db))),
-    channels: notificationChannels,
+    channels: notificationChannels(Boolean(config.TELEGRAM_BOT_TOKEN)),
     notObservable: ['import_failure'],
   }));
 
@@ -404,7 +411,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   app.get('/admin/settings', async () => ({
     settings: await loadSettings(db),
     defaults: adminSettingsSchema.parse({}),
-    channels: notificationChannels,
+    channels: notificationChannels(Boolean(config.TELEGRAM_BOT_TOKEN)),
     integrations: {
       yandexWebmaster: 'not_connected',
       googleSearchConsole: 'not_connected',
@@ -423,6 +430,41 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     });
     return { settings: next };
   });
+
+  // ── Уведомления в Telegram (только владельцу) ─────────────────────────
+  app.get('/admin/notifications', async () =>
+    notificationsReport(db, config.ADMIN_OWNER_USER_IDS, Boolean(config.TELEGRAM_BOT_TOKEN)),
+  );
+  app.put('/admin/notifications', async (request) => {
+    const next = parse(adminNotificationSettingsSchema.strict(), request.body, 'invalid_body');
+    const before = await loadNotificationSettings(db);
+    await saveNotificationSettings(db, next);
+    await audit(request, {
+      action: 'notifications.updated',
+      objectType: 'settings',
+      objectId: 'admin.notifications',
+      result: 'ok',
+      details: { before, after: next },
+    });
+    return { settings: next };
+  });
+  app.post(
+    '/admin/notifications/test',
+    { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      await enqueueNotification(db, request.log, {
+        kind: 'test',
+        data: { at: new Date().toISOString() },
+      });
+      await audit(request, {
+        action: 'notifications.test',
+        objectType: 'settings',
+        objectId: 'admin.notifications',
+        result: 'ok',
+      });
+      return reply.code(202).send({ queued: true });
+    },
+  );
 
   // ── CSV ──────────────────────────────────────────────────────────────
   app.get('/admin/export/:kind', async (request, reply) => {

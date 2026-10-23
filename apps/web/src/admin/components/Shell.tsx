@@ -20,6 +20,7 @@ export const sections = [
     group: 'Люди и контент',
   },
   { path: '/admin/quality', label: 'Качество обучения', icon: 'success', group: 'Люди и контент' },
+  { path: '/admin/notifications', label: 'Уведомления', icon: 'notifications', group: 'Telegram' },
   { path: '/admin/health', label: 'Техническое состояние', icon: 'analysis', group: 'Система' },
   { path: '/admin/manage', label: 'Управление', icon: 'settings', group: 'Система' },
 ] as const satisfies readonly { path: string; label: string; icon: IconName; group: string }[];
