@@ -309,7 +309,7 @@ export function SignInMethodsSection({
       )}
       {data && (
         <ul className={styles.methodList}>
-          {(['email', 'vk', 'yandex', 'telegram'] as const).map((provider) => renderRow(provider))}
+          {(['vk', 'yandex', 'telegram'] as const).map((provider) => renderRow(provider))}
         </ul>
       )}
     </section>

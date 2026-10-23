@@ -46,8 +46,10 @@ describe('InfoPage', () => {
   it('privacy policy states the real sign-in data and the 30-day session cookie', () => {
     renderPage('privacy');
     const main = screen.getByRole('main');
-    expect(within(main).getByText(/адрес электронной почты/)).toBeInTheDocument();
     expect(within(main).getByText(/идентификатор пользователя VK/)).toBeInTheDocument();
+    expect(within(main).getByText(/идентификатор пользователя Яндекса/)).toBeInTheDocument();
+    // No email-based sign-in any more, so no email is collected for it.
+    expect(within(main).queryByText(/адрес электронной почты/)).not.toBeInTheDocument();
     expect(within(main).getByText(/действует 30 дней/)).toBeInTheDocument();
     expect(within(main).getByText(/сторонних систем аналитики на сайте нет/)).toBeInTheDocument();
   });

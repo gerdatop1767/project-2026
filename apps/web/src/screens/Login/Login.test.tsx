@@ -4,8 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { Login } from './Login.js';
 import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
-import { ApiError } from '../../lib/api.js';
-import * as api from '../../lib/api.js';
 import type * as ApiModule from '../../lib/api.js';
 
 vi.mock('../../lib/api.js', async () => {
@@ -13,7 +11,6 @@ vi.mock('../../lib/api.js', async () => {
   return {
     ...actual,
     getCurrentUser: vi.fn(() => Promise.resolve({ user: null })),
-    loginWithPassword: vi.fn(),
     yandexLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/yandex/start'),
     vkLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/vk/start'),
   };
@@ -41,8 +38,10 @@ describe('Login — layout', () => {
     expect(screen.queryByText(/Забыли пароль/)).not.toBeInTheDocument();
     expect(screen.queryByText(/ссылк[уа] для входа/)).not.toBeInTheDocument();
     expect(screen.queryByText(/письм/)).not.toBeInTheDocument();
-    // The password form for existing accounts is folded away.
+    // No email / password sign-in at all.
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Пароль')).not.toBeInTheDocument();
+    expect(screen.queryByText(/почт/i)).not.toBeInTheDocument();
   });
 
   it('old emailed links (?confirm=, ?reset=, ?token=) no longer do anything', () => {
@@ -81,9 +80,7 @@ describe('Login — Yandex ID', () => {
       value: {
         ...original,
         search: '',
-        set href(url: string) {
-          assign(url);
-        },
+        assign: (url: string) => assign(url),
       },
     });
     try {
@@ -100,48 +97,11 @@ describe('Login — Yandex ID', () => {
     ['error', 'Не удалось войти через Яндекс'],
     ['invalid_state', 'Сеанс входа через Яндекс устарел'],
     ['not_configured', 'Вход через Яндекс пока не настроен'],
-    ['email_in_use', 'подключите Яндекс в профиле'],
     ['<script>', 'Не удалось войти через Яндекс'],
   ])('explains ?yandex=%s and cleans the address', async (code, text) => {
     renderLogin(`/login?yandex=${encodeURIComponent(code)}`);
     expect(screen.getByRole('status')).toHaveTextContent(text);
     await waitFor(() => expect(window.location.search).toBe(''));
-  });
-});
-
-describe('Login — existing email + password accounts', () => {
-  async function openForm() {
-    const user = userEvent.setup();
-    renderLogin();
-    await user.click(screen.getByRole('button', { name: /Уже есть аккаунт с почтой и паролем/ }));
-    return user;
-  }
-
-  it('signs in with email and password', async () => {
-    vi.mocked(api.loginWithPassword).mockResolvedValue({ user: makeAuthUser() });
-    const user = await openForm();
-    expect(screen.queryByText(/Зарегистрироваться|Забыли пароль/)).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText('Email'), ' student@example.com ');
-    await user.type(screen.getByLabelText('Пароль'), 'Ege2026-strong');
-    await user.click(screen.getByRole('button', { name: 'Войти' }));
-    await waitFor(() => expect(screen.getByText('Готово!')).toBeInTheDocument());
-    expect(api.loginWithPassword).toHaveBeenCalledWith('student@example.com', 'Ege2026-strong');
-  });
-
-  it('validates before calling the API and shows one neutral error', async () => {
-    vi.mocked(api.loginWithPassword).mockRejectedValue(
-      new ApiError(401, { error: 'invalid_credentials' }),
-    );
-    const user = await openForm();
-    await user.type(screen.getByLabelText('Email'), 'nope');
-    await user.click(screen.getByRole('button', { name: 'Войти' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Введите корректный email');
-    expect(api.loginWithPassword).not.toHaveBeenCalled();
-    await user.clear(screen.getByLabelText('Email'));
-    await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    await user.type(screen.getByLabelText('Пароль'), 'wrong-pass-1');
-    await user.click(screen.getByRole('button', { name: 'Войти' }));
-    expect(await screen.findByText('Неверная почта или пароль.')).toBeInTheDocument();
   });
 });
 
@@ -201,11 +161,8 @@ describe('Login — the close (×) button', () => {
 
     // It sits inside no <form>, and using it never triggers form validation.
     expect(close.closest('form')).toBeNull();
-    await user.click(screen.getByRole('button', { name: /Уже есть аккаунт с почтой и паролем/ }));
-    await user.type(screen.getByLabelText('Email'), 'not-an-email');
     await user.click(close);
-    expect(screen.queryByText('Введите корректный email')).not.toBeInTheDocument();
-    expect(api.loginWithPassword).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/');
   });
 
   it('opened directly by URL (nothing behind it): closes to the public Home in place — never about:blank, no extra entry', async () => {
@@ -326,9 +283,7 @@ describe('Login — VK ID on the regular website', () => {
       value: {
         ...original,
         search: '',
-        set href(url: string) {
-          assign(url);
-        },
+        assign: (url: string) => assign(url),
       },
     });
     try {

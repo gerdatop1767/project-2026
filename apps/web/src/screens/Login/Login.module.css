@@ -186,22 +186,6 @@
   background: #1f1f1f;
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-body-sm);
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--color-border-subtle);
-}
-
 .form {
   display: flex;
   flex-direction: column;
@@ -214,60 +198,12 @@
   color: var(--color-error);
 }
 
-.linkButton:focus-visible,
-.showPassword:focus-visible {
-  outline: 2px solid var(--color-accent-primary-end);
-  outline-offset: 2px;
-}
-
-.passwordField {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.passwordField > :first-child {
-  align-self: stretch;
-}
-
-.showPassword,
-.linkButton {
-  padding: 4px 0;
-  border: none;
-  background: none;
-  color: var(--color-accent-primary-end);
-  font: inherit;
-  font-size: var(--font-size-body-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.linkButton {
-  align-self: center;
-  text-align: center;
-}
-
 .consent {
   margin: 0;
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--color-text-secondary);
   text-align: center;
-}
-
-.statePanel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  text-align: center;
-  padding: var(--space-6) 0;
-}
-
-.stateTitle {
-  margin: 0;
-  color: var(--color-text-primary);
 }
 
 .stateText {
@@ -279,14 +215,6 @@
 .stateSpinner {
   color: var(--color-accent-primary);
   animation: spin 800ms linear infinite;
-}
-
-.stateIconSuccess {
-  color: var(--color-success);
-}
-
-.stateIconError {
-  color: var(--color-error);
 }
 
 @keyframes fadeIn {

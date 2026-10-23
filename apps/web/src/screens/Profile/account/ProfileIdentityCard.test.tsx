@@ -31,7 +31,7 @@ const prepare = vi.fn(
   async (_file: File) => new Blob([new Uint8Array(10)], { type: 'image/jpeg' }),
 );
 
-const identityList = (providers: ('email' | 'vk' | 'telegram')[]): IdentitiesState => ({
+const identityList = (providers: ('email' | 'vk' | 'telegram' | 'yandex')[]): IdentitiesState => ({
   data: {
     identities: providers.map((provider) => ({ provider, linkedAt: '2026-03-05T10:00:00.000Z' })),
     available: { vk: true, telegram: true, yandex: true },
@@ -70,15 +70,19 @@ describe('ProfileIdentityCard — composition', () => {
     expect(container.querySelectorAll('img')).toHaveLength(1);
   });
 
-  it('names every linked method, using the e-mail address for the e-mail login', () => {
-    renderCard(makeAuthUser({ email: 'ivan@example.com' }), identityList(['email', 'telegram']));
-    expect(screen.getByText('Вход: ivan@example.com, Telegram')).toBeInTheDocument();
+  it('names the linked sign-in methods; an old e-mail login is not one any more', () => {
+    renderCard(
+      makeAuthUser({ email: 'ivan@example.com' }),
+      identityList(['email', 'vk', 'yandex', 'telegram']),
+    );
+    expect(screen.getByText('Вход: VK ID, Яндекс ID, Telegram')).toBeInTheDocument();
+    expect(screen.queryByText(/ivan@example\.com/)).not.toBeInTheDocument();
   });
 
-  it('falls back to the e-mail (or nothing) while the methods are still loading', () => {
+  it('shows nothing about sign-in while the methods are still loading', () => {
     const loading: IdentitiesState = { ...identityList([]), data: null };
     renderCard(makeAuthUser({ email: 'ivan@example.com' }), loading);
-    expect(screen.getByText('ivan@example.com')).toBeInTheDocument();
+    expect(screen.queryByText(/ivan@example\.com|Вход:/)).not.toBeInTheDocument();
   });
 
   it('shows an honest placeholder when there is no name at all', () => {

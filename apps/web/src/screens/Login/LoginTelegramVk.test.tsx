@@ -5,6 +5,7 @@ import { NavigationProvider } from '../../lib/navigation.js';
 import { TestAuthProvider } from '../../lib/authTestUtils.js';
 import { Login } from './Login.js';
 import * as api from '../../lib/api.js';
+import { ApiError } from '../../lib/api.js';
 import type * as ApiModule from '../../lib/api.js';
 import type * as TelegramModule from '../../lib/telegramMiniApp.js';
 
@@ -21,17 +22,22 @@ vi.mock('../../lib/api.js', async () => {
     ...actual,
     startVkHandoff: vi.fn(),
     claimVkHandoff: vi.fn(),
+    startYandexHandoff: vi.fn(),
+    claimYandexHandoff: vi.fn(),
     vkLoginUrl: vi.fn(() => 'https://zybrilka.test/api/v1/auth/vk/start'),
   };
 });
 
 const START_URL = 'https://zybrilka.test/api/v1/auth/vk/start?handoff=one-time-start-token';
+const YA_START_URL = 'https://zybrilka.test/api/v1/auth/yandex/start?handoff=ya-start-token';
 const openLink = vi.fn();
 
 beforeEach(() => {
   window.Telegram = { WebApp: { openLink } };
   vi.mocked(api.startVkHandoff).mockResolvedValue({ startUrl: START_URL });
   vi.mocked(api.claimVkHandoff).mockResolvedValue({ status: 'pending' });
+  vi.mocked(api.startYandexHandoff).mockResolvedValue({ startUrl: YA_START_URL });
+  vi.mocked(api.claimYandexHandoff).mockResolvedValue({ status: 'pending' });
 });
 afterEach(() => {
   delete window.Telegram;
@@ -55,12 +61,6 @@ function renderLogin(refresh = vi.fn(async () => {})) {
 const vkButton = () => screen.findByRole('button', { name: /Продолжить через VK ID/ });
 
 describe('Login inside the Telegram Mini App — VK ID in the external browser', () => {
-  it('does not offer Yandex ID inside the Mini App (Telegram signs the user in there)', async () => {
-    renderLogin();
-    await vkButton();
-    expect(screen.queryByRole('button', { name: /Войти через Яндекс/ })).not.toBeInTheDocument();
-  });
-
   it('prepares the handoff up front, and the tap opens VK ID in the external browser via Telegram.WebApp.openLink', async () => {
     const user = userEvent.setup();
     renderLogin();
@@ -160,5 +160,51 @@ describe('Login inside the Telegram Mini App — VK ID in the external browser',
     renderLogin();
     expect(await screen.findByText('Вход через VK ID сейчас недоступен')).toBeInTheDocument();
     expect(await vkButton()).toBeDisabled();
+  });
+});
+
+describe('Login inside the Telegram Mini App — Yandex ID in the external browser', () => {
+  const yaButton = () => screen.findByRole('button', { name: /Войти через Яндекс/ });
+
+  it('prepares its own handoff and the tap opens Yandex in the external browser', async () => {
+    const user = userEvent.setup();
+    renderLogin();
+    await waitFor(() => expect(api.startYandexHandoff).toHaveBeenCalledTimes(1));
+    await waitFor(async () => expect(await yaButton()).toBeEnabled());
+    await user.click(await yaButton());
+    expect(openLink).toHaveBeenCalledWith(YA_START_URL);
+    expect(screen.getByText('Ждём вход через Яндекс')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Войти через Яндекс/ })).not.toBeInTheDocument();
+  });
+
+  it('when Yandex sign-in finishes in the browser, the Mini App claims its own session', async () => {
+    const user = userEvent.setup();
+    const { refresh } = renderLogin();
+    await waitFor(async () => expect(await yaButton()).toBeEnabled());
+    await user.click(await yaButton());
+    vi.mocked(api.claimYandexHandoff).mockResolvedValue({ status: 'ok' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it('a cancelled Yandex screen: says so and offers the button again', async () => {
+    const user = userEvent.setup();
+    renderLogin();
+    await waitFor(async () => expect(await yaButton()).toBeEnabled());
+    await user.click(await yaButton());
+    vi.mocked(api.claimYandexHandoff).mockResolvedValue({ status: 'cancelled' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(await screen.findByText(/Вход через Яндекс отменён/)).toBeInTheDocument();
+    expect(await yaButton()).toBeInTheDocument();
+  });
+
+  it('Yandex not configured: its button is disabled, VK still works', async () => {
+    vi.mocked(api.startYandexHandoff).mockRejectedValue(
+      new ApiError(503, { error: 'yandex_not_configured' }),
+    );
+    renderLogin();
+    await waitFor(async () => expect(await yaButton()).toBeDisabled());
+    expect(screen.getByText('Вход через Яндекс сейчас недоступен')).toBeInTheDocument();
+    await waitFor(async () => expect(await vkButton()).toBeEnabled());
   });
 });

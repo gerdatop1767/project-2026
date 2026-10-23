@@ -250,7 +250,7 @@ describe('Yandex ID sign-in', () => {
     expect(timeout.headers.location).toBe('https://zybrilka.test/login?yandex=error');
   });
 
-  it('never merges by email: a matching email account is not taken over or duplicated', async () => {
+  it('never uses the Yandex email: an existing email account is neither taken over nor merged', async () => {
     const [owner] = await testDb.db.insert(schema.users).values({}).returning();
     await testDb.db
       .insert(schema.authIdentities)
@@ -261,14 +261,21 @@ describe('Yandex ID sign-in', () => {
       id: '1130000055555555',
       default_email: 'Shared@Yandex.ru',
     });
-    expect(res.headers.location).toBe('https://zybrilka.test/login?yandex=email_in_use');
-    expect(cookieFrom(res.headers['set-cookie'], 'session_id')).toBeUndefined();
-    expect(await usersCount()).toBe(before);
-    const yandexRows = await testDb.db
+    const session = cookieFrom(res.headers['set-cookie'], 'session_id')!.value;
+    const who = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { cookie: `session_id=${session}` },
+    });
+    // A separate, new account — the existing one is untouched.
+    expect(who.json().user.id).not.toBe(owner!.id);
+    expect(who.json().user.email).toBeNull();
+    expect(await usersCount()).toBe(before + 1);
+    const ownerIdentities = await testDb.db
       .select()
       .from(schema.authIdentities)
-      .where(eq(schema.authIdentities.providerUserId, '1130000055555555'));
-    expect(yandexRows).toHaveLength(0);
+      .where(eq(schema.authIdentities.userId, owner!.id));
+    expect(ownerIdentities.map((i) => i.provider)).toEqual(['email']);
   });
 
   it('connects Yandex to a signed-in account (with its progress and XP) and signs back into it', async () => {
@@ -325,5 +332,87 @@ describe('Yandex ID sign-in', () => {
   it('connecting requires a session', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/auth/yandex/start?link=1' });
     expect(res.statusCode).toBe(401);
+  });
+
+  describe('from the Telegram Mini App (external browser + handoff)', () => {
+    /** Mini App asks for a start link; returns its claim cookie and the link. */
+    async function miniAppHandoff() {
+      const res = await app.inject({ method: 'POST', url: '/api/v1/auth/yandex/handoff' });
+      expect(res.statusCode).toBe(200);
+      const claim = cookieFrom(res.headers['set-cookie'], 'ya_handoff')!;
+      expect(claim.raw).toMatch(/HttpOnly/i);
+      expect(claim.raw).toMatch(/Path=\/api\/v1\/auth\/yandex\/handoff/);
+      const startUrl = new URL(res.json().startUrl as string);
+      expect(startUrl.pathname).toBe('/api/v1/auth/yandex/start');
+      return {
+        claimCookie: `ya_handoff=${claim.value}`,
+        startPath: startUrl.pathname + startUrl.search,
+      };
+    }
+    const claim = (cookie: string) =>
+      app.inject({ method: 'POST', url: '/api/v1/auth/yandex/handoff/claim', headers: { cookie } });
+
+    /** The external browser: start → Yandex → callback. */
+    async function browserFlow(
+      startPath: string,
+      answer: 'ok' | 'cancel',
+      info = { id: '1130000044444444' },
+    ) {
+      const start = await app.inject({ method: 'GET', url: startPath });
+      const oauth = cookieFrom(start.headers['set-cookie'], 'ya_oauth')!;
+      const state = new URL(start.headers.location as string).searchParams.get('state')!;
+      if (answer === 'cancel') {
+        return callback(`error=access_denied&state=${state}`, [`ya_oauth=${oauth.value}`]);
+      }
+      yandexReplies(info);
+      return callback(`code=c&state=${state}`, [`ya_oauth=${oauth.value}`]);
+    }
+
+    it('signs the Mini App in: the browser keeps no session, the Mini App claims its own once', async () => {
+      const { claimCookie, startPath } = await miniAppHandoff();
+      expect((await claim(claimCookie)).json()).toEqual({ status: 'pending', started: false });
+
+      const done = await browserFlow(startPath, 'ok');
+      expect(done.headers.location).toBe(
+        'https://zybrilka.test/telegram-return?status=ok&provider=yandex',
+      );
+      expect(cookieFrom(done.headers['set-cookie'], 'session_id')).toBeUndefined();
+
+      const claimed = await claim(claimCookie);
+      expect(claimed.json()).toMatchObject({ status: 'ok', user: { id: expect.any(String) } });
+      const session = cookieFrom(claimed.headers['set-cookie'], 'session_id')!.value;
+      const who = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/me',
+        headers: { cookie: `session_id=${session}` },
+      });
+      expect(who.json().user.id).toBe(claimed.json().user.id);
+      // Exactly once.
+      expect((await claim(claimCookie)).json()).toEqual({ status: 'expired' });
+    });
+
+    it('a cancelled Yandex screen is reported back to the Mini App', async () => {
+      const { claimCookie, startPath } = await miniAppHandoff();
+      const res = await browserFlow(startPath, 'cancel');
+      expect(res.headers.location).toBe(
+        'https://zybrilka.test/telegram-return?status=cancelled&provider=yandex',
+      );
+      expect((await claim(claimCookie)).json()).toEqual({ status: 'cancelled' });
+    });
+
+    it('a start link works once; a reused one says «expired»', async () => {
+      const { startPath } = await miniAppHandoff();
+      await app.inject({ method: 'GET', url: startPath });
+      const again = await app.inject({ method: 'GET', url: startPath });
+      expect(again.headers.location).toBe(
+        'https://zybrilka.test/telegram-return?status=expired&provider=yandex',
+      );
+    });
+
+    it('answers 503 when Yandex ID is not configured', async () => {
+      const res = await unconfigured.inject({ method: 'POST', url: '/api/v1/auth/yandex/handoff' });
+      expect(res.statusCode).toBe(503);
+      expect(res.json()).toEqual({ error: 'yandex_not_configured' });
+    });
   });
 });

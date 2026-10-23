@@ -1,9 +1,7 @@
-import { schema } from '@zybrilka/db';
 import { createSeededTestDb } from '@zybrilka/db/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../app.js';
 import { loadConfig } from '../../config.js';
-import { hashPassword } from './password.js';
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
@@ -18,7 +16,7 @@ function parseSetCookie(header: string | string[] | undefined, name: string): st
   return undefined;
 }
 
-describe('auth (password sign-in + VK ID + session)', () => {
+describe('auth (VK ID + session)', () => {
   let testDb: Awaited<ReturnType<typeof createSeededTestDb>>;
   let app: ReturnType<typeof buildApp>;
   let appNoAuth: ReturnType<typeof buildApp>;
@@ -72,7 +70,7 @@ describe('auth (password sign-in + VK ID + session)', () => {
     expect(prefixedStart.statusCode).toBe(302);
   });
 
-  it('email registration, emailed sign-in links and password reset are gone (404)', async () => {
+  it('email registration, emailed links, password reset and email + password sign-in are gone (404)', async () => {
     for (const url of [
       '/api/v1/auth/magic-link',
       '/api/v1/auth/verify',
@@ -82,6 +80,7 @@ describe('auth (password sign-in + VK ID + session)', () => {
       '/api/v1/auth/password/forgot',
       '/api/v1/auth/password/reset',
       '/api/v1/auth/password/reset/check',
+      '/api/v1/auth/login',
     ]) {
       const res = await app.inject({
         method: 'POST',
@@ -90,51 +89,6 @@ describe('auth (password sign-in + VK ID + session)', () => {
       });
       expect(res.statusCode, url).toBe(404);
     }
-  });
-
-  it('an existing email + password account still signs in without SMTP: login -> /auth/me -> logout', async () => {
-    const email = `pwd-${Date.now()}@example.com`;
-    const [user] = await testDb.db.insert(schema.users).values({}).returning();
-    await testDb.db
-      .insert(schema.authIdentities)
-      .values({ userId: user!.id, provider: 'email', providerUserId: email });
-    await testDb.db
-      .insert(schema.emailCredentials)
-      .values({ userId: user!.id, passwordHash: await hashPassword('Ege2026-strong') });
-
-    const wrong = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: { email, password: 'not-it-123' },
-    });
-    expect(wrong.statusCode).toBe(401);
-    expect(wrong.json()).toEqual({ error: 'invalid_credentials' });
-
-    const loginRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: { email: email.toUpperCase(), password: 'Ege2026-strong' },
-    });
-    expect(loginRes.statusCode).toBe(200);
-    const sessionId = parseSetCookie(loginRes.headers['set-cookie'], 'session_id');
-    const meRes = await app.inject({
-      method: 'GET',
-      url: '/api/v1/auth/me',
-      headers: { cookie: `session_id=${sessionId}` },
-    });
-    expect(meRes.json().user).toMatchObject({ id: user!.id, email });
-
-    await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/logout',
-      headers: { cookie: `session_id=${sessionId}` },
-    });
-    const after = await app.inject({
-      method: 'GET',
-      url: '/api/v1/auth/me',
-      headers: { cookie: `session_id=${sessionId}` },
-    });
-    expect(after.json()).toEqual({ user: null });
   });
 
   it('a request with no session cookie is anonymous on /auth/me', async () => {
@@ -287,25 +241,25 @@ describe('auth (password sign-in + VK ID + session)', () => {
   });
 
   describe('rate limiting (own app instance per test — own in-memory store, never affects the shared `app` above)', () => {
-    it('throttles repeated /auth/login attempts from the same IP with 429', async () => {
+    it('throttles repeated Telegram sign-in attempts from the same IP with 429', async () => {
       const limited = buildApp({
         version: 'test',
         db: testDb.db,
         authConfig: loadConfig({ NODE_ENV: 'test' }),
       });
       try {
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 30; i++) {
           const res = await limited.inject({
             method: 'POST',
-            url: '/api/v1/auth/login',
-            payload: { email: `rate-${i}@example.com`, password: 'whatever-123' },
+            url: '/api/v1/auth/telegram',
+            payload: {},
           });
-          expect(res.statusCode).toBe(401);
+          expect(res.statusCode).toBe(400);
         }
         const blocked = await limited.inject({
           method: 'POST',
-          url: '/api/v1/auth/login',
-          payload: { email: 'rate-11@example.com', password: 'whatever-123' },
+          url: '/api/v1/auth/telegram',
+          payload: {},
         });
         expect(blocked.statusCode).toBe(429);
       } finally {

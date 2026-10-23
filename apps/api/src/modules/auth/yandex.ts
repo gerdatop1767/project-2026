@@ -16,7 +16,7 @@ import type { VkPkceChallenge } from './vk.js';
  * - `https://oauth.yandex.ru/token` (form POST): grant_type=authorization_code,
  *   code, client_id, client_secret, code_verifier → `access_token`.
  * - `https://login.yandex.ru/info?format=json` with `Authorization: OAuth <token>`
- *   → `id` (stable per-user id), `default_email`, `first_name`, `last_name`,
+ *   → `id` (stable per-user id), `first_name`, `last_name`,
  *   `default_avatar_id`, `is_avatar_empty`.
  *
  * This environment could not open the Yandex docs or endpoints directly
@@ -134,10 +134,6 @@ export async function exchangeYandexCode(
 export interface YandexUser {
   /** Yandex's stable user id — the identity key (`auth_identities`). */
   id: string;
-  /** The account's main address as Yandex reports it (lowercased), if the
-   * app was given the email permission. Used only to refuse a silent
-   * second account — never to merge. */
-  email: string | null;
   firstName?: string;
   lastName?: string;
   avatarUrl?: string;
@@ -159,12 +155,6 @@ export async function fetchYandexUser(config: Config, accessToken: string): Prom
         : null;
   if (!id) throw new YandexRequestError('invalid_response');
 
-  const rawEmail = data.default_email;
-  const email =
-    typeof rawEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail.trim())
-      ? rawEmail.trim().toLowerCase()
-      : null;
-
   const avatarId = data.default_avatar_id;
   const checked =
     data.is_avatar_empty !== true &&
@@ -176,7 +166,6 @@ export async function fetchYandexUser(config: Config, accessToken: string): Prom
 
   return {
     id,
-    email,
     firstName: cleanProviderName(data.first_name),
     lastName: cleanProviderName(data.last_name),
     avatarUrl,

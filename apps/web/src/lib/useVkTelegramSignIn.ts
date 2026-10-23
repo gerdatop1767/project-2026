@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, claimVkHandoff, startVkHandoff } from './api.js';
+import {
+  ApiError,
+  claimVkHandoff,
+  claimYandexHandoff,
+  startVkHandoff,
+  startYandexHandoff,
+} from './api.js';
 import { openExternalLink } from './telegramMiniApp.js';
 
 /**
- * VK ID sign-in from inside the Telegram Mini App.
+ * VK ID / Yandex ID sign-in from inside the Telegram Mini App.
  *
- * VK ID can't run in Telegram's WebView, so it opens in the device's
+ * Neither runs in Telegram's WebView, so it opens in the device's
  * external browser (Telegram's official `WebApp.openLink`). The browser
  * has its own cookies, so the server hands the signed-in account back to
  * this WebView through a one-time handoff (see apps/api handoff.ts): this
@@ -34,47 +40,68 @@ const WAIT_LIMIT_MS = 11 * 60 * 1000;
 /** Set when the tap opened the browser; survives a reload of this WebView
  * (Telegram may reload the Mini App while the visitor is in the browser),
  * so the reloaded app waits for THAT sign-in instead of starting over. */
-const OPENED_KEY = 'zybrilka_vk_handoff_opened_at';
-function markOpened(on: boolean) {
+export type HandoffProvider = 'vk' | 'yandex';
+
+const PROVIDER_API = {
+  vk: { start: () => startVkHandoff(), claim: () => claimVkHandoff() },
+  yandex: { start: () => startYandexHandoff(), claim: () => claimYandexHandoff() },
+} as const;
+
+const openedKey = (provider: HandoffProvider) => `zybrilka_${provider}_handoff_opened_at`;
+function markOpened(provider: HandoffProvider, on: boolean) {
   try {
-    if (on) window.sessionStorage.setItem(OPENED_KEY, String(Date.now()));
-    else window.sessionStorage.removeItem(OPENED_KEY);
+    if (on) window.sessionStorage.setItem(openedKey(provider), String(Date.now()));
+    else window.sessionStorage.removeItem(openedKey(provider));
   } catch {
     // Storage blocked: a reload simply starts a fresh link.
   }
 }
-function openedRecently(): boolean {
+function openedRecently(provider: HandoffProvider): boolean {
   try {
-    const at = Number(window.sessionStorage.getItem(OPENED_KEY));
+    const at = Number(window.sessionStorage.getItem(openedKey(provider)));
     return at > 0 && Date.now() - at < WAIT_LIMIT_MS;
   } catch {
     return false;
   }
 }
 
+/** VK ID — kept for existing callers. */
 export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<void>) {
+  return useTelegramHandoffSignIn('vk', enabled, onSignedIn);
+}
+
+export function useTelegramHandoffSignIn(
+  provider: HandoffProvider,
+  enabled: boolean,
+  onSignedIn: () => Promise<void>,
+) {
+  const api = PROVIDER_API[provider];
   const [phase, setPhase] = useState<VkTelegramPhase>('preparing');
   const [notice, setNotice] = useState<VkTelegramNotice>(null);
   const [startUrl, setStartUrl] = useState<string | null>(null);
   const generation = useRef(0);
 
   /** Asks the server for a fresh start link (state is only set when it answers). */
-  const load = useCallback((mine: number) => {
-    startVkHandoff()
-      .then(({ startUrl: url }) => {
-        if (generation.current !== mine) return;
-        setStartUrl(url);
-        setPhase('ready');
-      })
-      .catch((error: unknown) => {
-        if (generation.current !== mine) return;
-        if (error instanceof ApiError && error.status === 503) setPhase('unavailable');
-        else {
-          setNotice('error');
-          setPhase('ready'); // the button retries the preparation
-        }
-      });
-  }, []);
+  const load = useCallback(
+    (mine: number) => {
+      api
+        .start()
+        .then(({ startUrl: url }) => {
+          if (generation.current !== mine) return;
+          setStartUrl(url);
+          setPhase('ready');
+        })
+        .catch((error: unknown) => {
+          if (generation.current !== mine) return;
+          if (error instanceof ApiError && error.status === 503) setPhase('unavailable');
+          else {
+            setNotice('error');
+            setPhase('ready'); // the button retries the preparation
+          }
+        });
+    },
+    [api],
+  );
 
   const prepare = useCallback(() => {
     const mine = ++generation.current;
@@ -90,17 +117,18 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
   useEffect(() => {
     if (!enabled) return;
     const mine = ++generation.current;
-    claimVkHandoff()
+    api
+      .claim()
       .then(async ({ status, started }) => {
         if (generation.current !== mine) return;
         if (status === 'ok') {
-          markOpened(false);
+          markOpened(provider, false);
           await onSignedIn();
           setPhase('done');
-        } else if (status === 'pending' && (started || openedRecently())) {
+        } else if (status === 'pending' && (started || openedRecently(provider))) {
           setPhase('waiting');
         } else {
-          markOpened(false);
+          markOpened(provider, false);
           load(mine);
         }
       })
@@ -110,7 +138,7 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
     return () => {
       generation.current++;
     };
-  }, [enabled, load, onSignedIn]);
+  }, [enabled, load, onSignedIn, api, provider]);
 
   // Keep the prepared link fresh while the visitor reads the screen.
   useEffect(() => {
@@ -127,17 +155,17 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
       return;
     }
     setNotice(null);
-    markOpened(true);
+    markOpened(provider, true);
     if (!openExternalLink(startUrl)) window.open(startUrl, '_blank', 'noopener');
     setPhase('waiting');
-  }, [phase, startUrl, prepare]);
+  }, [phase, startUrl, prepare, provider]);
 
   /** Back to the button with a brand-new link (the old one is abandoned). */
   const restart = useCallback(() => {
-    markOpened(false);
+    markOpened(provider, false);
     setNotice(null);
     prepare();
-  }, [prepare]);
+  }, [prepare, provider]);
 
   // Waiting: ask now and then, and right away when Telegram is back in view.
   useEffect(() => {
@@ -151,18 +179,18 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
       if (busy || finished || generation.current !== mine) return;
       if (Date.now() - startedAt > WAIT_LIMIT_MS) {
         finished = true;
-        markOpened(false);
+        markOpened(provider, false);
         setNotice('expired');
         prepare();
         return;
       }
       busy = true;
       try {
-        const { status } = await claimVkHandoff();
+        const { status } = await api.claim();
         if (finished || generation.current !== mine) return;
         if (status === 'pending') return;
         finished = true;
-        markOpened(false);
+        markOpened(provider, false);
         if (status === 'ok') {
           await onSignedIn();
           setPhase('done');
@@ -191,7 +219,7 @@ export function useVkTelegramSignIn(enabled: boolean, onSignedIn: () => Promise<
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [phase, onSignedIn, prepare]);
+  }, [phase, onSignedIn, prepare, api, provider]);
 
   return { phase, notice, open, restart };
 }

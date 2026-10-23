@@ -117,19 +117,6 @@ export async function completeVkLink(
 
 // ------------------------------------------------------------------ Yandex
 
-/**
- * A Yandex account with no Zybrilka account yet, whose email (as Yandex
- * reports it) is already the email sign-in of an existing account. We do
- * NOT merge on a matching address, and we do not silently open a second
- * account for the same person either: they sign in to the existing account
- * and connect Yandex in the profile (an explicit, signed-in link).
- */
-export class YandexEmailInUseError extends Error {
-  constructor() {
-    super('This Yandex email already belongs to an existing account');
-  }
-}
-
 async function adoptYandexProfile(db: Database, userId: string, ya: YandexUser): Promise<void> {
   await profileRepo.applyProviderProfile(db, userId, 'yandex', {
     firstName: ya.firstName,
@@ -143,9 +130,9 @@ async function adoptYandexProfile(db: Database, userId: string, ya: YandexUser):
  * user id from the server-to-server `login.yandex.ru/info` response for the
  * code exchanged here — nothing the browser sends is trusted.
  * - known Yandex id → that account (same account on every later sign-in);
- * - unknown id, email already used by an email account → refuse
- *   (`YandexEmailInUseError`), never merge;
- * - unknown id otherwise → a new account.
+ * - unknown id → a new account. The email Yandex reports is never used to
+ *   pick, take over or merge an account — connecting Yandex to an existing
+ *   account is done from inside it (profile, `?link=1`).
  */
 export async function completeYandexLogin(
   db: Database,
@@ -156,14 +143,7 @@ export async function completeYandexLogin(
   const token = await exchangeYandexCode(config, code, codeVerifier);
   const ya = await fetchYandexUser(config, token);
 
-  let userId = await repo.findUserIdByIdentity(db, 'yandex', ya.id);
-  let created = false;
-  if (!userId) {
-    if (ya.email && (await repo.findUserIdByIdentity(db, 'email', ya.email))) {
-      throw new YandexEmailInUseError();
-    }
-    ({ userId, created } = await repo.findOrCreateUserByIdentity(db, 'yandex', ya.id));
-  }
+  const { userId, created } = await repo.findOrCreateUserByIdentity(db, 'yandex', ya.id);
   await adoptYandexProfile(db, userId, ya);
   const session = await startSession(db, userId);
   return { ...session, user: await loadAuthUser(db, userId), created };

@@ -51,8 +51,10 @@ describe('SignInMethodsSection', () => {
   it('lists linked methods and offers the ones that can be added', async () => {
     vi.mocked(api.getIdentities).mockResolvedValue(identities(['email']));
     renderSection();
-    expect(await screen.findByText('Почта и пароль')).toBeInTheDocument();
-    expect(screen.getByText('ВКонтакте')).toBeInTheDocument();
+    expect(await screen.findByText('ВКонтакте')).toBeInTheDocument();
+    expect(screen.getByText('Яндекс ID')).toBeInTheDocument();
+    // E-mail is not a sign-in method any more: not listed.
+    expect(screen.queryByText('Почта и пароль')).not.toBeInTheDocument();
     expect(screen.getByText('Откройте Зубрилку в Telegram, чтобы подключить')).toBeInTheDocument();
     // Single method: nothing can be disconnected.
     expect(screen.queryByRole('button', { name: /Отключить/ })).not.toBeInTheDocument();
@@ -63,7 +65,7 @@ describe('SignInMethodsSection', () => {
       identities(['email'], { available: { vk: false, telegram: false, yandex: false } }),
     );
     renderSection();
-    await screen.findByText('Почта и пароль');
+    await waitFor(() => expect(api.getIdentities).toHaveBeenCalled());
     expect(screen.queryByText('ВКонтакте')).not.toBeInTheDocument();
     expect(screen.queryByText('Telegram')).not.toBeInTheDocument();
     expect(screen.queryByText('Яндекс ID')).not.toBeInTheDocument();

@@ -495,13 +495,6 @@ export function getVariantProgress(): Promise<VariantProgressResponse> {
   return cachedApiFetch('/progress/variants');
 }
 
-/** Email + password sign-in for accounts that already have a password
- * (no registration or emailed links any more). ApiError 401
- * `invalid_credentials` for any wrong combination. */
-export function loginWithPassword(email: string, password: string): Promise<{ user: AuthUser }> {
-  return apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-}
-
 /** «Войти через Яндекс»: a plain navigation to this API's own server-side
  * OAuth start (state + PKCE live in an httpOnly cookie there). When Yandex
  * ID isn't configured it lands back on /login?yandex=not_configured. */
@@ -537,6 +530,16 @@ export type VkHandoffStatus = 'pending' | 'ok' | 'cancelled' | 'failed' | 'expir
  * `ok` means this WebView now has its own session. */
 export function claimVkHandoff(): Promise<{ status: VkHandoffStatus; started?: boolean }> {
   return apiFetch('/auth/vk/handoff/claim', { method: 'POST' });
+}
+
+/** Same as `startVkHandoff`, for Yandex ID opened from the Mini App. */
+export function startYandexHandoff(): Promise<{ startUrl: string }> {
+  return apiFetch('/auth/yandex/handoff', { method: 'POST' });
+}
+
+/** Same as `claimVkHandoff`, for Yandex ID. */
+export function claimYandexHandoff(): Promise<{ status: VkHandoffStatus; started?: boolean }> {
+  return apiFetch('/auth/yandex/handoff/claim', { method: 'POST' });
 }
 
 /** The current session's user, or `null` when signed out — never

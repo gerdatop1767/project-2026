@@ -27,3 +27,19 @@ describe('Telegram return page (external browser, after VK ID)', () => {
     expect(document.body.innerHTML).not.toContain('<script>');
   });
 });
+
+describe('Telegram return page after Yandex ID', () => {
+  it('names Yandex when the sign-in was through it', () => {
+    window.history.replaceState(null, '', '/telegram-return?status=ok&provider=yandex');
+    render(<TelegramReturn />);
+    expect(screen.getByRole('heading', { name: /вы вошли через Яндекс/ })).toBeInTheDocument();
+  });
+
+  it('an unknown provider value falls back to VK, never echoed', () => {
+    window.history.replaceState(null, '', '/telegram-return?status=error&provider=%3Cb%3E');
+    render(<TelegramReturn />);
+    expect(
+      screen.getByRole('heading', { name: 'Не удалось войти через VK ID' }),
+    ).toBeInTheDocument();
+  });
+});

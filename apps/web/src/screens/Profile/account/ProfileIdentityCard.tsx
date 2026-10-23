@@ -37,13 +37,14 @@ function networkOrServerText(error: unknown, fallback: string): string {
   return fallback;
 }
 
-/** "Вход: name@mail.ru, VK ID" — how this account is signed in, or null while unknown. */
-function signInSummary(identities: IdentitiesState['data'], email: string | null): string | null {
-  if (!identities) return email;
-  const labels = identities.identities.map((identity) =>
-    identity.provider === 'email' ? (email ?? 'почта') : PROVIDER_SHORT[identity.provider],
+/** "Вход: VK ID, Яндекс ID" — how this account is signed in, or null while unknown. */
+function signInSummary(identities: IdentitiesState['data']): string | null {
+  if (!identities) return null;
+  // Email is not a sign-in method any more (VK ID / Yandex ID / Telegram only).
+  const labels = identities.identities.flatMap((identity) =>
+    identity.provider === 'email' ? [] : [PROVIDER_SHORT[identity.provider]],
   );
-  return labels.length > 0 ? `Вход: ${labels.join(', ')}` : email;
+  return labels.length > 0 ? `Вход: ${labels.join(', ')}` : null;
 }
 
 export interface ProfileIdentityCardProps {
@@ -214,9 +215,7 @@ export function ProfileIdentityCard({
 
   const openPicker = () => fileInput.current?.click();
   const shownName = displayName(user);
-  const summary =
-    signInSummary(identities.data, user?.email ?? null) ??
-    (shownName ? null : 'Профиль ещё не настроен');
+  const summary = signInSummary(identities.data) ?? (shownName ? null : 'Профиль ещё не настроен');
   const notice = avatarNotice ?? nameNotice;
 
   return (

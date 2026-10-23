@@ -110,27 +110,3 @@ export async function deleteSession(db: Database, sessionId: string): Promise<vo
   if (!UUID_PATTERN.test(sessionId)) return;
   await db.delete(schema.authSessions).where(eq(schema.authSessions.id, sessionId));
 }
-
-// -------------------------------------------------------- email + password
-
-export async function getPasswordHash(db: Database, userId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ passwordHash: schema.emailCredentials.passwordHash })
-    .from(schema.emailCredentials)
-    .where(eq(schema.emailCredentials.userId, userId));
-  return row?.passwordHash ?? null;
-}
-
-export async function setPasswordHash(
-  db: Database,
-  userId: string,
-  passwordHash: string,
-): Promise<void> {
-  await db
-    .insert(schema.emailCredentials)
-    .values({ userId, passwordHash })
-    .onConflictDoUpdate({
-      target: schema.emailCredentials.userId,
-      set: { passwordHash, updatedAt: new Date() },
-    });
-}

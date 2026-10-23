@@ -35,20 +35,3 @@ export const meResponseSchema = z.object({
   isOwner: z.boolean().optional(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
-
-// ------------------------------------------------------- email + password
-
-/** Upper bound for a password sent to sign-in — stops a huge string from
- * being fed to the hash function. (Registration and password reset were
- * removed together with email sending; only sign-in remains.) */
-export const PASSWORD_MAX_LENGTH = 128;
-
-/** POST /auth/login — for accounts that already have a password. */
-export const passwordLoginRequestSchema = z.object({
-  email: z.email().max(254),
-  password: z
-    .string()
-    .min(1)
-    .max(PASSWORD_MAX_LENGTH + 1),
-});
-export type PasswordLoginRequest = z.infer<typeof passwordLoginRequestSchema>;

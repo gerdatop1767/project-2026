@@ -1,5 +1,5 @@
 import type { Database } from '@zybrilka/db';
-import { passwordLoginRequestSchema, telegramInitDataRequestSchema } from '@zybrilka/shared';
+import { telegramInitDataRequestSchema } from '@zybrilka/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
@@ -8,7 +8,6 @@ import { recordSignIn } from '../analytics/recorder.js';
 import * as service from './service.js';
 import { createVkPkceChallenge, buildVkAuthorizeUrl, isVkConfigured } from './vk.js';
 import * as handoff from './handoff.js';
-import { InvalidCredentialsError, loginWithPassword } from './passwordLogin.js';
 import { buildYandexAuthorizeUrl, isYandexConfigured } from './yandex.js';
 
 export interface AuthRoutesOptions {
@@ -30,6 +29,8 @@ const yandexCookieSchema = z.object({
   state: z.string().min(16).max(100),
   codeVerifier: z.string().min(43).max(128),
   link: z.object({ userId: z.uuid() }).optional(),
+  // A sign-in for the Telegram Mini App (see handoff.ts): the handoff row id.
+  handoff: z.uuid().optional(),
 });
 function parseYandexCookie(raw: string) {
   try {
@@ -72,8 +73,9 @@ const vkPkceCookieSchema = z.object({
 
 /** The Mini App's own claim secret for a VK handoff (httpOnly, only sent to
  * the handoff endpoints). */
-const HANDOFF_COOKIE = 'vk_handoff';
-const HANDOFF_COOKIE_PATH = '/api/v1/auth/vk/handoff';
+/** The Mini App's own claim secret for a handoff (httpOnly, only sent to
+ * that provider's handoff endpoints). */
+const HANDOFF_COOKIES = { vk: 'vk_handoff', yandex: 'ya_handoff' } as const;
 const handoffStartQuerySchema = z.object({ handoff: z.string().min(20).max(100) });
 
 const vkCallbackQuerySchema = z.object({
@@ -122,38 +124,6 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     if (previous && previous !== newSessionId) await service.logout(db, previous);
   }
 
-  // Email + password, for accounts that already have a password (registration
-  // and every emailed link were removed with SMTP — docs/YANDEX_ID.md). One
-  // error for "no such address", "no password" and "wrong password".
-  app.post(
-    '/auth/login',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const body = passwordLoginRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-      try {
-        const result = await loginWithPassword(db, body.data.email, body.data.password);
-        await dropPreviousSession(request, result.sessionId);
-        await recordSignIn(db, request, {
-          userId: result.user.id,
-          created: false,
-          method: 'email',
-        });
-        reply.setCookie(
-          SESSION_COOKIE,
-          result.sessionId,
-          cookieOptions(config, SESSION_MAX_AGE_SECONDS),
-        );
-        return reply.code(200).send({ user: result.user });
-      } catch (error) {
-        if (error instanceof InvalidCredentialsError) {
-          return reply.code(401).send({ error: 'invalid_credentials' });
-        }
-        throw error;
-      }
-    },
-  );
-
   // ------------------------------------------------- Yandex ID (YANDEX_ID.md)
 
   /** Back to the sign-in page (or the profile, for "connect Yandex") with a
@@ -166,7 +136,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
   }
 
   // `?link=1`: connect Yandex to the signed-in account (target account taken
-  // from the SESSION and re-checked at the callback), otherwise sign in.
+  // from the SESSION and re-checked at the callback); `?handoff=<start
+  // token>`: a sign-in for the Telegram Mini App opened in the external
+  // browser; otherwise a plain sign-in.
   app.get(
     '/auth/yandex/start',
     { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
@@ -176,6 +148,13 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       if (linking && !request.sessionUserId) {
         return reply.code(401).send({ error: 'unauthorized' });
       }
+      let handoffId: string | undefined;
+      const handoffQuery = handoffStartQuerySchema.safeParse(request.query);
+      if (!linking && handoffQuery.success) {
+        const id = await handoff.startHandoff(db, handoffQuery.data.handoff);
+        if (!id) return toTelegramReturn(reply, 'expired', 'yandex');
+        handoffId = id;
+      }
       const challenge = createVkPkceChallenge();
       reply.setCookie(
         YANDEX_COOKIE,
@@ -183,6 +162,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
           state: challenge.state,
           codeVerifier: challenge.codeVerifier,
           ...(linking ? { link: { userId: request.sessionUserId } } : {}),
+          ...(handoffId ? { handoff: handoffId } : {}),
         }),
         { ...baseCookieOptions(config), path: YANDEX_COOKIE_PATH, maxAge: 600 },
       );
@@ -199,7 +179,14 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       reply.clearCookie(YANDEX_COOKIE, { ...baseCookieOptions(config), path: YANDEX_COOKIE_PATH });
       const saved = raw ? parseYandexCookie(raw) : null;
       const linking = Boolean(saved?.link);
+      const handoffId = saved?.handoff;
       const query = yandexCallbackQuerySchema.safeParse(request.query);
+      // A Mini App sign-in that did not end signed in: the handoff learns
+      // why, and this external browser is told how to get back to Telegram.
+      const handoffFailed = async (status: 'cancelled' | 'failed') => {
+        await handoff.finishHandoff(db, handoffId!, { status });
+        return toTelegramReturn(reply, status === 'cancelled' ? 'cancelled' : 'error', 'yandex');
+      };
 
       // CSRF: the state Yandex echoes back must equal the one this server
       // stored for this attempt. Checked before anything else, including the
@@ -207,13 +194,17 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       const state = query.success ? query.data.state : undefined;
       if (!saved || !state || state !== saved.state) {
         request.log.warn({ yandexAuth: 'invalid_state' }, 'Yandex callback rejected');
+        if (handoffId) return handoffFailed('failed');
         return yandexOutcome(reply, linking, 'invalid_state');
       }
       if (!query.success || query.data.error || !query.data.code) {
         // `access_denied` = the user pressed «Отмена»; anything else is a
         // provider error. Only the short code is logged.
         const error = query.success ? query.data.error : undefined;
-        if (error === 'access_denied') return yandexOutcome(reply, linking, 'cancelled');
+        if (error === 'access_denied') {
+          if (handoffId) return handoffFailed('cancelled');
+          return yandexOutcome(reply, linking, 'cancelled');
+        }
         request.log.warn(
           {
             yandexAuth: 'provider_error',
@@ -221,6 +212,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
           },
           'Yandex returned an error',
         );
+        if (handoffId) return handoffFailed('failed');
         return yandexOutcome(reply, linking, 'error');
       }
 
@@ -262,6 +254,16 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
           created: result.created,
           method: 'yandex',
         });
+        // A sign-in for the Telegram Mini App: the account goes to the Mini
+        // App (it claims its OWN session); this external browser keeps none.
+        if (handoffId) {
+          await service.logout(db, result.sessionId);
+          const handed = await handoff.finishHandoff(db, handoffId, {
+            status: 'completed',
+            userId: result.user.id,
+          });
+          return toTelegramReturn(reply, handed ? 'ok' : 'expired', 'yandex');
+        }
         reply.setCookie(
           SESSION_COOKIE,
           result.sessionId,
@@ -273,10 +275,8 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
           : new URL('/onboarding', config.WEB_BASE_URL).toString();
         return reply.redirect(landing);
       } catch (error) {
-        if (error instanceof service.YandexEmailInUseError) {
-          return yandexOutcome(reply, false, 'email_in_use');
-        }
         logYandexFailure(request, error, 'Yandex login failed');
+        if (handoffId) return handoffFailed('failed');
         return yandexOutcome(reply, false, 'error');
       }
     },
@@ -285,67 +285,79 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
   /** The external browser's last stop in a Mini App sign-in: a page that
    * says how it went and how to get back to Telegram. Status is chosen by
    * this server, never echoed from the request. */
-  function toTelegramReturn(reply: FastifyReply, status: 'ok' | 'cancelled' | 'error' | 'expired') {
-    return reply.redirect(
-      new URL(`/telegram-return?status=${status}`, config.WEB_BASE_URL).toString(),
-    );
+  function toTelegramReturn(
+    reply: FastifyReply,
+    status: 'ok' | 'cancelled' | 'error' | 'expired',
+    provider: 'vk' | 'yandex' = 'vk',
+  ) {
+    const query = provider === 'vk' ? `status=${status}` : `status=${status}&provider=${provider}`;
+    return reply.redirect(new URL(`/telegram-return?${query}`, config.WEB_BASE_URL).toString());
   }
 
-  // Telegram Mini App → VK ID in the external browser. Called by the Mini
-  // App itself (same-origin POST from its WebView): creates a handoff,
-  // keeps its claim secret in this WebView's httpOnly cookie and returns
-  // the URL the Mini App opens with Telegram.WebApp.openLink. Each tap
-  // makes a new handoff (the cookie is replaced, the old one just expires).
-  app.post(
-    '/auth/vk/handoff',
-    { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
-    async (_request, reply) => {
-      if (!isVkConfigured(config)) {
-        return reply.code(503).send({ error: 'vk_not_configured' });
-      }
-      const { claimToken, startToken } = await handoff.createHandoff(db);
-      reply.setCookie(HANDOFF_COOKIE, claimToken, {
-        ...baseCookieOptions(config),
-        path: HANDOFF_COOKIE_PATH,
-        maxAge: handoff.HANDOFF_TTL_MS / 1000,
-      });
-      const startUrl = new URL('/api/v1/auth/vk/start', config.WEB_BASE_URL);
-      startUrl.searchParams.set('handoff', startToken);
-      return reply.code(200).send({ startUrl: startUrl.toString() });
-    },
-  );
+  // Telegram Mini App → VK ID / Yandex ID in the external browser (neither
+  // runs inside Telegram's WebView). Called by the Mini App itself
+  // (same-origin POST from its WebView): creates a handoff, keeps its claim
+  // secret in this WebView's httpOnly cookie and returns the URL the Mini App
+  // opens with Telegram.WebApp.openLink. Each tap makes a new handoff (the
+  // cookie is replaced, the old one just expires). Then the Mini App asks
+  // whether the sign-in finished (polled while it waits, and again whenever
+  // it comes back into view); only the holder of the claim cookie can collect
+  // the session, exactly once.
+  function handoffRoutes(provider: 'vk' | 'yandex') {
+    const cookieName = HANDOFF_COOKIES[provider];
+    const cookiePath = `/api/v1/auth/${provider}/handoff`;
+    const configured = provider === 'vk' ? isVkConfigured : isYandexConfigured;
+    app.post(
+      `/auth/${provider}/handoff`,
+      { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
+      async (_request, reply) => {
+        if (!configured(config)) {
+          return reply.code(503).send({ error: `${provider}_not_configured` });
+        }
+        const { claimToken, startToken } = await handoff.createHandoff(db);
+        reply.setCookie(cookieName, claimToken, {
+          ...baseCookieOptions(config),
+          path: cookiePath,
+          maxAge: handoff.HANDOFF_TTL_MS / 1000,
+        });
+        const startUrl = new URL(`/api/v1/auth/${provider}/start`, config.WEB_BASE_URL);
+        startUrl.searchParams.set('handoff', startToken);
+        return reply.code(200).send({ startUrl: startUrl.toString() });
+      },
+    );
 
-  // The Mini App asks whether its VK sign-in finished (polled while it
-  // waits, and again whenever it comes back into view). Only the holder
-  // of the claim cookie can collect the session, exactly once.
-  app.post(
-    '/auth/vk/handoff/claim',
-    { config: { rateLimit: { max: 400, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const claimToken = request.cookies[HANDOFF_COOKIE];
-      if (!claimToken) return reply.code(200).send({ status: 'expired' });
-      const result = await handoff.claimHandoff(db, claimToken);
-      if (result.status === 'pending') {
-        return reply.code(200).send({ status: 'pending', started: result.started });
-      }
-      reply.clearCookie(HANDOFF_COOKIE, {
-        ...baseCookieOptions(config),
-        path: HANDOFF_COOKIE_PATH,
-      });
-      if (result.status !== 'ok') return reply.code(200).send({ status: result.status });
-      const login = await service.openSessionFor(db, result.userId);
-      await dropPreviousSession(request, login.sessionId);
-      // The account itself was registered (if new) in the external browser's
-      // VK callback; here the Mini App's own visitor is linked to it.
-      await recordSignIn(db, request, { userId: result.userId, created: false, method: 'vk' });
-      reply.setCookie(
-        SESSION_COOKIE,
-        login.sessionId,
-        cookieOptions(config, SESSION_MAX_AGE_SECONDS),
-      );
-      return reply.code(200).send({ status: 'ok', user: login.user });
-    },
-  );
+    app.post(
+      `/auth/${provider}/handoff/claim`,
+      { config: { rateLimit: { max: 400, timeWindow: '10 minutes' } } },
+      async (request, reply) => {
+        const claimToken = request.cookies[cookieName];
+        if (!claimToken) return reply.code(200).send({ status: 'expired' });
+        const result = await handoff.claimHandoff(db, claimToken);
+        if (result.status === 'pending') {
+          return reply.code(200).send({ status: 'pending', started: result.started });
+        }
+        reply.clearCookie(cookieName, { ...baseCookieOptions(config), path: cookiePath });
+        if (result.status !== 'ok') return reply.code(200).send({ status: result.status });
+        const login = await service.openSessionFor(db, result.userId);
+        await dropPreviousSession(request, login.sessionId);
+        // The account itself was registered (if new) in the external
+        // browser's callback; here the Mini App's own visitor is linked to it.
+        await recordSignIn(db, request, {
+          userId: result.userId,
+          created: false,
+          method: provider,
+        });
+        reply.setCookie(
+          SESSION_COOKIE,
+          login.sessionId,
+          cookieOptions(config, SESSION_MAX_AGE_SECONDS),
+        );
+        return reply.code(200).send({ status: 'ok', user: login.user });
+      },
+    );
+  }
+  handoffRoutes('vk');
+  handoffRoutes('yandex');
 
   // `?link=1` starts the flow from a signed-in profile to ADD VK to that
   // account. The target account is taken from the SESSION, never from the
