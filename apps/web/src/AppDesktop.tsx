@@ -7,6 +7,7 @@ import { StatisticsDesktop } from './screens/Statistics/StatisticsDesktop.js';
 import { MistakesDesktop } from './screens/Mistakes/MistakesDesktop.js';
 import { AchievementsDesktop } from './screens/Achievements/AchievementsDesktop.js';
 import { RatingDesktop } from './screens/Rating/RatingDesktop.js';
+import { Level } from './screens/Level/Level.js';
 import { LearningCenterDesktop } from './screens/LearningCenter/LearningCenterDesktop.js';
 import { SubjectCatalogDesktop } from './screens/SubjectCatalog/SubjectCatalogDesktop.js';
 import { SubjectDesktop } from './screens/Subject/SubjectDesktop.js';
@@ -86,6 +87,7 @@ export function AppDesktop() {
           <WipPlaceholder title="Варианты" note="Экран в разработке — следующий блок." />
         )}
         {overlay.screen === 'rating' && <RatingDesktop />}
+        {overlay.screen === 'level' && <Level />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
         {overlay.screen === 'onboarding' && <Onboarding />}
         {overlay.screen === 'favorites' && (

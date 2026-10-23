@@ -29,6 +29,7 @@ describe('pathForRoute', () => {
     expect(pathForRoute({ screen: 'profile' })).toBe('/profile');
     expect(pathForRoute({ screen: 'help' })).toBe('/help');
     expect(pathForRoute({ screen: 'rating' })).toBe('/rating');
+    expect(pathForRoute({ screen: 'level' })).toBe('/level');
     expect(pathForRoute({ screen: 'mistakes' })).toBe('/training/mistakes');
   });
 
@@ -62,6 +63,7 @@ describe('routeFromPath', () => {
       { screen: 'subject', subjectId: 'social' },
       { screen: 'mistakes' },
       { screen: 'rating' },
+      { screen: 'level' },
       { screen: 'profile' },
       { screen: 'help' },
     ];

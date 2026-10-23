@@ -30,6 +30,10 @@ const copy: Record<AccountFeature, { title: string; text: string }> = {
     title: 'Пример сочинения — после входа',
     text: 'Отметка «Я решил» и пример сочинения сохраняются в аккаунте.',
   },
+  level: {
+    title: 'Уровень — после входа',
+    text: 'Опыт начисляется за верно решённые задания и хранится в аккаунте.',
+  },
 };
 
 export interface SignInRequiredDialogProps {

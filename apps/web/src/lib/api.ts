@@ -19,6 +19,8 @@ import type {
   SaveLearningProfileRequest,
   SimilarTaskEntry,
   StreakResponse,
+  XpHistoryResponse,
+  XpSummaryResponse,
   TaskCountsBySubjectResponse,
   TaskNumberStatisticsDetail,
   TaskPublic,
@@ -269,6 +271,18 @@ export function getSimilarTasks(taskId: string, limit?: number): Promise<Similar
  */
 export function getStreak(): Promise<StreakResponse> {
   return cachedApiFetch('/progress/streak');
+}
+
+/** The account's level and XP — computed server-side from the XP ledger
+ * (docs/XP.md); the client never derives a level itself. */
+export function getXpSummary(): Promise<XpSummaryResponse> {
+  return cachedApiFetch('/progress/xp');
+}
+
+/** XP awards, newest first; pass the previous page's `nextCursor`. */
+export function getXpHistory(cursor?: string | null): Promise<XpHistoryResponse> {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  return apiFetch(`/progress/xp/history${qs}`);
 }
 
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {

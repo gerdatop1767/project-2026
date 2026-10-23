@@ -44,6 +44,7 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   trainingRandom: '/training/random',
   trainingVariants: '/training/variants',
   rating: '/rating',
+  level: '/level',
   favorites: '/favorites',
   mockExams: '/mock-exams',
   topics: '/topics',

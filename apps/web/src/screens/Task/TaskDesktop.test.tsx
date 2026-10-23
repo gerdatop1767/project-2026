@@ -24,6 +24,20 @@ vi.mock('../../lib/api.js', () => ({
   getStreak: vi.fn(() =>
     Promise.resolve({ currentStreak: 0, lastActiveDate: null, isActiveToday: false }),
   ),
+  getXpSummary: vi.fn(() =>
+    Promise.resolve({
+      totalXp: 0,
+      level: 1,
+      levelStartXp: 0,
+      nextLevelXp: 50,
+      xpIntoLevel: 0,
+      xpForNextLevel: 50,
+      xpToNextLevel: 50,
+      progress: 0,
+      maxLevel: 50,
+      isMaxLevel: false,
+    }),
+  ),
 }));
 
 const TASK_ID = '11111111-1111-1111-1111-111111111111';
@@ -234,6 +248,8 @@ describe('TaskDesktop', () => {
     await pasteAnswer(user, CORRECT_ANSWER);
     await user.click(screen.getByRole('button', { name: /Проверить ответ/ }));
     await waitFor(() => expect(api.getStreak).toHaveBeenCalledTimes(2));
+    // The level is refreshed by the same call (header chip stays in step).
+    expect(api.getXpSummary).toHaveBeenCalledTimes(2);
   });
 
   it('navigates to an incorrect Result for the wrong answer, per the server response', async () => {

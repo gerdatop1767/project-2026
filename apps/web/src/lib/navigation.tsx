@@ -152,6 +152,8 @@ export type OverlayRoute =
   | { screen: 'trainingRandom' }
   | { screen: 'trainingVariants' }
   | { screen: 'rating' }
+  /** «Уровень»: the account's real level, XP and XP history (docs/XP.md). */
+  | { screen: 'level' }
   /** The mobile menu drawer, drawn over the screen it was opened from.
    * `from` is that screen, so it stays mounted underneath while the menu
    * is open and closing the menu returns exactly there. */
@@ -203,6 +205,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',
   rating: 'Рейтинг',
+  level: 'Уровень',
   faq: 'Вопросы и ответы',
   privacy: 'Политика конфиденциальности',
   terms: 'Пользовательское соглашение',
