@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   customType,
   date,
@@ -1173,6 +1174,28 @@ export const adminAuditLog = pgTable(
     index('admin_audit_log_created_idx').on(table.createdAt),
     index('admin_audit_log_object_idx').on(table.objectType, table.objectId),
   ],
+);
+
+/**
+ * Private chats that started the Telegram bot (/start). The only audience a
+ * bot may write to on its own: Telegram refuses to message someone who
+ * never started it, and broadcasts go to these rows only. `userId` links the
+ * chat to an account when that Telegram user has signed in (auth_identities
+ * provider 'telegram'); the bot never creates accounts itself. No username
+ * or name is stored. `blockedAt` is set when Telegram says the user blocked
+ * the bot (403) and cleared by their next /start.
+ */
+export const telegramBotChats = pgTable(
+  'telegram_bot_chats',
+  {
+    chatId: bigint('chat_id', { mode: 'number' }).primaryKey(),
+    userId: uuid('user_id').references(() => users.id),
+    startCount: integer('start_count').notNull().default(1),
+    firstStartedAt: timestamp('first_started_at', { withTimezone: true }).notNull().defaultNow(),
+    lastStartedAt: timestamp('last_started_at', { withTimezone: true }).notNull().defaultNow(),
+    blockedAt: timestamp('blocked_at', { withTimezone: true }),
+  },
+  (table) => [index('telegram_bot_chats_user_idx').on(table.userId)],
 );
 
 /** What an XP event was for — mirrors `xpEventKinds` in @zybrilka/shared. */

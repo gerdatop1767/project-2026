@@ -233,6 +233,16 @@ services:
       NODE_ENV: production
       LOG_LEVEL: info
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Telegram bot, admin notifications and broadcasts (docs/TELEGRAM_BOT.md).
+      # Same token as the API. Without it the worker sends nothing.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      # Off by default: reading updates (/start) takes them away from any
+      # other service answering this bot. Set to true once nothing else does.
+      TELEGRAM_BOT_POLLING: ${TELEGRAM_BOT_POLLING:-false}
+      WEB_BASE_URL: ${WEB_BASE_URL:-https://zybrilka.ru}
+      ADMIN_OWNER_USER_IDS: ${ADMIN_OWNER_USER_IDS:-}
+      # Probed once a minute to notice the site being down (API + database).
+      API_HEALTH_URL: http://api:3000/health
     networks:
       - internal
     depends_on:

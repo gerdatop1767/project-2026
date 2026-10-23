@@ -120,6 +120,12 @@ importers:
       '@zybrilka/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@zybrilka/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(@electric-sql/pglite@0.5.8)(postgres@3.4.9)
       pino:
         specifier: ^10.3.1
         version: 10.3.1
