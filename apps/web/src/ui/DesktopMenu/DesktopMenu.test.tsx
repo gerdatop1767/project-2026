@@ -30,6 +30,7 @@ function renderMenu({
         updateUser: () => {},
         telegramError: null,
         isOwner,
+        needsSignInMethod: false,
       }}
     >
       <NavigationProvider>

@@ -20,12 +20,13 @@ vi.mock('../../../lib/telegramMiniApp.js', () => ({
 
 const at = '2026-03-05T10:00:00.000Z';
 const identities = (
-  providers: ('email' | 'vk' | 'telegram')[],
+  providers: ('email' | 'vk' | 'telegram' | 'yandex')[],
   extra: Partial<IdentitiesResponse> = {},
 ): IdentitiesResponse => ({
   identities: providers.map((provider) => ({ provider, linkedAt: at })),
   available: { vk: true, telegram: true, yandex: true },
-  canUnlink: providers.length > 1,
+  // As the server decides it: a legacy email row is not a way in.
+  canUnlink: providers.filter((provider) => provider !== 'email').length > 1,
   ...extra,
 });
 
@@ -34,14 +35,20 @@ function Harness({ navigateTo }: { navigateTo: (url: string) => void }) {
   return <SignInMethodsSection identities={identities} navigateTo={navigateTo} />;
 }
 
-function renderSection(navigateTo = vi.fn()) {
+function renderSection(navigateTo = vi.fn(), { needsSignInMethod = false } = {}) {
   const updateUser = vi.fn();
+  const refresh = vi.fn(async () => {});
   render(
-    <TestAuthProvider user={makeAuthUser()} updateUser={updateUser}>
+    <TestAuthProvider
+      user={makeAuthUser()}
+      updateUser={updateUser}
+      refresh={refresh}
+      needsSignInMethod={needsSignInMethod}
+    >
       <Harness navigateTo={navigateTo} />
     </TestAuthProvider>,
   );
-  return { navigateTo, updateUser };
+  return { navigateTo, updateUser, refresh };
 }
 
 beforeEach(() => window.history.replaceState(null, '', '/profile'));
@@ -127,8 +134,8 @@ describe('SignInMethodsSection', () => {
 
   it('disconnecting asks for confirmation, then updates the list', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email', 'vk']));
-    vi.mocked(api.unlinkIdentity).mockResolvedValue(identities(['email']));
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['vk', 'yandex']));
+    vi.mocked(api.unlinkIdentity).mockResolvedValue(identities(['yandex']));
     renderSection();
     await user.click(await screen.findByRole('button', { name: 'Отключить ВКонтакте' }));
     expect(api.unlinkIdentity).not.toHaveBeenCalled();
@@ -140,7 +147,7 @@ describe('SignInMethodsSection', () => {
 
   it('cancelling the confirmation changes nothing', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email', 'vk']));
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['vk', 'yandex']));
     renderSection();
     await user.click(await screen.findByRole('button', { name: 'Отключить ВКонтакте' }));
     await user.click(screen.getByRole('button', { name: 'Отмена' }));
@@ -150,7 +157,7 @@ describe('SignInMethodsSection', () => {
 
   it('explains why the last method cannot be removed (server guard)', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email', 'vk']));
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['vk', 'yandex']));
     vi.mocked(api.unlinkIdentity).mockRejectedValue(
       new api.ApiError(409, { error: 'last_identity' }),
     );
@@ -158,6 +165,33 @@ describe('SignInMethodsSection', () => {
     await user.click(await screen.findByRole('button', { name: 'Отключить ВКонтакте' }));
     await user.click(screen.getByRole('alertdialog').querySelector('button')!);
     expect(await screen.findByText(/единственный способ входа/)).toBeInTheDocument();
+  });
+
+  it('email + Yandex: Yandex cannot be disconnected — a legacy email row is not a way in', async () => {
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email', 'yandex']));
+    renderSection();
+    const row = (await screen.findByText('Яндекс ID')).closest('li')!;
+    expect(row).toHaveTextContent('Подключено');
+    expect(screen.queryByRole('button', { name: /Отключить/ })).not.toBeInTheDocument();
+  });
+
+  it('warns an account with no working sign-in method, and only that one', async () => {
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email']));
+    renderSection(vi.fn(), { needsSignInMethod: true });
+    expect(
+      await screen.findByRole('region', { name: 'Подключите VK ID или Яндекс ID' }),
+    ).toBeInTheDocument();
+    // Already in Профиль: the rows below are the way to connect.
+    expect(screen.queryByRole('button', { name: 'Подключить в профиле' })).not.toBeInTheDocument();
+  });
+
+  it('no warning for an account that has a working method', async () => {
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['email', 'vk']));
+    renderSection();
+    await screen.findByText('ВКонтакте');
+    expect(
+      screen.queryByRole('region', { name: 'Подключите VK ID или Яндекс ID' }),
+    ).not.toBeInTheDocument();
   });
 
   it('load failure offers a retry', async () => {
@@ -177,12 +211,14 @@ describe('SignInMethodsSection', () => {
       const user = userEvent.setup();
       vi.mocked(api.getIdentities).mockResolvedValue(identities(['email']));
       vi.mocked(api.linkTelegram).mockResolvedValue({ status: 'linked', user: makeAuthUser() });
-      const { updateUser } = renderSection();
+      const { updateUser, refresh } = renderSection();
       const row = (await screen.findByText('Telegram')).closest('li')!;
       await user.click(row.querySelector('button')!);
       expect(api.linkTelegram).toHaveBeenCalledWith('query_id=A&hash=h');
       expect(await screen.findByText(/Telegram подключён/)).toBeInTheDocument();
       expect(updateUser).toHaveBeenCalled();
+      // Re-reads /auth/me so a «no working method» warning goes away.
+      expect(refresh).toHaveBeenCalled();
     });
 
     it('explains a Telegram account that belongs to another profile', async () => {

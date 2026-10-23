@@ -271,7 +271,7 @@ export function Landing() {
                 Начни готовиться <span className={styles.accent}>сегодня</span>
               </h2>
               <p className={styles.sectionLead}>
-                Бесплатно и без подписок. Нужен только вход — через VK ID или по почте.
+                Бесплатно и без подписок. Нужен только вход — через VK ID или Яндекс ID.
               </p>
               <button type="button" className={styles.primary} onClick={start}>
                 Начать бесплатно

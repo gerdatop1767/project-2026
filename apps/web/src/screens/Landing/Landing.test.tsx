@@ -93,6 +93,12 @@ describe('Landing', () => {
     expect(screen.queryByText(/ФИПИ|Статград|Семенов/)).not.toBeInTheDocument();
   });
 
+  it('names the real sign-in methods — no email sign-in', () => {
+    const { container } = renderLanding();
+    expect(screen.getByText(/Нужен только вход — через VK ID или Яндекс ID/)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/по почте/);
+  });
+
   it('FAQ answers open on click (native details)', async () => {
     const user = userEvent.setup();
     renderLanding();

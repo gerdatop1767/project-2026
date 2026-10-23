@@ -48,8 +48,12 @@ describe('InfoPage', () => {
     const main = screen.getByRole('main');
     expect(within(main).getByText(/идентификатор пользователя VK/)).toBeInTheDocument();
     expect(within(main).getByText(/идентификатор пользователя Яндекса/)).toBeInTheDocument();
-    // No email-based sign-in any more, so no email is collected for it.
-    expect(within(main).queryByText(/адрес электронной почты/)).not.toBeInTheDocument();
+    // Email sign-in is off, but accounts made with it keep their address and
+    // password hash — the policy must say so, not claim no email is held.
+    const legacy = within(main).getByText(/создан раньше через вход по почте/);
+    expect(legacy).toHaveTextContent(/хеш пароля/);
+    expect(legacy).toHaveTextContent(/Вход и регистрация по почте отключены/);
+    expect(within(main).queryByText(/почт\S* не хранится/)).not.toBeInTheDocument();
     expect(within(main).getByText(/действует 30 дней/)).toBeInTheDocument();
     expect(within(main).getByText(/сторонних систем аналитики на сайте нет/)).toBeInTheDocument();
   });

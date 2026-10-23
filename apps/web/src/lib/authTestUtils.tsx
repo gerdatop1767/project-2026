@@ -33,6 +33,7 @@ export function TestAuthProvider({
   updateUser = () => {},
   telegramError = null,
   isOwner = false,
+  needsSignInMethod = false,
 }: {
   user: AuthUser | null | undefined;
   children: ReactNode;
@@ -41,9 +42,12 @@ export function TestAuthProvider({
   updateUser?: (user: AuthUser) => void;
   telegramError?: string | null;
   isOwner?: boolean;
+  needsSignInMethod?: boolean;
 }) {
   return (
-    <AuthContext.Provider value={{ user, logout, refresh, updateUser, telegramError, isOwner }}>
+    <AuthContext.Provider
+      value={{ user, logout, refresh, updateUser, telegramError, isOwner, needsSignInMethod }}
+    >
       {children}
     </AuthContext.Provider>
   );

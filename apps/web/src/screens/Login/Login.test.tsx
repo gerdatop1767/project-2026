@@ -44,6 +44,14 @@ describe('Login — layout', () => {
     expect(screen.queryByText(/почт/i)).not.toBeInTheDocument();
   });
 
+  it('tells existing VK/Telegram users to sign in the old way and connect Yandex in the profile', () => {
+    renderLogin();
+    const hint = screen.getByText(/Уже занимались в Зубрилке через VK или Telegram/);
+    expect(hint).toHaveTextContent('Войдите тем же способом');
+    expect(hint).toHaveTextContent('Яндекс ID подключите потом в профиле');
+    expect(hint).toHaveTextContent('профили не объединяются автоматически');
+  });
+
   it('old emailed links (?confirm=, ?reset=, ?token=) no longer do anything', () => {
     for (const path of ['/login?confirm=abc', '/login?reset=abc', '/login?token=abc']) {
       const { unmount } = renderLogin(path);
@@ -126,7 +134,12 @@ describe('Login — Telegram Mini App sign-in failure', () => {
 
   it('shows nothing about Telegram when no Telegram sign-in failed', () => {
     renderWithTelegramError(null);
-    expect(screen.queryByText(/Telegram/)).not.toBeInTheDocument();
+    // (The account hint below the buttons names Telegram as a way in; no
+    // failure message does.)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Не удалось войти через Telegram|код: telegram/),
+    ).not.toBeInTheDocument();
   });
 });
 

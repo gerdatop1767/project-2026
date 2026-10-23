@@ -16,8 +16,8 @@ import { getTelegramInitData, prepareTelegramApp } from './telegramMiniApp.js';
 import { resetPrivateCaches } from './privateCaches.js';
 
 /**
- * The one real source of "is anyone signed in" (S3 auth — magic-link +
- * VK ID). `undefined` means "not checked yet" (callers must not assume
+ * The one real source of "is anyone signed in" (VK ID, Yandex ID, and
+ * Telegram inside the Mini App). `undefined` means "not checked yet" (callers must not assume
  * signed-out before this resolves — the app shows a neutral loading
  * state instead of flashing the login screen at a signed-in user);
  * `null` is a real, resolved "signed out". One provider at the app root,
@@ -30,8 +30,8 @@ import { resetPrivateCaches } from './privateCaches.js';
  */
 interface AuthContextValue {
   readonly user: AuthUser | null | undefined;
-  /** Re-checks `/auth/me` — call after a successful magic-link verify,
-   * a VK callback redirect, or finishing onboarding, so the app picks up
+  /** Re-checks `/auth/me` — call after a Mini App handoff sign-in,
+   * a VK / Yandex callback redirect, or finishing onboarding, so the app picks up
    * the new server state without a full page reload. Resolves once the
    * state is updated. */
   readonly refresh: () => Promise<void>;
@@ -51,6 +51,10 @@ interface AuthContextValue {
    * `/auth/me`). Only decides whether the «Админ-панель» link shows — the
    * admin API checks access itself on every request. */
   readonly isOwner: boolean;
+  /** The server says the signed-in account has no working sign-in method
+   * (VK, Yandex ID, Telegram) — a legacy email account. The app then asks
+   * the user to connect VK or Yandex before this session runs out. */
+  readonly needsSignInMethod: boolean;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
@@ -60,6 +64,7 @@ export const AuthContext = createContext<AuthContextValue>({
   updateUser: () => {},
   telegramError: null,
   isOwner: false,
+  needsSignInMethod: false,
 });
 
 /** After an explicit sign-out inside Telegram, don't sign straight back in
@@ -106,6 +111,9 @@ export function AuthProvider({
   const [telegramError, setTelegramError] = useState<string | null>(null);
   // Which account the server last confirmed as the owner (null = none).
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  // Same pattern as `ownerId`: the account the server flagged, so a stale
+  // flag can never apply to another account after switching.
+  const [needsMethodId, setNeedsMethodId] = useState<string | null>(null);
 
   const applyUser = useCallback((next: AuthUser | null) => {
     const previousId = currentUserId.current;
@@ -148,9 +156,12 @@ export function AuthProvider({
         .then(async (res) => {
           if (res.user) {
             setOwnerId(res.isOwner ? res.user.id : null);
+            setNeedsMethodId(res.needsSignInMethod ? res.user.id : null);
             applyUser(res.user);
             return;
           }
+          // A Telegram sign-in always has a working method (Telegram).
+          setNeedsMethodId(null);
           const viaTelegram = await signInWithTelegram();
           applyUser(viaTelegram);
           // A fresh Mini App sign-in: ask once more for the owner hint.
@@ -208,8 +219,9 @@ export function AuthProvider({
       updateUser,
       telegramError,
       isOwner: Boolean(user && ownerId === user.id),
+      needsSignInMethod: Boolean(user && needsMethodId === user.id),
     }),
-    [user, refresh, logout, updateUser, telegramError, ownerId],
+    [user, refresh, logout, updateUser, telegramError, ownerId, needsMethodId],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

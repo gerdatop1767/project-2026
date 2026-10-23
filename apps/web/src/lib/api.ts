@@ -141,7 +141,7 @@ async function rawApiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   // `/auth/*` answers are about signing in/out themselves (e.g. a failed
-  // magic-link verify is a 400, logout is a 204) — only a 401 from a
+  // Telegram sign-in is a 400, logout is a 204) — only a 401 from a
   // private endpoint means "the session you thought you had is gone".
   if (response.status === 401 && !path.startsWith('/auth/')) {
     unauthorizedListeners.forEach((listener) => listener());

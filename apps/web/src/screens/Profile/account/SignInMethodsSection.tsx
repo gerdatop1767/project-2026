@@ -13,6 +13,7 @@ import { Button } from '../../../ui/Button/Button.js';
 import { Icon } from '../../../ui/Icon/Icon.js';
 import { VkIcon } from '../../../ui/VkIcon/VkIcon.js';
 import { YandexIcon } from '../../../ui/YandexIcon/YandexIcon.js';
+import { SignInMethodWarning } from '../../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import type { IdentitiesState } from './useIdentities.js';
 import styles from './Account.module.css';
 
@@ -115,7 +116,7 @@ export function SignInMethodsSection({
   /** Seam for tests: performs the full-page redirect to the provider. */
   navigateTo?: (url: string) => void;
 }) {
-  const { updateUser } = useAuth();
+  const { updateUser, refresh } = useAuth();
   const { data, failed: loadFailed, reload: load, replace: setData } = identities;
   const [busy, setBusy] = useState<IdentityProvider | null>(null);
   const [confirming, setConfirming] = useState<IdentityProvider | null>(null);
@@ -129,6 +130,9 @@ export function SignInMethodsSection({
     try {
       const res = await linkTelegram(initData);
       updateUser(res.user);
+      // The account may have had no working method before (a legacy email
+      // one): pick up the server's fresh `needsSignInMethod`.
+      void refresh();
       setNotice({
         kind: 'success',
         text:
@@ -282,6 +286,8 @@ export function SignInMethodsSection({
       <p className="text-body-sm text-secondary">
         Подключите несколько способов — и входите в один и тот же аккаунт с одним прогрессом.
       </p>
+
+      <SignInMethodWarning onProfile />
 
       {notice && (
         <p

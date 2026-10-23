@@ -19,7 +19,7 @@ export function telegramErrorCode(error: unknown): string {
 
 const MESSAGES: Record<string, string> = {
   telegram_not_configured:
-    'Вход через Telegram ещё не включён на сервере. Войдите через ВКонтакте или по почте.',
+    'Вход через Telegram ещё не включён на сервере. Войдите через VK ID или Яндекс ID.',
   telegram_data_expired:
     'Данные запуска из Telegram устарели. Закройте Зубрилку и откройте её из бота заново.',
   invalid_telegram_data:

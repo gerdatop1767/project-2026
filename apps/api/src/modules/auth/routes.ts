@@ -151,7 +151,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       let handoffId: string | undefined;
       const handoffQuery = handoffStartQuerySchema.safeParse(request.query);
       if (!linking && handoffQuery.success) {
-        const id = await handoff.startHandoff(db, handoffQuery.data.handoff);
+        const id = await handoff.startHandoff(db, 'yandex', handoffQuery.data.handoff);
         if (!id) return toTelegramReturn(reply, 'expired', 'yandex');
         handoffId = id;
       }
@@ -314,7 +314,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
         if (!configured(config)) {
           return reply.code(503).send({ error: `${provider}_not_configured` });
         }
-        const { claimToken, startToken } = await handoff.createHandoff(db);
+        const { claimToken, startToken } = await handoff.createHandoff(db, provider);
         reply.setCookie(cookieName, claimToken, {
           ...baseCookieOptions(config),
           path: cookiePath,
@@ -332,7 +332,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
       async (request, reply) => {
         const claimToken = request.cookies[cookieName];
         if (!claimToken) return reply.code(200).send({ status: 'expired' });
-        const result = await handoff.claimHandoff(db, claimToken);
+        const result = await handoff.claimHandoff(db, provider, claimToken);
         if (result.status === 'pending') {
           return reply.code(200).send({ status: 'pending', started: result.started });
         }
@@ -376,7 +376,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     let handoffId: string | undefined;
     const handoffQuery = handoffStartQuerySchema.safeParse(request.query);
     if (!linking && handoffQuery.success) {
-      const id = await handoff.startHandoff(db, handoffQuery.data.handoff);
+      const id = await handoff.startHandoff(db, 'vk', handoffQuery.data.handoff);
       if (!id) return toTelegramReturn(reply, 'expired');
       handoffId = id;
     }
@@ -593,7 +593,15 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { d
     // endpoint checks the same server-side list again on its own.
     // Present only when true, so everyone else's response is unchanged.
     const isOwner = user !== null && isAdminUser(config.ADMIN_OWNER_USER_IDS, user.id);
-    return reply.code(200).send(isOwner ? { user, isOwner } : { user });
+    // Same pattern: only for an account that could not sign in again once
+    // this session ends (no VK, Yandex or Telegram — a legacy email one),
+    // so the app can ask the user to connect VK or Yandex.
+    const needsSignInMethod = user !== null && !(await service.hasWorkingSignInMethod(db, user.id));
+    return reply.code(200).send({
+      user,
+      ...(isOwner && { isOwner }),
+      ...(needsSignInMethod && { needsSignInMethod }),
+    });
   });
 
   app.post('/auth/logout', async (request, reply) => {

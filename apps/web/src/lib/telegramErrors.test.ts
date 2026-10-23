@@ -34,4 +34,10 @@ describe('telegramErrorMessage', () => {
     expect(message).toContain(text);
     expect(message).toContain(`(код: ${code})`);
   });
+
+  it('never offers the removed email sign-in', () => {
+    const message = telegramErrorMessage('telegram_not_configured');
+    expect(message).toContain('VK ID или Яндекс ID');
+    expect(message).not.toMatch(/почт/);
+  });
 });

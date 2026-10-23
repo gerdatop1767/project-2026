@@ -3,6 +3,7 @@ import type { Database } from '@zybrilka/db';
 import {
   AVATAR_MAX_BYTES,
   displayNameProblem,
+  isWorkingSignInMethod,
   normalizeDisplayName,
   type IdentitiesResponse,
 } from '@zybrilka/shared';
@@ -141,6 +142,6 @@ export async function listIdentities(
       telegram: isTelegramConfigured(config),
       yandex: isYandexConfigured(config),
     },
-    canUnlink: rows.length > 1,
+    canUnlink: rows.filter((row) => isWorkingSignInMethod(row.provider)).length > 1,
   };
 }

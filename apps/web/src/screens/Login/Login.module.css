@@ -198,6 +198,16 @@
   color: var(--color-error);
 }
 
+.accountHint {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 .consent {
   margin: 0;
   font-size: 0.75rem;

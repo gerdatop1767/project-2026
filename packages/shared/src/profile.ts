@@ -22,9 +22,18 @@ export const identityProviders = ['email', 'vk', 'telegram', 'yandex'] as const;
 export const identityProviderSchema = z.enum(identityProviders);
 export type IdentityProvider = z.infer<typeof identityProviderSchema>;
 
-/** Providers the user can link/unlink themselves from the profile. */
+/** Providers the user can link/unlink themselves from the profile — and
+ * the only ones that can still sign anyone in. `email` is kept in
+ * `identityProviders` for accounts created before email sign-in was removed
+ * (their rows stay), but it is not a working sign-in method. */
 export const linkableProviders = ['vk', 'telegram', 'yandex'] as const;
 export type LinkableProvider = (typeof linkableProviders)[number];
+export const linkableProviderSchema = z.enum(linkableProviders);
+
+/** Whether this method can still be used to sign in (VK, Yandex, Telegram). */
+export function isWorkingSignInMethod(provider: IdentityProvider): provider is LinkableProvider {
+  return (linkableProviders as readonly string[]).includes(provider);
+}
 
 export const identityInfoSchema = z.object({
   provider: identityProviderSchema,
@@ -36,8 +45,9 @@ export type IdentityInfo = z.infer<typeof identityInfoSchema>;
 /**
  * `GET /me/identities`. `available` tells the UI which providers are
  * configured on this server (a button for an unconfigured provider would
- * only lead to an error); `canUnlink` is false when only one method is
- * left, since removing it would lock the user out.
+ * only lead to an error); `canUnlink` is false when at most one WORKING
+ * method (VK, Yandex, Telegram) is left, since removing it would lock the
+ * user out — a legacy `email` row does not count.
  */
 export const identitiesResponseSchema = z.object({
   identities: z.array(identityInfoSchema),

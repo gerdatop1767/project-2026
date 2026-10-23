@@ -39,6 +39,28 @@ function renderProvider(onSignedOut = vi.fn()) {
 afterEach(() => vi.resetAllMocks());
 
 describe('AuthProvider', () => {
+  it('needsSignInMethod follows /auth/me and never sticks to another account', async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue({
+      user: makeAuthUser({ firstName: 'Анна' }),
+      needsSignInMethod: true,
+    });
+    renderProvider();
+    await screen.findByText('Анна');
+    expect(latest.needsSignInMethod).toBe(true);
+
+    // After connecting VK the server no longer sends the flag.
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: makeAuthUser({ firstName: 'Анна' }) });
+    await act(() => latest.refresh());
+    expect(latest.needsSignInMethod).toBe(false);
+  });
+
+  it('needsSignInMethod is false for a regular account', async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue({ user: makeAuthUser({ firstName: 'Олег' }) });
+    renderProvider();
+    await screen.findByText('Олег');
+    expect(latest.needsSignInMethod).toBe(false);
+  });
+
   it('starts "not checked yet" and then reflects the server user', async () => {
     vi.mocked(api.getCurrentUser).mockResolvedValue({ user: makeAuthUser({ firstName: 'Анна' }) });
     renderProvider();

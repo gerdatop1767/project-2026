@@ -105,7 +105,7 @@ export function App() {
   }
 
   // Rendered standalone, bypassing the normal app shell — reachable from
-  // any «Войти» button, or directly via a magic-link/VK-login redirect.
+  // any «Войти» button, or directly via a VK ID / Yandex ID redirect.
   if (overlay?.screen === 'login') {
     return <Login />;
   }

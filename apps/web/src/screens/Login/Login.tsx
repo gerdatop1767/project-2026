@@ -235,6 +235,15 @@ export function Login() {
             </>
           )}
 
+          {/* A second, empty profile is the one real risk of a new button:
+              accounts are never merged automatically (and Yandex's email is
+              not even read), so steer existing users to their old way in. */}
+          <p className={styles.accountHint}>
+            Уже занимались в Зубрилке через VK или Telegram? Войдите тем же способом (Telegram —
+            через бота Зубрилки), а Яндекс ID подключите потом в профиле. Иначе создастся новый
+            пустой аккаунт: профили не объединяются автоматически.
+          </p>
+
           {telegramError && (
             <p role="alert" className={styles.formError}>
               {telegramErrorMessage(telegramError)}

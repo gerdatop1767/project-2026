@@ -1,5 +1,5 @@
 import type { Database } from '@zybrilka/db';
-import type { AuthUser } from '@zybrilka/shared';
+import { isWorkingSignInMethod, type AuthUser } from '@zybrilka/shared';
 import type { Config } from '../../config.js';
 import * as repo from './repo.js';
 import { isOnboardingCompleted } from '../learningProfile/repo.js';
@@ -269,6 +269,14 @@ export async function getCurrentUser(db: Database, sessionId: string): Promise<A
   const userId = await repo.getSessionUserId(db, sessionId);
   if (!userId) return null;
   return loadAuthUser(db, userId);
+}
+
+/** Whether the account can still sign in on its own: it holds at least one
+ * working method (VK, Yandex ID, Telegram). An account with only a legacy
+ * `email` row (created before email sign-in was removed) cannot. */
+export async function hasWorkingSignInMethod(db: Database, userId: string): Promise<boolean> {
+  const identities = await profileRepo.listIdentities(db, userId);
+  return identities.some((identity) => isWorkingSignInMethod(identity.provider));
 }
 
 export async function logout(db: Database, sessionId: string): Promise<void> {

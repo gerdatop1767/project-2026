@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
 /**
- * The authenticated user, as returned by /auth/login, /auth/telegram and
- * /auth/me (VK ID and Yandex ID sign in by redirect and set the same session). Everything here is server truth:
+ * The authenticated user, as returned by /auth/telegram and
+ * /auth/me (VK ID and Yandex ID sign in by redirect and set the same session).
+ * Everything here is server truth:
  * - `firstName`/`lastName` come from the identity provider (VK, Telegram)
  *   and are `null` when it never supplied them (e.g. email-only accounts);
  * - `customName` is what the user typed in their profile (it wins over the
@@ -33,5 +34,10 @@ export const meResponseSchema = z.object({
    * ADMIN_OWNER_USER_IDS). A UI hint for the «Админ-панель» link only —
    * the admin API checks access on every request regardless. */
   isOwner: z.boolean().optional(),
+  /** The signed-in account has no working sign-in method (VK, Yandex ID,
+   * Telegram) — e.g. one created with the removed email sign-in. Once this
+   * session ends it could not sign in again, so the app asks the user to
+   * connect VK or Yandex. Present only when true. */
+  needsSignInMethod: z.boolean().optional(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
