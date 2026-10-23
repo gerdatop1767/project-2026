@@ -66,3 +66,30 @@ export const outboxKindSetting: Record<OutboxKind, keyof AdminNotificationSettin
   site_error: 'siteErrors',
   test: null,
 };
+
+/**
+ * What the worker reports about itself (app_settings, refreshed every
+ * minute), so the admin panel can say why nothing is delivered without
+ * anyone reading server logs. Booleans and counts only — never a token.
+ */
+export const WORKER_STATUS_KEY = 'worker.status';
+
+export const workerStatusSchema = z.object({
+  at: z.string(),
+  botConfigured: z.boolean(),
+  /** Reads bot updates (/start) — TELEGRAM_BOT_POLLING. */
+  polling: z.boolean(),
+  /** Probes the API's /health for outages — API_HEALTH_URL set. */
+  healthCheck: z.boolean(),
+  owners: z.number().int().min(0),
+});
+export type WorkerStatus = z.infer<typeof workerStatusSchema>;
+
+/** A status older than this means the worker is not running (or not this version). */
+export const WORKER_STATUS_STALE_MS = 3 * 60 * 1000;
+
+export function readWorkerStatus(value: unknown, now = Date.now()) {
+  const parsed = workerStatusSchema.safeParse(value);
+  if (!parsed.success) return null;
+  return { ...parsed.data, stale: now - Date.parse(parsed.data.at) > WORKER_STATUS_STALE_MS };
+}

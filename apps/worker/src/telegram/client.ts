@@ -106,8 +106,18 @@ export interface TelegramClientOptions {
   apiBase?: string;
 }
 
+/** getWebhookInfo — read-only. `url` may carry a secret path: never print it whole. */
+export interface WebhookInfo {
+  url: string;
+  pending_update_count: number;
+  last_error_date?: number;
+  last_error_message?: string;
+  allowed_updates?: string[];
+}
+
 export interface TelegramClient {
-  getMe(): Promise<TelegramUser>;
+  getMe(): Promise<TelegramUser & { username?: string }>;
+  getWebhookInfo(): Promise<WebhookInfo>;
   getUpdates(
     params: { offset?: number; timeout: number; allowed_updates?: string[] },
     signal?: AbortSignal,
@@ -204,6 +214,7 @@ export function createTelegramClient({
 
   return {
     getMe: () => call('getMe', {}),
+    getWebhookInfo: () => call('getWebhookInfo', {}),
     getUpdates: (params, signal) =>
       call('getUpdates', params, { signal, timeoutMs: (params.timeout + 10) * 1000 }),
     sendMessage: (chatId, text, options) =>
