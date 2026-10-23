@@ -32,7 +32,9 @@ export const complaintUpdateSchema = z
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function filters(q: z.infer<typeof complaintListQuerySchema>): SQL {
+/** The list's WHERE clause — shared with the CSV export so both always
+ * select the same complaints (status, category, subject, task, search). */
+export function complaintFilters(q: z.infer<typeof complaintListQuerySchema>): SQL {
   const where: SQL[] = [sql`true`];
   if (q.status) where.push(sql`c.status = ${q.status}`);
   if (q.reason) where.push(sql`c.reason = ${q.reason}`);
@@ -69,7 +71,7 @@ export async function complaintsListReport(
   db: Database,
   q: z.infer<typeof complaintListQuerySchema>,
 ) {
-  const where = filters(q);
+  const where = complaintFilters(q);
   const total = await one<{ n: number }>(
     db,
     sql`SELECT count(*)::int AS n FROM task_complaints c JOIN tasks t ON t.id = c.task_id WHERE ${where}`,

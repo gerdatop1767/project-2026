@@ -302,6 +302,57 @@ describe('admin endpoints (as the owner)', () => {
       expect(card.report.duplicateOf).toBe(first!.reportNumber);
     });
 
+    it('the CSV export applies exactly the list’s search and filters', async () => {
+      const [a] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({ taskId: tasks[0]!.id, userId: student, reason: 'wrong_topic', comment: 'csv-a' })
+        .returning();
+      const [b] = await testDb.db
+        .insert(schema.taskComplaints)
+        .values({ taskId: tasks[2]!.id, userId: student, reason: 'wrong_topic', comment: 'csv-b' })
+        .returning();
+      const csv = async (query: string) => {
+        const res = await get(`/api/v1/admin/export/complaints?period=30d&${query}`);
+        expect(res.statusCode, query).toBe(200);
+        return res.body;
+      };
+      const listIds = async (query: string) =>
+        (await get(`/api/v1/admin/complaints?pageSize=100&${query}`))
+          .json()
+          .items.map((i: { id: string }) => i.id)
+          .sort();
+      const csvIds = (body: string) =>
+        [...body.matchAll(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g)]
+          .map((m) => m[0])
+          .filter((id, i, all) => all.indexOf(id) === i);
+      // Search by RPT number, by complaint id and by task id.
+      const byNumber = await csv(`q=RPT-${a!.reportNumber}`);
+      expect(byNumber).toContain(`RPT-${a!.reportNumber}`);
+      expect(byNumber).toContain('csv-a');
+      expect(byNumber).not.toContain('csv-b');
+      const byId = await csv(`q=${b!.id}`);
+      expect(byId).toContain('csv-b');
+      expect(byId).not.toContain('csv-a');
+      const byTask = await csv(`q=${tasks[2]!.id}`);
+      expect(byTask).toContain('csv-b');
+      expect(byTask).not.toContain('csv-a');
+      // Same rows as the list for the same filters.
+      for (const query of [
+        `q=${tasks[2]!.id}`,
+        'reason=wrong_topic',
+        'reason=wrong_topic&status=new',
+      ]) {
+        const complaintIds = csvIds(await csv(query)).filter((id) => [a!.id, b!.id].includes(id));
+        const fromList = (await listIds(query)).filter((id: string) => [a!.id, b!.id].includes(id));
+        expect(complaintIds.sort(), query).toEqual(fromList);
+      }
+      // A search that is no id matches nothing, as in the list.
+      expect(await csv('q=garbage')).not.toMatch(/csv-a|csv-b/);
+      // An unreadable filter is a 400, not a server error.
+      const bad = await get('/api/v1/admin/export/complaints?period=30d&status=closed');
+      expect(bad.statusCode).toBe(400);
+    });
+
     it('the card carries the real task data for the Claude report — nothing invented', async () => {
       const [c] = await testDb.db
         .insert(schema.taskComplaints)
@@ -407,7 +458,10 @@ describe('admin endpoints (as the owner)', () => {
       .select()
       .from(schema.adminAuditLog)
       .where(eq(schema.adminAuditLog.action, 'export.csv'));
-    expect(audit.length).toBe(7);
+    // Every export is audited (other tests export too, so check by kind).
+    expect(new Set(audit.map((e) => e.objectId))).toEqual(
+      new Set(['users', 'overview', 'subjects', 'numbers', 'campaigns', 'complaints', 'quality']),
+    );
   });
 
   it('the audit log lists actions and cannot be changed through the API', async () => {
