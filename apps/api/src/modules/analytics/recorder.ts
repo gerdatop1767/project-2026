@@ -130,7 +130,7 @@ export async function safely(request: FastifyRequest, work: () => Promise<void>)
 export async function recordSignIn(
   db: Database,
   request: FastifyRequest,
-  sign: { userId: string; created: boolean; method: 'email' | 'vk' | 'telegram' },
+  sign: { userId: string; created: boolean; method: 'email' | 'vk' | 'telegram' | 'yandex' },
 ): Promise<void> {
   await safely(request, async () => {
     const visitorId = readVisitorId(request);

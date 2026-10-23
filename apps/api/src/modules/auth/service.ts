@@ -1,13 +1,12 @@
-import { createHash, randomBytes } from 'node:crypto';
 import type { Database } from '@zybrilka/db';
 import type { AuthUser } from '@zybrilka/shared';
 import type { Config } from '../../config.js';
 import * as repo from './repo.js';
-import { isEmailConfigured, sendMagicLinkEmail, EmailNotConfiguredError } from './email.js';
 import { isOnboardingCompleted } from '../learningProfile/repo.js';
 import * as profileRepo from '../profile/repo.js';
 import { resolveProfile, storeAvatar } from '../profile/service.js';
 import { exchangeVkCode, fetchVkProfile, type VkLogger } from './vk.js';
+import { exchangeYandexCode, fetchYandexUser, type YandexUser } from './yandex.js';
 import {
   TelegramNotConfiguredError,
   fetchTelegramProfilePhoto,
@@ -18,43 +17,11 @@ import {
 import { AVATAR_MAX_BYTES } from '@zybrilka/shared';
 import { cacheProviderAvatar } from '../profile/providerAvatar.js';
 
-export { EmailNotConfiguredError } from './email.js';
 export { VkNotConfiguredError, VkRequestError, isVkConfigured } from './vk.js';
 export { TelegramAuthError, TelegramNotConfiguredError, isTelegramConfigured } from './telegram.js';
+export { YandexNotConfiguredError, YandexRequestError, isYandexConfigured } from './yandex.js';
 
-const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-/** Always resolves the same way whether or not `email` has an account —
- * callers must respond identically on success either way, so a caller
- * can't use response differences to enumerate registered emails. */
-export async function requestMagicLink(db: Database, config: Config, email: string): Promise<void> {
-  if (!isEmailConfigured(config)) {
-    throw new EmailNotConfiguredError();
-  }
-  const normalizedEmail = email.trim().toLowerCase();
-  const token = randomBytes(32).toString('hex');
-  const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS);
-  await repo.createMagicLinkToken(db, normalizedEmail, tokenHash, expiresAt);
-
-  // Points at the frontend's `login` screen (not this API's own
-  // POST /auth/verify route) — Login.tsx detects the `token` query
-  // param on mount and completes the verification from there.
-  const link = new URL('/login', config.WEB_BASE_URL);
-  link.searchParams.set('token', token);
-  await sendMagicLinkEmail(config, normalizedEmail, link.toString());
-}
-
-export class InvalidMagicLinkError extends Error {
-  constructor() {
-    super('This sign-in link is invalid or has expired');
-  }
-}
 
 /** Assembles the `AuthUser` the API/client sees for a user id — every
  * field read from the database (display profile with the priority rules
@@ -77,21 +44,6 @@ export interface LoginResult {
   created: boolean;
 }
 
-/** Verifies the token, creates/resolves the `users` row for this
- * email, and opens a new session. */
-export async function verifyMagicLink(db: Database, token: string): Promise<LoginResult> {
-  const tokenHash = hashToken(token);
-  const found = await repo.findValidMagicLinkToken(db, tokenHash);
-  if (!found) throw new InvalidMagicLinkError();
-
-  const { userId, created } = await repo.findOrCreateUserByIdentity(db, 'email', found.email);
-  await repo.consumeMagicLinkToken(db, found.id);
-
-  const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  const sessionId = await repo.createSession(db, userId, sessionExpiresAt);
-  return { sessionId, sessionExpiresAt, user: await loadAuthUser(db, userId), created };
-}
-
 /** A fresh session for an already-identified user (the Telegram Mini App
  * claiming a completed VK handoff — see handoff.ts). */
 export async function openSessionFor(db: Database, userId: string): Promise<LoginResult> {
@@ -111,8 +63,7 @@ async function startSession(
 /** Exchanges the VK authorization code for VK's user id (plus, best
  * effort, name/avatar), then find-or-creates the `users` row, refreshes
  * its provider profile (never the user's own name/avatar), and opens a
- * session — mirrors `verifyMagicLink`'s shape so the route can treat both
- * uniformly. Identity, name and avatar all come from VK's server-to-server
+ * session — the same `LoginResult` shape as every other sign-in. Identity, name and avatar all come from VK's server-to-server
  * responses for this code; nothing client-supplied is trusted. */
 export async function completeVkLogin(
   db: Database,
@@ -161,6 +112,78 @@ export async function completeVkLink(
     await profileRepo.applyProviderProfile(db, userId, 'vk', profile);
     void cacheProviderAvatar(db, userId, 'vk', profile.avatarUrl, log);
   }
+  return outcome;
+}
+
+// ------------------------------------------------------------------ Yandex
+
+/**
+ * A Yandex account with no Zybrilka account yet, whose email (as Yandex
+ * reports it) is already the email sign-in of an existing account. We do
+ * NOT merge on a matching address, and we do not silently open a second
+ * account for the same person either: they sign in to the existing account
+ * and connect Yandex in the profile (an explicit, signed-in link).
+ */
+export class YandexEmailInUseError extends Error {
+  constructor() {
+    super('This Yandex email already belongs to an existing account');
+  }
+}
+
+async function adoptYandexProfile(db: Database, userId: string, ya: YandexUser): Promise<void> {
+  await profileRepo.applyProviderProfile(db, userId, 'yandex', {
+    firstName: ya.firstName,
+    lastName: ya.lastName,
+    avatarUrl: ya.avatarUrl,
+  });
+}
+
+/**
+ * Sign-in / first registration with Yandex ID. The identity is Yandex's own
+ * user id from the server-to-server `login.yandex.ru/info` response for the
+ * code exchanged here — nothing the browser sends is trusted.
+ * - known Yandex id → that account (same account on every later sign-in);
+ * - unknown id, email already used by an email account → refuse
+ *   (`YandexEmailInUseError`), never merge;
+ * - unknown id otherwise → a new account.
+ */
+export async function completeYandexLogin(
+  db: Database,
+  config: Config,
+  code: string,
+  codeVerifier: string,
+): Promise<LoginResult> {
+  const token = await exchangeYandexCode(config, code, codeVerifier);
+  const ya = await fetchYandexUser(config, token);
+
+  let userId = await repo.findUserIdByIdentity(db, 'yandex', ya.id);
+  let created = false;
+  if (!userId) {
+    if (ya.email && (await repo.findUserIdByIdentity(db, 'email', ya.email))) {
+      throw new YandexEmailInUseError();
+    }
+    ({ userId, created } = await repo.findOrCreateUserByIdentity(db, 'yandex', ya.id));
+  }
+  await adoptYandexProfile(db, userId, ya);
+  const session = await startSession(db, userId);
+  return { ...session, user: await loadAuthUser(db, userId), created };
+}
+
+/** Adds Yandex to the ALREADY signed-in `userId` (taken from the session by
+ * the route). Proven the same way as a sign-in; never moves an identity
+ * owned by another account, never merges, never opens a session. */
+export async function completeYandexLink(
+  db: Database,
+  config: Config,
+  userId: string,
+  code: string,
+  codeVerifier: string,
+): Promise<LinkOutcome> {
+  const token = await exchangeYandexCode(config, code, codeVerifier);
+  const ya = await fetchYandexUser(config, token);
+  const outcome = await profileRepo.addIdentity(db, userId, 'yandex', ya.id);
+  if (outcome === 'linked' || outcome === 'already_linked')
+    await adoptYandexProfile(db, userId, ya);
   return outcome;
 }
 

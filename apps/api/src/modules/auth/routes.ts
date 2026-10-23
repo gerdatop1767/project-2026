@@ -1,15 +1,5 @@
 import type { Database } from '@zybrilka/db';
-import {
-  emailTokenRequestSchema,
-  forgotPasswordRequestSchema,
-  magicLinkRequestSchema,
-  passwordLoginRequestSchema,
-  registerRequestSchema,
-  resendConfirmationRequestSchema,
-  resetPasswordRequestSchema,
-  telegramInitDataRequestSchema,
-  verifyMagicLinkRequestSchema,
-} from '@zybrilka/shared';
+import { passwordLoginRequestSchema, telegramInitDataRequestSchema } from '@zybrilka/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
@@ -18,21 +8,56 @@ import { recordSignIn } from '../analytics/recorder.js';
 import * as service from './service.js';
 import { createVkPkceChallenge, buildVkAuthorizeUrl, isVkConfigured } from './vk.js';
 import * as handoff from './handoff.js';
-import * as emailPassword from './emailPassword.js';
-import { EmailSendError } from './email.js';
-import { EmailThrottle } from './emailThrottle.js';
+import { InvalidCredentialsError, loginWithPassword } from './passwordLogin.js';
+import { buildYandexAuthorizeUrl, isYandexConfigured } from './yandex.js';
 
 export interface AuthRoutesOptions {
   db: Database;
   config: Config;
-  /** Per-address letter limit; tests pass one with their own clock. */
-  emailThrottle?: EmailThrottle;
 }
 
 const SESSION_COOKIE = 'session_id';
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days — mirrors service.ts's SESSION_TTL_MS
 
 const VK_PKCE_COOKIE = 'vk_pkce';
+
+/** State + PKCE verifier for one Yandex ID attempt (httpOnly, 10 minutes,
+ * only sent to the callback). Written by this server; `link` pins the
+ * account a "connect Yandex" attempt was started from. */
+const YANDEX_COOKIE = 'ya_oauth';
+const YANDEX_COOKIE_PATH = '/api/v1/auth/yandex';
+const yandexCookieSchema = z.object({
+  state: z.string().min(16).max(100),
+  codeVerifier: z.string().min(43).max(128),
+  link: z.object({ userId: z.uuid() }).optional(),
+});
+function parseYandexCookie(raw: string) {
+  try {
+    const parsed = yandexCookieSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+const yandexCallbackQuerySchema = z.object({
+  code: z.string().min(1).max(512).optional(),
+  state: z.string().min(1).max(100).optional(),
+  error: z.string().max(100).optional(),
+});
+
+/** Logs only the coarse kind/status/code — never the code, token or secret. */
+function logYandexFailure(request: FastifyRequest, error: unknown, msg: string) {
+  if (error instanceof service.YandexRequestError) {
+    request.log.error(
+      { yandexAuth: error.kind, status: error.status, yandexError: error.yandexError },
+      msg,
+    );
+  } else if (error instanceof service.YandexNotConfiguredError) {
+    request.log.error({ yandexAuth: 'not_configured' }, msg);
+  } else {
+    request.log.error({ yandexAuth: 'unexpected', errName: (error as Error)?.name }, msg);
+  }
+}
 const vkPkceCookieSchema = z.object({
   state: z.string(),
   codeVerifier: z.string(),
@@ -89,10 +114,7 @@ function clearSessionCookie(reply: FastifyReply, config: Config) {
   reply.clearCookie(SESSION_COOKIE, baseCookieOptions(config));
 }
 
-export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
-  app,
-  { db, config, emailThrottle: givenThrottle },
-) => {
+export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, { db, config }) => {
   // A new sign-in replaces the browser's session cookie; the session it
   // replaces must not stay valid on the server (shared device, account switch).
   async function dropPreviousSession(request: FastifyRequest, newSessionId: string) {
@@ -100,164 +122,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
     if (previous && previous !== newSessionId) await service.logout(db, previous);
   }
 
-  // Always the same response shape whether or not `email` has an
-  // account — never reveals which, to prevent email enumeration (see
-  // service.ts's requestMagicLink doc comment). Rate-limited per IP —
-  // sending email is the one real cost/abuse surface here.
-  app.post(
-    '/auth/magic-link',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const body = magicLinkRequestSchema.safeParse(request.body);
-      if (!body.success) {
-        return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
-      }
-      try {
-        await service.requestMagicLink(db, config, body.data.email);
-      } catch (error) {
-        if (error instanceof service.EmailNotConfiguredError) {
-          return reply.code(503).send({ error: 'email_not_configured' });
-        }
-        throw error;
-      }
-      return reply.code(200).send({ ok: true });
-    },
-  );
-
-  // Rate-limited per IP — a 256-bit token is already infeasible to
-  // guess, but this still caps plain error-spam/abuse against the route.
-  app.post(
-    '/auth/verify',
-    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const body = verifyMagicLinkRequestSchema.safeParse(request.body);
-      if (!body.success) {
-        return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
-      }
-      try {
-        const { sessionId, user, created } = await service.verifyMagicLink(db, body.data.token);
-        await dropPreviousSession(request, sessionId);
-        await recordSignIn(db, request, { userId: user.id, created, method: 'email' });
-        reply.setCookie(SESSION_COOKIE, sessionId, cookieOptions(config, SESSION_MAX_AGE_SECONDS));
-        return reply.code(200).send({ user });
-      } catch (error) {
-        if (error instanceof service.InvalidMagicLinkError) {
-          return reply.code(400).send({ error: 'invalid_or_expired_token' });
-        }
-        throw error;
-      }
-    },
-  );
-
-  // ------------------------------------------- email + password (EMAIL_AUTH.md)
-  const emailThrottle = givenThrottle ?? new EmailThrottle();
-
-  /** Maps the email flows' errors to responses. Never echoes SMTP details:
-   * the log gets a coarse code, the client a fixed error name. */
-  function emailFlowError(request: FastifyRequest, reply: FastifyReply, error: unknown) {
-    if (error instanceof service.EmailNotConfiguredError) {
-      request.log.error({ mail: 'not_configured' }, 'Email requested but SMTP is not configured');
-      return reply.code(503).send({ error: 'email_not_configured' });
-    }
-    if (error instanceof EmailSendError) {
-      request.log.error(
-        { mail: 'send_failed', code: error.code, responseCode: error.responseCode },
-        'Email could not be sent',
-      );
-      return reply.code(502).send({ error: 'email_send_failed' });
-    }
-    if (error instanceof emailPassword.ThrottledError) {
-      return reply
-        .code(429)
-        .header('retry-after', String(error.retryAfterSeconds))
-        .send({ error: 'too_many_requests', retryAfterSeconds: error.retryAfterSeconds });
-    }
-    if (error instanceof emailPassword.PasswordRejectedError) {
-      return reply.code(400).send({ error: 'weak_password', problem: error.problem });
-    }
-    if (error instanceof emailPassword.TokenExpiredError) {
-      return reply.code(410).send({ error: 'token_expired' });
-    }
-    if (error instanceof emailPassword.TokenInvalidError) {
-      return reply.code(400).send({ error: 'invalid_or_used_token' });
-    }
-    if (error instanceof emailPassword.AlreadyRegisteredError) {
-      return reply.code(409).send({ error: 'already_registered' });
-    }
-    throw error;
-  }
-
-  async function signIn(request: FastifyRequest, reply: FastifyReply, result: service.LoginResult) {
-    await dropPreviousSession(request, result.sessionId);
-    await recordSignIn(db, request, {
-      userId: result.user.id,
-      created: result.created,
-      method: 'email',
-    });
-    reply.setCookie(
-      SESSION_COOKIE,
-      result.sessionId,
-      cookieOptions(config, SESSION_MAX_AGE_SECONDS),
-    );
-    return reply.code(200).send({ user: result.user, created: result.created });
-  }
-
-  // Same answer whether or not the address already has an account.
-  app.post(
-    '/auth/register',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const body = registerRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-      try {
-        await emailPassword.register(
-          db,
-          config,
-          emailThrottle,
-          body.data.email,
-          body.data.password,
-        );
-      } catch (error) {
-        return emailFlowError(request, reply, error);
-      }
-      return reply.code(200).send({ ok: true });
-    },
-  );
-
-  app.post(
-    '/auth/register/confirm',
-    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const body = emailTokenRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_or_used_token' });
-      try {
-        return await signIn(
-          request,
-          reply,
-          await emailPassword.confirmRegistration(db, body.data.token),
-        );
-      } catch (error) {
-        return emailFlowError(request, reply, error);
-      }
-    },
-  );
-
-  app.post(
-    '/auth/register/resend',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const body = resendConfirmationRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-      try {
-        await emailPassword.resendConfirmation(db, config, emailThrottle, body.data);
-      } catch (error) {
-        return emailFlowError(request, reply, error);
-      }
-      return reply.code(200).send({ ok: true });
-    },
-  );
-
-  // One error for "no such address", "no password" and "wrong password".
+  // Email + password, for accounts that already have a password (registration
+  // and every emailed link were removed with SMTP — docs/YANDEX_ID.md). One
+  // error for "no such address", "no password" and "wrong password".
   app.post(
     '/auth/login',
     { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
@@ -265,13 +132,21 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
       const body = passwordLoginRequestSchema.safeParse(request.body);
       if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
       try {
-        return await signIn(
-          request,
-          reply,
-          await emailPassword.loginWithPassword(db, body.data.email, body.data.password),
+        const result = await loginWithPassword(db, body.data.email, body.data.password);
+        await dropPreviousSession(request, result.sessionId);
+        await recordSignIn(db, request, {
+          userId: result.user.id,
+          created: false,
+          method: 'email',
+        });
+        reply.setCookie(
+          SESSION_COOKIE,
+          result.sessionId,
+          cookieOptions(config, SESSION_MAX_AGE_SECONDS),
         );
+        return reply.code(200).send({ user: result.user });
       } catch (error) {
-        if (error instanceof emailPassword.InvalidCredentialsError) {
+        if (error instanceof InvalidCredentialsError) {
           return reply.code(401).send({ error: 'invalid_credentials' });
         }
         throw error;
@@ -279,50 +154,130 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
     },
   );
 
-  app.post(
-    '/auth/password/forgot',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
-    async (request, reply) => {
-      const body = forgotPasswordRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-      try {
-        await emailPassword.forgotPassword(db, config, emailThrottle, body.data.email);
-      } catch (error) {
-        return emailFlowError(request, reply, error);
-      }
-      return reply.code(200).send({ ok: true });
-    },
-  );
+  // ------------------------------------------------- Yandex ID (YANDEX_ID.md)
 
-  app.post(
-    '/auth/password/reset/check',
+  /** Back to the sign-in page (or the profile, for "connect Yandex") with a
+   * fixed, server-chosen outcome — never anything echoed from the request. */
+  function yandexOutcome(reply: FastifyReply, linking: boolean, outcome: string) {
+    const target = linking
+      ? `/profile?link=${outcome}&provider=yandex`
+      : `/login?yandex=${outcome}`;
+    return reply.redirect(new URL(target, config.WEB_BASE_URL).toString());
+  }
+
+  // `?link=1`: connect Yandex to the signed-in account (target account taken
+  // from the SESSION and re-checked at the callback), otherwise sign in.
+  app.get(
+    '/auth/yandex/start',
     { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
     async (request, reply) => {
-      const body = emailTokenRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_or_used_token' });
-      try {
-        await emailPassword.checkResetToken(db, body.data.token);
-      } catch (error) {
-        return emailFlowError(request, reply, error);
+      const linking = (request.query as { link?: string } | undefined)?.link === '1';
+      if (!isYandexConfigured(config)) return yandexOutcome(reply, linking, 'not_configured');
+      if (linking && !request.sessionUserId) {
+        return reply.code(401).send({ error: 'unauthorized' });
       }
-      return reply.code(200).send({ ok: true });
+      const challenge = createVkPkceChallenge();
+      reply.setCookie(
+        YANDEX_COOKIE,
+        JSON.stringify({
+          state: challenge.state,
+          codeVerifier: challenge.codeVerifier,
+          ...(linking ? { link: { userId: request.sessionUserId } } : {}),
+        }),
+        { ...baseCookieOptions(config), path: YANDEX_COOKIE_PATH, maxAge: 600 },
+      );
+      return reply.redirect(buildYandexAuthorizeUrl(config, challenge));
     },
   );
 
-  app.post(
-    '/auth/password/reset',
-    { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
+  app.get(
+    '/auth/yandex/callback',
+    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
     async (request, reply) => {
-      const body = resetPasswordRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-      try {
-        return await signIn(
-          request,
-          reply,
-          await emailPassword.resetPassword(db, body.data.token, body.data.password),
+      const raw = request.cookies[YANDEX_COOKIE];
+      // Single-use: the state/verifier cookie is dropped whatever happens next.
+      reply.clearCookie(YANDEX_COOKIE, { ...baseCookieOptions(config), path: YANDEX_COOKIE_PATH });
+      const saved = raw ? parseYandexCookie(raw) : null;
+      const linking = Boolean(saved?.link);
+      const query = yandexCallbackQuerySchema.safeParse(request.query);
+
+      // CSRF: the state Yandex echoes back must equal the one this server
+      // stored for this attempt. Checked before anything else, including the
+      // user's "cancel" — no session, no exchange without it.
+      const state = query.success ? query.data.state : undefined;
+      if (!saved || !state || state !== saved.state) {
+        request.log.warn({ yandexAuth: 'invalid_state' }, 'Yandex callback rejected');
+        return yandexOutcome(reply, linking, 'invalid_state');
+      }
+      if (!query.success || query.data.error || !query.data.code) {
+        // `access_denied` = the user pressed «Отмена»; anything else is a
+        // provider error. Only the short code is logged.
+        const error = query.success ? query.data.error : undefined;
+        if (error === 'access_denied') return yandexOutcome(reply, linking, 'cancelled');
+        request.log.warn(
+          {
+            yandexAuth: 'provider_error',
+            yandexError: error && /^[a-z_]{1,64}$/.test(error) ? error : undefined,
+          },
+          'Yandex returned an error',
         );
+        return yandexOutcome(reply, linking, 'error');
+      }
+
+      if (saved.link) {
+        if (!request.sessionUserId || request.sessionUserId !== saved.link.userId) {
+          return yandexOutcome(reply, true, 'session_changed');
+        }
+        try {
+          const outcome = await service.completeYandexLink(
+            db,
+            config,
+            request.sessionUserId,
+            query.data.code,
+            saved.codeVerifier,
+          );
+          const labels = {
+            linked: 'ok',
+            already_linked: 'already',
+            taken: 'taken',
+            provider_already_used: 'provider_used',
+          } as const;
+          return yandexOutcome(reply, true, labels[outcome]);
+        } catch (error) {
+          logYandexFailure(request, error, 'Yandex link failed');
+          return yandexOutcome(reply, true, 'error');
+        }
+      }
+
+      try {
+        const result = await service.completeYandexLogin(
+          db,
+          config,
+          query.data.code,
+          saved.codeVerifier,
+        );
+        await dropPreviousSession(request, result.sessionId);
+        await recordSignIn(db, request, {
+          userId: result.user.id,
+          created: result.created,
+          method: 'yandex',
+        });
+        reply.setCookie(
+          SESSION_COOKIE,
+          result.sessionId,
+          cookieOptions(config, SESSION_MAX_AGE_SECONDS),
+        );
+        // Same server-decided landing as VK: unfinished onboarding → onboarding.
+        const landing = result.user.onboardingCompleted
+          ? config.WEB_BASE_URL
+          : new URL('/onboarding', config.WEB_BASE_URL).toString();
+        return reply.redirect(landing);
       } catch (error) {
-        return emailFlowError(request, reply, error);
+        if (error instanceof service.YandexEmailInUseError) {
+          return yandexOutcome(reply, false, 'email_in_use');
+        }
+        logYandexFailure(request, error, 'Yandex login failed');
+        return yandexOutcome(reply, false, 'error');
       }
     },
   );

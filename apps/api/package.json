@@ -20,10 +20,6 @@
     "@zybrilka/shared": "workspace:*",
     "drizzle-orm": "^0.45.3",
     "fastify": "^5.12.5",
-    "nodemailer": "^10.1.2",
     "zod": "^4.6.5"
-  },
-  "devDependencies": {
-    "@types/nodemailer": "^8.0.2"
   }
 }

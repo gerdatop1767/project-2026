@@ -71,10 +71,10 @@ describe('createApp (production wiring)', () => {
     const post = (ip: string) =>
       app.inject({
         method: 'POST',
-        url: '/api/v1/auth/magic-link',
+        url: '/api/v1/auth/login',
         remoteAddress: '172.18.0.5', // the proxy, same for everyone
         headers: { 'x-forwarded-for': ip },
-        payload: { email: 'not-an-email' },
+        payload: { email: 'not-an-email', password: 'x' },
       });
     for (let i = 0; i < 10; i++) expect((await post('203.0.113.1')).statusCode).toBe(400);
     expect((await post('203.0.113.1')).statusCode).toBe(429);

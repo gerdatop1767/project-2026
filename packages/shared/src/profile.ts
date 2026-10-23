@@ -18,12 +18,12 @@ export const updateProfileRequestSchema = z.object({
 export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
 
 /** Sign-in methods a single account can hold. */
-export const identityProviders = ['email', 'vk', 'telegram'] as const;
+export const identityProviders = ['email', 'vk', 'telegram', 'yandex'] as const;
 export const identityProviderSchema = z.enum(identityProviders);
 export type IdentityProvider = z.infer<typeof identityProviderSchema>;
 
 /** Providers the user can link/unlink themselves from the profile. */
-export const linkableProviders = ['vk', 'telegram'] as const;
+export const linkableProviders = ['vk', 'telegram', 'yandex'] as const;
 export type LinkableProvider = (typeof linkableProviders)[number];
 
 export const identityInfoSchema = z.object({
@@ -41,7 +41,7 @@ export type IdentityInfo = z.infer<typeof identityInfoSchema>;
  */
 export const identitiesResponseSchema = z.object({
   identities: z.array(identityInfoSchema),
-  available: z.object({ vk: z.boolean(), telegram: z.boolean() }),
+  available: z.object({ vk: z.boolean(), telegram: z.boolean(), yandex: z.boolean() }),
   canUnlink: z.boolean(),
 });
 export type IdentitiesResponse = z.infer<typeof identitiesResponseSchema>;

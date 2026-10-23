@@ -1,7 +1,7 @@
 import type { Config } from '../../config.js';
-import { isEmailConfigured } from './email.js';
 import { describeBotToken } from './telegram.js';
 import { isVkConfigured } from './vk.js';
+import { isYandexConfigured } from './yandex.js';
 
 /**
  * One line at startup saying which sign-in methods this process can serve.
@@ -12,8 +12,8 @@ import { isVkConfigured } from './vk.js';
  */
 export function authProvidersSummary(config: Config) {
   return {
-    email: isEmailConfigured(config),
     vk: isVkConfigured(config),
+    yandex: isYandexConfigured(config),
     telegram: describeBotToken(config.TELEGRAM_BOT_TOKEN),
   };
 }

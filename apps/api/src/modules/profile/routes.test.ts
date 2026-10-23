@@ -287,7 +287,7 @@ describe('profile API: name, avatar, isolation', () => {
       expect(body.identities).toHaveLength(1);
       expect(body.identities[0].provider).toBe('email');
       expect(body.canUnlink).toBe(false);
-      expect(body.available).toEqual({ vk: false, telegram: false });
+      expect(body.available).toEqual({ vk: false, telegram: false, yandex: false });
     });
   });
 });

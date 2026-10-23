@@ -44,9 +44,9 @@ describe('loadConfig', () => {
       expect(config.WEB_BASE_URL).toBe('http://localhost:5173');
     });
 
-    it('falls back to the default instead of crashing when SMTP_PORT (z.coerce.number) is set to the empty string', () => {
-      const config = loadConfig({ SMTP_PORT: '' });
-      expect(config.SMTP_PORT).toBe(587);
+    it('falls back to the default instead of crashing when YANDEX_REQUEST_TIMEOUT_MS (z.coerce.number) is set to the empty string', () => {
+      const config = loadConfig({ YANDEX_REQUEST_TIMEOUT_MS: '' });
+      expect(config.YANDEX_REQUEST_TIMEOUT_MS).toBe(5000);
     });
 
     it('treats an empty VK_REDIRECT_URI (z.url().optional()) the same as unset — isVkConfigured stays false, not a thrown error', () => {
@@ -58,9 +58,15 @@ describe('loadConfig', () => {
       expect(config.VK_REDIRECT_URI).toBeUndefined();
     });
 
-    it('treats an empty SMTP_HOST (z.string().optional()) the same as unset', () => {
-      const config = loadConfig({ SMTP_HOST: '' });
-      expect(config.SMTP_HOST).toBeUndefined();
+    it('treats empty YANDEX_* values the same as unset', () => {
+      const config = loadConfig({ YANDEX_CLIENT_ID: '', YANDEX_REDIRECT_URI: '' });
+      expect(config.YANDEX_CLIENT_ID).toBeUndefined();
+      expect(config.YANDEX_REDIRECT_URI).toBeUndefined();
+    });
+
+    it('ignores leftover SMTP_* variables from an older .env (no longer read)', () => {
+      const config = loadConfig({ SMTP_HOST: 'smtp.yandex.ru', SMTP_PORT: '465' });
+      expect(config).not.toHaveProperty('SMTP_HOST');
     });
 
     it('a genuinely non-empty value is never touched by the empty-string handling', () => {
