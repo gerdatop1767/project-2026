@@ -78,3 +78,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}

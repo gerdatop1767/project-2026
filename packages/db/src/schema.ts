@@ -482,7 +482,13 @@ export const attempts = pgTable(
   ],
 );
 
-export const mistakeStatuses = ['open', 'resolved'] as const;
+/**
+ * `dismissed`: the user removed it from «Мои ошибки» by hand. The row and
+ * its history (timesWrong, attempts) stay; it is only hidden from the
+ * list and from mistake-driven training. A later wrong answer on the
+ * same task reopens it (`open`), exactly like a resolved one.
+ */
+export const mistakeStatuses = ['open', 'resolved', 'dismissed'] as const;
 
 /**
  * One row per (user, task) ever answered wrong — never deleted, only

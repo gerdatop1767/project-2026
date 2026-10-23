@@ -334,7 +334,7 @@ export function HBars({
   items,
   color = 'var(--admin-s1)',
 }: {
-  items: { label: string; value: number; detail?: string }[];
+  items: { label: string; value: number; detail?: string; color?: string }[];
   color?: string;
 }) {
   const max = Math.max(1, ...items.map((i) => i.value));
@@ -346,7 +346,7 @@ export function HBars({
           <span className={c.hbarTrack}>
             <span
               className={c.hbarFill}
-              style={{ width: `${(item.value / max) * 100}%`, background: color }}
+              style={{ width: `${(item.value / max) * 100}%`, background: item.color ?? color }}
             />
           </span>
           <span className={c.hbarValue}>

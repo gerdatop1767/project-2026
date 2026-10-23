@@ -451,7 +451,9 @@ export function computeMistakesSummary(items: readonly Mistake[] = mistakes): Mi
     unsolvedCount,
     repeatedPercent: total ? Math.round((repeatedCount / total) * 100) : 0,
     reviewedAgainCount,
-    improvementPercent: 27,
+    // Share of these mistakes the student has since answered correctly —
+    // derived from the list itself, never a fixed figure.
+    improvementPercent: total ? Math.round((reviewedAgainCount / total) * 100) : 0,
     topicBreakdown,
     mostFrequent: topTopics.map(([topic, count]) => ({ topic, count })),
   };

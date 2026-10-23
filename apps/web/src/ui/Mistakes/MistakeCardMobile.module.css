@@ -10,10 +10,52 @@
   text-align: left;
 }
 
+.card[data-busy] {
+  opacity: 0.6;
+  transition: opacity var(--duration-fast) ease;
+}
+
 .topRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.dismissButton {
+  flex-shrink: 0;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  margin: calc(var(--space-2) * -1) calc(var(--space-2) * -1) 0 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.dismissButton:not(:disabled):hover,
+.dismissButton:focus-visible {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+.dismissButton:focus-visible,
+.checkbox:focus-visible,
+.retryButton:focus-visible,
+.condition:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
 }
 
 .checkbox {
@@ -34,11 +76,10 @@
 }
 
 .metaRow {
-  flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -53,25 +94,30 @@
 }
 
 .topicChip {
+  min-width: 0;
+  max-width: 100%;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.3;
   padding: 3px 8px;
-  border-radius: var(--radius-pill, 999px);
-  flex-shrink: 0;
+  border-radius: 0.75rem;
+  overflow-wrap: break-word;
 }
 
 .date {
-  flex-shrink: 0;
-  margin-left: auto;
   font-size: 12px;
-  color: var(--color-text-disabled);
+  color: var(--color-text-secondary);
 }
 
 .condition {
   display: block;
   width: 100%;
+  min-width: 0;
   margin: 0;
-  padding: 0 0 0 var(--touch-target-min);
+  padding: 0;
+  overflow-x: auto;
+  overflow-wrap: break-word;
+  line-height: 1.5;
   background: none;
   border: none;
   color: var(--color-text-primary);
@@ -81,6 +127,7 @@
 
 .bottomRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-1);
@@ -88,8 +135,17 @@
 
 .solveSimilarButton {
   margin-right: auto;
+  min-width: 0;
   padding: 6px var(--space-3);
   font-size: 13px;
+  white-space: nowrap;
+}
+
+/* A display formula scrolls inside the card instead of widening the page. */
+.condition :global(.katex-display) {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .retryButton {

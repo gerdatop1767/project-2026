@@ -9,6 +9,7 @@ export const sections = [
   { path: '/admin', label: 'Обзор', icon: 'home', group: 'Аналитика' },
   { path: '/admin/growth', label: 'Аналитика и рост', icon: 'trend', group: 'Аналитика' },
   { path: '/admin/funnels', label: 'Воронки и удержание', icon: 'filter', group: 'Аналитика' },
+  { path: '/admin/streaks', label: 'Серии', icon: 'flame', group: 'Аналитика' },
   { path: '/admin/campaigns', label: 'Кампании и ссылки', icon: 'share', group: 'Аналитика' },
   { path: '/admin/users', label: 'Пользователи', icon: 'friends', group: 'Люди и контент' },
   { path: '/admin/content', label: 'Задания и предметы', icon: 'topic', group: 'Люди и контент' },

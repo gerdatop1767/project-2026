@@ -4,7 +4,17 @@ import { clsx } from '../../lib/clsx.js';
 import { useStreakContext } from '../../lib/streakContext.js';
 import { useAuth } from '../../lib/authContext.js';
 import { useNavigation } from '../../lib/navigation.js';
+import { streakTier } from '@zybrilka/shared';
+import { StreakFlame } from './StreakFlame.js';
 import styles from './StatusChips.module.css';
+
+function daysWord(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'день';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'дня';
+  return 'дней';
+}
 
 export interface StatusChipsProps {
   className?: string;
@@ -59,35 +69,50 @@ function AccountChips({ className }: StatusChipsProps) {
   const { streak } = useStreakContext();
   const previousStreakRef = useRef<number | null>(null);
   const [justIncreased, setJustIncreased] = useState(false);
+  const [levelUp, setLevelUp] = useState(false);
 
   useEffect(() => {
     if (streak === null) return;
     const previous = previousStreakRef.current;
+    previousStreakRef.current = streak.currentStreak;
     // Only the transition from a real, already-known number to a
     // higher one counts — never on first load (no "previous" to
-    // compare against yet) and never on every re-render.
+    // compare against yet) and never on every re-render. Crossing into
+    // a new tier additionally plays the flame's one-off burst.
     if (previous !== null && streak.currentStreak > previous) {
       setJustIncreased(true);
-      const id = window.setTimeout(() => setJustIncreased(false), 900);
-      previousStreakRef.current = streak.currentStreak;
+      const newTier = streakTier(streak.currentStreak) > streakTier(previous);
+      if (newTier) setLevelUp(true);
+      const id = window.setTimeout(() => {
+        setJustIncreased(false);
+        setLevelUp(false);
+      }, 900);
       return () => window.clearTimeout(id);
     }
-    previousStreakRef.current = streak.currentStreak;
   }, [streak]);
 
   const streakValue = streak === null ? '—' : String(streak.currentStreak);
+  const tier = streakTier(streak?.currentStreak ?? 0);
 
   return (
     <div className={clsx(styles.row, className)}>
-      <div className={clsx(styles.chip, justIncreased && styles.chipStreakUp)}>
-        <Icon
-          name="flame"
-          size={20}
-          className={clsx(styles.flameIcon, justIncreased && styles.flameIconUp)}
-        />
+      <div
+        className={clsx(styles.chip, styles.streakChip, justIncreased && styles.chipStreakUp)}
+        data-tier={tier}
+        aria-label={
+          streak === null
+            ? 'Серия загружается'
+            : `Серия: ${streak.currentStreak} ${daysWord(streak.currentStreak)}`
+        }
+      >
+        <StreakFlame tier={tier} levelUp={levelUp} size={22} />
         <span className={styles.chipText}>
-          <span className={styles.chipLabel}>Серия</span>
-          <span className={styles.chipValue}>{streakValue}</span>
+          <span className={styles.chipLabel} aria-hidden="true">
+            Серия
+          </span>
+          <span className={styles.chipValue} aria-hidden="true">
+            {streakValue}
+          </span>
         </span>
       </div>
       <div className={clsx(styles.chip, styles.levelChip)}>
