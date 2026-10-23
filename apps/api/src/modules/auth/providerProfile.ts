@@ -29,6 +29,7 @@ export const AVATAR_HOSTS = {
     'mycdn.me',
   ],
   telegram: ['t.me', 'telegram.org', 'telegram-cdn.org', 'cdn-telegram.org'],
+  yandex: ['avatars.yandex.net', 'avatars.mds.yandex.net'],
 } as const;
 
 export type AvatarProvider = keyof typeof AVATAR_HOSTS;

@@ -46,6 +46,7 @@ const methodText: Record<string, string> = {
   email: 'Почта',
   vk: 'VK ID',
   telegram: 'Telegram',
+  yandex: 'Яндекс ID',
   unknown: 'Неизвестно',
 };
 

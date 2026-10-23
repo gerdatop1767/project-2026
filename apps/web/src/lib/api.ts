@@ -10,7 +10,6 @@ import type {
   IdentityProvider,
   LearningSessionResponse,
   MeResponse,
-  MagicLinkResponse,
   Mistake,
   ProgressByTaskNumberResponse,
   ProgressByTopicResponse,
@@ -142,7 +141,7 @@ async function rawApiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   // `/auth/*` answers are about signing in/out themselves (e.g. a failed
-  // magic-link verify is a 400, logout is a 204) — only a 401 from a
+  // Telegram sign-in is a 400, logout is a 204) — only a 401 from a
   // private endpoint means "the session you thought you had is gone".
   if (response.status === 401 && !path.startsWith('/auth/')) {
     unauthorizedListeners.forEach((listener) => listener());
@@ -496,69 +495,17 @@ export function getVariantProgress(): Promise<VariantProgressResponse> {
   return cachedApiFetch('/progress/variants');
 }
 
-/**
- * Login/signup screen's email step — always resolves the same way
- * whether or not `email` has an account (see apps/api's auth service
- * doc comment); callers must never infer "this email exists" from a
- * response difference. Can reject with `ApiError(503)` when SMTP isn't
- * configured on the backend — the screen must show this honestly
- * rather than claiming a link was sent.
- */
-export function requestMagicLink(email: string): Promise<MagicLinkResponse> {
-  return apiFetch('/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) });
+/** «Войти через Яндекс»: a plain navigation to this API's own server-side
+ * OAuth start (state + PKCE live in an httpOnly cookie there). When Yandex
+ * ID isn't configured it lands back on /login?yandex=not_configured. */
+export function yandexLoginUrl(): string {
+  return new URL('/api/v1/auth/yandex/start', window.location.origin).toString();
 }
 
-/** Exchanges the token from the emailed magic link for a real session
- * (the server sets the session cookie) — `ApiError(400)` means the
- * link is invalid, already used, or expired. */
-export function verifyMagicLink(token: string): Promise<{ user: AuthUser }> {
-  return apiFetch('/auth/verify', { method: 'POST', body: JSON.stringify({ token }) });
-}
-
-// ------------------------------------------------- email + password
-
-/** Starts a registration: the server emails a confirmation link. The
- * answer is the same whether or not the address already has an account
- * (`ApiError` 400 weak_password / 429 / 502 / 503 otherwise). */
-export function registerWithEmail(email: string, password: string): Promise<{ ok: true }> {
-  return apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) });
-}
-
-/** Opens the registration link: creates the account and signs in
- * (ApiError 410 expired, 400 used/invalid, 409 already registered). */
-export function confirmRegistration(token: string): Promise<{ user: AuthUser }> {
-  return apiFetch('/auth/register/confirm', { method: 'POST', body: JSON.stringify({ token }) });
-}
-
-/** A new confirmation letter, by address or by an old (expired) link. */
-export function resendConfirmation(
-  input: { email: string } | { token: string },
-): Promise<{ ok: true }> {
-  return apiFetch('/auth/register/resend', { method: 'POST', body: JSON.stringify(input) });
-}
-
-/** ApiError 401 `invalid_credentials` for any wrong combination. */
-export function loginWithPassword(email: string, password: string): Promise<{ user: AuthUser }> {
-  return apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-}
-
-export function requestPasswordReset(email: string): Promise<{ ok: true }> {
-  return apiFetch('/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email }) });
-}
-
-/** Is this reset link still usable? (ApiError 410 expired / 400 invalid) */
-export function checkPasswordResetToken(token: string): Promise<{ ok: true }> {
-  return apiFetch('/auth/password/reset/check', {
-    method: 'POST',
-    body: JSON.stringify({ token }),
-  });
-}
-
-export function resetPassword(token: string, password: string): Promise<{ user: AuthUser }> {
-  return apiFetch('/auth/password/reset', {
-    method: 'POST',
-    body: JSON.stringify({ token, password }),
-  });
+/** «Подключить Яндекс» in the profile: the same flow, adding Yandex to the
+ * signed-in account (the account is taken from the session server-side). */
+export function yandexLinkUrl(): string {
+  return new URL('/api/v1/auth/yandex/start?link=1', window.location.origin).toString();
 }
 
 /** The VK ID "Продолжить через ВКонтакте" button's target — a plain
@@ -583,6 +530,16 @@ export type VkHandoffStatus = 'pending' | 'ok' | 'cancelled' | 'failed' | 'expir
  * `ok` means this WebView now has its own session. */
 export function claimVkHandoff(): Promise<{ status: VkHandoffStatus; started?: boolean }> {
   return apiFetch('/auth/vk/handoff/claim', { method: 'POST' });
+}
+
+/** Same as `startVkHandoff`, for Yandex ID opened from the Mini App. */
+export function startYandexHandoff(): Promise<{ startUrl: string }> {
+  return apiFetch('/auth/yandex/handoff', { method: 'POST' });
+}
+
+/** Same as `claimVkHandoff`, for Yandex ID. */
+export function claimYandexHandoff(): Promise<{ status: VkHandoffStatus; started?: boolean }> {
+  return apiFetch('/auth/yandex/handoff/claim', { method: 'POST' });
 }
 
 /** The current session's user, or `null` when signed out — never

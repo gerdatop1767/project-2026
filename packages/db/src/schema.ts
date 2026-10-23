@@ -29,7 +29,7 @@ export const appSettings = pgTable('app_settings', {
  * later (`auth_identities` etc.), added when S3 actually lands.
  */
 /** Providers that can supply a display profile (email carries none). */
-export const profileSources = ['vk', 'telegram'] as const;
+export const profileSources = ['vk', 'telegram', 'yandex'] as const;
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -60,7 +60,7 @@ export const users = pgTable('users', {
   profileSource: text('profile_source', { enum: profileSources }),
 });
 
-export const authProviders = ['email', 'vk', 'telegram'] as const;
+export const authProviders = ['email', 'vk', 'telegram', 'yandex'] as const;
 
 /**
  * Identity an authenticated user signs in with — email (magic link) or

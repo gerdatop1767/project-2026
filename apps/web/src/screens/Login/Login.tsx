@@ -1,28 +1,43 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { isSignInGateEntry, useNavigation } from '../../lib/navigation.js';
 import { useAuth } from '../../lib/authContext.js';
-import { verifyMagicLink, vkLoginUrl } from '../../lib/api.js';
+import { vkLoginUrl, yandexLoginUrl } from '../../lib/api.js';
 import { telegramErrorMessage } from '../../lib/telegramErrors.js';
 import { isInTelegramWebView } from '../../lib/telegramMiniApp.js';
-import { useVkTelegramSignIn, type VkTelegramNotice } from '../../lib/useVkTelegramSignIn.js';
+import {
+  useTelegramHandoffSignIn,
+  type HandoffProvider,
+  type VkTelegramNotice,
+} from '../../lib/useVkTelegramSignIn.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Logo } from '../../ui/Logo/Logo.js';
 import { VkIcon } from '../../ui/VkIcon/VkIcon.js';
-import { clsx } from '../../lib/clsx.js';
-import { EmailAuthForms, EmailLinkFlow, type EmailMode } from './EmailAuth.js';
+import { YandexIcon } from '../../ui/YandexIcon/YandexIcon.js';
 import styles from './Login.module.css';
 
-// How long the "Готово!" success state shows before auto-redirecting
-// into the trainer — long enough to register as a real confirmation,
-// short enough that the redirect still feels automatic, not stalled.
-const SUCCESS_REDIRECT_DELAY_MS = 1200;
+const PROVIDER = {
+  vk: { name: 'VK ID', button: 'Продолжить через VK ID' },
+  yandex: { name: 'Яндекс', button: 'Войти через Яндекс' },
+} as const;
 
-const vkTelegramNotices: Record<Exclude<VkTelegramNotice, null>, string> = {
-  cancelled: 'Вход через VK ID отменён. Можно попробовать ещё раз.',
-  failed: 'Не удалось войти через VK ID. Попробуйте ещё раз или войдите по почте.',
-  expired: 'Время на вход истекло. Нажмите «Продолжить через VK ID» ещё раз.',
-  error: 'Не удалось подготовить вход через VK ID. Проверьте соединение и попробуйте снова.',
+/** What a Mini App sign-in through the external browser ended with. */
+function handoffNotice(provider: HandoffProvider, notice: Exclude<VkTelegramNotice, null>) {
+  const { name, button } = PROVIDER[provider];
+  return {
+    cancelled: `Вход через ${name} отменён. Можно попробовать ещё раз.`,
+    failed: `Не удалось войти через ${name}. Попробуйте ещё раз или выберите другой способ.`,
+    expired: `Время на вход истекло. Нажмите «${button}» ещё раз.`,
+    error: `Не удалось подготовить вход через ${name}. Проверьте соединение и попробуйте снова.`,
+  }[notice];
+}
+
+/** What the Yandex ID callback's `?yandex=` outcome means (server-chosen). */
+const yandexNotices: Record<string, string> = {
+  cancelled: 'Вход через Яндекс отменён. Можно попробовать ещё раз.',
+  error: 'Не удалось войти через Яндекс. Попробуйте ещё раз чуть позже.',
+  invalid_state: 'Сеанс входа через Яндекс устарел. Нажмите «Войти через Яндекс» ещё раз.',
+  not_configured: 'Вход через Яндекс пока не настроен. Войдите через VK ID.',
 };
 
 const benefits = [
@@ -32,123 +47,83 @@ const benefits = [
 ];
 
 /**
- * Sign-in / sign-up screen: VK ID, email + password (registration with a
- * confirmation letter, sign-in, password reset — EmailAuth.tsx, backed by
- * docs/EMAIL_AUTH.md) and the passwordless email link. Emailed links come
- * back here: `?token=` (passwordless sign-in), `?confirm=` (finish
- * registration), `?reset=` (new password); `?mode=register` opens the
- * registration tab.
+ * Sign-in / sign-up screen: VK ID and Yandex ID only — both server-side
+ * OAuth, a first sign-in creates the account (docs/YANDEX_ID.md). There is no
+ * email or password sign-in. On the website each button is a full-page
+ * redirect; inside the Telegram Mini App (whose WebView can host neither)
+ * each opens the device's external browser and the account is handed back
+ * here (see useTelegramHandoffSignIn). The Mini App itself also signs in
+ * with Telegram automatically.
  *
  * Rendered standalone (see App.tsx's `showLogin`), outside the normal
- * dark app shell: the approved reference is a dedicated light page,
- * not a dashboard screen, so this scopes its own light-theme token
- * overrides (see Login.module.css's `.page`) rather than touching the
- * app-wide dark tokens — every reused component below (Button, Input)
- * already reads colors from those same custom properties, so they
- * render correctly light here for free.
- *
- * No mascot: deliberately omitted per the project owner's own
- * decision (no bison asset exists in this repo yet) — see the task's
- * final report for the follow-up note.
+ * app shell; it follows the site theme.
  */
 export function Login() {
   const { navigate, leave } = useNavigation();
   const { user, refresh, telegramError } = useAuth();
 
-  // Read once: the emailed links and the requested tab.
-  const [params] = useState(() => new URLSearchParams(window.location.search));
-  const [link, setLink] = useState<{ kind: 'confirm' | 'reset'; token: string } | null>(() => {
-    const confirm = params.get('confirm');
-    const reset = params.get('reset');
-    if (confirm) return { kind: 'confirm', token: confirm };
-    if (reset) return { kind: 'reset', token: reset };
-    return null;
+  // Yandex ID sends the browser back here with `?yandex=<outcome>`.
+  const [yandexNotice] = useState(() => {
+    const code = new URLSearchParams(window.location.search).get('yandex');
+    return code ? (yandexNotices[code] ?? yandexNotices.error!) : null;
   });
-  const [emailMode, setEmailMode] = useState<EmailMode>(() =>
-    params.get('mode') === 'register' ? 'register' : 'signin',
-  );
-  const [doneTitle, setDoneTitle] = useState('Готово!');
-
   // VK ID sends the user back here with `?vk=cancelled` when they backed
-  // out of (or denied) the VK consent screen — say so instead of leaving
-  // them on a silent, unchanged form.
+  // out of (or denied) the VK consent screen.
   const [vkCancelled] = useState(
     () => new URLSearchParams(window.location.search).get('vk') === 'cancelled',
   );
   useEffect(() => {
-    if (vkCancelled) navigate({ screen: 'login' }, { replace: true });
-  }, [vkCancelled, navigate]);
+    // One-shot notices: drop `?vk=`/`?yandex=` from the address bar.
+    if (vkCancelled || yandexNotice) navigate({ screen: 'login' }, { replace: true });
+  }, [vkCancelled, yandexNotice, navigate]);
 
-  // Magic-link verification: the user followed the emailed link back
-  // here with ?token=... — a completely different mode of this same
-  // screen, never the plain email-entry form.
-  const [verifyState, setVerifyState] = useState<'idle' | 'verifying' | 'done' | 'error'>('idle');
-  const verifyStarted = useRef(false);
-
+  // Signed in (here, or already): straight into the trainer, REPLACING the
+  // sign-in entry so Back does not return to it.
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get('token');
-    if (!token || verifyStarted.current) return;
-    verifyStarted.current = true;
-    setVerifyState('verifying');
-    verifyMagicLink(token)
-      .then(async () => {
-        // Pull the new server-side session (and its onboarding status)
-        // into the app BEFORE showing success/redirecting, so the gate
-        // in App.tsx never sees a half-signed-in state.
-        await refresh();
-        setVerifyState('done');
-      })
-      .catch(() => setVerifyState('error'));
-  }, [refresh]);
+    if (user) navigate({ screen: 'home' }, { replace: true });
+  }, [user, navigate]);
 
-  // Confirmed sign-in (fresh verify, or already had a session) always
-  // ends the same way: straight into the trainer, using the real
-  // server session that was just set/confirmed — never a second,
-  // parallel notion of "logged in" on the client.
-  // The redirect REPLACES the sign-in entry: Back after signing in must not
-  // return to the sign-in page (which would just bounce forward again).
-  useEffect(() => {
-    if (verifyState === 'done') {
-      const id = window.setTimeout(
-        () => navigate({ screen: 'home' }, { replace: true }),
-        SUCCESS_REDIRECT_DELAY_MS,
-      );
-      return () => window.clearTimeout(id);
-    }
-    if (user && verifyState === 'idle' && !link) {
-      navigate({ screen: 'home' }, { replace: true });
-    }
-  }, [user, verifyState, navigate, link]);
-
-  // Any email flow that ends signed in: pull the new server session into
-  // the app first (so the gate never sees a half-signed-in state), then
-  // the same «Готово» panel and redirect as the passwordless link.
-  async function handleSignedIn(title: string) {
-    await refresh();
-    setDoneTitle(title);
-    setVerifyState('done');
-  }
-
-  // Leaving an emailed-link page: drop the token from the address bar.
-  function leaveLink(mode?: EmailMode) {
-    navigate({ screen: 'login' }, { replace: true });
-    setLink(null);
-    if (mode) setEmailMode(mode);
-  }
-
-  // Inside the Telegram Mini App VK ID opens in the external browser and
-  // the account is handed back here (see useVkTelegramSignIn); on the
-  // website it is the usual full-page redirect.
   const [inTelegram] = useState(isInTelegramWebView);
-  const vkTelegram = useVkTelegramSignIn(inTelegram, refresh);
+  const vkTelegram = useTelegramHandoffSignIn('vk', inTelegram, refresh);
+  const yandexTelegram = useTelegramHandoffSignIn('yandex', inTelegram, refresh);
+  const handoffs = { vk: vkTelegram, yandex: yandexTelegram };
+  // At most one provider is open in the external browser at a time.
+  const waitingFor: HandoffProvider | null = !inTelegram
+    ? null
+    : vkTelegram.phase === 'waiting'
+      ? 'vk'
+      : yandexTelegram.phase === 'waiting'
+        ? 'yandex'
+        : null;
 
-  function handleVkClick() {
+  function handleClick(provider: HandoffProvider) {
     if (inTelegram) {
-      vkTelegram.open();
+      handoffs[provider].open();
       return;
     }
-    window.location.href = vkLoginUrl();
+    window.location.assign(provider === 'vk' ? vkLoginUrl() : yandexLoginUrl());
   }
+
+  function providerButton(provider: HandoffProvider) {
+    const tg = handoffs[provider];
+    return (
+      <Button
+        variant="secondary"
+        fullWidth
+        className={provider === 'vk' ? styles.vkButton : styles.yandexButton}
+        onClick={() => handleClick(provider)}
+        loading={inTelegram && tg.phase === 'preparing'}
+        disabled={inTelegram && tg.phase === 'unavailable'}
+      >
+        {provider === 'vk' ? <VkIcon size={20} /> : <YandexIcon size={20} />}{' '}
+        {PROVIDER[provider].button}
+      </Button>
+    );
+  }
+
+  const unavailable = (['vk', 'yandex'] as const).filter(
+    (p) => inTelegram && handoffs[p].phase === 'unavailable',
+  );
 
   return (
     <div className={styles.page}>
@@ -173,167 +148,112 @@ export function Login() {
       <div className={styles.layout}>
         <div className={styles.copy}>
           <Logo icon="desktop" size={40} />
-
-          {verifyState === 'idle' && (
-            <>
-              <h1 className={styles.headline}>Войти или создать аккаунт</h1>
-              <p className={styles.subtext}>
-                Через VK ID или по почте — с паролем или по одноразовой ссылке.
-              </p>
-              <ul className={styles.benefits}>
-                {benefits.map((benefit) => (
-                  <li key={benefit} className={styles.benefit}>
-                    <Icon name="check" size={18} className={styles.benefitIcon} />
-                    {benefit}
-                  </li>
-                ))}
-              </ul>
-              <p className={styles.handwritten}>
-                ЕГЭ — это реально!
-                <svg
-                  width="46"
-                  height="28"
-                  viewBox="0 0 46 28"
-                  fill="none"
-                  className={styles.handwrittenArrow}
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M2 4C14 2 30 6 40 18"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                  <path
-                    d="M31 15 L41 19 L37 9"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </svg>
-              </p>
-            </>
-          )}
+          <h1 className={styles.headline}>Войти или создать аккаунт</h1>
+          <p className={styles.subtext}>Через VK ID или Яндекс ID — без отдельного пароля.</p>
+          <ul className={styles.benefits}>
+            {benefits.map((benefit) => (
+              <li key={benefit} className={styles.benefit}>
+                <Icon name="check" size={18} className={styles.benefitIcon} />
+                {benefit}
+              </li>
+            ))}
+          </ul>
+          <p className={styles.handwritten}>
+            ЕГЭ — это реально!
+            <svg
+              width="46"
+              height="28"
+              viewBox="0 0 46 28"
+              fill="none"
+              className={styles.handwrittenArrow}
+              aria-hidden="true"
+            >
+              <path
+                d="M2 4C14 2 30 6 40 18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <path
+                d="M31 15 L41 19 L37 9"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </svg>
+          </p>
         </div>
 
         <div className={styles.card}>
-          {verifyState === 'verifying' && (
-            <div className={styles.statePanel}>
-              <Icon name="spinner" size={32} className={styles.stateSpinner} />
-              <p className={clsx('text-h3', styles.stateTitle)}>Входим…</p>
-              <p className={styles.stateText}>Проверяем ссылку — это пара секунд.</p>
-            </div>
+          {vkCancelled && (
+            <p role="status" className={styles.formError}>
+              Вход через VK ID отменён. Попробуйте ещё раз или войдите через Яндекс.
+            </p>
           )}
-
-          {verifyState === 'done' && (
-            <div className={styles.statePanel}>
-              <Icon name="success" size={40} className={styles.stateIconSuccess} />
-              <p className={clsx('text-h3', styles.stateTitle)}>{doneTitle}</p>
-              <p className={styles.stateText}>Вы вошли в Zybrilka. Переходим в тренажёр…</p>
-              <Button fullWidth onClick={() => navigate({ screen: 'home' }, { replace: true })}>
-                Перейти сейчас
-              </Button>
-            </div>
+          {yandexNotice && (
+            <p role="status" className={styles.formError}>
+              {yandexNotice}
+            </p>
           )}
+          {inTelegram &&
+            (['vk', 'yandex'] as const).map((p) => {
+              const notice = handoffs[p].notice;
+              return notice ? (
+                <p key={p} role="status" className={styles.formError}>
+                  {handoffNotice(p, notice)}
+                </p>
+              ) : null;
+            })}
 
-          {verifyState === 'error' && (
-            <div className={styles.statePanel}>
-              <Icon name="errorCircle" size={40} className={styles.stateIconError} />
-              <p className={clsx('text-h3', styles.stateTitle)}>Ссылка недействительна</p>
+          {waitingFor ? (
+            <div className={styles.vkWaiting} role="status" aria-live="polite">
+              <Icon name="spinner" size={24} className={styles.stateSpinner} />
+              <p className={styles.vkWaitingTitle}>Ждём вход через {PROVIDER[waitingFor].name}</p>
               <p className={styles.stateText}>
-                Похоже, эта ссылка для входа устарела или уже использована. Запросите новую.
+                Мы открыли {PROVIDER[waitingFor].name} в браузере. Войдите там и вернитесь в
+                Telegram — вход подхватится автоматически.
               </p>
-              <Button
-                fullWidth
-                onClick={() => {
-                  navigate({ screen: 'login' }, { replace: true });
-                  setVerifyState('idle');
-                }}
-              >
-                Запросить новую ссылку
+              <Button variant="secondary" fullWidth onClick={handoffs[waitingFor].restart}>
+                Начать заново
               </Button>
             </div>
-          )}
-
-          {verifyState === 'idle' && link && (
-            <EmailLinkFlow
-              key={link.token}
-              kind={link.kind}
-              token={link.token}
-              onSignedIn={handleSignedIn}
-              onDone={leaveLink}
-            />
-          )}
-
-          {verifyState === 'idle' && !link && (
+          ) : (
             <>
-              {vkCancelled && (
-                <p role="status" className={styles.formError}>
-                  Вход через VK ID отменён. Попробуйте ещё раз или войдите по почте.
-                </p>
-              )}
-              {inTelegram && vkTelegram.notice && (
-                <p role="status" className={styles.formError}>
-                  {vkTelegramNotices[vkTelegram.notice]}
-                </p>
-              )}
-              {inTelegram && vkTelegram.phase === 'waiting' ? (
-                <div className={styles.vkWaiting} role="status" aria-live="polite">
-                  <Icon name="spinner" size={24} className={styles.stateSpinner} />
-                  <p className={styles.vkWaitingTitle}>Ждём вход через VK ID</p>
-                  <p className={styles.stateText}>
-                    Мы открыли VK ID в браузере. Войдите там и вернитесь в Telegram — вход
-                    подхватится автоматически.
-                  </p>
-                  <Button variant="secondary" fullWidth onClick={vkTelegram.restart}>
-                    Начать заново
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  className={styles.vkButton}
-                  onClick={handleVkClick}
-                  loading={inTelegram && vkTelegram.phase === 'preparing'}
-                  disabled={inTelegram && vkTelegram.phase === 'unavailable'}
-                >
-                  <VkIcon size={20} /> Продолжить через VK ID
-                </Button>
-              )}
-              {inTelegram && vkTelegram.phase === 'ready' && (
+              {providerButton('vk')}
+              {providerButton('yandex')}
+              {inTelegram && unavailable.length < 2 && (
                 <p className={styles.vkHint}>Откроется в браузере, затем вернитесь в Telegram</p>
               )}
-              {inTelegram && vkTelegram.phase === 'unavailable' && (
-                <p className={styles.vkHint}>Вход через VK ID сейчас недоступен</p>
-              )}
-
-              <div className={styles.divider}>
-                <span>или</span>
-              </div>
-
-              <EmailAuthForms
-                key={emailMode}
-                initialMode={emailMode}
-                onSignedIn={handleSignedIn}
-                extraError={
-                  telegramError && (
-                    <p role="alert" className={styles.formError}>
-                      {telegramErrorMessage(telegramError)}
-                    </p>
-                  )
-                }
-              />
-
-              <p className={styles.consent}>
-                Продолжая, вы соглашаетесь с условиями использования Zybrilka и обработкой
-                персональных данных.
-              </p>
+              {unavailable.map((p) => (
+                <p key={p} className={styles.vkHint}>
+                  Вход через {PROVIDER[p].name} сейчас недоступен
+                </p>
+              ))}
             </>
           )}
+
+          {/* A second, empty profile is the one real risk of a new button:
+              accounts are never merged automatically (and Yandex's email is
+              not even read), so steer existing users to their old way in. */}
+          <p className={styles.accountHint}>
+            Уже занимались в Зубрилке через VK или Telegram? Войдите тем же способом (Telegram —
+            через бота Зубрилки), а Яндекс ID подключите потом в профиле. Иначе создастся новый
+            пустой аккаунт: профили не объединяются автоматически.
+          </p>
+
+          {telegramError && (
+            <p role="alert" className={styles.formError}>
+              {telegramErrorMessage(telegramError)}
+            </p>
+          )}
+
+          <p className={styles.consent}>
+            Продолжая, вы соглашаетесь с условиями использования Zybrilka и обработкой персональных
+            данных.
+          </p>
         </div>
       </div>
     </div>

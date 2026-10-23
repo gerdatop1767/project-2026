@@ -287,7 +287,106 @@ describe('profile API: name, avatar, isolation', () => {
       expect(body.identities).toHaveLength(1);
       expect(body.identities[0].provider).toBe('email');
       expect(body.canUnlink).toBe(false);
-      expect(body.available).toEqual({ vk: false, telegram: false });
+      expect(body.available).toEqual({ vk: false, telegram: false, yandex: false });
+    });
+  });
+
+  describe('unlinking: only working methods (VK, Yandex, Telegram) count', () => {
+    async function addIdentity(userId: string, provider: 'vk' | 'yandex' | 'telegram') {
+      await testDb.db.insert(schema.authIdentities).values({
+        userId,
+        provider,
+        providerUserId: String(Math.floor(Math.random() * 1e12)),
+      });
+    }
+    const unlink = (cookie: string, provider: string) =>
+      app.inject({
+        method: 'DELETE',
+        url: `/api/v1/me/identities/${provider}`,
+        headers: { cookie },
+      });
+    const providersOf = async (userId: string) =>
+      (
+        await testDb.db
+          .select({ provider: schema.authIdentities.provider })
+          .from(schema.authIdentities)
+          .where(eq(schema.authIdentities.userId, userId))
+      )
+        .map((row) => row.provider)
+        .sort();
+
+    it('email + Yandex: Yandex cannot be unlinked (it is the only way in)', async () => {
+      const { userId, cookie } = await signedInUser();
+      await addIdentity(userId, 'yandex');
+
+      const list = await app.inject({
+        method: 'GET',
+        url: '/api/v1/me/identities',
+        headers: { cookie },
+      });
+      expect(list.json().canUnlink).toBe(false);
+
+      const res = await unlink(cookie, 'yandex');
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toEqual({ error: 'last_identity' });
+      expect(await providersOf(userId)).toEqual(['email', 'yandex']);
+    });
+
+    it('DELETE /me/identities/email is refused and the email row stays', async () => {
+      const { userId, cookie } = await signedInUser();
+      await addIdentity(userId, 'vk');
+      await addIdentity(userId, 'yandex');
+      const res = await unlink(cookie, 'email');
+      expect(res.statusCode).toBe(404);
+      expect(await providersOf(userId)).toEqual(['email', 'vk', 'yandex']);
+    });
+
+    it('with two working methods one can be unlinked, then the other cannot', async () => {
+      const { userId, cookie } = await signedInUser();
+      await addIdentity(userId, 'vk');
+      await addIdentity(userId, 'yandex');
+
+      const first = await unlink(cookie, 'yandex');
+      expect(first.statusCode).toBe(200);
+      expect(first.json().canUnlink).toBe(false);
+      expect(await providersOf(userId)).toEqual(['email', 'vk']);
+
+      const second = await unlink(cookie, 'vk');
+      expect(second.statusCode).toBe(409);
+      expect(await providersOf(userId)).toEqual(['email', 'vk']);
+    });
+  });
+
+  describe('GET /auth/me: needsSignInMethod', () => {
+    const me = (cookie: string) =>
+      app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { cookie } });
+
+    it('is set for a legacy account with only an email identity', async () => {
+      const { cookie } = await signedInUser();
+      const res = await me(cookie);
+      expect(res.statusCode).toBe(200);
+      expect(res.json().user).not.toBeNull();
+      expect(res.json().needsSignInMethod).toBe(true);
+    });
+
+    it.each(['vk', 'yandex', 'telegram'] as const)(
+      'is absent once %s is connected',
+      async (provider) => {
+        const { userId, cookie } = await signedInUser();
+        await testDb.db.insert(schema.authIdentities).values({
+          userId,
+          provider,
+          providerUserId: String(Math.floor(Math.random() * 1e12)),
+        });
+        const res = await me(cookie);
+        expect(res.json().user).not.toBeNull();
+        expect(res.json()).not.toHaveProperty('needsSignInMethod');
+      },
+    );
+
+    it('is absent for a guest', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/v1/auth/me' });
+      expect(res.json()).toEqual({ user: null });
     });
   });
 });

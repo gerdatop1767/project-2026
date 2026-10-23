@@ -10,6 +10,7 @@ import {
   type FeatureIconName,
 } from '../../ui/FeatureIcon/FeatureIcon.js';
 import { staggerClassName } from '../../ui/motion/motion.js';
+import { SignInMethodWarning } from '../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
@@ -96,6 +97,8 @@ export function LearningCenterDesktop() {
           />
         </div>
       </div>
+
+      <SignInMethodWarning className={styles.signInWarning} />
 
       <div className={clsx(styles.sectionsGrid, staggerClassName)}>
         {sections.map((section) => (

@@ -3,11 +3,13 @@ import type { Database } from '@zybrilka/db';
 import {
   AVATAR_MAX_BYTES,
   displayNameProblem,
+  isWorkingSignInMethod,
   normalizeDisplayName,
   type IdentitiesResponse,
 } from '@zybrilka/shared';
 import type { Config } from '../../config.js';
 import { isTelegramConfigured } from '../auth/telegram.js';
+import { isYandexConfigured } from '../auth/yandex.js';
 import { isVkConfigured } from '../auth/vk.js';
 import { inspectImage, type ImageProblem } from './image.js';
 import * as repo from './repo.js';
@@ -135,7 +137,11 @@ export async function listIdentities(
       provider: row.provider,
       linkedAt: row.createdAt.toISOString(),
     })),
-    available: { vk: isVkConfigured(config), telegram: isTelegramConfigured(config) },
-    canUnlink: rows.length > 1,
+    available: {
+      vk: isVkConfigured(config),
+      telegram: isTelegramConfigured(config),
+      yandex: isYandexConfigured(config),
+    },
+    canUnlink: rows.filter((row) => isWorkingSignInMethod(row.provider)).length > 1,
   };
 }

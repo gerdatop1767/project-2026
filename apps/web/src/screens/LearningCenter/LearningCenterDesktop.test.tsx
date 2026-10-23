@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { LearningCenterDesktop } from './LearningCenterDesktop.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
+import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 import { subjectIconSrc, type SubjectIconId } from '../../ui/SubjectIcon/subjectIcons.js';
 
 function OverlayMarker() {
@@ -11,16 +12,28 @@ function OverlayMarker() {
   return <p data-testid="overlay">{overlay?.screen ?? 'none'}</p>;
 }
 
-function renderLearningCenter() {
+function renderLearningCenter({ needsSignInMethod = false } = {}) {
   return render(
-    <NavigationProvider>
-      <LearningCenterDesktop />
-      <OverlayMarker />
-    </NavigationProvider>,
+    <TestAuthProvider user={makeAuthUser()} needsSignInMethod={needsSignInMethod}>
+      <NavigationProvider>
+        <LearningCenterDesktop />
+        <OverlayMarker />
+      </NavigationProvider>
+    </TestAuthProvider>,
   );
 }
 
 describe('LearningCenterDesktop', () => {
+  it('warns only an account with no working sign-in method, and leads to Профиль', async () => {
+    const { unmount } = renderLearningCenter();
+    expect(screen.queryByText('Подключите VK ID или Яндекс ID')).not.toBeInTheDocument();
+    unmount();
+    renderLearningCenter({ needsSignInMethod: true });
+    expect(screen.getByText('Подключите VK ID или Яндекс ID')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Подключить в профиле' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('profile');
+  });
+
   it('renders the four section cards with their real illustrations and an arrow each', () => {
     renderLearningCenter();
     const sectionIcons: Record<string, string> = {

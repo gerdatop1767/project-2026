@@ -84,8 +84,10 @@ Profile → «Способы входа» (`GET /me/identities`):
 - Rules enforced in one transaction: one identity ↔ one user; an identity
   that belongs to another account is **refused** (409, clear message), never
   moved and **never merged**; one account holds at most one identity per
-  provider; the **last** sign-in method cannot be removed
-  (`DELETE /me/identities/:provider` → 409 `last_identity`).
+  provider; the **last working** sign-in method (VK, Yandex ID, Telegram)
+  cannot be removed (`DELETE /me/identities/:provider` → 409
+  `last_identity`). A legacy `email` row does not count as one and cannot be
+  removed at all (`DELETE /me/identities/email` → 404).
 - Not implemented: adding an *email* to an account that has none, and merging
   two existing accounts. A user who already has a VK-only account and opens
   the Mini App for the first time gets a **separate** Telegram account until
@@ -126,7 +128,8 @@ App. So inside Telegram «Продолжить через VK ID» works like thi
 
 1. When the sign-in screen opens, the Mini App calls
    `POST /api/v1/auth/vk/handoff`. The server stores a handoff (only SHA-256
-   hashes, 10-minute TTL), puts the **claim** secret into the WebView's own
+   hashes of `<provider>:<token>`, so a VK token never works on the Yandex
+   routes and vice versa; 10-minute TTL), puts the **claim** secret into the WebView's own
    httpOnly cookie `vk_handoff` (path `/api/v1/auth/vk/handoff`) and returns
    a start URL with a separate one-time **start** token.
 2. The tap calls `Telegram.WebApp.openLink(startUrl)` synchronously (Telegram

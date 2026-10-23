@@ -1,20 +1,29 @@
 import { useState } from 'react';
 import type { IdentityProvider } from '@zybrilka/shared';
-import { ApiError, linkTelegram, unlinkIdentity, vkLinkUrl } from '../../../lib/api.js';
+import {
+  ApiError,
+  linkTelegram,
+  unlinkIdentity,
+  vkLinkUrl,
+  yandexLinkUrl,
+} from '../../../lib/api.js';
 import { useAuth } from '../../../lib/authContext.js';
 import { getTelegramInitData } from '../../../lib/telegramMiniApp.js';
 import { Button } from '../../../ui/Button/Button.js';
 import { Icon } from '../../../ui/Icon/Icon.js';
 import { VkIcon } from '../../../ui/VkIcon/VkIcon.js';
+import { YandexIcon } from '../../../ui/YandexIcon/YandexIcon.js';
+import { SignInMethodWarning } from '../../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import type { IdentitiesState } from './useIdentities.js';
 import styles from './Account.module.css';
 
 type Notice = { kind: 'success' | 'error'; text: string } | null;
 
 const PROVIDER_LABEL: Record<IdentityProvider, string> = {
-  email: 'Почта (ссылка для входа)',
+  email: 'Почта и пароль',
   vk: 'ВКонтакте',
   telegram: 'Telegram',
+  yandex: 'Яндекс ID',
 };
 
 /** What the VK redirect back to /profile?link=… means, in plain words. */
@@ -48,17 +57,40 @@ const TELEGRAM_ERRORS: Record<string, string> = {
   telegram_not_configured: 'Вход через Telegram пока не настроен.',
 };
 
+/** Same outcomes for the Yandex ID redirect back to /profile?link=…&provider=yandex. */
+const YANDEX_RESULTS: Record<string, { kind: 'success' | 'error'; text: string }> = {
+  ok: { kind: 'success', text: 'Яндекс ID подключён. Теперь в аккаунт можно войти и через него.' },
+  already: { kind: 'success', text: 'Этот аккаунт Яндекса уже подключён к вашему профилю.' },
+  taken: {
+    kind: 'error',
+    text: 'Этот аккаунт Яндекса уже связан с другим профилем Зубрилки. Мы не объединяем профили автоматически: войдите через Яндекс, чтобы открыть тот профиль, или подключите другой аккаунт.',
+  },
+  provider_used: {
+    kind: 'error',
+    text: 'К вашему профилю уже подключён другой аккаунт Яндекса. Сначала отключите его.',
+  },
+  session_changed: {
+    kind: 'error',
+    text: 'Во время подключения вы сменили аккаунт. Повторите подключение.',
+  },
+  cancelled: { kind: 'error', text: 'Подключение Яндекса отменено.' },
+  not_configured: { kind: 'error', text: 'Вход через Яндекс пока не настроен.' },
+  error: { kind: 'error', text: 'Не удалось подключить Яндекс. Попробуйте ещё раз позже.' },
+};
+
 function readLinkResult(): Notice {
   try {
     const params = new URLSearchParams(window.location.search);
     const result = params.get('link');
-    if (!result || params.get('provider') !== 'vk') return null;
+    const provider = params.get('provider');
+    if (!result || (provider !== 'vk' && provider !== 'yandex')) return null;
     // One-shot: don't show it again after a reload or when sharing the URL.
     params.delete('link');
     params.delete('provider');
     const rest = params.toString();
     window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
-    return VK_RESULTS[result] ?? VK_RESULTS.error!;
+    const table = provider === 'yandex' ? YANDEX_RESULTS : VK_RESULTS;
+    return table[result] ?? table.error!;
   } catch {
     return null;
   }
@@ -84,7 +116,7 @@ export function SignInMethodsSection({
   /** Seam for tests: performs the full-page redirect to the provider. */
   navigateTo?: (url: string) => void;
 }) {
-  const { updateUser } = useAuth();
+  const { updateUser, refresh } = useAuth();
   const { data, failed: loadFailed, reload: load, replace: setData } = identities;
   const [busy, setBusy] = useState<IdentityProvider | null>(null);
   const [confirming, setConfirming] = useState<IdentityProvider | null>(null);
@@ -98,6 +130,9 @@ export function SignInMethodsSection({
     try {
       const res = await linkTelegram(initData);
       updateUser(res.user);
+      // The account may have had no working method before (a legacy email
+      // one): pick up the server's fresh `needsSignInMethod`.
+      void refresh();
       setNotice({
         kind: 'success',
         text:
@@ -157,6 +192,8 @@ export function SignInMethodsSection({
         <span className={styles.methodIcon} aria-hidden="true">
           {provider === 'vk' ? (
             <VkIcon size={22} />
+          ) : provider === 'yandex' ? (
+            <YandexIcon size={22} />
           ) : (
             <Icon name={provider === 'email' ? 'mail' : 'chat'} size={20} />
           )}
@@ -189,6 +226,15 @@ export function SignInMethodsSection({
               variant="secondary"
               disabled={busy !== null}
               onClick={() => navigateTo(vkLinkUrl())}
+            >
+              Подключить
+            </Button>
+          )}
+          {!linked && provider === 'yandex' && (
+            <Button
+              variant="secondary"
+              disabled={busy !== null}
+              onClick={() => navigateTo(yandexLinkUrl())}
             >
               Подключить
             </Button>
@@ -241,6 +287,8 @@ export function SignInMethodsSection({
         Подключите несколько способов — и входите в один и тот же аккаунт с одним прогрессом.
       </p>
 
+      <SignInMethodWarning onProfile />
+
       {notice && (
         <p
           role={notice.kind === 'error' ? 'alert' : 'status'}
@@ -267,7 +315,7 @@ export function SignInMethodsSection({
       )}
       {data && (
         <ul className={styles.methodList}>
-          {(['email', 'vk', 'telegram'] as const).map((provider) => renderRow(provider))}
+          {(['vk', 'yandex', 'telegram'] as const).map((provider) => renderRow(provider))}
         </ul>
       )}
     </section>

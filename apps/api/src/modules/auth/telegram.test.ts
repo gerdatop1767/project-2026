@@ -517,28 +517,27 @@ describe('POST /auth/telegram and linking (full server flow)', () => {
       expect(await usersWithTelegram(tg.id)).toBe(0);
     });
 
-    it('blocks unlinking the last sign-in method, allows it when another remains', async () => {
+    it('blocks unlinking the last WORKING method — a legacy email row does not count', async () => {
       const { cookie } = await emailSession('link6@example.com');
       const tg = newUser();
       await link(cookie, telegramLaunch(BOT_TOKEN, tg));
 
+      // email + telegram: telegram is the only way in, so it stays.
       const removeTelegram = await app.inject({
         method: 'DELETE',
         url: '/api/v1/me/identities/telegram',
         headers: { cookie },
       });
-      expect(removeTelegram.statusCode).toBe(200);
-      expect(removeTelegram.json().identities.map((i: { provider: string }) => i.provider)).toEqual(
-        ['email'],
-      );
+      expect(removeTelegram.statusCode).toBe(409);
+      expect(removeTelegram.json()).toEqual({ error: 'last_identity' });
 
-      const removeLast = await app.inject({
+      // The legacy email row can never be removed through the API.
+      const removeEmail = await app.inject({
         method: 'DELETE',
         url: '/api/v1/me/identities/email',
         headers: { cookie },
       });
-      expect(removeLast.statusCode).toBe(409);
-      expect(removeLast.json()).toEqual({ error: 'last_identity' });
+      expect(removeEmail.statusCode).toBe(404);
 
       const missing = await app.inject({
         method: 'DELETE',
@@ -546,6 +545,20 @@ describe('POST /auth/telegram and linking (full server flow)', () => {
         headers: { cookie },
       });
       expect(missing.statusCode).toBe(404);
+      expect(missing.json()).toEqual({ error: 'not_linked' });
+
+      const list = await app.inject({
+        method: 'GET',
+        url: '/api/v1/me/identities',
+        headers: { cookie },
+      });
+      expect(list.json().canUnlink).toBe(false);
+      expect(
+        list
+          .json()
+          .identities.map((i: { provider: string }) => i.provider)
+          .sort(),
+      ).toEqual(['email', 'telegram']);
     });
   });
 });

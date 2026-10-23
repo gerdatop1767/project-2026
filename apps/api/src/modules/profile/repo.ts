@@ -1,5 +1,6 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
+import { isWorkingSignInMethod, type LinkableProvider } from '@zybrilka/shared';
 import { and, asc, eq } from 'drizzle-orm';
 
 export type AvatarSource = (typeof schema.avatarSources)[number];
@@ -236,14 +237,17 @@ export async function addIdentity(
 export type RemoveIdentityOutcome = 'removed' | 'not_linked' | 'last_identity';
 
 /**
- * Detaches one sign-in method, but never the last one: an account with no
- * way to sign in is unreachable. The user row is locked first so two
- * concurrent unlinks can't each see "two left" and remove both.
+ * Detaches one sign-in method, but never the last WORKING one (VK, Yandex,
+ * Telegram): an account with no way to sign in is unreachable. A legacy
+ * `email` row is not a way in any more (email sign-in was removed), so it
+ * does not count, and it is never removed here — its data stays as it was.
+ * The user row is locked first so two concurrent unlinks can't each see
+ * "two left" and remove both.
  */
 export async function removeIdentity(
   db: Database,
   userId: string,
-  provider: Provider,
+  provider: LinkableProvider,
 ): Promise<RemoveIdentityOutcome> {
   return db.transaction(async (tx) => {
     await tx
@@ -257,7 +261,9 @@ export async function removeIdentity(
       .where(eq(schema.authIdentities.userId, userId));
     const target = all.find((row) => row.provider === provider);
     if (!target) return 'not_linked';
-    if (all.length <= 1) return 'last_identity';
+    if (all.filter((row) => isWorkingSignInMethod(row.provider)).length <= 1) {
+      return 'last_identity';
+    }
     await tx.delete(schema.authIdentities).where(eq(schema.authIdentities.id, target.id));
     return 'removed';
   });

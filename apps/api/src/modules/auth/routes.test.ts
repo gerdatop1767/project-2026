@@ -3,11 +3,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { buildApp } from '../../app.js';
 import { loadConfig } from '../../config.js';
 
-const sendMailMock = vi.fn(async (_opts: { html: string }) => ({}));
-vi.mock('nodemailer', () => ({
-  default: { createTransport: () => ({ sendMail: sendMailMock }) },
-}));
-
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
@@ -21,11 +16,7 @@ function parseSetCookie(header: string | string[] | undefined, name: string): st
   return undefined;
 }
 
-function extractToken(link: string): string {
-  return new URL(link).searchParams.get('token')!;
-}
-
-describe('auth (magic-link + VK ID + session)', () => {
+describe('auth (VK ID + session)', () => {
   let testDb: Awaited<ReturnType<typeof createSeededTestDb>>;
   let app: ReturnType<typeof buildApp>;
   let appNoAuth: ReturnType<typeof buildApp>;
@@ -34,9 +25,6 @@ describe('auth (magic-link + VK ID + session)', () => {
     testDb = await createSeededTestDb();
     const authConfig = loadConfig({
       NODE_ENV: 'test',
-      SMTP_HOST: 'smtp.test',
-      SMTP_USER: 'user',
-      SMTP_PASSWORD: 'pass',
       VK_CLIENT_ID: 'vk-client',
       VK_CLIENT_SECRET: 'vk-secret',
       VK_REDIRECT_URI: 'http://localhost:5173/auth/vk/callback',
@@ -48,7 +36,6 @@ describe('auth (magic-link + VK ID + session)', () => {
   });
 
   afterEach(() => {
-    sendMailMock.mockClear();
     fetchMock.mockReset();
   });
 
@@ -83,130 +70,25 @@ describe('auth (magic-link + VK ID + session)', () => {
     expect(prefixedStart.statusCode).toBe(302);
   });
 
-  it('magic-link request 503s with email_not_configured when SMTP is unset', async () => {
-    const unconfigured = buildApp({
-      version: 'test',
-      db: testDb.db,
-      authConfig: loadConfig({ NODE_ENV: 'test' }),
-    });
-    const res = await unconfigured.inject({
-      method: 'POST',
-      url: '/api/v1/auth/magic-link',
-      payload: { email: 'someone@example.com' },
-    });
-    expect(res.statusCode).toBe(503);
-    expect(res.json()).toEqual({ error: 'email_not_configured' });
-    await unconfigured.close();
-  });
-
-  it('magic-link request rejects an invalid email with 400', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/magic-link',
-      payload: { email: 'not-an-email' },
-    });
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('magic-link request returns the identical {ok:true} response for a brand-new email and a previously-used one (anti-enumeration)', async () => {
-    const freshEmail = `fresh-${Date.now()}@example.com`;
-    const resFresh = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/magic-link',
-      payload: { email: freshEmail },
-    });
-
-    // Now make that same email "previously used" by completing a login.
-    const link = sendMailMock.mock.calls.at(-1)![0].html as string;
-    const token = extractToken(link.match(/href="([^"]+)"/)![1]!);
-    await app.inject({ method: 'POST', url: '/api/v1/auth/verify', payload: { token } });
-
-    const resUsed = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/magic-link',
-      payload: { email: freshEmail },
-    });
-
-    expect(resFresh.statusCode).toBe(resUsed.statusCode);
-    expect(resFresh.json()).toEqual(resUsed.json());
-    expect(resFresh.json()).toEqual({ ok: true });
-  });
-
-  it('completes a full magic-link sign-in: request -> verify -> session cookie -> /auth/me -> logout', async () => {
-    const email = `login-${Date.now()}@example.com`;
-    const requestRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/magic-link',
-      payload: { email },
-    });
-    expect(requestRes.statusCode).toBe(200);
-    expect(sendMailMock).toHaveBeenCalledTimes(1);
-
-    const html = sendMailMock.mock.calls[0]![0].html as string;
-    const token = extractToken(html.match(/href="([^"]+)"/)![1]!);
-
-    const verifyRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/verify',
-      payload: { token },
-    });
-    expect(verifyRes.statusCode).toBe(200);
-    expect(verifyRes.json().user.email).toBe(email);
-
-    const sessionId = parseSetCookie(verifyRes.headers['set-cookie'], 'session_id');
-    expect(sessionId).toBeTruthy();
-
-    const meRes = await app.inject({
-      method: 'GET',
-      url: '/api/v1/auth/me',
-      headers: { cookie: `session_id=${sessionId}` },
-    });
-    expect(meRes.json()).toEqual({
-      user: {
-        id: verifyRes.json().user.id,
-        email,
-        firstName: null,
-        lastName: null,
-        customName: null,
-        displayName: null,
-        avatarUrl: null,
-        hasCustomAvatar: false,
-        onboardingCompleted: false,
-      },
-    });
-
-    // The same token is single-use — replaying it must fail.
-    const replayRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/verify',
-      payload: { token },
-    });
-    expect(replayRes.statusCode).toBe(400);
-    expect(replayRes.json()).toEqual({ error: 'invalid_or_expired_token' });
-
-    const logoutRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/logout',
-      headers: { cookie: `session_id=${sessionId}` },
-    });
-    expect(logoutRes.statusCode).toBe(204);
-
-    const meAfterLogout = await app.inject({
-      method: 'GET',
-      url: '/api/v1/auth/me',
-      headers: { cookie: `session_id=${sessionId}` },
-    });
-    expect(meAfterLogout.json()).toEqual({ user: null });
-  });
-
-  it('verify rejects a garbage/unknown token with 400', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/verify',
-      payload: { token: 'not-a-real-token' },
-    });
-    expect(res.statusCode).toBe(400);
-    expect(res.json()).toEqual({ error: 'invalid_or_expired_token' });
+  it('email registration, emailed links, password reset and email + password sign-in are gone (404)', async () => {
+    for (const url of [
+      '/api/v1/auth/magic-link',
+      '/api/v1/auth/verify',
+      '/api/v1/auth/register',
+      '/api/v1/auth/register/confirm',
+      '/api/v1/auth/register/resend',
+      '/api/v1/auth/password/forgot',
+      '/api/v1/auth/password/reset',
+      '/api/v1/auth/password/reset/check',
+      '/api/v1/auth/login',
+    ]) {
+      const res = await app.inject({
+        method: 'POST',
+        url,
+        payload: { email: 'a@b.ru', token: 'x' },
+      });
+      expect(res.statusCode, url).toBe(404);
+    }
   });
 
   it('a request with no session cookie is anonymous on /auth/me', async () => {
@@ -359,56 +241,25 @@ describe('auth (magic-link + VK ID + session)', () => {
   });
 
   describe('rate limiting (own app instance per test — own in-memory store, never affects the shared `app` above)', () => {
-    it('throttles repeated /auth/magic-link requests from the same IP with 429', async () => {
-      const authConfig = loadConfig({
-        NODE_ENV: 'test',
-        SMTP_HOST: 'smtp.test',
-        SMTP_USER: 'user',
-        SMTP_PASSWORD: 'pass',
+    it('throttles repeated Telegram sign-in attempts from the same IP with 429', async () => {
+      const limited = buildApp({
+        version: 'test',
+        db: testDb.db,
+        authConfig: loadConfig({ NODE_ENV: 'test' }),
       });
-      const limited = buildApp({ version: 'test', db: testDb.db, authConfig });
-      try {
-        let last;
-        for (let i = 0; i < 10; i++) {
-          last = await limited.inject({
-            method: 'POST',
-            url: '/api/v1/auth/magic-link',
-            payload: { email: `rate-${i}@example.com` },
-          });
-          expect(last.statusCode).toBe(200);
-        }
-        const blocked = await limited.inject({
-          method: 'POST',
-          url: '/api/v1/auth/magic-link',
-          payload: { email: 'rate-11@example.com' },
-        });
-        expect(blocked.statusCode).toBe(429);
-      } finally {
-        await limited.close();
-      }
-    });
-
-    it('throttles repeated /auth/verify requests from the same IP with 429, independently of /auth/magic-link', async () => {
-      const authConfig = loadConfig({
-        NODE_ENV: 'test',
-        SMTP_HOST: 'smtp.test',
-        SMTP_USER: 'user',
-        SMTP_PASSWORD: 'pass',
-      });
-      const limited = buildApp({ version: 'test', db: testDb.db, authConfig });
       try {
         for (let i = 0; i < 30; i++) {
           const res = await limited.inject({
             method: 'POST',
-            url: '/api/v1/auth/verify',
-            payload: { token: 'not-a-real-token' },
+            url: '/api/v1/auth/telegram',
+            payload: {},
           });
           expect(res.statusCode).toBe(400);
         }
         const blocked = await limited.inject({
           method: 'POST',
-          url: '/api/v1/auth/verify',
-          payload: { token: 'not-a-real-token' },
+          url: '/api/v1/auth/telegram',
+          payload: {},
         });
         expect(blocked.statusCode).toBe(429);
       } finally {

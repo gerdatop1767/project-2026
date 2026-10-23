@@ -6,6 +6,10 @@
   margin-bottom: var(--space-6);
 }
 
+.signInWarning {
+  margin-bottom: var(--space-6);
+}
+
 .search {
   position: relative;
   flex-shrink: 0;

@@ -11,6 +11,7 @@ import type { ProgressSummary } from '@zybrilka/shared';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { SignInMethodWarning } from '../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import styles from './HomeMobile.module.css';
 
 /**
@@ -65,6 +66,7 @@ export function HomeMobile() {
 
   return (
     <SlideUp className={styles.stack}>
+      <SignInMethodWarning />
       <div className={styles.hero}>
         <div className={styles.heroTiles} aria-hidden="true">
           <span className={styles.heroTilePi}>

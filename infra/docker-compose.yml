@@ -192,22 +192,20 @@ services:
       LOG_LEVEL: info
       APP_VERSION: ${APP_VERSION:-prod}
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      # Auth (S3): without these, `config.ts` loads fine and the
-      # /auth/magic-link and /auth/vk/start routes just answer a clear
-      # 503 ('email_not_configured'/'vk_not_configured') instead of a
-      # broken redirect — see apps/api/src/modules/auth/{email,vk}.ts.
+      # Auth: without these, `config.ts` loads fine and VK ID / Yandex ID
+      # just report «not configured» instead of a broken redirect — see
+      # apps/api/src/modules/auth/{vk,yandex}.ts. (Email sending/SMTP was
+      # removed; leftover SMTP_* values in infra/.env are simply ignored.)
       # Previously these were entirely missing from this block, so even
       # a correctly-filled-in infra/.env never actually reached this
       # container — only vars listed here are passed through by Compose.
       WEB_BASE_URL: ${WEB_BASE_URL:-https://zybrilka.ru}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-Zybrilka <no-reply@zybrilka.ru>}
       VK_CLIENT_ID: ${VK_CLIENT_ID:-}
       VK_CLIENT_SECRET: ${VK_CLIENT_SECRET:-}
       VK_REDIRECT_URI: ${VK_REDIRECT_URI:-https://zybrilka.ru/api/v1/auth/vk/callback}
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
+      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
+      YANDEX_REDIRECT_URI: ${YANDEX_REDIRECT_URI:-https://zybrilka.ru/api/v1/auth/yandex/callback}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_AUTH_MAX_AGE_SECONDS: ${TELEGRAM_AUTH_MAX_AGE_SECONDS:-3600}
       # Owner-only admin panel (docs/ADMIN.md): comma-separated `users.id`

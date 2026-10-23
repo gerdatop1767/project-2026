@@ -46,6 +46,9 @@ const growth = {
   ],
   byMethod: [
     { method: 'vk', registrations: 5 },
+    { method: 'yandex', registrations: 3 },
+    { method: 'telegram', registrations: 2 },
+    { method: 'email', registrations: 1 },
     { method: 'unknown', registrations: 2 },
   ],
   bySource: [{ source: 'unknown', channel: null, registrations: 7 }],
@@ -75,6 +78,10 @@ describe('GrowthPage', () => {
     expect(screen.getByText('нет базы для сравнения')).toBeInTheDocument();
     expect(screen.getByText('1 207')).toBeInTheDocument();
     expect(screen.getByText('VK ID')).toBeInTheDocument();
+    expect(screen.getByText('Яндекс ID')).toBeInTheDocument();
+    expect(screen.queryByText('yandex')).not.toBeInTheDocument();
+    expect(screen.getByText('Telegram')).toBeInTheDocument();
+    expect(screen.getByText('Почта')).toBeInTheDocument();
     expect(screen.getByText('Неизвестно')).toBeInTheDocument();
     expect(screen.getByText('Математика')).toBeInTheDocument();
     expect(screen.queryByText('Русский язык')).not.toBeInTheDocument();
