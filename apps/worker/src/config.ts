@@ -1,10 +1,21 @@
 import { normalizeBotToken } from '@zybrilka/shared';
 import { z } from 'zod';
 
+/** On/off switch: true/1 (any case) → on; false/0/empty/unset → off;
+ * anything else is a configuration error that names the accepted values. */
 const flag = z
-  .enum(['true', 'false', '1', '0', ''])
+  .string()
   .optional()
-  .transform((v) => v === 'true' || v === '1');
+  .transform((raw, ctx) => {
+    const value = (raw ?? '').trim().toLowerCase();
+    if (value === 'true' || value === '1') return true;
+    if (value === 'false' || value === '0' || value === '') return false;
+    ctx.addIssue({
+      code: 'custom',
+      message: 'expected true, false, 1 or 0 (case-insensitive), or leave it empty',
+    });
+    return z.NEVER;
+  });
 
 const configSchema = z
   .object({
