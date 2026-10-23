@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 import { handleUpdate } from './bot/handleUpdate.js';
 import { BotPhotos } from './bot/photos.js';
 import { startPolling } from './bot/polling.js';
+import { BroadcastSender } from './broadcasts/sender.js';
 import { AdminNotifier } from './notifications/adminNotifier.js';
 import { HealthMonitor, httpHealthProbe } from './notifications/healthMonitor.js';
 import type { TelegramClient } from './telegram/client.js';
@@ -97,6 +98,28 @@ export async function startWorker({
       { owners: ownerIds.length, healthCheck: Boolean(healthUrl) },
       'admin notifications on',
     );
+
+    // Broadcasts: only ones the owner confirmed in the admin panel.
+    const sender = new BroadcastSender({
+      db,
+      telegram,
+      logger,
+      adminChats: () => notifier.adminChats(),
+    });
+    await sender.recoverInterrupted();
+    const stopBroadcasts = every(
+      3_000,
+      async () => {
+        await sender.processTests();
+        await sender.processBroadcasts();
+      },
+      logger,
+      'broadcasts',
+    );
+    stops.push(async () => {
+      sender.stop();
+      await stopBroadcasts();
+    });
   }
 
   // Keeps the process alive even with nothing scheduled.

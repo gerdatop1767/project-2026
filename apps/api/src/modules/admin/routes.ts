@@ -56,6 +56,7 @@ import {
   saveNotificationSettings,
 } from './reports/notifications.js';
 import { enqueueNotification } from '../notifications/outbox.js';
+import { broadcastRoutes } from './broadcasts.js';
 
 export interface AdminRoutesOptions {
   db: Database;
@@ -379,7 +380,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       .max(64)
       .regex(/^[a-z_.]*$/)
       .optional(),
-    objectType: z.enum(['task', 'complaint', 'campaign', 'user', 'settings', 'export']).optional(),
+    objectType: z
+      .enum(['task', 'complaint', 'campaign', 'user', 'settings', 'export', 'broadcast'])
+      .optional(),
     objectId: z.string().max(64).optional(),
     page: z.coerce.number().int().min(1).max(10_000).default(1),
     pageSize: z.coerce.number().int().min(10).max(100).default(50),
@@ -430,6 +433,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     });
     return { settings: next };
   });
+
+  // ── Рассылки (только черновики и подтверждение; шлёт worker) ──────────
+  await app.register(broadcastRoutes, { db });
 
   // ── Уведомления в Telegram (только владельцу) ─────────────────────────
   app.get('/admin/notifications', async () =>

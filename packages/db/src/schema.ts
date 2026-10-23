@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -1225,6 +1226,109 @@ export const telegramOutbox = pgTable(
   (table) => [
     uniqueIndex('telegram_outbox_dedup_idx').on(table.dedupKey),
     index('telegram_outbox_status_next_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
+export const broadcastStatuses = [
+  'draft',
+  'awaiting_confirmation',
+  'sending',
+  'completed',
+  'completed_with_errors',
+  'cancelled',
+] as const;
+/** One image with the text as its caption, or images then the text separately. */
+export const broadcastMediaModes = ['caption', 'separate'] as const;
+export const broadcastTestStatuses = ['pending', 'sent', 'failed', 'no_recipients'] as const;
+
+/**
+ * A message to every Telegram chat that started the bot (docs/TELEGRAM_BOT.md).
+ * Created and confirmed in the admin panel; sent by the worker only after
+ * the explicit confirmation (`awaiting_confirmation` → `sending` is one
+ * conditional update, so it can't be started twice). Counters are kept here
+ * so history needs no per-recipient scan.
+ */
+export const broadcasts = pgTable(
+  'broadcasts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    authorUserId: uuid('author_user_id')
+      .notNull()
+      .references(() => users.id),
+    status: text('status', { enum: broadcastStatuses }).notNull().default('draft'),
+    /** Telegram HTML subset (validated by @zybrilka/shared telegramHtml). */
+    text: text('text').notNull().default(''),
+    mediaMode: text('media_mode', { enum: broadcastMediaModes }).notNull().default('caption'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    confirmedByUserId: uuid('confirmed_by_user_id').references(() => users.id),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** Snapshot taken when sending starts; null before. */
+    recipientsTotal: integer('recipients_total'),
+    sentCount: integer('sent_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    blockedCount: integer('blocked_count').notNull().default(0),
+    /** «Отправить себе»: requested → the worker sends the content to the owners. */
+    testRequestedAt: timestamp('test_requested_at', { withTimezone: true }),
+    testStatus: text('test_status', { enum: broadcastTestStatuses }),
+  },
+  (table) => [index('broadcasts_status_created_idx').on(table.status, table.createdAt)],
+);
+
+/** Images of a broadcast, in the order they were added (`position`). */
+export const broadcastAttachments = pgTable(
+  'broadcast_attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    broadcastId: uuid('broadcast_id')
+      .notNull()
+      .references(() => broadcasts.id),
+    position: integer('position').notNull(),
+    contentType: text('content_type').notNull(),
+    data: bytea('data').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    /** Telegram's id after the first upload; reused for every other recipient. */
+    telegramFileId: text('telegram_file_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('broadcast_attachments_position_idx').on(table.broadcastId, table.position),
+  ],
+);
+
+export const broadcastDeliveryStatuses = [
+  'pending',
+  'in_flight',
+  'sent',
+  'failed',
+  'blocked',
+] as const;
+
+/**
+ * One row per (broadcast, chat), created in one INSERT … SELECT when sending
+ * starts — the audience is never loaded into memory. The primary key makes a
+ * chat get a broadcast at most once; `in_flight` rows found after a restart
+ * are closed as failed (`interrupted`), never sent again. Only the chat id
+ * and a short error code are kept — no names, no message text.
+ */
+export const broadcastDeliveries = pgTable(
+  'broadcast_deliveries',
+  {
+    broadcastId: uuid('broadcast_id')
+      .notNull()
+      .references(() => broadcasts.id),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    status: text('status', { enum: broadcastDeliveryStatuses }).notNull().default('pending'),
+    errorCode: text('error_code'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.broadcastId, table.chatId] }),
+    index('broadcast_deliveries_status_idx').on(table.broadcastId, table.status),
   ],
 );
 
