@@ -4,11 +4,10 @@ import { useAccountGate } from '../../lib/accountGate.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { StatRow } from '../../ui/StatRow/StatRow.js';
+import { HomeStats, type HomeStat } from './HomeStats.js';
 import { startRealTask } from '../../lib/startTraining.js';
 import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
 import { useStreakContext } from '../../lib/streakContext.js';
-import { PlaceIcon } from '../../ui/RatingPlace/PlaceIcon.js';
 import type { ProgressSummary } from '@zybrilka/shared';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
@@ -35,6 +34,7 @@ export function HomeMobile() {
   const [progressFailedState, setProgressFailed] = useState(false);
   const { isGuest } = useAccountGate();
   const progressFailed = progressFailedState || isGuest;
+  const ratingStat = useRatingStat(isGuest);
   // Real published-task counts per subject (one request) — replaces the
   // static `subject.taskCount` demo numbers. null until loaded; a
   // subject absent from the response has 0 published tasks.
@@ -99,56 +99,32 @@ export function HomeMobile() {
         </Button>
       </div>
 
-      <div className={styles.progressCard}>
-        <StatRow
-          items={[
-            {
-              // The weekly rating place sits in the cell that only ever
-              // showed «—» (the streak lives in the header); «Решено» and
-              // «Правильно» keep their places.
-              id: 'rating',
-              value: <RatingPlace isGuest={isGuest} />,
-              label: 'Место',
-            },
-            {
-              id: 'solved',
-              value: (
-                <span className={styles.statValue}>
-                  <span
-                    className={clsx(styles.statIcon, styles.statIconSuccess)}
-                    data-ready={progress ? '' : undefined}
-                    aria-hidden="true"
-                  >
-                    <Icon name="checklist" size={15} />
-                  </span>
-                  {progress ? progress.solvedTotal : progressFailed ? '—' : '···'}
-                </span>
-              ),
-              label: 'Решено',
-            },
-            {
-              id: 'accuracy',
-              value: (
-                <span className={styles.statValue}>
-                  <span
-                    className={clsx(styles.statIcon, styles.statIconGold)}
-                    data-ready={progress ? '' : undefined}
-                    aria-hidden="true"
-                  >
-                    <Icon name="target" size={15} />
-                  </span>
-                  {progress
-                    ? `${Math.round(progress.accuracyPercent)}%`
-                    : progressFailed
-                      ? '—'
-                      : '···'}
-                </span>
-              ),
-              label: 'Правильно',
-            },
-          ]}
-        />
-      </div>
+      <HomeStats
+        items={[
+          // The weekly rating place (all subjects), opening the rating page.
+          ratingStat,
+          {
+            id: 'solved',
+            tone: 'green',
+            icon: 'checklist',
+            value: progress ? String(progress.solvedTotal) : progressFailed ? '—' : '···',
+            label: 'Решено',
+            ready: progress !== null || progressFailed,
+          },
+          {
+            id: 'accuracy',
+            tone: 'purple',
+            icon: 'target',
+            value: progress
+              ? `${Math.round(progress.accuracyPercent)}%`
+              : progressFailed
+                ? '—'
+                : '···',
+            label: 'Правильно',
+            ready: progress !== null || progressFailed,
+          },
+        ]}
+      />
 
       {isGuest && (
         <button
@@ -242,30 +218,22 @@ export function HomeMobile() {
 
 /** «#6» in the weekly rating (all subjects), opening the rating page; «—»
  * for a guest, before the first points of the week, or if loading failed. */
-function RatingPlace({ isGuest }: { isGuest: boolean }) {
+function useRatingStat(isGuest: boolean): HomeStat {
   const { navigate } = useNavigation();
   const { rating, ratingFailed } = useStreakContext();
-  const icon = <PlaceIcon rank={rating?.me.rank} size={26} />;
-  if (isGuest) {
-    return <span className={styles.statValue}>{icon}—</span>;
-  }
+  const base = { id: 'rating', tone: 'gold', icon: 'achievements', label: 'Место' } as const;
+  if (isGuest) return { ...base, value: '—', ready: true };
   const rank = rating?.me.rank ?? null;
-  const text = rating ? (rank === null ? '—' : `#${rank}`) : ratingFailed ? '—' : '···';
-  return (
-    <button
-      type="button"
-      className={clsx(styles.statValue, styles.statButton)}
-      onClick={() => navigate({ screen: 'rating' })}
-      aria-label={
-        rating === null
-          ? 'Рейтинг. Открыть'
-          : rank === null
-            ? 'На этой неделе ещё нет места в рейтинге. Открыть рейтинг'
-            : `Место в рейтинге за неделю: ${rank} из ${rating.participants}. Открыть рейтинг`
-      }
-    >
-      {icon}
-      {text}
-    </button>
-  );
+  return {
+    ...base,
+    value: rating ? (rank === null ? '—' : `#${rank}`) : ratingFailed ? '—' : '···',
+    ready: rating !== null || ratingFailed,
+    onClick: () => navigate({ screen: 'rating' }),
+    ariaLabel:
+      rating === null
+        ? 'Рейтинг. Открыть'
+        : rank === null
+          ? 'На этой неделе ещё нет места в рейтинге. Открыть рейтинг'
+          : `Место в рейтинге за неделю: ${rank} из ${rating.participants}. Открыть рейтинг`,
+  };
 }

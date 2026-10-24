@@ -1,4 +1,4 @@
-import { useNavigation } from '../../lib/navigation.js';
+import { useNavigation, type Route } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
 import { subjects } from '../../data/subjects.js';
 import { Card } from '../../ui/Card/Card.js';
@@ -17,28 +17,35 @@ interface LearningSection {
   icon: FeatureIconName;
   title: string;
   description: string;
+  /** Where the card leads: the theory catalog for Теория / Полезные
+   * материалы (real Russian content), the subjects for the rest. */
+  route: Route;
 }
 
 const sections: readonly LearningSection[] = [
   {
     icon: 'theory',
     title: 'Теория',
-    description: 'Краткие и понятные конспекты по всем темам ЕГЭ',
+    description: 'Конспекты правил по номерам заданий ЕГЭ — пока по русскому языку',
+    route: { screen: 'theory', section: 'rules' },
   },
   {
     icon: 'practice',
     title: 'Практика',
     description: 'Разборы заданий и примеры решений',
+    route: { screen: 'subjectCatalog' },
   },
   {
     icon: 'strategy',
     title: 'Стратегии',
     description: 'Советы, лайфхаки и эффективные методики',
+    route: { screen: 'subjectCatalog' },
   },
   {
     icon: 'materials',
     title: 'Полезные материалы',
-    description: 'Сборники, файлы и дополнительные ресурсы',
+    description: 'Справочные списки и практика с ответами — пока по русскому языку',
+    route: { screen: 'theory', section: 'materials' },
   },
 ];
 
@@ -121,7 +128,7 @@ export function LearningCenterDesktop() {
               type="button"
               className={styles.sectionArrow}
               aria-label={section.title}
-              onClick={() => navigate({ screen: 'subjectCatalog' })}
+              onClick={() => navigate(section.route)}
             >
               <Icon name="arrowRight" size={18} />
             </button>

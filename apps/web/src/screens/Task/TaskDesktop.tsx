@@ -18,6 +18,7 @@ import { CanvasWorkspaceDesktop } from '../../ui/CanvasWorkspace/CanvasWorkspace
 import { clearCanvasState } from '../../lib/canvasSessionStore.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Modal } from '../../ui/Modal/Modal.js';
+import { RuleButton } from '../../ui/Theory/RuleButton.js';
 import {
   ReportTaskContent,
   reportDialogHeader,
@@ -288,7 +289,6 @@ export function TaskDesktop({
                   {learningSession && <LearningSessionBadge session={learningSession} />}
                   <span className={styles.currentChip}>Задание {progress.indexInSession}</span>
                   <span className={styles.metaChip}>{task.topic}</span>
-                  <span className={styles.metaChip}>Показательные уравнения</span>
                   <span className={styles.metaChip}>
                     {task.difficultyLabel === 'Сложное' ? 'Базовый уровень' : task.difficultyLabel}
                   </span>
@@ -327,6 +327,12 @@ export function TaskDesktop({
                   subjectId={task.subjectId}
                   taskNumber={task.number}
                   className={styles.taskImage}
+                />
+                <RuleButton
+                  subjectId={task.subjectId}
+                  taskNumber={task.number}
+                  presentation="modal"
+                  className={styles.ruleButton}
                 />
 
                 {task.hint && (

@@ -79,6 +79,13 @@ const libraryItems: readonly MenuItem[] = [
     route: { screen: 'subjectCatalog' },
   },
   {
+    id: 'theory',
+    label: 'Теория',
+    icon: 'reference',
+    color: 'var(--color-subject-russian)',
+    route: { screen: 'theory', section: 'rules' },
+  },
+  {
     id: 'favorites',
     label: 'Избранное',
     icon: 'bookmark',

@@ -101,7 +101,7 @@ describe('HomeMobile', () => {
   it('the rating place sits next to «Решено»; «Правильно» keeps its place', () => {
     streakState.rating = { me: { rank: 6 }, participants: 120 };
     const { container } = renderHome();
-    const labels = [...container.querySelectorAll('span.text-body-sm.text-secondary')]
+    const labels = [...container.querySelectorAll('[data-stat-label]')]
       .map((el) => el.textContent)
       .filter((t) => ['Место', 'Решено', 'Правильно'].includes(t ?? ''));
     expect(labels).toEqual(['Место', 'Решено', 'Правильно']);

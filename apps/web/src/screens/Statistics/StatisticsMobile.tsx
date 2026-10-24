@@ -1,6 +1,7 @@
 import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
+import { registerPrivateCacheReset } from '../../lib/privateCaches.js';
 import { subjects } from '../../data/subjects.js';
 import { startRealTask } from '../../lib/startTraining.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
@@ -23,6 +24,7 @@ import type {
 import { Card } from '../../ui/Card/Card.js';
 import { VariantHistoryCard } from '../../ui/Statistics/VariantHistoryCard.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
+import { RatingBoard } from '../Rating/RatingBoard.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { SubjectHeaderMobile } from '../../ui/SubjectHeader/SubjectHeaderMobile.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
@@ -52,6 +54,13 @@ const subTabs = [
 
 const DEFAULT_SUBJECT_ID = 'math';
 
+/** The sub-tab last open in this visit: coming back to Статистика (e.g.
+ * from a task or the rating) returns to it instead of «Общая». */
+let lastSubTab = 'overview';
+registerPrivateCacheReset(() => {
+  lastSubTab = 'overview';
+});
+
 /**
  * Mobile Statistics (S1 Block 6, approved design —
  * mobile/07_statistics.png): the "Общая" sub-tab reproduces the
@@ -68,7 +77,11 @@ const DEFAULT_SUBJECT_ID = 'math';
  */
 export function StatisticsMobile() {
   const { navigate } = useNavigation();
-  const [subTab, setSubTab] = useState('overview');
+  const [subTab, setSubTabState] = useState(lastSubTab);
+  const setSubTab = (id: string) => {
+    lastSubTab = id;
+    setSubTabState(id);
+  };
   const [subjectId, setSubjectId] = useState(DEFAULT_SUBJECT_ID);
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
@@ -410,10 +423,9 @@ export function StatisticsMobile() {
 
       {subTab === 'rating' && (
         <FadeIn className={styles.stack}>
-          {/* No leaderboard backend exists yet (ranking aggregation,
-              persistent user profiles) — same honest placeholder the
-              standalone Рейтинг screen already shows. */}
-          <WipPlaceholder title="Рейтинг" note="Экран в разработке — следующий блок." />
+          {/* The real board (GET /leaderboard) — the same component as the
+              standalone «Рейтинг», with its own period/subject filters. */}
+          <RatingBoard embedded />
         </FadeIn>
       )}
 

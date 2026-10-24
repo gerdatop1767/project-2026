@@ -9,6 +9,7 @@ import { AchievementsDesktop } from './screens/Achievements/AchievementsDesktop.
 import { RatingDesktop } from './screens/Rating/RatingDesktop.js';
 import { Level } from './screens/Level/Level.js';
 import { LearningCenterDesktop } from './screens/LearningCenter/LearningCenterDesktop.js';
+import { TheoryCatalog } from './screens/Theory/TheoryCatalog.js';
 import { SubjectCatalogDesktop } from './screens/SubjectCatalog/SubjectCatalogDesktop.js';
 import { SubjectDesktop } from './screens/Subject/SubjectDesktop.js';
 import { ProfileDesktop } from './screens/Profile/ProfileDesktop.js';
@@ -89,6 +90,9 @@ export function AppDesktop() {
         {overlay.screen === 'rating' && <RatingDesktop />}
         {overlay.screen === 'level' && <Level />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
+        {overlay.screen === 'theory' && (
+          <TheoryCatalog section={overlay.section} taskNumber={overlay.taskNumber} />
+        )}
         {overlay.screen === 'onboarding' && <Onboarding />}
         {overlay.screen === 'favorites' && (
           <WipPlaceholder title="Избранное" note="Экран в разработке — следующий блок." />

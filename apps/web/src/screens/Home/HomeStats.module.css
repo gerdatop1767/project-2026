@@ -1,0 +1,264 @@
+.panel {
+  --stat-gold: var(--color-gold);
+  --stat-green: var(--color-success);
+  --stat-purple: #a46bff;
+  --panel-bg: linear-gradient(180deg, #121740 0%, #0b0f2a 100%);
+  --panel-edge: linear-gradient(
+    100deg,
+    rgba(122, 170, 255, 0.75),
+    rgba(150, 120, 255, 0.55) 45%,
+    rgba(190, 110, 255, 0.8)
+  );
+  --hairline: rgba(255, 255, 255, 0.08);
+  --label: rgba(220, 226, 255, 0.72);
+
+  container-type: inline-size;
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: var(--radius-card);
+  background:
+    var(--panel-bg) padding-box,
+    var(--panel-edge) border-box;
+  box-shadow:
+    0 0 18px -4px rgba(120, 140, 255, 0.35),
+    0 10px 28px -12px rgba(150, 90, 255, 0.45);
+  overflow: hidden;
+  isolation: isolate;
+  animation: panelIn 360ms var(--easing-out) both;
+}
+
+/* A soft top sheen — the "glass". */
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 55% 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent);
+  pointer-events: none;
+  z-index: -1;
+}
+
+:global(:root[data-theme='light']) .panel {
+  --stat-purple: #7c3aed;
+  --panel-bg: linear-gradient(180deg, #ffffff 0%, #f4f1ff 100%);
+  --panel-edge: linear-gradient(
+    100deg,
+    rgba(90, 140, 240, 0.55),
+    rgba(130, 100, 240, 0.4) 45%,
+    rgba(160, 80, 230, 0.55)
+  );
+  --hairline: rgba(26, 20, 64, 0.08);
+  --label: var(--color-text-secondary);
+  box-shadow: 0 8px 22px -14px rgba(90, 60, 200, 0.35);
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cell {
+  --tone: var(--stat-gold);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3) var(--space-2);
+  text-align: center;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cell[data-tone='green'] {
+  --tone: var(--stat-green);
+}
+
+.cell[data-tone='purple'] {
+  --tone: var(--stat-purple);
+}
+
+/* The tone's low glow in the corner, as in the reference. */
+.cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 90% at 0% 110%,
+    color-mix(in srgb, var(--tone) 22%, transparent),
+    transparent 65%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+.cell + .cell {
+  border-left: 1px solid var(--hairline);
+}
+
+.cellButton {
+  border: none;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.cellButton + .cell,
+.cell + .cellButton {
+  border-left: 1px solid var(--hairline);
+}
+
+.cellButton:active {
+  background: color-mix(in srgb, var(--tone) 8%, transparent);
+}
+
+.cellButton:focus-visible {
+  outline: 2px solid var(--tone);
+  outline-offset: -4px;
+  border-radius: calc(var(--radius-card) - 4px);
+}
+
+.tile {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  color: var(--tone);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--tone) 26%, transparent),
+    color-mix(in srgb, var(--tone) 10%, transparent)
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tone) 55%, transparent),
+    0 0 14px -2px color-mix(in srgb, var(--tone) 45%, transparent);
+}
+
+.tile svg {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--tone) 60%, transparent));
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.value {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  animation: valueIn 320ms var(--easing-out) both;
+}
+
+@keyframes valueIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.label {
+  font-size: var(--font-size-label);
+  line-height: 1.3;
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* A soft glow behind the icon when a value (re)appears — plays once. */
+.flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    60% 70% at 50% 35%,
+    color-mix(in srgb, var(--tone) 28%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  animation: flash 900ms ease-out;
+}
+
+@keyframes flash {
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Wide enough (≈ 410 px phones and up): icon beside the text, as in the
+   reference; narrower panels stack icon over text so «Правильно» never clips. */
+@container (min-width: 24rem) {
+  .cell {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    padding: var(--space-4) var(--space-2);
+    text-align: left;
+  }
+
+  .tile {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .text {
+    align-items: flex-start;
+  }
+
+  .value {
+    font-size: 1.375rem;
+  }
+
+  .flash {
+    background: radial-gradient(
+      55% 80% at 22% 50%,
+      color-mix(in srgb, var(--tone) 28%, transparent),
+      transparent 70%
+    );
+  }
+}
+
+@container (min-width: 30rem) {
+  .tile {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .cell {
+    gap: var(--space-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .value,
+  .flash {
+    animation: none;
+  }
+}

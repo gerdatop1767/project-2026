@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/authContext.js';
 import { clsx } from '../../lib/clsx.js';
 import { levelRankFor, levelRankStyle, nextLevelRank } from '../../lib/levelRanks.js';
 import { useNavigation } from '../../lib/navigation.js';
+import { registerPrivateCacheReset } from '../../lib/privateCaches.js';
 import { useStreakContext } from '../../lib/streakContext.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -42,6 +43,14 @@ const subjectOptions = [
   ...subjects.map((s) => ({ value: s.id, label: s.name })),
 ];
 
+/** The filters last chosen in this visit — the same board on «Рейтинг»
+ * and in Статистика → Рейтинг, so leaving the screen and coming back (or
+ * switching between the two) keeps them. Forgotten on sign-out. */
+let lastFilters: { period: LeaderboardPeriod; subject: string } = { period: 'week', subject: ALL };
+registerPrivateCacheReset(() => {
+  lastFilters = { period: 'week', subject: ALL };
+});
+
 type Result = { key: string } & (
   { status: 'error' } | { status: 'ready'; board: LeaderboardResponse }
 );
@@ -59,7 +68,13 @@ function participantsWord(n: number): string {
  * and the user's own result. Every number comes from GET /leaderboard;
  * nothing here is sample data. A guest is offered sign-in instead.
  */
-export function RatingBoard() {
+export interface RatingBoardProps {
+  /** Inside another screen (Статистика → Рейтинг): that screen owns the
+   * page title, so the board's own heading steps down to h2. */
+  embedded?: boolean;
+}
+
+export function RatingBoard({ embedded = false }: RatingBoardProps = {}) {
   const { user } = useAuth();
   const { navigate } = useNavigation();
   if (!user) {
@@ -74,13 +89,22 @@ export function RatingBoard() {
       </section>
     );
   }
-  return <Board avatarUrl={user.avatarUrl} />;
+  return <Board avatarUrl={user.avatarUrl} embedded={embedded} />;
 }
 
-function Board({ avatarUrl }: { avatarUrl: string | null }) {
+function Board({ avatarUrl, embedded }: { avatarUrl: string | null; embedded: boolean }) {
   const { navigate } = useNavigation();
-  const [period, setPeriod] = useState<LeaderboardPeriod>('week');
-  const [subject, setSubject] = useState<string>(ALL);
+  const [period, setPeriodState] = useState<LeaderboardPeriod>(lastFilters.period);
+  const [subject, setSubjectState] = useState<string>(lastFilters.subject);
+  const setPeriod = (next: LeaderboardPeriod) => {
+    lastFilters = { ...lastFilters, period: next };
+    setPeriodState(next);
+  };
+  const setSubject = (next: string) => {
+    lastFilters = { ...lastFilters, subject: next };
+    setSubjectState(next);
+  };
+  const Title = embedded ? 'h2' : 'h1';
   // Bumped by «Повторить» to ask again for the same filters.
   const [attempt, setAttempt] = useState(0);
   const key = `${period}|${subject}|${attempt}`;
@@ -122,9 +146,9 @@ function Board({ avatarUrl }: { avatarUrl: string | null }) {
         <header className={styles.head}>
           <div className={styles.titleBlock}>
             <p className={styles.eyebrow}>Рейтинг · {periodEyebrow[period]}</p>
-            <h1 className={styles.title}>
+            <Title className={styles.title}>
               Соревнуйся и <span className={styles.accent}>расти</span>
-            </h1>
+            </Title>
             <p className="text-body-sm text-secondary">
               Решай задания ЕГЭ, набирай очки и поднимайся в рейтинге
             </p>

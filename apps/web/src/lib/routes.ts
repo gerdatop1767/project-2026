@@ -100,6 +100,11 @@ export function pathForRoute(route: Route): string | null {
     return '/profile';
   }
 
+  if (route.screen === 'theory') {
+    const base = route.section === 'materials' ? '/materials' : '/theory';
+    return route.taskNumber ? `${base}?n=${route.taskNumber}` : base;
+  }
+
   if (route.screen === 'learningSession') {
     return `${learningSessionPathPrefix}${route.sessionId}`;
   }
@@ -183,6 +188,15 @@ export function routeFromPath(pathname: string): Route {
   }
 
   if (path === '/profile') return { screen: 'profile' };
+
+  if (path === '/theory' || path === '/materials') {
+    const n = Number(params.get('n'));
+    return {
+      screen: 'theory',
+      section: path === '/materials' ? 'materials' : 'rules',
+      ...(Number.isInteger(n) && n > 0 ? { taskNumber: n } : {}),
+    };
+  }
 
   if (path.startsWith(learningSessionPathPrefix)) {
     const sessionId = path.slice(learningSessionPathPrefix.length);
