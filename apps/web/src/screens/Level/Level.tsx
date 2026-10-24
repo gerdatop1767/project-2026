@@ -235,7 +235,7 @@ export function Level() {
   );
 }
 
-/** «Следующий ранг — «Мастер» с уровня 15», or the top rank's note. */
+/** «Следующий ранг — «Знаток» с уровня 11», or the top rank's note. */
 function NextRank({ level }: { level: number }) {
   const next = nextLevelRank(levelRankFor(level));
   if (!next) {

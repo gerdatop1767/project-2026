@@ -1,26 +1,25 @@
 import { MAX_LEVEL } from '@zybrilka/shared';
 
 /**
- * Level ranks: the visual identity of a range of levels (emblem, palette,
- * motion). Purely presentational — the level itself always comes from the
- * server (`levelForXp`, docs/XP.md) and nothing here touches XP.
+ * Level ranks: the visual identity of a range of levels (the approved
+ * emblem artwork and a matching palette). Purely presentational — the level
+ * itself always comes from the server (`levelForXp`, docs/XP.md) and nothing
+ * here touches XP.
  *
- * Ranges are consecutive and never overlap. The brief asked for 1–2, 3–5,
- * 5–10, 15–20, 20–25, 25–30: a level shared by two ranges (5, 20) starts
- * the higher one, the gap 11–14 stays with the rank before it, and the
- * last rank also covers every level above 30 (levels go up to MAX_LEVEL).
+ * Five ranks, one every five levels: 1–5, 6–10, 11–15, 16–20, and the last
+ * from 21 up to the maximum level. Consecutive, never overlapping.
  */
-export type LevelRankId = 'novice' | 'apprentice' | 'scholar' | 'master' | 'expert' | 'legend';
+export type LevelRankId = 'novice' | 'apprentice' | 'scholar' | 'expert' | 'legend';
 
 export interface LevelRank {
   id: LevelRankId;
-  /** 0-based position, for «Ранг 3 из 6». */
+  /** 0-based position, for «Ранг 3 из 5». */
   index: number;
   name: string;
   minLevel: number;
   /** null = no upper bound (the last rank). */
   maxLevel: number | null;
-  /** Two-stop palette for the emblem, bars and accents; `glow` for halos. */
+  /** Two-stop palette (taken from the emblem) for bars and accents; `glow` for shadows. */
   colors: { from: string; to: string; glow: string };
 }
 
@@ -30,48 +29,40 @@ export const LEVEL_RANKS: readonly LevelRank[] = [
     index: 0,
     name: 'Новичок',
     minLevel: 1,
-    maxLevel: 2,
-    colors: { from: '#a3acc9', to: '#5f6a8f', glow: 'rgba(146, 158, 196, 0.35)' },
+    maxLevel: 5,
+    colors: { from: '#aab4ff', to: '#5d68d6', glow: 'rgba(120, 132, 240, 0.4)' },
   },
   {
     id: 'apprentice',
     index: 1,
     name: 'Ученик',
-    minLevel: 3,
-    maxLevel: 4,
-    colors: { from: '#e6a46b', to: '#a35f2c', glow: 'rgba(216, 140, 82, 0.4)' },
+    minLevel: 6,
+    maxLevel: 10,
+    colors: { from: '#ffad6b', to: '#d9581f', glow: 'rgba(240, 120, 50, 0.4)' },
   },
   {
     id: 'scholar',
     index: 2,
     name: 'Знаток',
-    minLevel: 5,
-    maxLevel: 14,
-    colors: { from: '#a9dcff', to: '#4f86d6', glow: 'rgba(110, 170, 240, 0.45)' },
-  },
-  {
-    id: 'master',
-    index: 3,
-    name: 'Мастер',
-    minLevel: 15,
-    maxLevel: 19,
-    colors: { from: '#ffd979', to: '#d98d12', glow: 'rgba(245, 180, 50, 0.5)' },
+    minLevel: 11,
+    maxLevel: 15,
+    colors: { from: '#9fd0ff', to: '#3f7fe0', glow: 'rgba(90, 150, 240, 0.45)' },
   },
   {
     id: 'expert',
-    index: 4,
+    index: 3,
     name: 'Эксперт',
-    minLevel: 20,
-    maxLevel: 24,
-    colors: { from: '#d39bff', to: '#7a12e2', glow: 'rgba(165, 70, 245, 0.55)' },
+    minLevel: 16,
+    maxLevel: 20,
+    colors: { from: '#d59bff', to: '#8a2be2', glow: 'rgba(165, 70, 245, 0.5)' },
   },
   {
     id: 'legend',
-    index: 5,
+    index: 4,
     name: 'Легенда',
-    minLevel: 25,
+    minLevel: 21,
     maxLevel: null,
-    colors: { from: '#ff8ad8', to: '#4dc8ff', glow: 'rgba(200, 120, 255, 0.55)' },
+    colors: { from: '#ffa8e0', to: '#5aa8ff', glow: 'rgba(200, 140, 255, 0.5)' },
   },
 ];
 

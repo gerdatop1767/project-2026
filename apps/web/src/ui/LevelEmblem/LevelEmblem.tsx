@@ -2,13 +2,12 @@ import { clsx } from '../../lib/clsx.js';
 import { levelRankStyle, type LevelRank, type LevelRankId } from '../../lib/levelRanks.js';
 import styles from './LevelEmblem.module.css';
 
-/** The approved rank artwork (fixed brand assets in public/branding/v2/levels;
- * 256 px with transparency, so it stays sharp from the header to the hero). */
+/** The approved rank artwork (fixed brand assets in public/branding/v2/levels,
+ * as provided — 256 px with transparency, sharp from the header to the hero). */
 export const LEVEL_EMBLEM_SRC: Record<LevelRankId, string> = {
   novice: '/branding/v2/levels/novice.webp',
   apprentice: '/branding/v2/levels/apprentice.webp',
   scholar: '/branding/v2/levels/scholar.webp',
-  master: '/branding/v2/levels/master.webp',
   expert: '/branding/v2/levels/expert.webp',
   legend: '/branding/v2/levels/legend.webp',
 };

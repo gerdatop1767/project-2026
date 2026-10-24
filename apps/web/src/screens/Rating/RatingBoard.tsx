@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState, type CSSProperties } from 'react';
 import type { LeaderboardEntry, LeaderboardPeriod, LeaderboardResponse } from '@zybrilka/shared';
 import { subjects } from '../../data/subjects.js';
 import { getLeaderboard } from '../../lib/api.js';
@@ -13,7 +13,8 @@ import { Avatar } from '../../ui/Leaderboard/Avatar.js';
 import { LevelEmblem } from '../../ui/LevelEmblem/LevelEmblem.js';
 import { ProfileAvatar } from '../../ui/ProfileAvatar/ProfileAvatar.js';
 import { Select } from '../../ui/Select/Select.js';
-import { SkeletonCard, SkeletonList } from '../../ui/Skeleton/Skeleton.js';
+import { PlaceIcon } from '../../ui/RatingPlace/PlaceIcon.js';
+import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import styles from './RatingBoard.module.css';
 
@@ -84,9 +85,15 @@ function Board({ avatarUrl }: { avatarUrl: string | null }) {
   const [attempt, setAttempt] = useState(0);
   const key = `${period}|${subject}|${attempt}`;
   const [result, setResult] = useState<Result | null>(null);
-  // Loading = no answer yet for the current filters; an answer for older
-  // filters (fast switching) is never shown for the new ones.
-  const state = result && result.key === key ? result : ({ status: 'loading' } as const);
+  // The answer for the current filters, if any. While the next one loads,
+  // the previous list stays on screen, dimmed — no skeleton flash, no jump
+  // in height — but it is never presented as the answer for the new filters
+  // (dimmed + aria-busy). Skeletons only on the very first load.
+  const current = result && result.key === key ? result : null;
+  const stale = !current && result?.status === 'ready' ? result.board : null;
+  const refreshing = stale !== null;
+  const failed = current?.status === 'error';
+  const firstLoad = !current && !stale;
 
   useEffect(() => {
     let current = true;
@@ -102,7 +109,9 @@ function Board({ avatarUrl }: { avatarUrl: string | null }) {
     };
   }, [key, period, subject]);
 
-  const board = state.status === 'ready' ? state.board : null;
+  const board = current?.status === 'ready' ? current.board : stale;
+  // New data re-mounts the list, so its rows play their short entrance once.
+  const dataKey = current ? key : (result?.key ?? 'none');
   const podium = board ? board.entries.slice(0, 3) : [];
   const rest = board ? board.entries.slice(3) : [];
   const meListed = board?.entries.some((e) => e.isMe) ?? false;
@@ -137,14 +146,22 @@ function Board({ avatarUrl }: { avatarUrl: string | null }) {
           </div>
         </header>
 
-        {state.status === 'loading' && (
+        {firstLoad && (
           <div className={styles.loading} aria-busy="true" aria-label="Рейтинг загружается">
-            <SkeletonCard height={180} />
-            <SkeletonList rows={5} />
+            <div className={styles.podiumSkeleton}>
+              <Skeleton height={232} />
+              <Skeleton height={256} />
+              <Skeleton height={232} />
+            </div>
+            <div className={styles.rowsSkeleton}>
+              {Array.from({ length: 6 }, (_, i) => (
+                <Skeleton key={i} height={60} />
+              ))}
+            </div>
           </div>
         )}
 
-        {state.status === 'error' && (
+        {failed && (
           <div className={styles.message} role="alert">
             <p className="text-body">Не удалось загрузить рейтинг.</p>
             <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
@@ -153,78 +170,93 @@ function Board({ avatarUrl }: { avatarUrl: string | null }) {
           </div>
         )}
 
-        {board && board.entries.length === 0 && (
-          <div className={styles.message}>
-            <Icon name="achievements" size={28} className={styles.guestIcon} />
-            <p className="text-body">
-              {period === 'today'
-                ? 'Сегодня ещё никто не набрал очков.'
-                : 'За этот период ещё никто не набрал очков.'}
-            </p>
-            <p className="text-body-sm text-secondary">
-              Реши задание верно — и первое место будет твоим.
-            </p>
-            <Button onClick={() => navigate({ screen: 'subjectCatalog' })}>Решать задания</Button>
-          </div>
-        )}
+        {!failed && board && (
+          <div
+            key={dataKey}
+            className={clsx(styles.results, refreshing && styles.refreshing)}
+            aria-busy={refreshing || undefined}
+          >
+            {board.entries.length === 0 && (
+              <div className={styles.message}>
+                <Icon name="achievements" size={28} className={styles.guestIcon} />
+                <p className="text-body">
+                  {period === 'today'
+                    ? 'Сегодня ещё никто не набрал очков.'
+                    : 'За этот период ещё никто не набрал очков.'}
+                </p>
+                <p className="text-body-sm text-secondary">
+                  Реши задание верно — и первое место будет твоим.
+                </p>
+                <Button onClick={() => navigate({ screen: 'subjectCatalog' })}>
+                  Решать задания
+                </Button>
+              </div>
+            )}
 
-        {podium.length > 0 && (
-          <ol className={styles.podium} aria-label="Тройка лидеров">
-            {podium.map((entry, index) => (
-              <PodiumCard
-                key={`${entry.rank}-${index}`}
-                entry={entry}
-                place={index + 1}
-                avatarUrl={avatarUrl}
-              />
-            ))}
-          </ol>
-        )}
+            {podium.length > 0 && (
+              <ol className={styles.podium} aria-label="Тройка лидеров">
+                {podium.map((entry, index) => (
+                  <PodiumCard
+                    key={`${entry.rank}-${index}`}
+                    entry={entry}
+                    place={index + 1}
+                    avatarUrl={avatarUrl}
+                  />
+                ))}
+              </ol>
+            )}
 
-        {(rest.length > 0 || (board && !meListed && board.me.rank !== null)) && (
-          <div className={styles.table} role="table" aria-label="Рейтинг участников">
-            <div className={styles.tableHead} role="row">
-              <span role="columnheader">#</span>
-              <span role="columnheader">Ученик</span>
-              <span role="columnheader" className={styles.wideOnly}>
-                Решено задач
-              </span>
-              <span role="columnheader" className={styles.wideOnly}>
-                Точность
-              </span>
-              <span role="columnheader" className={styles.alignEnd}>
-                Очки
-              </span>
-            </div>
-            {rest.map((entry, i) => (
-              <Row key={`${entry.rank}-${i}`} entry={entry} avatarUrl={avatarUrl} />
-            ))}
-            {board && !meListed && board.me.rank !== null && (
-              <>
-                <div className={styles.gap} role="presentation">
-                  ···
+            {(rest.length > 0 || (!meListed && board.me.rank !== null)) && (
+              <div className={styles.table} role="table" aria-label="Рейтинг участников">
+                <div className={styles.tableHead} role="row">
+                  <span role="columnheader">#</span>
+                  <span role="columnheader">Ученик</span>
+                  <span role="columnheader" className={styles.wideOnly}>
+                    Решено задач
+                  </span>
+                  <span role="columnheader" className={styles.wideOnly}>
+                    Точность
+                  </span>
+                  <span role="columnheader" className={styles.alignEnd}>
+                    Очки
+                  </span>
                 </div>
-                <Row
-                  entry={{
-                    rank: board.me.rank,
-                    name: 'Ты',
-                    level: board.me.level,
-                    points: board.me.points,
-                    solved: board.me.solved,
-                    accuracyPercent: board.me.accuracyPercent,
-                    isMe: true,
-                    avatarHue: 270,
-                  }}
-                  avatarUrl={avatarUrl}
-                />
-              </>
+                {rest.map((entry, i) => (
+                  <Row key={`${entry.rank}-${i}`} entry={entry} index={i} avatarUrl={avatarUrl} />
+                ))}
+                {!meListed && board.me.rank !== null && (
+                  <>
+                    <div className={styles.gap} role="presentation">
+                      ···
+                    </div>
+                    <Row
+                      entry={{
+                        rank: board.me.rank,
+                        name: 'Ты',
+                        level: board.me.level,
+                        points: board.me.points,
+                        solved: board.me.solved,
+                        accuracyPercent: board.me.accuracyPercent,
+                        isMe: true,
+                        avatarHue: 270,
+                      }}
+                      index={rest.length}
+                      avatarUrl={avatarUrl}
+                    />
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}
       </div>
 
       <aside className={styles.side}>
-        {board && <MyResult board={board} />}
+        {board && (
+          <div className={clsx(styles.results, refreshing && styles.refreshing)}>
+            <MyResult board={board} />
+          </div>
+        )}
         <NextLevel />
       </aside>
     </div>
@@ -265,7 +297,7 @@ function LevelPill({ level }: { level: number }) {
 
 /** `place` = position on the podium (1 in the middle, 2 left, 3 right);
  * the medal shows the real rank, which a tie can share (1, 1, 3). */
-function PodiumCard({
+const PodiumCard = memo(function PodiumCard({
   entry,
   place,
   avatarUrl,
@@ -280,9 +312,8 @@ function PodiumCard({
       data-place={place}
       aria-label={`${entry.rank} место: ${entry.name}${entry.isMe ? ' (это ты)' : ''}, ${entry.points} очков`}
     >
-      <span className={styles.medal} aria-hidden="true">
-        {entry.rank}
-      </span>
+      {/* The medal of the real rank (a tie shares it), not of the slot. */}
+      <PlaceIcon rank={entry.rank <= 3 ? entry.rank : null} size={30} className={styles.medal} />
       <span className={styles.podiumAvatar}>
         <EntryAvatar entry={entry} avatarUrl={avatarUrl} size={place === 1 ? 72 : 60} />
       </span>
@@ -306,12 +337,22 @@ function PodiumCard({
       </span>
     </li>
   );
-}
+});
 
-function Row({ entry, avatarUrl }: { entry: LeaderboardEntry; avatarUrl: string | null }) {
+const Row = memo(function Row({
+  entry,
+  index,
+  avatarUrl,
+}: {
+  entry: LeaderboardEntry;
+  /** Position in the list, for the short staggered entrance. */
+  index: number;
+  avatarUrl: string | null;
+}) {
   return (
     <div
       className={clsx(styles.row, entry.isMe && styles.rowMe)}
+      style={{ '--i': Math.min(index, 10) } as CSSProperties}
       role="row"
       aria-current={entry.isMe ? 'true' : undefined}
     >
@@ -344,7 +385,7 @@ function Row({ entry, avatarUrl }: { entry: LeaderboardEntry; avatarUrl: string 
       </span>
     </div>
   );
-}
+});
 
 function MyResult({ board }: { board: LeaderboardResponse }) {
   const { navigate } = useNavigation();
@@ -356,7 +397,10 @@ function MyResult({ board }: { board: LeaderboardResponse }) {
       </h2>
       <div className={styles.meGrid}>
         <div className={styles.meTile}>
-          <span className={styles.meBig}>{me.rank === null ? '—' : me.rank}</span>
+          <span className={styles.meBig}>
+            <PlaceIcon rank={me.rank} size={26} />
+            {me.rank === null ? '—' : me.rank}
+          </span>
           <span className={styles.meCaption}>
             {me.rank === null
               ? 'пока не в рейтинге'

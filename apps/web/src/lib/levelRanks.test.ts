@@ -5,30 +5,35 @@ import { LEVEL_RANKS, levelRankFor, levelRankRange, nextLevelRank } from './leve
 describe('level ranks', () => {
   it.each([
     [1, 'novice'],
-    [2, 'novice'],
-    [3, 'apprentice'],
-    [4, 'apprentice'],
-    [5, 'scholar'], // 5 was in both «3–5» and «5–10»: it starts the higher rank
-    [10, 'scholar'],
-    [11, 'scholar'], // the gap 11–14 stays with the rank before it
-    [14, 'scholar'],
-    [15, 'master'],
-    [19, 'master'],
-    [20, 'expert'], // 20 was in both «15–20» and «20–25»
-    [24, 'expert'],
-    [25, 'legend'],
+    [5, 'novice'],
+    [6, 'apprentice'],
+    [10, 'apprentice'],
+    [11, 'scholar'],
+    [15, 'scholar'],
+    [16, 'expert'],
+    [20, 'expert'],
+    [21, 'legend'],
     [30, 'legend'],
-    [31, 'legend'],
     [MAX_LEVEL, 'legend'],
   ])('level %i → %s', (level, id) => {
     expect(levelRankFor(level).id).toBe(id);
+  });
+
+  it('one rank every five levels', () => {
+    expect(LEVEL_RANKS.map((r) => [r.minLevel, r.maxLevel])).toEqual([
+      [1, 5],
+      [6, 10],
+      [11, 15],
+      [16, 20],
+      [21, null],
+    ]);
   });
 
   it('treats invalid input as level 1', () => {
     expect(levelRankFor(0).id).toBe('novice');
     expect(levelRankFor(-3).id).toBe('novice');
     expect(levelRankFor(Number.NaN).id).toBe('novice');
-    expect(levelRankFor(4.9).id).toBe('apprentice');
+    expect(levelRankFor(6.9).id).toBe('apprentice');
   });
 
   it('ranges are consecutive, never overlap, and cover every level', () => {
@@ -47,10 +52,10 @@ describe('level ranks', () => {
   });
 
   it('knows the next rank and prints ranges', () => {
-    expect(nextLevelRank(levelRankFor(4))!.name).toBe('Знаток');
+    expect(nextLevelRank(levelRankFor(7))!.name).toBe('Знаток');
     expect(nextLevelRank(levelRankFor(30))).toBeNull();
-    expect(levelRankRange(levelRankFor(1))).toBe('1–2');
-    expect(levelRankRange(levelRankFor(7))).toBe('5–14');
-    expect(levelRankRange(levelRankFor(40))).toBe(`25–${MAX_LEVEL}`);
+    expect(levelRankRange(levelRankFor(1))).toBe('1–5');
+    expect(levelRankRange(levelRankFor(12))).toBe('11–15');
+    expect(levelRankRange(levelRankFor(40))).toBe(`21–${MAX_LEVEL}`);
   });
 });

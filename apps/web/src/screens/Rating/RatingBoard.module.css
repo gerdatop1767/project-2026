@@ -69,10 +69,38 @@
   max-width: 24rem;
 }
 
-.loading {
+.loading,
+.results {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* The previous answer while the next filters load: still readable, clearly
+   not current, and the same size — nothing jumps when the data arrives. */
+.results {
+  transition: opacity 180ms var(--easing-standard);
+}
+
+.refreshing {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Skeletons the shape of the real podium and rows (same heights). */
+.podiumSkeleton {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--space-2);
+  padding-top: var(--space-5);
+}
+
+.rowsSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .message,
@@ -123,8 +151,17 @@
       transparent 70%
     ),
     var(--color-bg-surface);
-  box-shadow: 0 10px 30px -18px var(--place);
-  animation: podiumIn 520ms var(--easing-out) both;
+  box-shadow: 0 10px 28px -20px var(--place);
+  animation: podiumIn 360ms var(--easing-out) both;
+  transition:
+    transform var(--duration-base) var(--easing-out),
+    box-shadow var(--duration-base) var(--easing-out);
+}
+
+@media (hover: hover) {
+  .podiumCard:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .podiumCard[data-place='1'] {
@@ -133,21 +170,21 @@
   padding-top: var(--space-8);
   padding-bottom: var(--space-6);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--place) 35%, transparent),
-    0 16px 40px -16px color-mix(in srgb, var(--place) 80%, transparent);
-  animation-delay: 80ms;
+    0 0 0 1px color-mix(in srgb, var(--place) 30%, transparent),
+    0 14px 32px -20px color-mix(in srgb, var(--place) 70%, transparent);
+  animation-delay: 40ms;
 }
 
 .podiumCard[data-place='2'] {
   --place: #7f9dff;
   order: 1;
-  animation-delay: 160ms;
+  animation-delay: 90ms;
 }
 
 .podiumCard[data-place='3'] {
   --place: #f07fb3;
   order: 3;
-  animation-delay: 220ms;
+  animation-delay: 130ms;
 }
 
 .podiumCard.isMe {
@@ -155,26 +192,14 @@
   outline-offset: 2px;
 }
 
-.medal {
+.podiumCard .medal {
   position: absolute;
-  top: calc(var(--space-4) * -1);
+  top: -15px;
   left: 50%;
-  display: grid;
-  place-items: center;
-  width: 2.2rem;
-  height: 2.5rem;
   transform: translateX(-50%);
-  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--place) 60%, #fff),
-    var(--place) 60%,
-    color-mix(in srgb, var(--place) 70%, #000)
-  );
-  color: #fff;
-  font-family: var(--font-display, inherit);
-  font-weight: 800;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 3px var(--color-bg-base),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .podiumAvatar {
@@ -253,6 +278,18 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-label);
   border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.row {
+  animation: rowIn 260ms var(--easing-out) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+  transition: background-color var(--duration-fast) ease;
+}
+
+@media (hover: hover) {
+  .row:not(.rowMe):hover {
+    background: color-mix(in srgb, var(--color-tint) 4%, transparent);
+  }
 }
 
 .row + .row {
@@ -519,6 +556,17 @@
   font-size: var(--font-size-label);
 }
 
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes podiumIn {
   from {
     opacity: 0;
@@ -531,8 +579,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .podiumCard {
+  .podiumCard,
+  .row {
     animation: none;
+  }
+  .podiumCard:hover {
+    transform: none;
+  }
+  .results {
+    transition: none;
   }
   .levelTrack > span {
     transition: none;
