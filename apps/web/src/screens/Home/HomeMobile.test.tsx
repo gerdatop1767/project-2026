@@ -13,6 +13,15 @@ vi.mock('../../lib/api.js', () => ({
   getTaskCountsBySubject: vi.fn(),
 }));
 
+// The rating place comes from the shared StreakProvider; each test sets it.
+const streakState: {
+  rating: { me: { rank: number | null }; participants: number } | null;
+  ratingFailed: boolean;
+} = { rating: null, ratingFailed: false };
+vi.mock('../../lib/streakContext.js', () => ({
+  useStreakContext: () => streakState,
+}));
+
 const RANDOM_TASK = {
   id: 'task-1',
   subjectId: 'math',
@@ -49,6 +58,8 @@ function renderHome() {
 }
 
 beforeEach(() => {
+  streakState.rating = null;
+  streakState.ratingFailed = false;
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
     correctTotal: 0,
@@ -87,10 +98,39 @@ describe('HomeMobile', () => {
     expect(document.querySelector('[data-animated-number]')).toBeNull();
   });
 
-  it('shows a neutral dash for streak, never a fabricated day count', () => {
+  it('the rating place sits next to «Решено»; «Правильно» keeps its place', () => {
+    streakState.rating = { me: { rank: 6 }, participants: 120 };
+    const { container } = renderHome();
+    const labels = [...container.querySelectorAll('span.text-body-sm.text-secondary')]
+      .map((el) => el.textContent)
+      .filter((t) => ['Место', 'Решено', 'Правильно'].includes(t ?? ''));
+    expect(labels).toEqual(['Место', 'Решено', 'Правильно']);
+    expect(
+      screen.getByRole('button', { name: 'Место в рейтинге за неделю: 6 из 120. Открыть рейтинг' }),
+    ).toHaveTextContent('#6');
+  });
+
+  it('opens the rating page from the place', async () => {
+    streakState.rating = { me: { rank: 2 }, participants: 9 };
+    window.history.replaceState(null, '', '/');
     renderHome();
-    expect(screen.getByText('Серия')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Место в рейтинге/ }));
+    expect(window.location.pathname).toBe('/rating');
+  });
+
+  it('never invents a place: «—» with no points this week or on failure, «···» while loading', () => {
+    streakState.rating = { me: { rank: null }, participants: 3 };
+    const { unmount } = renderHome();
+    expect(screen.getByRole('button', { name: /ещё нет места в рейтинге/ })).toHaveTextContent('—');
+    unmount();
+    streakState.rating = null;
+    streakState.ratingFailed = true;
+    const second = renderHome();
+    expect(screen.getByRole('button', { name: 'Рейтинг. Открыть' })).toHaveTextContent('—');
+    second.unmount();
+    streakState.ratingFailed = false;
+    renderHome();
+    expect(screen.getByRole('button', { name: 'Рейтинг. Открыть' })).toHaveTextContent('···');
   });
 
   it('shows a neutral placeholder before the real progress data has loaded — never a number it does not have', () => {

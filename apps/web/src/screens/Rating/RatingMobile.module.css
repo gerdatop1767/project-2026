@@ -2,112 +2,23 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
 }
 
-.trailingButton {
+.backButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   width: var(--touch-target-min);
   height: var(--touch-target-min);
   border: none;
   border-radius: 50%;
-  background: var(--color-bg-elevated);
-  color: var(--color-text-primary);
-}
-
-.podiumRow {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
-}
-
-.table {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.tableHeaderRow {
-  display: grid;
-  grid-template-columns: 1.2rem minmax(0, 1fr) 2.8rem 2.6rem 2.8rem 2.4rem;
-  gap: var(--space-1);
-  padding: 0 var(--space-2);
-  color: var(--color-text-secondary);
-  font-size: 11px;
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 1.2rem minmax(0, 1fr) 2.8rem 2.6rem 2.8rem 2.4rem;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-2);
   background: var(--color-bg-surface);
-  border-radius: var(--radius-md, 12px);
-  font-size: 13px;
-}
-
-.rowCurrentUser {
-  background: color-mix(in srgb, var(--color-accent-primary) 16%, var(--color-bg-surface));
-  border: 1px solid var(--color-accent-primary);
-}
-
-.rank {
-  font-weight: 700;
-}
-
-.userCell {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.username {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.streakCell {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--color-error);
-}
-
-.ellipsisRow {
-  text-align: center;
-  color: var(--color-text-disabled);
-}
-
-.inviteCard {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-4);
-  background: color-mix(in srgb, var(--color-accent-primary) 14%, var(--color-bg-surface));
-  border: 1px solid var(--color-accent-primary);
-  border-radius: var(--radius-lg, 16px);
   color: var(--color-text-primary);
+  cursor: pointer;
 }
 
-.inviteIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-accent-primary);
-  color: var(--color-on-accent);
-  flex-shrink: 0;
-}
-
-.inviteBody {
-  flex: 1;
-  text-align: left;
+.backButton:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
 }

@@ -269,15 +269,11 @@ function RankLadder({ level }: { level: number }) {
               <span className={styles.ladderText}>
                 <span className={styles.strong}>{rank.name}</span>
                 <span className={styles.muted}>Уровни {levelRankRange(rank)}</span>
+                {isCurrent && <span className={styles.ladderYou}>Ваш ранг</span>}
               </span>
               <span className={styles.ladderState}>
-                {isCurrent ? (
-                  'Ваш ранг'
-                ) : reached ? (
-                  <Icon name="check" size={18} />
-                ) : (
-                  <Icon name="lock" size={16} />
-                )}
+                {!isCurrent &&
+                  (reached ? <Icon name="check" size={18} /> : <Icon name="lock" size={16} />)}
                 {!reached && (
                   <span className={styles.srOnly}>Откроется с уровня {rank.minLevel}</span>
                 )}

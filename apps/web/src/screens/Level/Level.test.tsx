@@ -10,6 +10,8 @@ import { StreakProvider } from '../../lib/streakContext.js';
 import * as api from '../../lib/api.js';
 
 vi.mock('../../lib/api.js', () => ({
+  // The rating place (StreakProvider): pending unless a test says otherwise.
+  getLeaderboard: vi.fn(() => new Promise(() => {})),
   getStreak: vi.fn(),
   getXpSummary: vi.fn(),
   getXpHistory: vi.fn(),

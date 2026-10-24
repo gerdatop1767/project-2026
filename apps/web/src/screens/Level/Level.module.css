@@ -160,6 +160,12 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.ladderYou {
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  color: color-mix(in srgb, var(--rank-from) 70%, var(--color-text-primary));
+}
+
 .ladderCurrent .ladderState {
   color: color-mix(in srgb, var(--rank-from) 70%, var(--color-text-primary));
 }

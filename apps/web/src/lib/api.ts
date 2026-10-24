@@ -28,6 +28,8 @@ import type {
   TaskWithSolution,
   VariantDetail,
   VariantProgressResponse,
+  LeaderboardPeriod,
+  LeaderboardResponse,
 } from '@zybrilka/shared';
 import { registerPrivateCacheReset } from './privateCaches.js';
 
@@ -284,6 +286,19 @@ export function getXpSummary(): Promise<XpSummaryResponse> {
 export function getXpHistory(cursor?: string | null): Promise<XpHistoryResponse> {
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
   return apiFetch(`/progress/xp/history${qs}`);
+}
+
+/** The rating (docs/LEADERBOARD.md): `limit: 0` returns only the
+ * signed-in user's own place and numbers. */
+export function getLeaderboard(params: {
+  period: LeaderboardPeriod;
+  subject?: string | null;
+  limit?: number;
+}): Promise<LeaderboardResponse> {
+  const qs = new URLSearchParams({ period: params.period });
+  if (params.subject) qs.set('subject', params.subject);
+  if (params.limit !== undefined) qs.set('limit', String(params.limit));
+  return apiFetch(`/leaderboard?${qs.toString()}`);
 }
 
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {

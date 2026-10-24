@@ -285,6 +285,25 @@
   --tone: var(--color-gold);
 }
 
+.statIconRating {
+  --tone: var(--color-accent-primary-end);
+}
+
+/* The rating cell is a link to the rating page, styled as a plain value. */
+.statButton {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.statButton:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
 .statIconSuccess {
   --tone: var(--color-success);
 }

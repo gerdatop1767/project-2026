@@ -7,6 +7,7 @@ import { Icon } from '../../ui/Icon/Icon.js';
 import { StatRow } from '../../ui/StatRow/StatRow.js';
 import { startRealTask } from '../../lib/startTraining.js';
 import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
+import { useStreakContext } from '../../lib/streakContext.js';
 import type { ProgressSummary } from '@zybrilka/shared';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
@@ -101,9 +102,12 @@ export function HomeMobile() {
         <StatRow
           items={[
             {
-              id: 'streak',
-              value: <span className={styles.statValue}>—</span>,
-              label: 'Серия',
+              // The weekly rating place sits in the cell that only ever
+              // showed «—» (the streak lives in the header); «Решено» and
+              // «Правильно» keep their places.
+              id: 'rating',
+              value: <RatingPlace isGuest={isGuest} />,
+              label: 'Место',
             },
             {
               id: 'solved',
@@ -232,5 +236,43 @@ export function HomeMobile() {
         </button>
       </div>
     </SlideUp>
+  );
+}
+
+/** «#6» in the weekly rating (all subjects), opening the rating page; «—»
+ * for a guest, before the first points of the week, or if loading failed. */
+function RatingPlace({ isGuest }: { isGuest: boolean }) {
+  const { navigate } = useNavigation();
+  const { rating, ratingFailed } = useStreakContext();
+  const icon = (
+    <span
+      className={clsx(styles.statIcon, styles.statIconRating)}
+      data-ready={rating ? '' : undefined}
+      aria-hidden="true"
+    >
+      <Icon name="achievements" size={15} />
+    </span>
+  );
+  if (isGuest) {
+    return <span className={styles.statValue}>{icon}—</span>;
+  }
+  const rank = rating?.me.rank ?? null;
+  const text = rating ? (rank === null ? '—' : `#${rank}`) : ratingFailed ? '—' : '···';
+  return (
+    <button
+      type="button"
+      className={clsx(styles.statValue, styles.statButton)}
+      onClick={() => navigate({ screen: 'rating' })}
+      aria-label={
+        rating === null
+          ? 'Рейтинг. Открыть'
+          : rank === null
+            ? 'На этой неделе ещё нет места в рейтинге. Открыть рейтинг'
+            : `Место в рейтинге за неделю: ${rank} из ${rating.participants}. Открыть рейтинг`
+      }
+    >
+      {icon}
+      {text}
+    </button>
   );
 }
