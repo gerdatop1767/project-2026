@@ -321,6 +321,89 @@ describe('Telegram bot', () => {
     });
   });
 
+  describe('reliability', () => {
+    const notSentError = () =>
+      new TelegramApiError('sendPhoto', 'network', null, 'network error (ECONNREFUSED)', null, {
+        code: 'ECONNREFUSED',
+        timeout: false,
+        maybeDelivered: false,
+      });
+    const timeoutError = () =>
+      new TelegramApiError('sendPhoto', 'network', null, 'timeout', null, {
+        code: null,
+        timeout: true,
+        maybeDelivered: true,
+      });
+    const quick = () => ({ ...ctx, retryDelayMs: 1 });
+    const sentTexts = () => telegram.sendMessage.mock.calls.map((c) => c[1]);
+
+    it('a database error on /start still gets the full answer', async () => {
+      const broken = {
+        ...quick(),
+        db: {
+          select: () => {
+            throw new Error('connection refused');
+          },
+        } as unknown as BotContext['db'],
+      };
+      await handleUpdate(broken, start(3001));
+      expect(telegram.sendPhoto).toHaveBeenCalledTimes(1);
+      expect(sentTexts()).toEqual([mainMenuText]);
+    });
+
+    it('a network failure before sending: the photo is retried once — one photo, one menu', async () => {
+      telegram.sendPhoto.mockRejectedValueOnce(notSentError());
+      await handleUpdate(quick(), start(3002, '📚 Меню'));
+      expect(telegram.sendPhoto).toHaveBeenCalledTimes(2);
+      expect(sentTexts()).toEqual([mainMenuText]);
+    });
+
+    it('a Telegram timeout (maybe shown already): no second photo, the menu still comes', async () => {
+      telegram.sendPhoto.mockRejectedValueOnce(timeoutError());
+      await handleUpdate(quick(), start(3003, '📚 Меню'));
+      expect(telegram.sendPhoto).toHaveBeenCalledTimes(1);
+      expect(sentTexts()).toEqual([mainMenuText]);
+    });
+
+    it('a photo that cannot go out at all: the greeting as text with the keyboard, then the menu', async () => {
+      telegram.sendPhoto.mockRejectedValue(notSentError());
+      await handleUpdate(quick(), start(3004, '📚 Меню'));
+      expect(telegram.sendPhoto).toHaveBeenCalledTimes(2);
+      expect(sentTexts()).toEqual([welcomeCaption, mainMenuText]);
+      expect(messageOptions(0).replyMarkup).toEqual(KEYBOARD);
+    });
+
+    it('a failed reply is reported to the caller (logged by polling), not swallowed', async () => {
+      telegram.sendMessage.mockRejectedValue(
+        new TelegramApiError(
+          'sendMessage',
+          'unreachable',
+          403,
+          'Forbidden: bot was blocked by the user',
+        ),
+      );
+      await expect(handleUpdate(quick(), start(3005, '💬 Поддержка'))).rejects.toThrow(
+        TelegramApiError,
+      );
+    });
+
+    it('logs each update with stage durations — no text, no token', async () => {
+      const lines: string[] = [];
+      const log = pino({ level: 'info' }, { write: (l: string) => void lines.push(l) });
+      await handleUpdate({ ...quick(), logger: log }, start(3006, 'секретный текст'));
+      await handleUpdate({ ...quick(), logger: log }, start(3006));
+      const entries = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+      const updates = entries.filter((e) => e.msg === 'telegram update');
+      expect(updates.map((e) => [e.action, e.outcome])).toEqual([
+        ['text', 'ok'],
+        ['start', 'ok'],
+      ]);
+      expect(Object.keys(updates[1]!.ms as object).sort()).toEqual(['db', 'menu', 'photo']);
+      expect(typeof updates[1]!.totalMs).toBe('number');
+      expect(lines.join('\n')).not.toContain('секретный');
+    });
+  });
+
   describe('polling', () => {
     it('handles every update, survives a Telegram error, saves the offset, logs no token or text', async () => {
       const lines: string[] = [];

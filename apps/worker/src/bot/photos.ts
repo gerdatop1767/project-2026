@@ -77,6 +77,12 @@ export class BotPhotos {
     }
   }
 
+  /** Reads the image and the saved file_ids ahead of time (no Telegram
+   * call), so the first /start after a restart does not wait on disk/DB. */
+  async preload(image: BotImage): Promise<void> {
+    await Promise.all([this.file(image), this.load()]);
+  }
+
   async send(
     telegram: TelegramClient,
     chatId: ChatId,
