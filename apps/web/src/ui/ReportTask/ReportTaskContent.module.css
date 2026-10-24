@@ -1,50 +1,179 @@
+/* The surrounding Modal / BottomSheet panel (reportPanelClassName): a thin
+   border, a faint accent wash at the top and a soft glow — the header and
+   the buttons stay put, only the reason list scrolls. The attribute selector
+   outranks the base panel's own overflow / background rules. */
+.panel[role='dialog'] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      120% 60% at 50% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 12%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-elevated);
+  box-shadow:
+    var(--shadow-e3),
+    0 0 48px color-mix(in srgb, var(--color-accent-primary) 16%, transparent),
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--color-accent-primary-end) 18%, var(--color-border-subtle));
+}
+
 .form {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
+/* The form itself: body scrolls, footer stays at the bottom of the panel. */
+.formLayout {
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Room for focus outlines, which overflow would otherwise clip. */
+  margin: 0 calc(var(--space-1) * -1);
+  padding: var(--space-1);
+}
+
 .reasons {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   border: none;
+  min-width: 0;
 }
 
 .legend {
   margin-bottom: var(--space-2);
+  padding: 0;
   font-weight: var(--font-weight-semibold);
 }
 
 .reason {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 2.75rem;
-  padding: 0 var(--space-3);
+  min-height: 3.5rem;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-input);
-  background: var(--color-bg-surface);
+  background: color-mix(in srgb, var(--color-bg-surface) 70%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+@media (hover: hover) {
+  .reason:hover {
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--color-accent-primary-end) 35%, var(--color-border-subtle));
+  }
+}
+
+.reasonSelected,
+.reasonSelected:hover {
+  background: color-mix(in srgb, var(--color-accent-primary) 14%, var(--color-bg-surface));
+  box-shadow:
+    inset 0 0 0 1.5px var(--color-accent-primary-end),
+    0 0 18px color-mix(in srgb, var(--color-accent-primary) 18%, transparent);
+}
+
+/* The native radio stays for keyboard and screen readers, drawn by .indicator. */
+.radio {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
   cursor: pointer;
 }
 
-.reason input {
-  width: 1.125rem;
-  height: 1.125rem;
-  accent-color: var(--color-accent-primary);
+.reason:has(.radio:focus-visible) {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
 }
 
-.commentLabel {
+.reasonIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.625rem;
+  color: var(--color-accent-primary-end);
+  background: color-mix(in srgb, var(--color-accent-primary) 14%, transparent);
+}
+
+.reasonText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.reasonTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.reasonHint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.indicator {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--color-text-disabled);
+  transition: box-shadow var(--duration-fast) ease;
+}
+
+.reasonSelected .indicator {
+  background: var(--gradient-primary);
+  box-shadow:
+    inset 0 0 0 4px var(--color-bg-elevated),
+    0 0 0 1.5px var(--color-accent-primary-end);
+}
+
+.commentBlock {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  color: var(--color-text-secondary);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.commentLabel {
+  color: var(--color-text-primary);
   font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .comment {
   width: 100%;
+  min-height: 5.5rem;
   padding: var(--space-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-input);
@@ -56,8 +185,11 @@
   resize: vertical;
 }
 
-.comment:focus-visible,
-.reason:focus-within {
+.comment::placeholder {
+  color: var(--color-text-disabled);
+}
+
+.comment:focus-visible {
   outline: 2px solid var(--color-accent-primary-end);
   outline-offset: 2px;
 }
@@ -72,8 +204,31 @@
   align-self: flex-end;
   font-size: var(--font-size-label);
   color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.footer {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  padding-top: var(--space-4);
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* Without «Отмена» the submit button takes the whole row. */
+.footer > :only-child {
+  grid-column: 1 / -1;
 }
 
 .reportId {
   font-weight: var(--font-weight-semibold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reason,
+  .indicator {
+    transition: none;
+  }
 }

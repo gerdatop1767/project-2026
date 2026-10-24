@@ -153,12 +153,10 @@ describe('owner notifications (API side: queued, never blocking)', () => {
         siteErrors: true,
         complaints: true,
       });
-      expect(get.json().delivery).toMatchObject({
-        botConfigured: true,
-        owners: 1,
-        withTelegram: 0,
-        startedBot: 0,
-      });
+      expect(get.json().delivery).toEqual({ botConfigured: true, owners: 1, withTelegram: 0 });
+      // No worker has reported yet in this test, and nothing was delivered.
+      expect(get.json().worker).toBeNull();
+      expect(get.json().lastResult).toBeNull();
 
       const put = await app.inject({
         method: 'PUT',
@@ -187,6 +185,34 @@ describe('owner notifications (API side: queued, never blocking)', () => {
           ),
         );
       expect(audit).toHaveLength(1);
+    });
+
+    it('shows what the worker reported and why the last notification did not arrive', async () => {
+      await testDb.db.insert(schema.appSettings).values({
+        key: 'worker.status',
+        value: {
+          at: new Date().toISOString(),
+          botConfigured: true,
+          polling: false,
+          healthCheck: false,
+          owners: 1,
+        },
+      });
+      await testDb.db.insert(schema.telegramOutbox).values({
+        kind: 'registration',
+        payload: { userId: 'x', method: 'vk', at: new Date().toISOString(), campaign: null },
+        status: 'failed',
+        lastError: 'not_started',
+      });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/notifications',
+        headers: { cookie: owner.cookie },
+      });
+      expect(res.json().worker).toMatchObject({ polling: false, healthCheck: false, stale: false });
+      expect(res.json().lastResult).toMatchObject({ status: 'failed', lastError: 'not_started' });
+      // The worker status carries booleans only.
+      expect(JSON.stringify(res.json().worker)).not.toMatch(/token|:\w{20,}/i);
     });
 
     it('rejects unknown fields and wrong types', async () => {

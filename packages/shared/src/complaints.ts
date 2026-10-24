@@ -46,6 +46,18 @@ export const complaintReasonLabels: Record<ComplaintReasonValue, string> = {
   other: 'Другая причина',
 };
 
+/** One-line hint under each offered reason in «Сообщить об ошибке». */
+export const complaintReasonHints: Record<(typeof offeredComplaintReasons)[number], string> = {
+  wrong_answer: 'Считаю, что правильный ответ другой',
+  condition_error: 'Условие неполное или некорректное',
+  bad_explanation: 'Ошибка или пробел в разборе',
+  display_problem: 'Не видно картинку, формула или вёрстка сломаны',
+  answer_check: 'Сбой при вводе, отправке или проверке ответа',
+  wrong_topic: 'Не подходит к указанной теме или номеру',
+  duplicate: 'Такое задание уже встречалось',
+  other: 'Опишите проблему в комментарии',
+};
+
 export const COMPLAINT_COMMENT_MAX = 1000;
 
 /** Screens a complaint can come from. */

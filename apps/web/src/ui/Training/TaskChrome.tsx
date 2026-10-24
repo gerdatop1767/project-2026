@@ -4,7 +4,11 @@ import { SubjectTile } from '../SubjectTile/SubjectTile.js';
 import { TaskNumberStrip, type TaskNumberStripEntry } from './TaskNumberStrip.js';
 import { ProgressBar } from '../Progress/ProgressBar.js';
 import { BottomSheet } from '../BottomSheet/BottomSheet.js';
-import { ReportTaskContent } from '../ReportTask/ReportTaskContent.js';
+import {
+  ReportTaskContent,
+  reportDialogHeader,
+  reportPanelClassName,
+} from '../ReportTask/ReportTaskContent.js';
 import type { Subject } from '../../data/subjects.js';
 import { useFavorite } from '../../lib/useFavorite.js';
 import { clsx } from '../../lib/clsx.js';
@@ -100,7 +104,8 @@ export function TaskChrome({
       <BottomSheet
         open={reportOpen}
         onClose={() => setReportOpen(false)}
-        title="Сообщить об ошибке"
+        {...reportDialogHeader}
+        className={reportPanelClassName}
       >
         <ReportTaskContent
           key={taskId}

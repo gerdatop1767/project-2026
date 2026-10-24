@@ -78,6 +78,26 @@ describe('BroadcastsPage', () => {
     expect(screen.getByText(/только те, кто сам запускал бота/)).toBeInTheDocument();
   });
 
+  it('explains a zero audience: the bot does not read /start while polling is off', async () => {
+    mockFetch(() => [
+      200,
+      {
+        recipientsEstimate: 0,
+        items: [],
+        worker: {
+          at: new Date().toISOString(),
+          botConfigured: true,
+          polling: false,
+          healthCheck: true,
+          owners: 1,
+          stale: false,
+        },
+      },
+    ]);
+    renderAt('/admin/broadcasts', <BroadcastsPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('TELEGRAM_BOT_POLLING выключен');
+  });
+
   it('shows an empty state', async () => {
     mockFetch(() => [200, { recipientsEstimate: 0, items: [] }]);
     renderAt('/admin/broadcasts', <BroadcastsPage />);

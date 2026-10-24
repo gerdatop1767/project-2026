@@ -22,6 +22,7 @@ import {
   type Column,
 } from '../components/ui.js';
 import { AdminApiError, adminApi } from '../adminApi.js';
+import { type WorkerStatusInfo } from '../components/WorkerStatus.js';
 import { dateTime, num } from '../format.js';
 import { AdminLink, useAdminRouter } from '../router.js';
 import { useAdminQuery } from '../useAdminQuery.js';
@@ -66,6 +67,7 @@ interface Detail {
   validation: { ok: true; parts: BroadcastPart[] } | { ok: false; error: string };
   recipientsEstimate: number;
   deliveries: { status: string; errorCode: string | null; n: number }[];
+  worker: WorkerStatusInfo | null;
 }
 
 type ListItem = Omit<Broadcast, 'mediaMode' | 'testStatus' | 'confirmedAt' | 'startedAt'> & {
@@ -200,10 +202,45 @@ function TelegramPreview({
   );
 }
 
+/**
+ * Why a broadcast would reach nobody. The audience is the chats that
+ * pressed /start, and the bot only learns about a /start while the worker
+ * reads its messages (TELEGRAM_BOT_POLLING) — so with that off the
+ * audience stays empty however many people use the bot.
+ */
+function AudienceNote({
+  recipients,
+  worker,
+}: {
+  recipients: number;
+  worker: WorkerStatusInfo | null;
+}) {
+  if (recipients > 0) return null;
+  let text: string;
+  if (!worker || worker.stale) {
+    text =
+      'Получателей 0, и фоновый процесс (worker) не работает — отправлять сейчас некому и нечем.';
+  } else if (!worker.polling) {
+    text =
+      'Получателей 0: бот сейчас не принимает сообщения (TELEGRAM_BOT_POLLING выключен), поэтому ни один /start не записан. Подписчики появятся, когда приём включат и люди нажмут /start. «Отправить себе» работает и без этого.';
+  } else {
+    text = 'Получателей 0: ещё никто не нажал /start в боте после включения приёма сообщений.';
+  }
+  return (
+    <p className={s.small} role="alert">
+      {text}
+    </p>
+  );
+}
+
 // ── List ────────────────────────────────────────────────────────────────
 
 export function BroadcastsPage() {
-  const query = useAdminQuery<{ items: ListItem[]; recipientsEstimate: number }>('/broadcasts');
+  const query = useAdminQuery<{
+    items: ListItem[];
+    recipientsEstimate: number;
+    worker: WorkerStatusInfo | null;
+  }>('/broadcasts');
   const { navigate } = useAdminRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -281,6 +318,9 @@ export function BroadcastsPage() {
           его. Отправка начинается только после отдельного подтверждения.
         </Note>
         {error !== null && <ErrorState error={error} compact />}
+        {query.data && (
+          <AudienceNote recipients={query.data.recipientsEstimate} worker={query.data.worker} />
+        )}
         <QueryView
           query={query}
           skeleton={300}
@@ -578,6 +618,7 @@ export function BroadcastPage({ id = '' }: Record<string, string>) {
                       их <strong>{num(d.recipientsEstimate)}</strong>. Отменить уже доставленные
                       сообщения будет нельзя.
                     </p>
+                    <AudienceNote recipients={d.recipientsEstimate} worker={d.worker} />
                     <div className={s.toolbar}>
                       <button
                         type="button"

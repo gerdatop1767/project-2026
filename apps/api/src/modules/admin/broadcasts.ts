@@ -12,6 +12,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { readImageHeader } from '../profile/image.js';
 import { writeAudit } from './audit.js';
+import { loadWorkerStatus } from './reports/notifications.js';
 
 export interface BroadcastRoutesOptions {
   db: Database;
@@ -79,6 +80,7 @@ async function detail(db: Database, b: Broadcast) {
     validation: validate(b, attachments.length),
     recipientsEstimate: await estimateRecipients(db),
     deliveries,
+    worker: await loadWorkerStatus(db),
   };
 }
 
@@ -149,7 +151,11 @@ export const broadcastRoutes: FastifyPluginAsync<BroadcastRoutesOptions> = async
       .from(schema.broadcasts)
       .orderBy(desc(schema.broadcasts.createdAt))
       .limit(100);
-    return { items, recipientsEstimate: await estimateRecipients(db) };
+    return {
+      items,
+      recipientsEstimate: await estimateRecipients(db),
+      worker: await loadWorkerStatus(db),
+    };
   });
 
   app.post('/admin/broadcasts', async (request, reply) => {

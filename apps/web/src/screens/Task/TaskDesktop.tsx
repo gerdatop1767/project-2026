@@ -18,7 +18,11 @@ import { CanvasWorkspaceDesktop } from '../../ui/CanvasWorkspace/CanvasWorkspace
 import { clearCanvasState } from '../../lib/canvasSessionStore.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Modal } from '../../ui/Modal/Modal.js';
-import { ReportTaskContent } from '../../ui/ReportTask/ReportTaskContent.js';
+import {
+  ReportTaskContent,
+  reportDialogHeader,
+  reportPanelClassName,
+} from '../../ui/ReportTask/ReportTaskContent.js';
 import { DesktopToolsCard } from '../../ui/Training/DesktopToolsCard.js';
 import { OtherVariantsSectionDesktop } from '../../ui/Training/OtherVariantsSectionDesktop.js';
 import { SessionProgressCard } from '../../ui/Training/SessionProgressCard.js';
@@ -463,7 +467,13 @@ export function TaskDesktop({
             taskId={task.id}
             task={task}
           />
-          <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Сообщить об ошибке">
+          <Modal
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            {...reportDialogHeader}
+            className={reportPanelClassName}
+            wide
+          >
             <ReportTaskContent
               key={task.id}
               taskId={task.id}

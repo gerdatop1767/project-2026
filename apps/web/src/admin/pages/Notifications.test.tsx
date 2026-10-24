@@ -5,7 +5,16 @@ import { NotificationsPage } from './Notifications.js';
 
 const base = {
   settings: { registrations: true, siteErrors: true, complaints: false },
-  delivery: { botConfigured: true, owners: 1, withTelegram: 1, startedBot: 1 },
+  delivery: { botConfigured: true, owners: 1, withTelegram: 1 },
+  worker: {
+    at: new Date().toISOString(),
+    botConfigured: true,
+    polling: false,
+    healthCheck: true,
+    owners: 1,
+    stale: false,
+  },
+  lastResult: null as null | { status: string; lastError: string | null; at: string },
   queue: { pending: 0, failed24h: 1, sent24h: 4, lastSentAt: '2026-10-23 10:00:00+00' },
 };
 
@@ -40,7 +49,11 @@ describe('NotificationsPage', () => {
     expect(reg).toBeChecked();
     expect(screen.getByRole('switch', { name: /Сбои сайта/ })).toBeChecked();
     expect(screen.getByRole('switch', { name: /Жалобы на задания/ })).not.toBeChecked();
-    expect(screen.getByText('Всё готово: уведомления будут приходить.')).toBeInTheDocument();
+    expect(screen.getByText(/Настройки в порядке/)).toBeInTheDocument();
+    // The worker's own report, incl. that /start is not read — which does
+    // not stop owner notifications.
+    expect(screen.getByText(/бот не видит \/start/)).toBeInTheDocument();
+    expect(screen.getByText(/Уведомлениям владельцу это не мешает/)).toBeInTheDocument();
     expect(screen.getByText(/только владельцу/)).toBeInTheDocument();
   });
 
@@ -59,10 +72,27 @@ describe('NotificationsPage', () => {
   });
 
   it('explains what is missing and does not offer a test when delivery cannot work', async () => {
-    mockFetch({ ...base, delivery: { ...base.delivery, startedBot: 0 } });
+    mockFetch({ ...base, delivery: { ...base.delivery, withTelegram: 0 } });
     renderPage();
-    expect(await screen.findByRole('alert')).toHaveTextContent('нажмите /start');
+    expect(await screen.findByRole('alert')).toHaveTextContent('не подключён Telegram');
     expect(screen.getByRole('button', { name: 'Отправить тестовое уведомление' })).toBeDisabled();
+  });
+
+  it('says the owner has to press Start when Telegram refused the last message', async () => {
+    mockFetch({
+      ...base,
+      lastResult: { status: 'failed', lastError: 'not_started', at: '2026-10-23 12:00:00+00' },
+    });
+    renderPage();
+    expect(await screen.findByRole('alert')).toHaveTextContent('нажмите «Запустить» (Start)');
+    expect(screen.getByRole('button', { name: 'Отправить тестовое уведомление' })).toBeEnabled();
+  });
+
+  it('says when the worker is not running', async () => {
+    mockFetch({ ...base, worker: null });
+    renderPage();
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.map((a) => a.textContent).join(' ')).toMatch(/worker\) не работает/);
   });
 
   it('queues a test notification', async () => {

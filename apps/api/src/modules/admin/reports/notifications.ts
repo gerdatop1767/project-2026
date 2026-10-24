@@ -4,6 +4,8 @@ import {
   ADMIN_NOTIFICATIONS_KEY,
   adminNotificationSettingsSchema,
   readAdminNotificationSettings,
+  readWorkerStatus,
+  WORKER_STATUS_KEY,
   type AdminNotificationSettings,
 } from '@zybrilka/shared';
 import { eq, sql } from 'drizzle-orm';
@@ -17,6 +19,15 @@ export async function loadNotificationSettings(db: Database): Promise<AdminNotif
     .from(schema.appSettings)
     .where(eq(schema.appSettings.key, ADMIN_NOTIFICATIONS_KEY));
   return readAdminNotificationSettings(row?.value);
+}
+
+/** The worker's own report (null: never ran this version / no database row). */
+export async function loadWorkerStatus(db: Database) {
+  const [row] = await db
+    .select({ value: schema.appSettings.value })
+    .from(schema.appSettings)
+    .where(eq(schema.appSettings.key, WORKER_STATUS_KEY));
+  return row ? readWorkerStatus(row.value) : null;
 }
 
 export async function saveNotificationSettings(db: Database, settings: AdminNotificationSettings) {
@@ -51,9 +62,20 @@ export async function notificationsReport(
       max(sent_at)::text AS "lastSentAt"
       FROM telegram_outbox`,
   );
+  // The latest finished attempt — says in one word why nothing arrives
+  // (`not_started`: the owner has not pressed Start; `no_recipients`: no
+  // owner with Telegram; `disabled`: switched off).
+  const [last] = await rows<{ status: string; lastError: string | null; at: string }>(
+    db,
+    sql`SELECT status, last_error AS "lastError", coalesce(sent_at, created_at)::text AS at
+      FROM telegram_outbox WHERE status IN ('sent', 'failed', 'skipped')
+      ORDER BY coalesce(sent_at, created_at) DESC LIMIT 1`,
+  );
   return {
     settings: await loadNotificationSettings(db),
     delivery: { botConfigured, ...(await adminTelegramReadiness(db, ownerIds)) },
+    worker: await loadWorkerStatus(db),
+    lastResult: last ?? null,
     queue: queue ?? { pending: 0, failed24h: 0, sent24h: 0, lastSentAt: null },
   };
 }

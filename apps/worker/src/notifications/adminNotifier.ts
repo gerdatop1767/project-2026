@@ -74,15 +74,6 @@ export class AdminNotifier {
     return this.settingsCache?.value ?? readAdminNotificationSettings(undefined);
   }
 
-  private async markBlocked(chatId: number) {
-    await this.o.db
-      .update(schema.telegramBotChats)
-      .set({ blockedAt: new Date() })
-      .where(eq(schema.telegramBotChats.chatId, chatId))
-      .catch(() => undefined);
-    this.recipients = null;
-  }
-
   /**
    * Sends one message to every admin chat. `sent` when at least one got it;
    * otherwise the most actionable failure (rate limit first, then network).
@@ -107,9 +98,8 @@ export class AdminNotifier {
         });
         delivered++;
       } catch (error) {
-        if (error instanceof TelegramApiError && error.kind === 'unreachable') {
-          await this.markBlocked(chatId);
-        }
+        // 403 here means the owner has not pressed Start in the bot (or
+        // blocked it): nothing to mark — it works as soon as they do.
         if (!worst || (error instanceof TelegramApiError && error.kind === 'rate_limited')) {
           worst = error as Error;
         }
@@ -178,6 +168,7 @@ export class AdminNotifier {
       } else {
         const error = result.error;
         const kind = error instanceof TelegramApiError ? error.kind : 'network';
+        const code = kind === 'unreachable' ? 'not_started' : kind;
         const retryable = kind === 'rate_limited' || kind === 'network';
         if (retryable && row.attempts < MAX_ATTEMPTS) {
           const waitSeconds =
@@ -190,7 +181,7 @@ export class AdminNotifier {
             nextAttemptAt: new Date(this.now() + waitSeconds * 1000),
           });
         } else {
-          await this.finish(row.id, { status: 'failed', lastError: kind });
+          await this.finish(row.id, { status: 'failed', lastError: code });
         }
         this.o.logger.warn({ kind, attempts: row.attempts }, 'admin notification not delivered');
       }

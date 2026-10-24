@@ -1,4 +1,5 @@
-import type { Database } from '@zybrilka/db';
+import { schema, type Database } from '@zybrilka/db';
+import { WORKER_STATUS_KEY, type WorkerStatus } from '@zybrilka/shared';
 import type { Logger } from 'pino';
 import { handleUpdate } from './bot/handleUpdate.js';
 import { BotPhotos } from './bot/photos.js';
@@ -122,8 +123,32 @@ export async function startWorker({
     });
   }
 
-  // Keeps the process alive even with nothing scheduled.
-  const heartbeat = setInterval(() => logger.debug('worker heartbeat'), 60_000);
+  // Tells the admin panel what this worker does (no secrets, booleans only),
+  // and keeps the process alive even with nothing scheduled.
+  const status = (): WorkerStatus => ({
+    at: new Date().toISOString(),
+    botConfigured: Boolean(telegram),
+    polling: Boolean(telegram && db && polling),
+    healthCheck: Boolean(telegram && db && healthUrl),
+    owners: ownerIds.length,
+  });
+  const reportStatus = async () => {
+    if (!db) return;
+    const value = status();
+    await db
+      .insert(schema.appSettings)
+      .values({ key: WORKER_STATUS_KEY, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: schema.appSettings.key, set: { value, updatedAt: new Date() } })
+      .catch((err: unknown) => logger.warn({ err }, 'worker status not saved'));
+  };
+  await reportStatus();
+  if (telegram && db && !healthUrl) {
+    logger.warn('health check off: API_HEALTH_URL is not set — outage alerts will not be sent');
+  }
+  const heartbeat = setInterval(() => {
+    logger.debug('worker heartbeat');
+    void reportStatus();
+  }, 60_000);
   logger.info('worker started');
 
   return {

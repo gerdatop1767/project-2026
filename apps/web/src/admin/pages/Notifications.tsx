@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AdminNotificationSettings } from '@zybrilka/shared';
 import { PageHead } from '../components/Shell.js';
 import { Badge, Card, ErrorState, Kpi, Note, QueryView } from '../components/ui.js';
+import { WorkerStatusList, type WorkerStatusInfo } from '../components/WorkerStatus.js';
 import { adminApi } from '../adminApi.js';
 import { dateTime } from '../format.js';
 import { useAdminQuery } from '../useAdminQuery.js';
@@ -9,7 +10,9 @@ import s from '../admin.module.css';
 
 interface NotificationsResponse {
   settings: AdminNotificationSettings;
-  delivery: { botConfigured: boolean; owners: number; withTelegram: number; startedBot: number };
+  delivery: { botConfigured: boolean; owners: number; withTelegram: number };
+  worker: WorkerStatusInfo | null;
+  lastResult: { status: string; lastError: string | null; at: string } | null;
   queue: { pending: number; failed24h: number; sent24h: number; lastSentAt: string | null };
 }
 
@@ -32,15 +35,31 @@ const kinds: { key: keyof AdminNotificationSettings; title: string; text: string
 ];
 
 /** What still stands between the owner and the notifications, in order. */
-function deliveryProblem(d: NotificationsResponse['delivery']): string | null {
-  if (!d.botConfigured) return 'На сервере не задан TELEGRAM_BOT_TOKEN — бот ничего не отправит.';
-  if (d.owners === 0) return 'Не задан ADMIN_OWNER_USER_IDS — некому отправлять.';
-  if (d.withTelegram === 0)
+function deliveryProblem(d: NotificationsResponse): string | null {
+  if (!d.delivery.botConfigured) {
+    return 'На сервере (API) не задан TELEGRAM_BOT_TOKEN — бот ничего не отправит.';
+  }
+  if (d.delivery.owners === 0) return 'Не задан ADMIN_OWNER_USER_IDS — некому отправлять.';
+  if (d.delivery.withTelegram === 0) {
     return 'К аккаунту владельца не подключён Telegram: «Профиль → Способы входа → Telegram» (в Mini App).';
-  if (d.startedBot === 0)
-    return 'Владелец ещё не запустил бота: откройте бота в Telegram и нажмите /start.';
+  }
+  if (!d.worker || d.worker.stale)
+    return 'Фоновый процесс (worker) не работает — отправлять некому.';
+  if (!d.worker.botConfigured)
+    return 'У worker не задан TELEGRAM_BOT_TOKEN — он ничего не отправит.';
   return null;
 }
+
+/** The last delivery outcome, in words. */
+const lastResultText: Record<string, string> = {
+  not_started:
+    'Telegram не дал написать владельцу: откройте бота в Telegram и нажмите «Запустить» (Start). Потом отправьте тестовое уведомление.',
+  no_recipients: 'Некому было отправить: у владельца не подключён Telegram.',
+  disabled: 'Этот тип уведомлений выключен.',
+  network: 'Telegram был недоступен — сообщение не дошло после повторов.',
+  rate_limited: 'Telegram попросил подождать (лимит) — сообщение не дошло после повторов.',
+  rejected: 'Telegram отклонил сообщение.',
+};
 
 /**
  * «Уведомления» — what the owner gets in Telegram. Each switch saves at
@@ -90,7 +109,8 @@ export function NotificationsPage() {
       <PageHead title="Уведомления" />
       <QueryView query={query} skeleton={360}>
         {(d) => {
-          const problem = deliveryProblem(d.delivery);
+          const problem = deliveryProblem(d);
+          const last = d.lastResult;
           return (
             <div className={s.grid}>
               <Note>
@@ -144,15 +164,33 @@ export function NotificationsPage() {
                     <dd>{d.delivery.owners}</dd>
                     <dt>С Telegram</dt>
                     <dd>{d.delivery.withTelegram}</dd>
-                    <dt>Запустили бота</dt>
-                    <dd>{d.delivery.startedBot}</dd>
+                    <dt>Последняя попытка</dt>
+                    <dd>
+                      {last ? (
+                        <>
+                          <Badge tone={last.status === 'sent' ? 'good' : 'warn'}>
+                            {last.status === 'sent' ? 'доставлено' : 'не доставлено'}
+                          </Badge>{' '}
+                          <span className={s.small}>{dateTime(last.at)}</span>
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </dd>
                   </dl>
                   {problem ? (
                     <p className={s.small} role="alert">
                       {problem}
                     </p>
+                  ) : last && last.status !== 'sent' && last.lastError ? (
+                    <p className={s.small} role="alert">
+                      {lastResultText[last.lastError] ?? `Не доставлено: ${last.lastError}`}
+                    </p>
                   ) : (
-                    <p className={s.small}>Всё готово: уведомления будут приходить.</p>
+                    <p className={s.small}>
+                      Настройки в порядке. Если владелец ещё не нажимал «Запустить» в боте, сделайте
+                      это и отправьте тестовое уведомление.
+                    </p>
                   )}
                   <div className={s.toolbar}>
                     <button
@@ -169,6 +207,9 @@ export function NotificationsPage() {
                       </span>
                     )}
                   </div>
+                </Card>
+                <Card title="Фоновый процесс">
+                  <WorkerStatusList worker={d.worker} />
                 </Card>
                 <Card title="Очередь" note="Отправляет фоновый процесс (worker)">
                   <div className={s.kpis}>

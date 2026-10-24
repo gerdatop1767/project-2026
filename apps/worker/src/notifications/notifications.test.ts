@@ -188,23 +188,49 @@ describe('admin notifications', () => {
     expect(await statusOf(row.id)).toMatchObject({ status: 'failed', lastError: 'network' });
   });
 
-  it('a chat that blocked the bot is marked and no longer used', async () => {
+  it('regression: reaches the owner with no /start recorded (bot not reading updates)', async () => {
+    // Production had TELEGRAM_BOT_POLLING=false, so telegram_bot_chats stayed
+    // empty and every notification ended as «no_recipients». The owner's
+    // private chat id is their verified Telegram id — no recorded /start needed.
+    const [lonelyOwner] = await testDb.db.insert(schema.users).values({}).returning();
+    await testDb.db
+      .insert(schema.authIdentities)
+      .values({ userId: lonelyOwner!.id, provider: 'telegram', providerUserId: '7333' });
+    const noPolling = new AdminNotifier({
+      db: testDb.db,
+      telegram,
+      ownerIds: [lonelyOwner!.id],
+      siteUrl: SITE,
+      logger,
+    });
+    const row = await enqueue(registration('u-reg'));
+    await noPolling.processOutbox();
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
+    expect(telegram.sendMessage.mock.calls[0]![0]).toBe(7333);
+    expect((await statusOf(row.id)).status).toBe('sent');
+  });
+
+  it('an owner who has not pressed Start: «not_started», and nothing is marked blocked', async () => {
     telegram.sendMessage.mockRejectedValueOnce(
       new TelegramApiError(
         'sendMessage',
         'unreachable',
         403,
-        'Forbidden: bot was blocked by the user',
+        "Forbidden: bot can't initiate conversation with a user",
       ),
     );
     const row = await enqueue(registration('u-4'));
     await notifier.processOutbox();
-    expect((await statusOf(row.id)).status).toBe('failed');
+    expect(await statusOf(row.id)).toMatchObject({ status: 'failed', lastError: 'not_started' });
     const [chat] = await testDb.db
       .select()
       .from(schema.telegramBotChats)
       .where(eq(schema.telegramBotChats.chatId, OWNER_TG));
-    expect(chat!.blockedAt).not.toBeNull();
+    expect(chat!.blockedAt).toBeNull();
+    // Once they press Start, the next one goes through.
+    const next = await enqueue(registration('u-5'));
+    await notifier.processOutbox();
+    expect((await statusOf(next.id)).status).toBe('sent');
   });
 
   it('two workers never send the same row twice', async () => {
