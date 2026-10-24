@@ -34,6 +34,11 @@ export interface PollingOptions {
   /** For tests: how long to back off after an error (ms). */
   backoffMs?: (attempt: number) => number;
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+  /** A handler still running after this is given up on (logged) so its
+   * chat's next message is not held behind it forever. */
+  handlerTimeoutMs?: number;
+  /** Most updates handled at the same time (across chats). */
+  maxInFlight?: number;
 }
 
 const defaultSleep = (ms: number, signal: AbortSignal) =>
@@ -45,10 +50,37 @@ const defaultSleep = (ms: number, signal: AbortSignal) =>
     });
   });
 
+/** 1 s, 2 s, 4 s, 8 s, then 10 s: a dropped connection is back within
+ * seconds — the bot must not stay deaf for a minute after Telegram is
+ * reachable again. */
+export function defaultBackoffMs(attempt: number): number {
+  return Math.min(10_000, 1_000 * 2 ** attempt);
+}
+
+const HANDLER_TIMEOUT_MS = 60_000;
+const MAX_IN_FLIGHT = 32;
+
+/** The chat an update belongs to: its messages are answered in order. */
+function chatOf(update: TelegramUpdate): string {
+  const chat =
+    update.message?.chat.id ??
+    update.callback_query?.message?.chat.id ??
+    update.callback_query?.from.id;
+  return chat === undefined ? `update:${update.update_id}` : String(chat);
+}
+
 /**
- * Long-polls getUpdates until stopped. Each update is handled on its own (a
- * failure is logged without the message text and does not block the rest),
- * then the offset is saved, so a restart neither replays nor loses updates.
+ * Long-polls getUpdates until stopped.
+ * - Updates are handed to `handle` without waiting for the reply to go
+ *   out: one slow reply (a photo upload, a Telegram timeout) never holds
+ *   up another user, and polling keeps reading. Messages of one chat are
+ *   still answered one at a time, in order. At most `maxInFlight` run at
+ *   once — beyond that, polling waits for a slot.
+ * - The offset is confirmed as soon as an update is taken (saved after
+ *   each batch): a restart never answers the same update twice — at
+ *   worst a reply cut off by the restart is lost.
+ * - A handler failure is logged without the message text; a handler
+ *   still running after `handlerTimeoutMs` is logged and its chat moves on.
  * - 409: another reader or a webhook owns this bot's updates — logged, then
  *   retried rarely; the worker never deletes a webhook on its own.
  * - 401/404: the token is wrong — polling stops.
@@ -58,14 +90,66 @@ export function startPolling({
   telegram,
   logger,
   handle,
-  backoffMs = (attempt) => Math.min(60_000, 2_000 * 2 ** attempt),
+  backoffMs = defaultBackoffMs,
   sleep = defaultSleep,
+  handlerTimeoutMs = HANDLER_TIMEOUT_MS,
+  maxInFlight = MAX_IN_FLIGHT,
 }: PollingOptions) {
   const controller = new AbortController();
+  /** The last task queued per chat (the next one starts after it). */
+  const chains = new Map<string, Promise<void>>();
+  const inFlight = new Set<Promise<void>>();
+
+  async function run(update: TelegramUpdate) {
+    const started = performance.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), handlerTimeoutMs);
+    });
+    try {
+      const outcome = await Promise.race([handle(update).then(() => 'done' as const), timedOut]);
+      if (outcome === 'timeout') {
+        logger.error(
+          { updateId: update.update_id, timeoutMs: handlerTimeoutMs },
+          'telegram update still running — moving on',
+        );
+      }
+    } catch (error) {
+      logger.error(
+        {
+          updateId: update.update_id,
+          kind: error instanceof TelegramApiError ? error.kind : 'unknown',
+          code: error instanceof TelegramApiError ? (error.network?.code ?? null) : null,
+          err: error instanceof TelegramApiError ? undefined : error,
+          ms: Math.round(performance.now() - started),
+        },
+        'telegram update failed',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function dispatch(update: TelegramUpdate) {
+    const chat = chatOf(update);
+    const previous = chains.get(chat) ?? Promise.resolve();
+    const task = previous.then(() => run(update));
+    chains.set(chat, task);
+    inFlight.add(task);
+    void task.finally(() => {
+      inFlight.delete(task);
+      if (chains.get(chat) === task) chains.delete(chat);
+    });
+  }
+
   const done = (async () => {
     let offset = await loadOffset(db);
     let failures = 0;
     while (!controller.signal.aborted) {
+      // Backpressure: never more than `maxInFlight` replies in progress.
+      while (inFlight.size >= maxInFlight && !controller.signal.aborted) {
+        await Promise.race(inFlight);
+      }
       let updates: TelegramUpdate[];
       try {
         updates = await telegram.getUpdates(
@@ -104,22 +188,21 @@ export function startPolling({
         continue;
       }
       for (const update of updates) {
-        try {
-          await handle(update);
-        } catch (error) {
-          logger.error(
-            {
-              updateId: update.update_id,
-              kind: error instanceof TelegramApiError ? error.kind : 'unknown',
-              err: error instanceof TelegramApiError ? undefined : error,
-            },
-            'telegram update failed',
-          );
-        }
+        dispatch(update);
         offset = update.update_id + 1;
       }
-      if (updates.length > 0) await saveOffset(db, offset!);
+      if (updates.length > 0) {
+        logger.debug(
+          { count: updates.length, inFlight: inFlight.size },
+          'telegram updates received',
+        );
+        await saveOffset(db, offset!).catch((error: unknown) =>
+          logger.error({ err: error }, 'telegram offset not saved'),
+        );
+      }
     }
+    // Let the replies already started finish (each is bounded by its timeout).
+    await Promise.allSettled([...inFlight]);
   })();
   return {
     stop: async () => {

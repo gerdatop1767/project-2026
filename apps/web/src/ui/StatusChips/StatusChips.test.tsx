@@ -253,9 +253,12 @@ describe('StatusChips — level (GET /progress/xp)', () => {
         </StreakProvider>
       </TestAuthProvider>,
     );
-    const chip = await screen.findByRole('button', { name: /ранг «Мастер»/ });
-    expect(chip).toHaveAttribute('data-rank', 'master');
-    expect(chip.querySelector('[data-rank="master"] svg')).not.toBeNull();
+    const chip = await screen.findByRole('button', { name: /ранг «Эксперт»/ });
+    expect(chip).toHaveAttribute('data-rank', 'expert');
+    expect(chip.querySelector('[data-rank="expert"] img')).toHaveAttribute(
+      'src',
+      '/branding/v2/levels/expert.webp',
+    );
   });
 
   const board = (rank: number | null, participants = 40) => ({

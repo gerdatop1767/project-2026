@@ -1,16 +1,43 @@
 .row {
+  /* One geometry for every chip (streak, level, rating, guest). */
+  --chip-h: 3rem;
+  --chip-pad-x: var(--space-3);
+  --chip-icon: 1.375rem;
+  --chip-gap: var(--space-2);
+  /* A thin bottom row every chip reserves; only the level chip draws its
+     progress bar in it — so icons and numbers share one axis. */
+  --chip-bar-h: 3px;
+  --chip-bar-gap: 5px;
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
 }
 
 .chip {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--chip-icon) auto;
+  grid-template-rows: minmax(0, 1fr) var(--chip-bar-h);
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  column-gap: var(--chip-gap);
+  row-gap: 0;
+  box-sizing: border-box;
+  height: var(--chip-h);
+  padding: var(--chip-bar-gap) var(--chip-pad-x);
   border-radius: var(--radius-input);
   background: var(--color-bg-elevated);
+  /* The same 1px ring on every chip; a tone can tint it. */
+  box-shadow: inset 0 0 0 1px
+    var(--chip-ring, color-mix(in srgb, var(--color-tint) 6%, transparent));
+}
+
+.icon {
+  grid-row: 1;
+  grid-column: 1;
+  display: grid;
+  place-items: center;
+  width: var(--chip-icon);
+  height: var(--chip-icon);
 }
 
 .flameIcon,
@@ -22,8 +49,11 @@
 }
 
 .chipText {
+  grid-row: 1;
+  grid-column: 2;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   line-height: 1.2;
 }
 
@@ -33,35 +63,23 @@
 }
 
 .chipValue {
+  /* Room for two digits and tabular figures: 9 → 10 does not move anything. */
+  min-width: 2ch;
   font-size: var(--font-size-body-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-}
-
-.ratingIcon {
-  flex-shrink: 0;
-  color: #f5b432;
-}
-
-.ratingChip .chipValue {
   font-variant-numeric: tabular-nums;
 }
 
-.levelChip {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-2);
-}
-
-.levelChipRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.ratingChip[data-place='top'] {
+  --chip-ring: color-mix(in srgb, #f5b432 38%, transparent);
 }
 
 .levelBar {
+  grid-row: 2;
+  grid-column: 1 / -1;
   display: block;
-  height: 3px;
+  height: var(--chip-bar-h);
   border-radius: 2px;
   background: color-mix(in srgb, var(--color-tint) 8%, transparent);
   overflow: hidden;
@@ -75,9 +93,12 @@
   transition: width var(--duration-base) var(--easing-standard);
 }
 
+/* Phones: values only — the same grid, just tighter. */
 @media (max-width: 420px) {
-  .chip {
-    padding: var(--space-1) var(--space-2);
+  .row {
+    --chip-h: 2.75rem;
+    --chip-pad-x: var(--space-3);
+    --chip-icon: 1.25rem;
   }
 
   .chipLabel {
@@ -126,19 +147,30 @@
   .flameIconUp {
     animation: none;
   }
+
+  .levelButton:active {
+    transform: none;
+  }
 }
 
 .levelButton {
+  margin: 0;
   border: none;
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: box-shadow var(--duration-fast) ease;
+  transition:
+    box-shadow var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 
 .levelButton:hover {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 35%, transparent);
+  --chip-ring: color-mix(in srgb, var(--color-accent-primary) 40%, transparent);
+}
+
+.levelButton:active {
+  transform: scale(0.98);
 }
 
 .levelButton:focus-visible {
@@ -147,11 +179,12 @@
 }
 
 .guestChip {
+  --chip-ring: color-mix(in srgb, var(--color-accent-primary) 35%, transparent);
+  margin: 0;
   border: none;
   font: inherit;
   color: inherit;
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 35%, transparent);
 }
 
 .guestChip .chipValue {
@@ -170,8 +203,8 @@
 /* Streak chip: a faint rim in the flame's own colour, a little stronger
    with each tier — the header stays calm; the flame carries the effect. */
 .streakChip {
-  --streak-tone: transparent;
-  box-shadow: inset 0 0 0 1px var(--streak-tone);
+  --streak-tone: color-mix(in srgb, var(--color-tint) 6%, transparent);
+  --chip-ring: var(--streak-tone);
   transition: box-shadow var(--duration-base) var(--easing-standard);
 }
 

@@ -126,6 +126,36 @@ describe('Рейтинг', () => {
     );
   });
 
+  it('while new filters load, the previous list stays (busy, dimmed) — no skeleton flash', async () => {
+    let resolveNext!: (b: LeaderboardResponse) => void;
+    vi.mocked(api.getLeaderboard)
+      .mockResolvedValueOnce(board())
+      .mockReturnValueOnce(new Promise((r) => (resolveNext = r)));
+    const user = userEvent.setup();
+    renderRating();
+    await screen.findByRole('list', { name: 'Тройка лидеров' });
+    await user.click(screen.getByRole('tab', { name: 'Всё время' }));
+    // The old rows are still there, marked busy; no loading skeleton.
+    const podium = screen.getByRole('list', { name: 'Тройка лидеров' });
+    expect(podium.closest('[aria-busy="true"]')).not.toBeNull();
+    expect(screen.queryByLabelText('Рейтинг загружается')).not.toBeInTheDocument();
+    resolveNext(board({ period: 'all', entries: [entry(1, 'Новый лидер')], participants: 1 }));
+    expect(await screen.findByText('Новый лидер')).toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+  });
+
+  it('the podium wears the medal of the real place — a tie shares it', async () => {
+    vi.mocked(api.getLeaderboard).mockResolvedValue(
+      board({ entries: [entry(1, 'А'), entry(1, 'Б'), entry(3, 'В')] }),
+    );
+    renderRating();
+    const podium = await screen.findByRole('list', { name: 'Тройка лидеров' });
+    const medals = [...podium.querySelectorAll('[data-variant]')].map((m) =>
+      m.getAttribute('data-variant'),
+    );
+    expect(medals).toEqual(['gold', 'gold', 'bronze']);
+  });
+
   it('an empty period says so and offers to solve tasks', async () => {
     vi.mocked(api.getLeaderboard).mockResolvedValue(
       board({

@@ -285,17 +285,23 @@
   --tone: var(--color-gold);
 }
 
-.statIconRating {
-  --tone: var(--color-accent-primary-end);
-}
-
-/* The rating cell is a link to the rating page, styled as a plain value. */
+/* The rating cell is a link to the rating page, styled as a plain value:
+   the same height as its neighbours (so «Место» lines up with «Решено» and
+   «Правильно»), with the 44 px tap area kept by an invisible overlay. */
 .statButton {
+  position: relative;
+  min-height: 0;
   border: none;
   background: none;
   padding: 0;
   font: inherit;
   cursor: pointer;
+}
+
+.statButton::after {
+  content: '';
+  position: absolute;
+  inset: calc((var(--touch-target-min) - 100%) / -2) -8px;
 }
 
 .statButton:focus-visible {

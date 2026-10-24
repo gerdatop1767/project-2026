@@ -1,0 +1,49 @@
+.badge {
+  --place-a: var(--color-accent-primary);
+  --place-b: var(--color-accent-primary-end);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, var(--place-a), var(--place-b));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* The glyph sits optically centred: lucide's trophy is drawn on a 24 grid. */
+.badge > svg {
+  display: block;
+}
+
+.badge[data-variant='gold'] {
+  --place-a: #ffd76a;
+  --place-b: #e09612;
+  color: #5a3a00;
+}
+
+.badge[data-variant='silver'] {
+  --place-a: #eef2fa;
+  --place-b: #9aa7c4;
+  color: #39425a;
+}
+
+.badge[data-variant='bronze'] {
+  --place-a: #f2bb8f;
+  --place-b: #b4682f;
+  color: #4a2408;
+}
+
+/* Any other place: a quiet tint of the accent, not dressed up as a medal. */
+.badge[data-variant='place'] {
+  color: var(--color-accent-primary-end);
+  background: color-mix(in srgb, var(--color-accent-primary) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 35%, transparent);
+}
+
+.badge[data-variant='none'] {
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-tint) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-tint) 10%, transparent);
+}

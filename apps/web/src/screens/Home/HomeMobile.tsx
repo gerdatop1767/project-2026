@@ -8,6 +8,7 @@ import { StatRow } from '../../ui/StatRow/StatRow.js';
 import { startRealTask } from '../../lib/startTraining.js';
 import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
 import { useStreakContext } from '../../lib/streakContext.js';
+import { PlaceIcon } from '../../ui/RatingPlace/PlaceIcon.js';
 import type { ProgressSummary } from '@zybrilka/shared';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
@@ -244,15 +245,7 @@ export function HomeMobile() {
 function RatingPlace({ isGuest }: { isGuest: boolean }) {
   const { navigate } = useNavigation();
   const { rating, ratingFailed } = useStreakContext();
-  const icon = (
-    <span
-      className={clsx(styles.statIcon, styles.statIconRating)}
-      data-ready={rating ? '' : undefined}
-      aria-hidden="true"
-    >
-      <Icon name="achievements" size={15} />
-    </span>
-  );
+  const icon = <PlaceIcon rank={rating?.me.rank} size={26} />;
   if (isGuest) {
     return <span className={styles.statValue}>{icon}—</span>;
   }

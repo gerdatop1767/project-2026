@@ -70,6 +70,10 @@ export async function startWorker({
 
   if (telegram && db && polling) {
     const photos = new BotPhotos(db);
+    // In the background: a failure only means the first /start reads them.
+    void photos
+      .preload('welcome')
+      .catch((err: unknown) => logger.warn({ err }, 'telegram welcome photo not preloaded'));
     const bot = startPolling({
       db,
       telegram,

@@ -78,18 +78,17 @@ describe('«Уровень» page', () => {
   it('shows the rank of the current level, the next rank and the ladder of all ranks', async () => {
     vi.mocked(api.getXpSummary).mockResolvedValue(summary({ level: 16, totalXp: 6000 }));
     renderLevel();
-    expect(await screen.findByText(/Ранг «Мастер»/)).toHaveTextContent('4 из 6');
+    expect(await screen.findByText(/Ранг «Эксперт»/)).toHaveTextContent('4 из 5');
     expect(screen.getByText(/Следующий ранг/)).toHaveTextContent(
-      'Следующий ранг — «Эксперт» с уровня 20',
+      'Следующий ранг — «Легенда» с уровня 21',
     );
     const items = within(screen.getByRole('region', { name: 'Ранги' })).getAllByRole('listitem');
     expect(items.map((li) => li.textContent)).toEqual([
-      expect.stringContaining('НовичокУровни 1–2'),
-      expect.stringContaining('УченикУровни 3–4'),
-      expect.stringContaining('ЗнатокУровни 5–14'),
-      expect.stringContaining('МастерУровни 15–19Ваш ранг'),
-      expect.stringContaining('ЭкспертУровни 20–24Откроется с уровня 20'),
-      expect.stringContaining('ЛегендаУровни 25–50Откроется с уровня 25'),
+      expect.stringContaining('НовичокУровни 1–5'),
+      expect.stringContaining('УченикУровни 6–10'),
+      expect.stringContaining('ЗнатокУровни 11–15'),
+      expect.stringContaining('ЭкспертУровни 16–20Ваш ранг'),
+      expect.stringContaining('ЛегендаУровни 21–50Откроется с уровня 21'),
     ]);
     expect(items[3]).toHaveAttribute('aria-current', 'step');
     expect(items[0]).toHaveTextContent('Пройден');

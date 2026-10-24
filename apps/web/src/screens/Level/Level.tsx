@@ -120,7 +120,13 @@ export function Level() {
           style={levelRankStyle(levelRankFor(xp.level))}
         >
           <div className={styles.heroTop}>
-            <LevelEmblem rank={levelRankFor(xp.level)} level={xp.level} size={88} animated />
+            <LevelEmblem
+              rank={levelRankFor(xp.level)}
+              level={xp.level}
+              size={96}
+              animated
+              priority
+            />
             <div className={styles.heroText}>
               <p className={styles.rankName}>
                 Ранг «{levelRankFor(xp.level).name}»
@@ -229,7 +235,7 @@ export function Level() {
   );
 }
 
-/** «Следующий ранг — «Мастер» с уровня 15», or the top rank's note. */
+/** «Следующий ранг — «Знаток» с уровня 11», or the top rank's note. */
 function NextRank({ level }: { level: number }) {
   const next = nextLevelRank(levelRankFor(level));
   if (!next) {
