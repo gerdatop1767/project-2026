@@ -71,8 +71,8 @@ function commandOf(text: string): string | null {
 }
 
 /**
- * The main menu: the site and iOS buttons (inline). Sent right after the
- * greeting on /start, and again by «📚 Меню» or /menu — one implementation.
+ * The main menu: the site and iOS buttons (inline). Always the last
+ * message of the welcome block and of a repeated /start.
  */
 async function sendMainMenu(ctx: BotContext, chatId: number) {
   await ctx.telegram.sendMessage(chatId, mainMenuText, {
@@ -82,26 +82,34 @@ async function sendMainMenu(ctx: BotContext, chatId: number) {
 }
 
 /**
- * /start: the greeting carries the persistent «📚 Меню / 💬 Поддержка»
- * keyboard (a message has room for one keyboard only, so the inline menu
- * follows as the next message). The first time it is the welcome photo
- * with the greeting as its caption; afterwards a short welcome back. Each
- * /start sends the same two messages — nothing piles up or repeats.
+ * The welcome block: the welcome photo with the greeting as its caption and
+ * the persistent «📚 Меню / 💬 Поддержка» keyboard, then the main menu (a
+ * message has room for one keyboard only, so the inline menu follows as the
+ * next message). Sent by the first /start and by «📚 Меню» / /menu — one
+ * implementation, so the two never drift apart. The photo goes by its
+ * Telegram file_id after the first upload.
  */
+async function sendWelcomeBlock(ctx: BotContext, chatId: number) {
+  const { caption, rest } = splitCaption(welcomeCaption);
+  await ctx.photos.send(ctx.telegram, chatId, 'welcome', caption, {
+    parseMode: 'HTML',
+    replyMarkup: persistentKeyboard,
+  });
+  if (rest) await ctx.telegram.sendMessage(chatId, rest, { parseMode: 'HTML' });
+  await sendMainMenu(ctx, chatId);
+}
+
+/** /start: the welcome block the first time; afterwards a short welcome
+ * back (with the keyboard) and the menu. Nothing piles up or repeats. */
 async function sendWelcome(ctx: BotContext, chatId: number, first: boolean) {
   if (first) {
-    const { caption, rest } = splitCaption(welcomeCaption);
-    await ctx.photos.send(ctx.telegram, chatId, 'welcome', caption, {
-      parseMode: 'HTML',
-      replyMarkup: persistentKeyboard,
-    });
-    if (rest) await ctx.telegram.sendMessage(chatId, rest, { parseMode: 'HTML' });
-  } else {
-    await ctx.telegram.sendMessage(chatId, welcomeBackText, {
-      parseMode: 'HTML',
-      replyMarkup: persistentKeyboard,
-    });
+    await sendWelcomeBlock(ctx, chatId);
+    return;
   }
+  await ctx.telegram.sendMessage(chatId, welcomeBackText, {
+    parseMode: 'HTML',
+    replyMarkup: persistentKeyboard,
+  });
   await sendMainMenu(ctx, chatId);
 }
 
@@ -127,7 +135,7 @@ async function handleMessage(ctx: BotContext, message: TelegramMessage) {
   } else if (command === 'help') {
     await ctx.telegram.sendMessage(chatId, helpText, { replyMarkup: mainKeyboard(ctx.siteUrl) });
   } else if (command === 'menu' || button === 'menu') {
-    await sendMainMenu(ctx, chatId);
+    await sendWelcomeBlock(ctx, chatId);
   } else if (command === 'support' || button === 'support') {
     await ctx.telegram.sendMessage(chatId, supportText, { replyMarkup: persistentKeyboard });
   } else if (command) {
