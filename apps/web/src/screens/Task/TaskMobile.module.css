@@ -120,3 +120,8 @@
   grid-template-columns: 1fr;
   gap: var(--space-2);
 }
+
+/* «Правило»: sits under the condition, left-aligned, never full width. */
+.ruleButton {
+  align-self: flex-start;
+}

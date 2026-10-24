@@ -1,0 +1,155 @@
+.figure {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--color-accent-secondary) 12%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--color-tint) 3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.caption {
+  font-size: var(--font-size-body-sm);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+/* ── Stress cards ── */
+.stressGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: var(--space-2);
+}
+
+.stressCard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 1px var(--card-edge);
+}
+
+.ok {
+  --card-edge: color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.bad {
+  --card-edge: color-mix(in srgb, var(--color-error) 45%, transparent);
+}
+
+.stressNumber {
+  grid-row: span 2;
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.stressWord {
+  font-size: var(--font-size-h3);
+  font-weight: 600;
+}
+
+.stressVowel {
+  color: var(--color-accent-primary-end);
+  font-weight: 800;
+  text-decoration: underline 2px;
+  text-underline-offset: 3px;
+}
+
+.bad .stressVowel {
+  color: var(--color-error);
+  text-decoration-style: wavy;
+}
+
+.stressVerdict {
+  font-size: var(--font-size-label);
+  color: var(--color-success);
+}
+
+.bad .stressVerdict {
+  color: var(--color-error);
+}
+
+/* ── Sentence schemes ── */
+.junction,
+.participle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sentence {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-body);
+  line-height: 2.1;
+}
+
+.sentence:first-child {
+  margin-top: 0;
+}
+
+.part,
+.clause,
+.conj,
+.noun {
+  padding: 0.15em 0.45em;
+  border-radius: 0.45rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.part {
+  background: color-mix(in srgb, var(--color-tint) 7%, transparent);
+}
+
+.clause {
+  background: color-mix(in srgb, var(--color-accent-secondary) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-secondary) 40%, transparent);
+}
+
+.conj {
+  font-weight: 700;
+  color: var(--color-accent-primary-end);
+}
+
+.noun {
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-gold) 16%, transparent);
+}
+
+.comma {
+  font-weight: 800;
+  color: var(--color-success);
+  padding: 0 0.05em;
+}
+
+.key {
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+.gap {
+  display: inline-block;
+  margin-left: 0.2em;
+  font-weight: 700;
+  color: var(--color-error);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}

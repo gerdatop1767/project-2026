@@ -17,6 +17,7 @@ import { CanvasWorkspaceMobile } from '../../ui/CanvasWorkspace/CanvasWorkspaceM
 import { clearCanvasState } from '../../lib/canvasSessionStore.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { BottomSheet } from '../../ui/BottomSheet/BottomSheet.js';
+import { RuleButton } from '../../ui/Theory/RuleButton.js';
 import { DifficultyTag } from '../../ui/Training/DifficultyTag.js';
 import { TaskChrome } from '../../ui/Training/TaskChrome.js';
 import { ToolsPanelMobile, ToolsToggleButton } from '../../ui/Training/ToolsPanelMobile.js';
@@ -269,6 +270,12 @@ export function TaskMobile({
             subjectId={task.subjectId}
             taskNumber={task.number}
             className={styles.taskImage}
+          />
+          <RuleButton
+            subjectId={task.subjectId}
+            taskNumber={task.number}
+            presentation="sheet"
+            className={styles.ruleButton}
           />
 
           {task.hint && (

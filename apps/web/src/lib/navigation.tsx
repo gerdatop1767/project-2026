@@ -40,6 +40,10 @@ export type OverlayRoute =
    * or Yandex OAuth redirect (`?vk=` / `?yandex=`) can land here directly. */
   | { screen: 'login' }
   | { screen: 'learningCenter' }
+  /** The theory catalog (docs/THEORY.md): «Теория» — конспекты by EGE task
+   * number, «Полезные материалы» — справочные списки и практика. The
+   * chosen number lives here, so Back and a refresh keep it. */
+  | { screen: 'theory'; section: TheorySection; taskNumber?: number }
   | { screen: 'subjectCatalog' }
   | {
       screen: 'subject';
@@ -191,6 +195,8 @@ export interface RevealedAnswer {
   explanation: string;
 }
 
+export type TheorySection = 'rules' | 'materials';
+
 export type Route = { screen: MainTabId } | OverlayRoute;
 
 const routeLabels: Partial<Record<Route['screen'], string>> = {
@@ -200,6 +206,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   achievements: 'Достижения',
   login: 'Вход',
   learningCenter: 'Учебный центр',
+  theory: 'Теория',
   learningSession: 'Тренировка',
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',
