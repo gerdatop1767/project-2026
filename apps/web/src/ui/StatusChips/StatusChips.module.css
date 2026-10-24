@@ -61,7 +61,8 @@
 .levelBarFill {
   display: block;
   height: 100%;
-  background: var(--gradient-primary);
+  /* The rank's colours once the level is known (levelRanks.ts). */
+  background: linear-gradient(90deg, var(--rank-from, #8b14f5), var(--rank-to, #ce3dfd));
   transition: width var(--duration-base) var(--easing-standard);
 }
 

@@ -236,10 +236,24 @@ describe('StatusChips — level (GET /progress/xp)', () => {
       </TestAuthProvider>,
     );
     const chip = await screen.findByRole('button', {
-      name: 'Уровень 2, до следующего 40 XP. Открыть страницу уровня',
+      name: 'Уровень 2, до следующего 40 XP, ранг «Новичок». Открыть страницу уровня',
     });
     expect(chip).toHaveTextContent('2');
     expect(chip.querySelector('[style*="width: 50%"]')).not.toBeNull();
+  });
+
+  it('the level chip wears the rank of the server-reported level', async () => {
+    vi.mocked(api.getXpSummary).mockResolvedValue(xpAt(90, 16));
+    render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
+    );
+    const chip = await screen.findByRole('button', { name: /ранг «Мастер»/ });
+    expect(chip).toHaveAttribute('data-rank', 'master');
+    expect(chip.querySelector('[data-rank="master"] svg')).not.toBeNull();
   });
 
   it('opens the «Уровень» page on click', async () => {

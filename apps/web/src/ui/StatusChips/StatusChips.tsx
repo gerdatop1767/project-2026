@@ -3,6 +3,8 @@ import { Icon } from '../Icon/Icon.js';
 import { clsx } from '../../lib/clsx.js';
 import { useStreakContext } from '../../lib/streakContext.js';
 import { useAuth } from '../../lib/authContext.js';
+import { levelRankFor, levelRankStyle } from '../../lib/levelRanks.js';
+import { LevelEmblem } from '../LevelEmblem/LevelEmblem.js';
 import { useNavigation, useOptionalNavigation } from '../../lib/navigation.js';
 import { streakTier } from '@zybrilka/shared';
 import { StreakFlame } from './StreakFlame.js';
@@ -139,17 +141,23 @@ function AccountChips({ className }: StatusChipsProps) {
           styles.levelButton,
           levelBumped && styles.chipStreakUp,
         )}
+        data-rank={xp === null ? undefined : levelRankFor(xp.level).id}
+        style={xp === null ? undefined : levelRankStyle(levelRankFor(xp.level))}
         onClick={() => navigation?.navigate({ screen: 'level' })}
         aria-label={
           xp === null
             ? 'Уровень загружается. Открыть страницу уровня'
             : xp.isMaxLevel
-              ? `Уровень ${xp.level}, максимальный. Открыть страницу уровня`
-              : `Уровень ${xp.level}, до следующего ${xp.xpToNextLevel} XP. Открыть страницу уровня`
+              ? `Уровень ${xp.level}, максимальный, ранг «${levelRankFor(xp.level).name}». Открыть страницу уровня`
+              : `Уровень ${xp.level}, до следующего ${xp.xpToNextLevel} XP, ранг «${levelRankFor(xp.level).name}». Открыть страницу уровня`
         }
       >
         <span className={styles.levelChipRow}>
-          <Icon name="crown" size={20} className={styles.crownIcon} />
+          {xp === null ? (
+            <Icon name="crown" size={20} className={styles.crownIcon} />
+          ) : (
+            <LevelEmblem rank={levelRankFor(xp.level)} size={22} />
+          )}
           <span className={styles.chipText} aria-hidden="true">
             <span className={styles.chipLabel}>Уровень</span>
             <span className={styles.chipValue}>{xp === null ? '—' : xp.level}</span>

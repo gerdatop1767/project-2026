@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { XpHistoryItem } from '@zybrilka/shared';
 import { getXpHistory } from '../../lib/api.js';
+import { clsx } from '../../lib/clsx.js';
 import { formatDateShort } from '../../lib/formatDate.js';
+import {
+  LEVEL_RANKS,
+  levelRankFor,
+  levelRankRange,
+  levelRankStyle,
+  nextLevelRank,
+} from '../../lib/levelRanks.js';
 import { useNavigation } from '../../lib/navigation.js';
 import { useStreakContext } from '../../lib/streakContext.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { LevelEmblem } from '../../ui/LevelEmblem/LevelEmblem.js';
 import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { SkeletonCard, SkeletonList } from '../../ui/Skeleton/Skeleton.js';
 import { SlideUp } from '../../ui/motion/motion.js';
@@ -104,12 +113,21 @@ export function Level() {
       {xp === null && !xpFailed && <SkeletonCard height={180} />}
 
       {xp !== null && (
-        <section className={styles.hero} aria-labelledby="level-current">
+        <section
+          className={styles.hero}
+          aria-labelledby="level-current"
+          data-rank={levelRankFor(xp.level).id}
+          style={levelRankStyle(levelRankFor(xp.level))}
+        >
           <div className={styles.heroTop}>
-            <span className={styles.crown}>
-              <Icon name="crown" size={28} />
-            </span>
-            <div>
+            <LevelEmblem rank={levelRankFor(xp.level)} level={xp.level} size={88} animated />
+            <div className={styles.heroText}>
+              <p className={styles.rankName}>
+                Ранг «{levelRankFor(xp.level).name}»
+                <span className={styles.rankOf}>
+                  {levelRankFor(xp.level).index + 1} из {LEVEL_RANKS.length}
+                </span>
+              </p>
               <p id="level-current" className={styles.levelValue}>
                 Уровень {xp.level}
               </p>
@@ -141,8 +159,11 @@ export function Level() {
               </p>
             </>
           )}
+          <NextRank level={xp.level} />
         </section>
       )}
+
+      {xp !== null && <RankLadder level={xp.level} />}
 
       <section className={styles.card} aria-labelledby="level-how">
         <h2 id="level-how" className={styles.sectionTitle}>
@@ -205,5 +226,67 @@ export function Level() {
         )}
       </section>
     </SlideUp>
+  );
+}
+
+/** «Следующий ранг — «Мастер» с уровня 15», or the top rank's note. */
+function NextRank({ level }: { level: number }) {
+  const next = nextLevelRank(levelRankFor(level));
+  if (!next) {
+    return <p className={styles.nextRank}>Это высший ранг — так держать!</p>;
+  }
+  return (
+    <p className={styles.nextRank}>
+      <LevelEmblem rank={next} size={24} />
+      <span>
+        Следующий ранг — <strong>«{next.name}»</strong> с уровня {next.minLevel}
+      </span>
+    </p>
+  );
+}
+
+/** Every rank, in order: reached ones in colour, the current one marked,
+ * the rest greyed out with the level that unlocks them. */
+function RankLadder({ level }: { level: number }) {
+  const current = levelRankFor(level);
+  return (
+    <section className={styles.card} aria-labelledby="level-ranks">
+      <h2 id="level-ranks" className={styles.sectionTitle}>
+        Ранги
+      </h2>
+      <ol className={styles.ladder}>
+        {LEVEL_RANKS.map((rank) => {
+          const reached = rank.index <= current.index;
+          const isCurrent = rank.index === current.index;
+          return (
+            <li
+              key={rank.id}
+              className={clsx(styles.ladderItem, isCurrent && styles.ladderCurrent)}
+              style={levelRankStyle(rank)}
+              aria-current={isCurrent ? 'step' : undefined}
+            >
+              <LevelEmblem rank={rank} size={40} locked={!reached} />
+              <span className={styles.ladderText}>
+                <span className={styles.strong}>{rank.name}</span>
+                <span className={styles.muted}>Уровни {levelRankRange(rank)}</span>
+              </span>
+              <span className={styles.ladderState}>
+                {isCurrent ? (
+                  'Ваш ранг'
+                ) : reached ? (
+                  <Icon name="check" size={18} />
+                ) : (
+                  <Icon name="lock" size={16} />
+                )}
+                {!reached && (
+                  <span className={styles.srOnly}>Откроется с уровня {rank.minLevel}</span>
+                )}
+                {reached && !isCurrent && <span className={styles.srOnly}>Пройден</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
