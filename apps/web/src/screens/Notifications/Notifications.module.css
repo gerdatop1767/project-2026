@@ -204,3 +204,12 @@
   font-size: var(--font-size-body-sm);
   color: var(--color-error);
 }
+
+.pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-accent-secondary) 10%, var(--color-bg-elevated));
+}

@@ -83,6 +83,9 @@ export const reminderSettingsResponseSchema = z.object({
     botStarted: z.boolean(),
     /** Telegram says the bot is blocked by the user. */
     blocked: z.boolean(),
+    /** A Telegram account confirmed this account's link in the bot and
+     * waits for the owner's confirmation here. Only its display name. */
+    pendingLink: z.object({ name: z.string() }).nullable(),
   }),
 });
 export type ReminderSettingsResponse = z.infer<typeof reminderSettingsResponseSchema>;
@@ -93,3 +96,19 @@ export const telegramLinkResponseSchema = z.object({
   expiresAt: z.iso.datetime(),
 });
 export type TelegramLinkResponse = z.infer<typeof telegramLinkResponseSchema>;
+
+export const telegramLinkConfirmRequestSchema = z.object({ accept: z.boolean() });
+export type TelegramLinkConfirmRequest = z.infer<typeof telegramLinkConfirmRequestSchema>;
+
+export const telegramLinkConfirmResponseSchema = z.object({
+  status: z.enum([
+    'linked',
+    'already_linked',
+    'taken',
+    'provider_already_used',
+    'nothing_pending',
+    'rejected',
+  ]),
+  settings: reminderSettingsResponseSchema,
+});
+export type TelegramLinkConfirmResponse = z.infer<typeof telegramLinkConfirmResponseSchema>;

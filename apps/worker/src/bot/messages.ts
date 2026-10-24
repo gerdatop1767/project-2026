@@ -77,25 +77,40 @@ export const remindersNoAccountText =
   'Этот Telegram не привязан к аккаунту Зубрилки, поэтому напоминаний для него нет.';
 
 /** The answer to `/start link_<token>` (the site's «Привязать Telegram»). */
+/** «Да, это мой аккаунт» under the link question: `lk:<token>`. A token
+ * from a `start` payload is at most 59 characters, so this stays within
+ * the 64 bytes Telegram allows for callback data. */
+export const CALLBACK_LINK_PREFIX = 'lk:';
+export const CALLBACK_LINK_NO = 'link_no';
+
+export function linkQuestionText(accountLabel: string): string {
+  return `Привязать этот Telegram к аккаунту Зубрилки «${accountLabel}»?\n\nЕсли ссылку тебе прислал кто-то другой — нажми «Нет».`;
+}
+
+export function linkQuestionKeyboard(token: string): InlineKeyboard {
+  return {
+    inline_keyboard: [
+      [{ text: 'Да, это мой аккаунт', callback_data: `${CALLBACK_LINK_PREFIX}${token}` }],
+      [{ text: 'Нет', callback_data: CALLBACK_LINK_NO }],
+    ],
+  };
+}
+
+export const linkClaimedText =
+  'Почти готово! Вернись на сайт и подтверди привязку на странице «Уведомления» — без этого Telegram не привяжется.';
+export const linkDeclinedText = 'Хорошо, ничего не привязано.';
+export const linkFailedText = 'Не получилось привязать Telegram — попробуй ещё раз через минуту.';
+
 export function linkResultText(
-  status:
-    | 'linked'
-    | 'already_linked'
-    | 'taken'
-    | 'provider_already_used'
-    | 'invalid'
-    | 'expired'
-    | 'used',
+  status: 'already_linked' | 'taken' | 'claimed_by_other' | 'invalid' | 'expired' | 'used',
 ): string {
   switch (status) {
-    case 'linked':
-      return 'Готово! Telegram привязан к твоему аккаунту Зубрилки ✅\n\nТеперь можно включить ежедневные напоминания на сайте: Профиль → Уведомления.';
     case 'already_linked':
       return 'Этот Telegram уже привязан к твоему аккаунту ✅';
     case 'taken':
       return 'Этот Telegram уже привязан к другому аккаунту Зубрилки. Войди в тот аккаунт или отвяжи Telegram в его профиле.';
-    case 'provider_already_used':
-      return 'К твоему аккаунту уже привязан другой Telegram. Сначала отвяжи его в профиле на сайте.';
+    case 'claimed_by_other':
+      return 'Эту ссылку уже подтвердил другой Telegram. Открой «Привязать Telegram» на сайте ещё раз.';
     case 'expired':
       return 'Ссылка устарела. Открой на сайте «Привязать Telegram» ещё раз — ссылка действует 15 минут.';
     case 'used':

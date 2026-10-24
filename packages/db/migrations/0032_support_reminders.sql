@@ -55,6 +55,9 @@ CREATE TABLE "telegram_link_tokens" (
 	"user_id" uuid NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"consumed_at" timestamp with time zone,
+	"claimed_telegram_id" bigint,
+	"claimed_name" text,
+	"claimed_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

@@ -4,7 +4,12 @@ import {
   isValidTimezone,
   type ReminderSettingsResponse,
 } from '@zybrilka/shared';
-import { createTelegramLink, getReminders, saveReminders } from '../../lib/api.js';
+import {
+  confirmTelegramLink,
+  createTelegramLink,
+  getReminders,
+  saveReminders,
+} from '../../lib/api.js';
 import { useAuth } from '../../lib/authContext.js';
 import { clsx } from '../../lib/clsx.js';
 import { useNavigation } from '../../lib/navigation.js';
@@ -42,6 +47,18 @@ function browserTimezone(): string | null {
   }
 }
 
+const confirmResultText: Record<
+  'linked' | 'already_linked' | 'taken' | 'provider_already_used' | 'nothing_pending' | 'rejected',
+  string
+> = {
+  linked: 'Telegram привязан ✅',
+  already_linked: 'Telegram уже привязан ✅',
+  taken: 'Этот Telegram уже привязан к другому аккаунту — ничего не изменилось.',
+  provider_already_used: 'К аккаунту уже привязан другой Telegram — сначала отвяжи его в профиле.',
+  nothing_pending: 'Запрос устарел — нажми «Привязать Telegram» ещё раз.',
+  rejected: 'Запрос отклонён, ничего не привязано.',
+};
+
 type Load =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: ReminderSettingsResponse };
 
@@ -72,6 +89,8 @@ export function Notifications() {
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmResult, setConfirmResult] = useState<string | null>(null);
   const [timeDraft, setTimeDraft] = useState<string | null>(null);
   const switchId = useId();
   const timeId = useId();
@@ -176,6 +195,21 @@ export function Notifications() {
     }
   }
 
+  async function answerLink(accept: boolean) {
+    setConfirming(true);
+    setConfirmResult(null);
+    try {
+      const { status, settings } = await confirmTelegramLink(accept);
+      setLoad({ status: 'ready', data: settings });
+      setLinkUrl(null);
+      setConfirmResult(confirmResultText[status]);
+    } catch {
+      setConfirmResult('Не получилось — попробуй ещё раз.');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <SlideUp className={styles.page}>
       <BackRow />
@@ -263,6 +297,27 @@ export function Notifications() {
             <Icon name="success" size={18} /> Telegram привязан — напоминания придут в бота
             Зубрилки. Отключить их можно здесь или кнопкой под напоминанием.
           </p>
+        ) : !tg.linked && tg.pendingLink ? (
+          <div className={styles.pending} role="group" aria-label="Запрос на привязку Telegram">
+            <p className="text-body-sm">
+              Telegram «<b>{tg.pendingLink.name}</b>» хочет привязаться к этому аккаунту. Это ты?
+            </p>
+            <p className="text-body-sm text-secondary">
+              Привязанный Telegram сможет входить в аккаунт. Если это не ты — нажми «Это не я».
+            </p>
+            <div className={styles.actions}>
+              <Button onClick={() => void answerLink(true)} loading={confirming}>
+                Подтвердить
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void answerLink(false)}
+                disabled={confirming}
+              >
+                Это не я
+              </Button>
+            </div>
+          </div>
         ) : !tg.linked ? (
           <>
             <p className="text-body-sm">
@@ -270,8 +325,8 @@ export function Notifications() {
             </p>
             <ol className={styles.steps}>
               <li>Нажми «Привязать Telegram» — откроется бот.</li>
-              <li>В боте нажми «Запустить» (Start).</li>
-              <li>Вернись сюда — статус обновится сам.</li>
+              <li>В боте нажми «Запустить» (Start), затем «Да, это мой аккаунт».</li>
+              <li>Вернись сюда и подтверди привязку.</li>
             </ol>
             <div className={styles.actions}>
               <Button onClick={() => void link()} loading={linking}>
@@ -288,6 +343,11 @@ export function Notifications() {
                   Открыть бота
                 </a>{' '}
                 — ссылка действует 15 минут.
+              </p>
+            )}
+            {confirmResult && (
+              <p className="text-body-sm" role="status">
+                {confirmResult}
               </p>
             )}
             {linkError && (

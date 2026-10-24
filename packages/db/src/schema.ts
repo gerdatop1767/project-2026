@@ -1461,7 +1461,10 @@ export const reminderDeliveries = pgTable(
 /**
  * One-time links that attach a Telegram account to a site account through
  * the bot (`t.me/<bot>?start=link_<token>`). Only the SHA-256 of the token
- * is stored; a token works once and for a few minutes.
+ * is stored; a token lives a few minutes and is finished (`consumedAt`) by
+ * a confirmation, a refusal or a newer link. Linking needs BOTH sides: the
+ * Telegram user confirms in the bot (that records `claimed*`), then the
+ * account owner confirms on the site — a leaked link alone links nothing.
  */
 export const telegramLinkTokens = pgTable(
   'telegram_link_tokens',
@@ -1472,6 +1475,11 @@ export const telegramLinkTokens = pgTable(
       .references(() => users.id),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    /** The Telegram user who confirmed in the bot (step 1 of 2). */
+    claimedTelegramId: bigint('claimed_telegram_id', { mode: 'number' }),
+    /** Their Telegram name, shown to the account owner for step 2. */
+    claimedName: text('claimed_name'),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('telegram_link_tokens_user_idx').on(table.userId)],

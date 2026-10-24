@@ -18,11 +18,16 @@ export {
   type IdentityProvider,
 } from './identities.js';
 export {
+  claimTelegramLinkToken,
+  confirmTelegramLink,
   createTelegramLinkToken,
-  consumeTelegramLinkToken,
   hashLinkToken,
+  pendingTelegramLink,
+  previewTelegramLink,
   telegramReachability,
   TELEGRAM_LINK_TTL_MS,
+  type LinkClaim,
+  type LinkPreview,
   type LinkTokenOutcome,
   type TelegramReachability,
 } from './telegramLink.js';

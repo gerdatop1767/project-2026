@@ -1,9 +1,17 @@
-import { createTelegramLinkToken, schema, telegramReachability, type Database } from '@zybrilka/db';
+import {
+  confirmTelegramLink,
+  createTelegramLinkToken,
+  pendingTelegramLink,
+  schema,
+  telegramReachability,
+  type Database,
+} from '@zybrilka/db';
 import {
   minutesOfTime,
   REMINDER_DEFAULT_TIME,
   REMINDER_DEFAULT_TIMEZONE,
   reminderSettingsRequestSchema,
+  telegramLinkConfirmRequestSchema,
   timeOfMinutes,
   type ReminderSettingsResponse,
 } from '@zybrilka/shared';
@@ -29,6 +37,7 @@ export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (
       .from(schema.reminderSettings)
       .where(eq(schema.reminderSettings.userId, id));
     const reach = await telegramReachability(db, id);
+    const pending = reach.telegramId === null ? await pendingTelegramLink(db, id) : null;
     return {
       enabled: row?.enabled ?? false,
       time: row ? timeOfMinutes(row.minuteOfDay) : REMINDER_DEFAULT_TIME,
@@ -37,6 +46,7 @@ export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (
         linked: reach.telegramId !== null,
         botStarted: reach.botStarted,
         blocked: reach.blocked,
+        pendingLink: pending ? { name: pending.telegramName } : null,
       },
     };
   }
@@ -78,7 +88,8 @@ export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (
   );
 
   // A one-time link for the bot: `t.me/<bot>?start=link_<token>`. Opening it
-  // in Telegram attaches that Telegram account (verified by Telegram) here.
+  // in Telegram and confirming there only CLAIMS the link; nothing is
+  // attached until this account confirms below (docs/REMINDERS.md).
   app.post(
     '/me/telegram/link',
     { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
@@ -86,6 +97,20 @@ export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (
       const { token, expiresAt } = await createTelegramLinkToken(db, userId(request));
       reply.header('cache-control', 'no-store');
       return { token, expiresAt: expiresAt.toISOString() };
+    },
+  );
+
+  // Step 3: the signed-in owner confirms (or refuses) the Telegram account
+  // that claimed this account's link. Acts on the session's account only.
+  app.post(
+    '/me/telegram/link/confirm',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const body = telegramLinkConfirmRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      const { status } = await confirmTelegramLink(db, userId(request), body.data.accept);
+      reply.header('cache-control', 'no-store');
+      return { status, settings: await load(userId(request)) };
     },
   );
 };

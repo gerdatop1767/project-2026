@@ -1,4 +1,9 @@
-import { createTelegramLinkToken, schema } from '@zybrilka/db';
+import {
+  confirmTelegramLink,
+  createTelegramLinkToken,
+  pendingTelegramLink,
+  schema,
+} from '@zybrilka/db';
 import { createTestDb } from '@zybrilka/db/testing';
 import { reminderText, supportTexts } from '@zybrilka/shared';
 import { and, eq } from 'drizzle-orm';
@@ -285,18 +290,66 @@ describe('support, linking and reminders through the bot', () => {
   });
 
   describe('linking Telegram through /start link_<token>', () => {
-    it('links the sender, once; a repeated link says it is used', async () => {
-      const [user] = await testDb.db.insert(schema.users).values({}).returning();
+    const identityOf = (userId: string) =>
+      testDb.db
+        .select()
+        .from(schema.authIdentities)
+        .where(eq(schema.authIdentities.userId, userId));
+    const lastButtons = () =>
+      (
+        telegram.sendMessage.mock.calls.at(-1)![2] as {
+          replyMarkup: { inline_keyboard: { text: string; callback_data?: string }[][] };
+        }
+      ).replyMarkup.inline_keyboard.flat();
+
+    it('opening the link only asks; «Да» only claims; the site owner links', async () => {
+      const [user] = await testDb.db
+        .insert(schema.users)
+        .values({ firstName: 'Вера', lastName: 'Петрова' })
+        .returning();
       const { token } = await createTelegramLinkToken(testDb.db, user!.id);
       await handleUpdate(ctx, msg(7001, { text: `/start link_${token}` }));
-      expect(lastText()).toContain('Telegram привязан');
-      await handleUpdate(ctx, msg(7001, { text: `/start link_${token}` }));
-      expect(lastText()).toContain('уже использована');
+      expect(lastText()).toContain('«Вера П.»');
+      const yes = lastButtons()[0]!;
+      expect(Buffer.byteLength(yes.callback_data!)).toBeLessThanOrEqual(64);
+      expect(await pendingTelegramLink(testDb.db, user!.id)).toBeNull();
+
+      const tapYes: TelegramUpdate = tap(7001, yes.callback_data!);
+      tapYes.callback_query!.from = { id: 7001, first_name: 'Вера', last_name: 'П' };
+      await handleUpdate(ctx, tapYes);
+      expect(lastText()).toContain('подтверди привязку');
+      // Nothing is linked from the bot alone.
+      expect(await identityOf(user!.id)).toHaveLength(0);
+      expect(await pendingTelegramLink(testDb.db, user!.id)).toMatchObject({
+        telegramName: 'Вера П',
+      });
+
+      expect(await confirmTelegramLink(testDb.db, user!.id, true)).toEqual({ status: 'linked' });
+      expect((await identityOf(user!.id)).map((i) => i.providerUserId)).toEqual(['7001']);
       const [chat] = await testDb.db
         .select()
         .from(schema.telegramBotChats)
         .where(eq(schema.telegramBotChats.chatId, 7001));
       expect(chat!.userId).toBe(user!.id);
+
+      await handleUpdate(ctx, msg(7001, { text: `/start link_${token}` }));
+      expect(lastText()).toContain('уже использована');
+    });
+
+    it('someone else who opens a leaked link cannot take it over, and «Нет» changes nothing', async () => {
+      const [user] = await testDb.db.insert(schema.users).values({}).returning();
+      const { token } = await createTelegramLinkToken(testDb.db, user!.id);
+      await handleUpdate(ctx, msg(7002, { text: `/start link_${token}` }));
+      const [yes, no] = lastButtons();
+      await handleUpdate(ctx, tap(7002, no!.callback_data!));
+      expect(lastText()).toContain('ничего не привязано');
+      expect(await pendingTelegramLink(testDb.db, user!.id)).toBeNull();
+
+      await handleUpdate(ctx, tap(7002, yes!.callback_data!));
+      // A second Telegram presses the same button data: refused.
+      await handleUpdate(ctx, tap(7003, yes!.callback_data!));
+      expect(lastText()).toContain('другой Telegram');
+      expect(await identityOf(user!.id)).toHaveLength(0);
     });
   });
 

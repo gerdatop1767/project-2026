@@ -1,5 +1,5 @@
 {
-  "id": "dee9fa22-f5b4-4f43-a793-5e3adc77bf0a",
+  "id": "f6acc5cb-c199-4d4f-af7d-9bc5d6d59748",
   "prevId": "735f02d8-94ad-4b64-a43f-e2fc37963630",
   "version": "7",
   "dialect": "postgresql",
@@ -3823,6 +3823,24 @@
         },
         "consumed_at": {
           "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_telegram_id": {
+          "name": "claimed_telegram_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_name": {
+          "name": "claimed_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

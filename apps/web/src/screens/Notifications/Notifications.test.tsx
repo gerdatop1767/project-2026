@@ -11,13 +11,14 @@ vi.mock('../../lib/api.js', () => ({
   getReminders: vi.fn(),
   saveReminders: vi.fn(),
   createTelegramLink: vi.fn(),
+  confirmTelegramLink: vi.fn(),
 }));
 
 const settings = (over: Partial<ReminderSettingsResponse> = {}): ReminderSettingsResponse => ({
   enabled: false,
   time: '19:00',
   timezone: 'Europe/Moscow',
-  telegram: { linked: true, botStarted: true, blocked: false },
+  telegram: { linked: true, botStarted: true, blocked: false, pendingLink: null },
   ...over,
 });
 
@@ -36,6 +37,7 @@ describe('Уведомления', () => {
     vi.mocked(api.getReminders).mockReset();
     vi.mocked(api.saveReminders).mockReset();
     vi.mocked(api.createTelegramLink).mockReset();
+    vi.mocked(api.confirmTelegramLink).mockReset();
   });
 
   it('switches the daily reminder on and off — saved on the server', async () => {
@@ -80,7 +82,9 @@ describe('Уведомления', () => {
 
   it('explains how to link Telegram and opens the bot with a one-time link', async () => {
     vi.mocked(api.getReminders).mockResolvedValue(
-      settings({ telegram: { linked: false, botStarted: false, blocked: false } }),
+      settings({
+        telegram: { linked: false, botStarted: false, blocked: false, pendingLink: null },
+      }),
     );
     vi.mocked(api.createTelegramLink).mockResolvedValue({
       token: 'abcdefghijklmnopqrstuvwxyz012345',
@@ -102,15 +106,46 @@ describe('Уведомления', () => {
     open.mockRestore();
   });
 
+  it('links only after the owner confirms the Telegram that claimed the link', async () => {
+    const pending = settings({
+      telegram: { linked: false, botStarted: true, blocked: false, pendingLink: { name: 'Вера' } },
+    });
+    vi.mocked(api.getReminders).mockResolvedValue(pending);
+    vi.mocked(api.confirmTelegramLink).mockResolvedValueOnce({
+      status: 'rejected',
+      settings: settings({
+        telegram: { linked: false, botStarted: true, blocked: false, pendingLink: null },
+      }),
+    });
+    const user = userEvent.setup();
+    const first = renderScreen();
+    expect(await screen.findByText(/хочет привязаться к этому аккаунту/)).toHaveTextContent('Вера');
+    await user.click(screen.getByRole('button', { name: 'Это не я' }));
+    expect(api.confirmTelegramLink).toHaveBeenLastCalledWith(false);
+    expect(await screen.findByText(/ничего не привязано/)).toBeInTheDocument();
+    first.unmount();
+
+    vi.mocked(api.confirmTelegramLink).mockResolvedValueOnce({
+      status: 'linked',
+      settings: settings(),
+    });
+    renderScreen();
+    await user.click(await screen.findByRole('button', { name: 'Подтвердить' }));
+    expect(api.confirmTelegramLink).toHaveBeenLastCalledWith(true);
+    expect(await screen.findByText(/Telegram привязан — напоминания/)).toBeInTheDocument();
+  });
+
   it('says honestly when the bot is not started or blocked', async () => {
     vi.mocked(api.getReminders).mockResolvedValue(
-      settings({ telegram: { linked: true, botStarted: false, blocked: false } }),
+      settings({
+        telegram: { linked: true, botStarted: false, blocked: false, pendingLink: null },
+      }),
     );
     const first = renderScreen();
     expect(await screen.findByText(/бот ещё не запущен/)).toBeInTheDocument();
     first.unmount();
     vi.mocked(api.getReminders).mockResolvedValue(
-      settings({ telegram: { linked: true, botStarted: true, blocked: true } }),
+      settings({ telegram: { linked: true, botStarted: true, blocked: true, pendingLink: null } }),
     );
     renderScreen();
     expect(await screen.findByText(/заблокирован/)).toBeInTheDocument();

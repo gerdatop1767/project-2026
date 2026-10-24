@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { consumeTelegramLinkToken, schema } from '@zybrilka/db';
+import { claimTelegramLinkToken, schema } from '@zybrilka/db';
 import { createTestDb } from '@zybrilka/db/testing';
-import { reminderSettingsResponseSchema, telegramLinkResponseSchema } from '@zybrilka/shared';
+import {
+  reminderSettingsResponseSchema,
+  telegramLinkConfirmResponseSchema,
+  telegramLinkResponseSchema,
+} from '@zybrilka/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { loadConfig } from '../../config.js';
@@ -41,6 +45,7 @@ describe('daily reminders — site API', () => {
       ['GET', '/api/v1/me/reminders'],
       ['PUT', '/api/v1/me/reminders'],
       ['POST', '/api/v1/me/telegram/link'],
+      ['POST', '/api/v1/me/telegram/link/confirm'],
     ] as const) {
       const res = await app.inject({ method, url, payload: method === 'GET' ? undefined : {} });
       expect(res.statusCode, url).toBe(401);
@@ -57,7 +62,7 @@ describe('daily reminders — site API', () => {
       enabled: false,
       time: '19:00',
       timezone: 'Europe/Moscow',
-      telegram: { linked: false, botStarted: false, blocked: false },
+      telegram: { linked: false, botStarted: false, blocked: false, pendingLink: null },
     });
   });
 
@@ -91,24 +96,46 @@ describe('daily reminders — site API', () => {
     expect(off.json().enabled).toBe(false);
   });
 
-  it('issues a one-time Telegram link token that the bot can consume', async () => {
+  it('links Telegram only after the bot claim AND the owner confirms on the site', async () => {
+    const borisCookie = await cookieFor(boris);
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/me/telegram/link',
-      headers: { cookie: await cookieFor(boris) },
+      headers: { cookie: borisCookie },
     });
     expect(res.statusCode).toBe(200);
     const { token } = telegramLinkResponseSchema.parse(res.json());
     expect(token.length).toBeLessThanOrEqual(64 - 'link_'.length);
     await testDb.db.insert(schema.telegramBotChats).values({ chatId: 4242 });
-    expect(await consumeTelegramLinkToken(testDb.db, token, 4242)).toMatchObject({
+    expect(await claimTelegramLinkToken(testDb.db, token, 4242, 'Борис')).toEqual({
+      status: 'claimed',
+    });
+    const status = () =>
+      app.inject({ method: 'GET', url: '/api/v1/me/reminders', headers: { cookie: borisCookie } });
+    expect((await status()).json().telegram).toEqual({
+      linked: false,
+      botStarted: false,
+      blocked: false,
+      pendingLink: { name: 'Борис' },
+    });
+
+    const confirm = (cookie: string, payload: unknown) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/me/telegram/link/confirm',
+        headers: { cookie },
+        payload: payload as Record<string, unknown>,
+      });
+    expect((await confirm(borisCookie, { accept: 'yes' })).statusCode).toBe(400);
+    // Anna cannot confirm Boris's link: she has nothing pending.
+    const foreign = await confirm(await cookieFor(anna), { accept: true });
+    expect(foreign.json().status).toBe('nothing_pending');
+
+    const ok = await confirm(borisCookie, { accept: true });
+    expect(ok.statusCode).toBe(200);
+    expect(telegramLinkConfirmResponseSchema.parse(ok.json())).toMatchObject({
       status: 'linked',
+      settings: { telegram: { linked: true, botStarted: true, blocked: false, pendingLink: null } },
     });
-    const status = await app.inject({
-      method: 'GET',
-      url: '/api/v1/me/reminders',
-      headers: { cookie: await cookieFor(boris) },
-    });
-    expect(status.json().telegram).toEqual({ linked: true, botStarted: true, blocked: false });
   });
 });
