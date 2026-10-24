@@ -30,8 +30,18 @@ declare module 'fastify' {
  * including ones registered in their own encapsulated child plugins —
  * no `fastify-plugin` dependency needed for that.
  */
-export async function registerAnonUser(app: FastifyInstance, db: Database) {
+export async function registerAnonUser(
+  app: FastifyInstance,
+  db: Database,
+  { trustHeader = true }: { trustHeader?: boolean } = {},
+) {
   app.decorateRequest('userId', null);
+
+  // Real auth is on: identity comes only from the server-side session
+  // (see plugins/authSession.ts). The header is neither read nor used
+  // to create `users` rows — otherwise anyone could mint accounts and
+  // act as any uuid just by sending it.
+  if (!trustHeader) return;
 
   app.addHook('onRequest', async (request) => {
     const header = request.headers['x-anon-id'];

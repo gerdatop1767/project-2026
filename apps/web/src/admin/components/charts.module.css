@@ -1,0 +1,218 @@
+.chartHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 1.75rem;
+  margin-bottom: var(--space-2);
+}
+
+.toggle {
+  margin-left: auto;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--admin-rim);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-label);
+  cursor: pointer;
+}
+
+.frame {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 11rem;
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.plot,
+.bars {
+  position: relative;
+  height: 11rem;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.grid {
+  stroke: color-mix(in srgb, var(--color-border-subtle) 80%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--color-text-secondary) 60%, transparent);
+  pointer-events: none;
+}
+
+.dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--color-bg-surface);
+  pointer-events: none;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: linear-gradient(var(--color-border-subtle), var(--color-border-subtle)) 0 50% / 100%
+    1px no-repeat;
+}
+
+.barCol {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
+
+.barCol[data-active] {
+  filter: brightness(1.2);
+}
+
+.barSeg {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+}
+
+.barCol .barSeg:last-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.labels {
+  position: relative;
+  height: 1.25rem;
+  margin-left: 2.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+}
+
+.labels span {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.tooltip {
+  position: absolute;
+  top: 0;
+  left: calc(var(--x) * 1%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 9rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 0.75rem;
+  background: var(--color-bg-elevated);
+  box-shadow:
+    inset 0 0 0 1px var(--admin-rim),
+    var(--shadow-e2);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-label);
+  transform: translateX(calc(var(--x) * -1%));
+  pointer-events: none;
+}
+
+.tipRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+
+.tipRow b {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.hbars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar {
+  display: grid;
+  grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-body-sm);
+}
+
+.hbarLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbarTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+  overflow: hidden;
+}
+
+.hbarFill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+}
+
+.hbarValue {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+@media (max-width: 520px) {
+  .hbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .hbarTrack {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.unit {
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+}

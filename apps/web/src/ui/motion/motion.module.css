@@ -1,33 +1,37 @@
+/*
+ * The app's one entrance language ("rise"): content fades in while rising a
+ * few px, on the strong ease-out curve. Every keyframe uses fill-mode
+ * `backwards` on purpose — it holds the start state during a stagger delay
+ * and then lets go completely. With `both`, a finished entrance left
+ * `transform: translateY(0)` behind, which silently turns the wrapper into
+ * the containing block of any `position: fixed` child (e.g. the scratchboard
+ * overlay inside a task screen).
+ */
+
 .fadeIn {
-  animation: fadeIn var(--duration-base) var(--easing-standard) both;
+  animation: fadeIn 260ms var(--easing-out) backwards;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-  }
-  to {
-    opacity: 1;
+    transform: translateY(calc(var(--motion-rise) / 2));
   }
 }
 
 .slideUp {
-  animation: slideUp var(--duration-page) var(--easing-standard) both;
+  animation: slideUp var(--duration-enter) var(--easing-out) backwards;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(var(--motion-rise));
   }
 }
 
 .scaleIn {
-  animation: scaleIn var(--duration-base) var(--easing-standard) both;
+  animation: scaleIn 300ms var(--easing-out) backwards;
 }
 
 @keyframes scaleIn {
@@ -35,16 +39,75 @@
     opacity: 0;
     transform: scale(0.96);
   }
-  to {
-    opacity: 1;
-    transform: scale(1);
+}
+
+/*
+ * Stagger: every direct child rises in turn (~28 ms apart, capped at the
+ * 7th child so a long list never makes the user wait). Decorative only — nothing is blocked
+ * while it plays.
+ */
+.stagger > * {
+  animation: slideUp var(--duration-enter) var(--easing-out) backwards;
+  animation-delay: calc(min(var(--stagger-index, 0), 6) * var(--stagger-step));
+}
+
+.stagger > :nth-child(2) {
+  --stagger-index: 1;
+}
+.stagger > :nth-child(3) {
+  --stagger-index: 2;
+}
+.stagger > :nth-child(4) {
+  --stagger-index: 3;
+}
+.stagger > :nth-child(5) {
+  --stagger-index: 4;
+}
+.stagger > :nth-child(6) {
+  --stagger-index: 5;
+}
+.stagger > :nth-child(7) {
+  --stagger-index: 6;
+}
+.stagger > :nth-child(8) {
+  --stagger-index: 7;
+}
+.stagger > :nth-child(n + 9) {
+  --stagger-index: 8;
+}
+
+/*
+ * Screen enter (DesktopShell / MobileShell wrap each screen in this, keyed by
+ * screen). The wrapper itself is `display: contents`, so it adds no box and
+ * the screens' own layout is exactly what it was.
+ *
+ * The whole screen fades in while settling 8px into place — one movement
+ * for the page, opacity + transform only (compositor work). It replaces the
+ * screen root's own SlideUp on purpose (same element, higher specificity):
+ * earlier the two fought, leaving only a 6px nudge with no fade, while the
+ * nested per-card cascades still played — pages looked abrupt and then
+ * "dripped" in top to bottom. Children no longer run their own long
+ * cascades (see `staggerDelay`), so the page arrives as one piece.
+ */
+.screen {
+  display: contents;
+}
+
+.screen > * {
+  animation: screenIn 260ms var(--easing-out) backwards;
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 
 .collapse {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows var(--duration-base) var(--easing-standard);
+  transition: grid-template-rows 260ms var(--easing-out);
 }
 
 .collapseOpen {
@@ -56,11 +119,36 @@
   min-height: 0;
 }
 
+/*
+ * Content swap: new content replacing old in place (another task, another
+ * tab's panel). `display: contents` adds no box, so the parent's own layout
+ * (flex gaps, grids) is untouched; its children fade in with a short rise.
+ * Quick on purpose — it never holds back what the user just asked for.
+ */
+.contentSwap {
+  display: contents;
+}
+
+.contentSwap > * {
+  animation: contentIn 240ms var(--easing-out) backwards;
+}
+
+@keyframes contentIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Reduced motion: no movement at all; content simply is there. */
 @media (prefers-reduced-motion: reduce) {
   .fadeIn,
   .slideUp,
-  .scaleIn {
-    animation-duration: 1ms;
+  .scaleIn,
+  .stagger > *,
+  .screen > *,
+  .contentSwap > * {
+    animation: none;
   }
 
   .collapse {

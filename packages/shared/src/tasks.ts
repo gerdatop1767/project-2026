@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { attemptXpSchema } from './xp.js';
 import { canonicalSolutionDtoSchema } from './canonicalSolutionDto.js';
 
 /**
@@ -228,12 +229,17 @@ export const attemptResultSchema = z.object({
    * presentation-only LaTeX form, never used for grading. */
   correctAnswerDisplay: z.string().nullable(),
   explanation: z.string(),
-  attemptId: z.uuid(),
+  /** null when a guest's answer was checked but, having no account,
+   * nothing was recorded. */
+  attemptId: z.uuid().nullable(),
   mistakeId: z.uuid().nullable(),
   // Present only for multi_part tasks — per-part breakdown of a single logical attempt.
   parts: z.array(attemptPartResultSchema).optional(),
   correctParts: z.number().int().nonnegative().optional(),
   totalParts: z.number().int().nonnegative().optional(),
   partStatus: multiPartStatusSchema.optional(),
+  /** Signed-in attempts only: XP this answer earned (0 when none) and the
+   * account's total/level after it — all decided server-side (docs/XP.md). */
+  xp: attemptXpSchema.optional(),
 });
 export type AttemptResult = z.infer<typeof attemptResultSchema>;

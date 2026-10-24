@@ -3,12 +3,11 @@ import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
 import { TaskDesktop } from './screens/Task/TaskDesktop.js';
 import { ResultDesktop } from './screens/Result/ResultDesktop.js';
 import { useNavigation } from './lib/navigation.js';
-import { HomeDesktop } from './screens/Home/HomeDesktop.js';
 import { StatisticsDesktop } from './screens/Statistics/StatisticsDesktop.js';
 import { MistakesDesktop } from './screens/Mistakes/MistakesDesktop.js';
 import { AchievementsDesktop } from './screens/Achievements/AchievementsDesktop.js';
 import { RatingDesktop } from './screens/Rating/RatingDesktop.js';
-import { AboutDesktop } from './screens/About/AboutDesktop.js';
+import { Level } from './screens/Level/Level.js';
 import { LearningCenterDesktop } from './screens/LearningCenter/LearningCenterDesktop.js';
 import { SubjectCatalogDesktop } from './screens/SubjectCatalog/SubjectCatalogDesktop.js';
 import { SubjectDesktop } from './screens/Subject/SubjectDesktop.js';
@@ -17,12 +16,11 @@ import { HelpDesktop } from './screens/Help/HelpDesktop.js';
 import { FriendsDesktop } from './screens/Friends/FriendsDesktop.js';
 import { FriendProfileDesktop } from './screens/Friends/FriendProfileDesktop.js';
 import { Training } from './screens/Training/Training.js';
-import { TrainingByNumber } from './screens/Training/TrainingByNumber.js';
 import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
 
 /** Screens whose approved desktop composition has no left sidebar. */
-const noSidebarScreens = new Set(['home', 'task', 'result', 'onboarding', 'learningSession']);
+const noSidebarScreens = new Set(['task', 'result', 'onboarding', 'learningSession']);
 
 /**
  * Desktop app tree (S1 Block 6, approved design) — its own composition,
@@ -44,6 +42,7 @@ export function AppDesktop() {
             from={overlay.from}
             collectionSlug={overlay.collectionSlug}
             initialMode={overlay.initialMode}
+            initialTaskNumber={overlay.initialTaskNumber}
           />
         )}
         {overlay.screen === 'task' && (
@@ -71,6 +70,7 @@ export function AppDesktop() {
             customOrderedTasks={overlay.customOrderedTasks}
             returnTo={overlay.returnTo}
             timeSpentMs={overlay.timeSpentMs}
+            revealed={overlay.revealed}
           />
         )}
         {overlay.screen === 'learningSession' && (
@@ -86,16 +86,8 @@ export function AppDesktop() {
         {overlay.screen === 'trainingVariants' && (
           <WipPlaceholder title="Варианты" note="Экран в разработке — следующий блок." />
         )}
-        {overlay.screen === 'trainingByNumber' && (
-          <TrainingByNumber
-            subjectId={overlay.subjectId}
-            collectionSlug={overlay.collectionSlug}
-            from={overlay.from}
-            initialTaskNumber={overlay.initialTaskNumber}
-          />
-        )}
         {overlay.screen === 'rating' && <RatingDesktop />}
-        {overlay.screen === 'about' && <AboutDesktop />}
+        {overlay.screen === 'level' && <Level />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
         {overlay.screen === 'onboarding' && <Onboarding />}
         {overlay.screen === 'favorites' && (
@@ -122,11 +114,13 @@ export function AppDesktop() {
   }
 
   const sidebar = !noSidebarScreens.has(tab);
-  const header = tab === 'home' ? 'cta' : 'status';
 
   return (
-    <DesktopShell header={header} sidebar={sidebar}>
-      {tab === 'home' && <HomeDesktop />}
+    <DesktopShell header="status" sidebar={sidebar}>
+      {/* A signed-in visitor's `/` is the Учебный центр — the same hub the
+          logo opens. (It used to be a marketing page that duplicated the
+          public landing's old copy.) */}
+      {tab === 'home' && <LearningCenterDesktop />}
       {tab === 'training' && <Training />}
       {tab === 'statistics' && <StatisticsDesktop />}
       {tab === 'achievements' && <AchievementsDesktop />}

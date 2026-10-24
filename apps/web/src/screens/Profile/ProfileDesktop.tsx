@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { LearningProfileResponse } from '@zybrilka/shared';
 import { useNavigation, getRouteLabel, type Route } from '../../lib/navigation.js';
+import { useAuth } from '../../lib/authContext.js';
 import { getLearningProfile } from '../../lib/api.js';
 import { selfReportedScoreLabel, targetScoreLabel } from '../../lib/learningProfileLabels.js';
 import { subjects as staticSubjects } from '../../data/subjects.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
-import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import type { IconName } from '../../ui/Icon/icons.js';
 import { FadeIn } from '../../ui/motion/motion.js';
+import { ProfileIdentityCard } from './account/ProfileIdentityCard.js';
+import { useIdentities } from './account/useIdentities.js';
+import { SignInMethodsSection } from './account/SignInMethodsSection.js';
+import { GuestProfileCard } from '../../ui/AccountGate/GuestProfileCard.js';
 import styles from './ProfileDesktop.module.css';
 
 function subjectShortName(subjectId: string): string {
@@ -36,8 +40,26 @@ export interface ProfileDesktopProps {
   from?: Route;
 }
 
-export function ProfileDesktop({ from }: ProfileDesktopProps) {
+export function ProfileDesktop(props: ProfileDesktopProps) {
+  const { user } = useAuth();
+  if (user === null) {
+    return (
+      <FadeIn>
+        <h1 className="text-h1" style={{ marginBottom: 'var(--space-5)' }}>
+          Профиль
+        </h1>
+        <GuestProfileCard />
+      </FadeIn>
+    );
+  }
+  return <AccountProfileDesktop {...props} />;
+}
+
+function AccountProfileDesktop({ from }: ProfileDesktopProps) {
   const { navigate } = useNavigation();
+  const { logout } = useAuth();
+  const identities = useIdentities();
+  const [logoutError, setLogoutError] = useState(false);
   const [profile, setProfile] = useState<LearningProfileResponse | null>(null);
 
   useEffect(() => {
@@ -55,12 +77,6 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
   }, []);
 
   const hasSubjects = (profile?.subjects.length ?? 0) > 0;
-
-  const basicInfo: readonly ProfileRow[] = [
-    { id: 'username', icon: 'profile', label: 'Имя пользователя', value: 'Не задано' },
-    { id: 'bio', icon: 'chat', label: 'О себе', value: 'Не задано' },
-    { id: 'avatar', icon: 'palette', label: 'Аватар', value: 'Изменить фото профиля' },
-  ];
 
   const studySettings: readonly ProfileRow[] = [
     {
@@ -113,6 +129,7 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
       icon: 'shield',
       label: 'Конфиденциальность',
       value: 'Данные и безопасность',
+      onClick: () => navigate({ screen: 'privacy' }),
     },
   ];
 
@@ -135,36 +152,14 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
       </div>
       <p className="text-body-sm text-secondary">Твои данные и настройки аккаунта</p>
 
-      <Card className={styles.hero}>
-        <div className={styles.identity}>
-          <span className={styles.avatarWrap}>
-            <img
-              src="/branding/v2/logo-icon-desktop.png"
-              alt=""
-              className={styles.avatar}
-              aria-hidden="true"
-            />
-            <span className={styles.avatarBadge} aria-hidden="true">
-              <Icon name="palette" size={12} />
-            </span>
-          </span>
-          <div>
-            <div className={styles.nameRow}>
-              <p className="text-h3">Имя не задано</p>
-            </div>
-            <p className="text-body-sm text-secondary">Профиль ещё не настроен</p>
-            <Button variant="secondary" className={styles.editButton}>
-              <Icon name="palette" size={16} /> Изменить профиль
-            </Button>
-          </div>
-        </div>
-      </Card>
+      <div className={styles.identitySlot}>
+        <ProfileIdentityCard identities={identities} />
+      </div>
 
       <div className={styles.columns}>
         <div className={styles.column}>
           <Card>
-            <p className="text-h3">Основная информация</p>
-            <RowList rows={basicInfo} />
+            <SignInMethodsSection identities={identities} />
           </Card>
           <Card>
             <p className="text-h3">Учебные настройки</p>
@@ -200,9 +195,21 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
             <RowList rows={helpActions} />
           </Card>
 
-          <button type="button" className={styles.logoutButton}>
+          <button
+            type="button"
+            className={styles.logoutButton}
+            onClick={() => {
+              setLogoutError(false);
+              logout().catch(() => setLogoutError(true));
+            }}
+          >
             <Icon name="logout" size={18} /> Выйти из аккаунта
           </button>
+          {logoutError && (
+            <p role="alert" className="text-body-sm">
+              Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.
+            </p>
+          )}
         </div>
       </div>
     </FadeIn>

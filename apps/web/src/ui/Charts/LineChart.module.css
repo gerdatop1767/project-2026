@@ -1,18 +1,45 @@
 .wrap {
+  position: relative;
   width: 100%;
   min-width: 0;
 }
 
+/* Top lane (3rem) for the tooltip; the plot below it. */
+.chart {
+  position: relative;
+  padding-top: 3rem;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.chart:focus-visible {
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 2px var(--color-accent-primary-end);
+}
+
+.plot {
+  position: relative;
+  height: 8.5rem;
+}
+
 .svg {
-  width: 100%;
-  height: 160px;
   display: block;
+  width: 100%;
+  height: 100%;
   overflow: visible;
 }
 
 .area {
-  fill: url(#lineChartGradient);
   opacity: 0.35;
+  animation: areaIn 600ms ease-out 200ms backwards;
+}
+
+@keyframes areaIn {
+  from {
+    opacity: 0;
+  }
 }
 
 .line {
@@ -21,55 +48,92 @@
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 1000;
-  stroke-dashoffset: 1000;
-  animation: draw 0.7s ease-out forwards;
+  vector-effect: non-scaling-stroke;
+  /* pathLength=1: the dash always covers the whole line, however long. */
+  stroke-dasharray: 1;
+  animation: draw 700ms var(--easing-out) backwards;
 }
 
 @keyframes draw {
-  to {
-    stroke-dashoffset: 0;
+  from {
+    stroke-dashoffset: 1;
   }
 }
 
+.dot,
+.activeDot {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .dot {
-  fill: var(--color-bg-base);
-  stroke: var(--color-accent-primary-end);
-  stroke-width: 2;
+  width: 7px;
+  height: 7px;
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 2px var(--color-accent-primary-end);
 }
 
-.labels {
-  display: flex;
-  gap: 4px;
-  width: 100%;
-  min-width: 0;
-  margin-top: var(--space-2, 8px);
-  overflow-x: hidden;
-  overflow-y: visible;
+.activeDot {
+  width: 12px;
+  height: 12px;
+  background: var(--color-accent-primary-end);
+  box-shadow:
+    0 0 0 3px var(--color-bg-surface),
+    0 0 12px color-mix(in srgb, var(--color-accent-primary-end) 70%, transparent);
+  animation: dotIn 160ms var(--easing-out);
 }
 
-.labelCell {
-  position: relative;
-  flex: 1;
-  min-width: 4px;
-  height: 18px;
+@keyframes dotIn {
+  from {
+    transform: translate(-50%, -50%) scale(0.4);
+  }
 }
 
-.labelCell span {
+.guide {
   position: absolute;
   top: 0;
-  left: 50%;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--color-accent-primary-end) 45%, transparent);
   transform: translateX(-50%);
-  text-align: center;
+  pointer-events: none;
+}
+
+/* Each label sits right under its point, shifted by the same share of its
+   own width as its position — so the first and last never get cut off. */
+.labels {
+  position: relative;
+  width: 100%;
+  height: 18px;
+  margin-top: var(--space-2, 8px);
+}
+
+.label {
+  position: absolute;
+  top: 0;
+  left: calc(var(--x) * 1%);
+  transform: translateX(calc(var(--x) * -1%));
   font-size: 11px;
   line-height: 18px;
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .line {
+  .line,
+  .area,
+  .activeDot {
     animation: none;
-    stroke-dashoffset: 0;
   }
 }

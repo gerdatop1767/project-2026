@@ -1,16 +1,12 @@
 import { createDb, pingDb } from '@zybrilka/db';
-import { buildApp } from './app.js';
+import { createApp } from './createApp.js';
 import { loadConfig } from './config.js';
+import { logAuthProviders } from './modules/auth/providersStatus.js';
 
 const config = loadConfig();
 const database = config.DATABASE_URL ? createDb(config.DATABASE_URL) : undefined;
 
-const app = buildApp({
-  logger: { level: config.LOG_LEVEL },
-  version: config.APP_VERSION,
-  checkDb: database ? () => pingDb(database.db) : undefined,
-  db: database?.db,
-});
+const app = createApp(config, database?.db, database ? () => pingDb(database.db) : undefined);
 
 async function shutdown(signal: string) {
   app.log.info({ signal }, 'shutting down');
@@ -18,6 +14,8 @@ async function shutdown(signal: string) {
   await database?.close();
   process.exit(0);
 }
+logAuthProviders(app.log, config);
+
 process.once('SIGINT', () => void shutdown('SIGINT'));
 process.once('SIGTERM', () => void shutdown('SIGTERM'));
 

@@ -9,6 +9,8 @@ import * as api from '../../lib/api.js';
 vi.mock('../../lib/api.js', () => ({
   getMistakes: vi.fn(),
   getSimilarTasks: vi.fn(() => Promise.resolve([])),
+  dismissMistake: vi.fn(() => Promise.resolve({ id: 'm1', status: 'dismissed' })),
+  restoreMistake: vi.fn(),
 }));
 
 const apiMistakes = [
@@ -162,5 +164,37 @@ describe('MistakesDesktop — "Решить похожее" (deterministic simil
     resolveSimilar([{ taskId: 'aaaaaaaa-0000-0000-0000-000000000001', taskNumber: 15, score: 80 }]);
     await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:'));
     expect(api.getSimilarTasks).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MistakesDesktop — subject filter and removal', () => {
+  it('the subject select really filters the list (it used to only change its label)', async () => {
+    const russian = {
+      ...apiMistakes[0]!,
+      id: 'r1',
+      subjectId: 'russian',
+      conditionMd: 'Укажите слово с безударной гласной',
+    };
+    vi.mocked(api.getMistakes).mockResolvedValue([...apiMistakes, russian]);
+    const user = userEvent.setup();
+    renderScreen();
+    expect(await screen.findByText(apiMistakes[0]!.conditionMd)).toBeInTheDocument();
+    expect(screen.queryByText(russian.conditionMd)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Математика/ }));
+    await user.click(await screen.findByRole('radio', { name: /Русский/ }));
+    expect(await screen.findByText(russian.conditionMd)).toBeInTheDocument();
+    expect(screen.queryByText(apiMistakes[0]!.conditionMd)).not.toBeInTheDocument();
+  });
+
+  it('× removes a card after the server confirms', async () => {
+    vi.mocked(api.getMistakes).mockResolvedValue(apiMistakes);
+    const user = userEvent.setup();
+    renderScreen();
+    await screen.findByText(apiMistakes[0]!.conditionMd);
+    await user.click(screen.getByRole('button', { name: 'Убрать из ошибок (задание 15)' }));
+    await waitFor(() =>
+      expect(screen.queryByText(apiMistakes[0]!.conditionMd)).not.toBeInTheDocument(),
+    );
+    expect(api.dismissMistake).toHaveBeenCalledWith('m1');
   });
 });

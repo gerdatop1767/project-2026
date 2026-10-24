@@ -1,0 +1,633 @@
+/*
+ * Public landing — dark, restrained, typographic.
+ *
+ * One visual accent (the mascot), one accent colour (purple, for the key
+ * word and the primary button), whitespace instead of boxes. Motion follows
+ * emil-design-eng: only `transform`/`opacity`, strong ease-out for entrances,
+ * no infinite animations, hover only where hover exists, and reduced motion
+ * keeps the fades but drops every bit of travel.
+ */
+
+.page {
+  --site-max: 75rem;
+  --site-gutter: var(--space-4);
+  --line: color-mix(in srgb, var(--color-tint) 9%, transparent);
+  --accent-text: color-mix(in srgb, var(--color-accent-primary) 68%, var(--color-tint));
+  position: relative;
+  min-height: 100dvh;
+  overflow-x: clip;
+  background: var(--color-bg-base);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+@media (min-width: 400px) {
+  .page {
+    --site-gutter: var(--space-5);
+  }
+}
+
+@media (min-width: 768px) {
+  .page {
+    --site-gutter: var(--space-10);
+  }
+}
+
+.accent {
+  color: var(--accent-text);
+}
+
+/* ================= Primary button ================= */
+
+.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 3.5rem;
+  padding: 0 var(--space-8);
+  border: none;
+  border-radius: var(--radius-chip);
+  font-family: var(--font-family-base);
+  font-size: 1.0625rem;
+  font-weight: var(--font-weight-semibold);
+  color: #fff;
+  background: var(--color-accent-primary);
+  box-shadow: 0 12px 32px -14px color-mix(in srgb, var(--color-accent-primary) 90%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 160ms var(--easing-out),
+    background-color 180ms ease;
+}
+
+.primaryArrow {
+  flex-shrink: 0;
+  transition: transform 200ms var(--easing-out);
+}
+
+.primary:active {
+  transform: scale(0.97);
+}
+
+.primary:focus-visible,
+.subject:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primary:hover {
+    background: var(--color-accent-primary-hover);
+  }
+
+  .primary:hover .primaryArrow {
+    transform: translateX(3px);
+  }
+}
+
+/* ================= Hero ================= */
+
+.hero {
+  display: grid;
+  gap: var(--space-8);
+  max-width: var(--site-max);
+  margin: 0 auto;
+  padding: var(--space-8) var(--site-gutter) var(--space-12);
+}
+
+.heroCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-chip);
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* The same bold display face the trainer uses for subject names. */
+.title {
+  font-family: var(--font-family-display);
+  font-weight: 800;
+  font-size: clamp(2.125rem, 1.1rem + 4.3vw, 4.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  color: var(--color-text-primary);
+}
+
+.lead {
+  max-width: 31rem;
+  margin-top: var(--space-6);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.heroAction {
+  margin-top: var(--space-8);
+}
+
+.heroArt {
+  position: relative;
+  justify-self: center;
+  width: min(100%, 30rem);
+  aspect-ratio: 1224 / 1024;
+}
+
+/* ---- Mascot stage ----
+   Three quiet layers so the cut-out sits *in* the page rather than on it:
+   a soft aura behind the head, one thin ring that fades out behind the
+   books, and a pool of light the books rest on. All static after load. */
+
+.halo,
+.ring,
+.floor {
+  position: absolute;
+  pointer-events: none;
+}
+
+.halo {
+  left: 12%;
+  top: -6%;
+  width: 82%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-accent-primary) 42%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent-primary-end) 14%, transparent) 55%,
+    transparent 100%
+  );
+  animation: halo-in 1400ms var(--easing-out) 200ms both;
+}
+
+.ring {
+  left: 21%;
+  top: 2%;
+  width: 66%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-tint) 10%, transparent),
+    0 0 0 18px color-mix(in srgb, var(--color-tint) 2%, transparent);
+  /* Fades out toward the bottom, so it disappears behind the books. */
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 78%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 78%);
+  animation: fade 1200ms ease 500ms both;
+}
+
+.floor {
+  left: 2%;
+  right: 8%;
+  bottom: -5%;
+  height: 22%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-accent-primary) 34%, transparent),
+    transparent
+  );
+  animation: fade 1200ms ease 300ms both;
+}
+
+.mascot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* A cut-out character (transparent background) — shown whole, no crop. */
+  object-fit: contain;
+  /* Grounding shadow + a faint violet rim so the edges catch the aura. */
+  filter: drop-shadow(0 22px 28px rgb(0 0 0 / 0.55))
+    drop-shadow(0 0 22px color-mix(in srgb, var(--color-accent-primary) 30%, transparent));
+}
+
+@keyframes halo-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+
+@media (min-width: 900px) {
+  .hero {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: var(--space-10);
+    min-height: min(calc(100svh - 4rem), 48rem);
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-16);
+  }
+
+  .lead {
+    font-size: 1.1875rem;
+  }
+
+  .heroArt {
+    justify-self: end;
+    width: min(100%, 40rem);
+  }
+}
+
+/* ---- Entrance: copy rises in a short cascade, the mascot settles ---- */
+
+.badge,
+.title,
+.lead,
+.heroAction {
+  animation: rise 700ms var(--easing-out) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.heroArt {
+  animation: settle 900ms var(--easing-out) 120ms both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+/* ================= Sections ================= */
+
+.section {
+  max-width: var(--site-max);
+  margin: 0 auto;
+  padding: clamp(3.5rem, 2.5rem + 4vw, 7rem) var(--site-gutter) 0;
+  scroll-margin-top: 4.5rem;
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+
+.h2 {
+  max-width: 22ch;
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-bold);
+  font-size: clamp(1.625rem, 1.15rem + 1.9vw, 2.625rem);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.h3 {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-bold);
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.sectionLead {
+  max-width: 34rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* Heading on the left, content on the right — breaks the rhythm of
+   stacked sections without adding boxes. */
+@media (min-width: 960px) {
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: var(--space-12);
+    align-items: start;
+  }
+
+  .split .sectionHead {
+    margin-bottom: 0;
+  }
+}
+
+/* ---- Scroll reveal (see Reveal.tsx) ---- */
+
+.reveal {
+  transition:
+    opacity 700ms var(--easing-out) var(--reveal-delay, 0ms),
+    transform 700ms var(--easing-out) var(--reveal-delay, 0ms);
+}
+
+.reveal[data-reveal='pending'] {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+}
+
+/* ================= Subjects ================= */
+
+.subjects {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 720px) {
+  .subjects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+}
+
+.subject {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4) var(--space-5) var(--space-4) var(--space-4);
+  border: none;
+  border-radius: var(--radius-card);
+  text-align: left;
+  color: inherit;
+  background: color-mix(in srgb, var(--color-tint) 3.5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 160ms var(--easing-out),
+    background-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.subject:active {
+  transform: scale(0.98);
+}
+
+.subjectIcon {
+  flex-shrink: 0;
+  width: 4rem;
+  height: 4rem;
+}
+
+.subjectText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.subjectName {
+  font-size: 1.125rem;
+  line-height: 1.3;
+  overflow-wrap: normal;
+}
+
+.subjectCaption {
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.subjectArrow {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition:
+    transform 200ms var(--easing-out),
+    color 160ms ease;
+}
+
+@media (min-width: 560px) {
+  .subject {
+    padding: var(--space-5) var(--space-6) var(--space-5) var(--space-5);
+  }
+
+  .subjectIcon {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .subject:hover {
+    background: color-mix(in srgb, var(--color-tint) 5.5%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 40%, transparent);
+  }
+
+  .subject:hover .subjectArrow {
+    transform: translateX(3px);
+    color: var(--color-text-primary);
+  }
+}
+
+/* ================= Features & steps ================= */
+
+.features,
+.steps {
+  display: grid;
+  gap: var(--space-8) var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .features {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: var(--space-10);
+  }
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.featureBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-top: 0.125rem;
+}
+
+.featureText {
+  max-width: 24rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stepNumber {
+  margin-bottom: var(--space-3);
+  font-family: var(--font-family-display);
+  font-weight: 800;
+  font-size: 2.5rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
+
+/* ================= Sources ================= */
+
+.sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.source {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.sourceBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.sourceSubject {
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-disabled);
+}
+
+.sourceTitle {
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+}
+
+/* ================= Final CTA ================= */
+
+.cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-12) var(--space-5);
+  border-radius: 2rem;
+  text-align: center;
+  background:
+    radial-gradient(
+      70% 90% at 50% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 22%, transparent),
+      transparent 70%
+    ),
+    color-mix(in srgb, var(--color-tint) 3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.cta .sectionLead {
+  max-width: 28rem;
+}
+
+.ctaTitle {
+  font-family: var(--font-family-display);
+  font-weight: 800;
+  font-size: clamp(1.75rem, 1.15rem + 2.5vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.cta .primary {
+  margin-top: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .cta {
+    padding: var(--space-16) var(--space-10);
+  }
+}
+
+/* The footer sits a full section's breath below the CTA. */
+.page > footer {
+  margin-top: clamp(3.5rem, 2.5rem + 4vw, 7rem);
+}
+
+/* ================= Reduced motion =================
+   Fades stay (shortened) — they help comprehension; every movement goes.
+   The 0.97 press dip stays too: it's feedback, not travel. */
+@media (prefers-reduced-motion: reduce) {
+  .badge,
+  .title,
+  .lead,
+  .heroAction,
+  .heroArt {
+    animation-name: fade;
+    animation-duration: 240ms;
+    animation-delay: 0ms;
+  }
+
+  .halo {
+    animation-name: fade;
+    animation-duration: 400ms;
+  }
+
+  .reveal {
+    transition: opacity 240ms ease;
+  }
+
+  .reveal[data-reveal='pending'] {
+    transform: none;
+  }
+
+  .primary:hover .primaryArrow,
+  .subject:hover .subjectArrow {
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

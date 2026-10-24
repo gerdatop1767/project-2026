@@ -51,13 +51,15 @@ volume, `postgres_data` — survives `down`/`up` and a container
 rebuild), a one-shot `migrate` job that applies any pending Drizzle
 **schema** migrations and exits, a one-shot `sync-subjects` job that
 upserts the canonical `subjects` rows and exits, a one-shot
-`sync-content` job that upserts the EGE-2026 Ященко **content**
-(conditionMd, solutionSteps, correctAnswerDisplay, ...) for all five
-variants (Вариант 1-5, 95 tasks) into their existing task rows and
-exits — running each variant's importer strictly in order (V1 through
-V5, `&&`-chained so the job's own exit code is non-zero and `api`/
-`worker` never start if any one of them fails) — `api` and `worker`
-(both wait for
+`sync-content` job that upserts task **content** (conditionMd,
+solutionSteps, correctAnswerDisplay, explanationMd, ...) for the full
+catalog — ten EGE-2026 Ященко math variants (Вариант 1-10, 190 tasks)
+followed by all eighteen EGE Russian 2027 Дощинский variants (Вариант
+1-18, 486 tasks) — into their existing task rows and exits, running
+every importer strictly in order (math V1 through V10, then Russian V1
+through V18, `&&`-chained so the job's own exit code is non-zero and
+`api`/`worker` never start if any one importer fails) — `api` and
+`worker` (both wait for
 `sync-content` to finish successfully), `web`, and `caddy` (the only
 container publishing `80`/`443`), which reverse-proxies `/api/*` and
 `/health` to `api:3000` and everything else to `web:80`,
@@ -88,9 +90,9 @@ only had `'math'` — a user picking any other subject in Onboarding's
 профиль" the moment they tried to save. Both `sync-subjects` and
 `sync-content` are safe to run unconditionally on a live database with
 real users: `sync-subjects` only ever inserts-or-updates a `subjects`
-row by its stable `id`; `sync-content` upserts each of the 19 tasks by
-its stable identity (subject + source + variant + task number), never
-by a freshly-generated id — neither touches `attempts`/`mistakes`/
+row by its stable `id`; `sync-content` upserts each task by its stable
+identity (subject + source + variant + task number), never by a
+freshly-generated id — neither touches `attempts`/`mistakes`/
 bookmarks/`user_subject_profiles`. See each service's own comment in
 `infra/docker-compose.yml`, `packages/db/src/syncSubjects.test.ts`, and
 `packages/db/src/importEge2026Variant1.test.ts`'s "content migration"
@@ -164,20 +166,73 @@ it only exists locally, never pushed anywhere.
   Docker build). Both Dockerfiles already pass `--legacy` to `deploy`
   for exactly this reason — if you see this error, check that flag
   wasn't dropped from `apps/api/Dockerfile` / `apps/worker/Dockerfile`.
-- **`https://zybrilka.ru/health` (or `/api/*`) returns the website
-  instead of the API response, even though `infra/Caddyfile` routes it
-  correctly** — the running `caddy` container is still serving an
-  older in-memory config from before that routing existed.
-  `infra/Caddyfile` is bind-mounted, not baked into the image, so a
-  plain `docker compose up -d` never notices its contents changed and
-  never restarts a `caddy` container whose own service definition
-  didn't change. The `caddy` service runs with `--watch` (see
-  **Caddy** above) specifically so this can't happen again once it's
-  running with that flag; if it's still happening, confirm the running
-  container's command actually includes `--watch`
-  (`docker compose -f infra/docker-compose.yml exec caddy pgrep -fa caddy`)
-  and if not, `docker compose -f infra/docker-compose.yml up -d caddy`
-  once to pick it up.
+- **`https://zybrilka.ru/health`, `/api/*` or `/auth/vk/start` returns the
+  website instead of the API response, even though
+  `infra/caddy/Caddyfile` routes it correctly** — the running `caddy`
+  container is still serving an older config. Historically the
+  Caddyfile was bind-mounted as a *single file*: Docker pins that
+  file's inode when the container is created, `git pull` replaces a
+  changed file with a new inode, so the container keeps the old content
+  and neither `up -d` (service definition unchanged → no recreate;
+  `--build` does nothing for the image-only `caddy` service) nor
+  `--watch` (watches the stale in-container file) ever sees the change.
+  The compose file now mounts the *directory* `infra/caddy/`, which
+  avoids this; the container that predates this change must be
+  recreated **once**:
+
+  ```bash
+  docker compose --env-file infra/.env -f infra/docker-compose.yml \
+    up -d --force-recreate --no-deps caddy
+  ```
+
+  See **Verify the edge** under **Caddy** to confirm what is actually
+  loaded.
+
+## Sign-in, profile data and access control
+
+How the trainer decides who may do what (all server-side, in `apps/api`):
+
+- Every `/api/v1/*` route except `/api/v1/auth/*` (and `/health`) answers
+  **401** without a valid `session_id` cookie. The old anonymous
+  `x-anon-id` header is ignored when auth is configured (it is only still
+  honored by the pre-auth test setups).
+- First sign-in (VK ID or email) creates one account per
+  `(provider, provider user id)`; a repeat sign-in or a replayed callback
+  resolves to the same account.
+- After VK sign-in the API calls VK's `user_info` endpoint server-to-server
+  with the access token VK issued for that authorization code and stores
+  `first_name`, `last_name`, `avatar` on `users` (migration `0021`).
+  A missing/blank field never overwrites a stored value; a failed lookup
+  never fails the login. **That endpoint and its response shape come from
+  third-party client libraries, not VK's own docs — confirm with one real
+  login** (`users.first_name/last_name/avatar_url` filled in the DB).
+- Every call to VK is bounded by `VK_REQUEST_TIMEOUT_MS` (default 5000). A
+  stalled token exchange ends the callback with 504 `vk_timeout`; a stalled
+  or failing profile lookup never blocks sign-in. When the profile cannot
+  be read the API logs ONE warning (`docker compose logs api | grep "VK
+  profile"`) with `vkProfile` = `timeout|network|http|invalid_response|
+  no_usable_fields`, the HTTP status and — for a 200 without usable fields
+  — the key NAMES VK sent (never values, tokens, codes or cookies). After
+  the first real login, no such warning means the assumed `user_info` shape
+  was right; `no_usable_fields` tells you which keys to map instead.
+- Profile editing (name, avatar), the best VK photo (`users.get`), Telegram
+  Mini App sign-in and linking VK/Telegram to one account are described in
+  [TELEGRAM_MINI_APP.md](TELEGRAM_MINI_APP.md), including the extra
+  `TELEGRAM_BOT_TOKEN` / `TELEGRAM_AUTH_MAX_AGE_SECONDS` variables, migration
+  `0022_*` (additive) and the log fields to grep for
+  (`vkPhotoApi`, `vkAvatar`, `tgAuth`, `tgPhoto`).
+- "Onboarding finished" is `user_subject_profiles.onboarding_completed_at`
+  (set by `PUT /me/learning-profile`). `/auth/me` returns it as
+  `onboardingCompleted`; the VK callback redirects an unfinished account to
+  `/onboarding` and a finished one to the main menu. There is no separate
+  diagnostic test yet — onboarding (subjects → level → target) is the
+  existing first-run flow.
+- Logout deletes the `auth_sessions` row and expires the cookie with the
+  same attributes it was set with.
+
+Deploy note: migration `0021_*` only adds three nullable `text` columns to
+`users` and is applied by the existing `migrate` service on the next
+`up -d`; it needs no manual step and keeps every existing row.
 
 ## Stop
 
@@ -256,34 +311,70 @@ docker compose -f infra/docker-compose.yml up -d --build web
 
 ## Caddy
 
-`infra/Caddyfile` defines both hosts:
+`infra/caddy/Caddyfile` defines both hosts:
 
 - `www.zybrilka.ru` — permanent redirect to the apex domain.
 - `zybrilka.ru` — `/api/*` and `/health` reverse-proxy to `api:3000`
   with no path stripping (the API already registers those exact paths
-  itself, see `apps/api/src/app.ts`); everything else reverse-proxies
-  to `web:80`, with gzip/zstd encoding. Client-side route fallback
+  itself, see `apps/api/src/app.ts`); the unprefixed VK OAuth aliases
+  `/auth/vk/start` and `/auth/vk/callback` are rewritten to
+  `/api/v1/auth/vk/...` first; everything else reverse-proxies to
+  `web:80`, with gzip/zstd encoding. Client-side route fallback
   (unknown paths → `index.html`) is handled by `web`'s own nginx
   config, not by Caddy.
 
 Validate the file without starting anything:
 
 ```bash
-docker run --rm -v "$(pwd)/infra/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine \
-  caddy validate --config /etc/caddy/Caddyfile
+docker run --rm -v "$(pwd)/infra/caddy:/etc/caddy:ro" caddy:2-alpine \
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-`caddy`'s compose service runs with `--watch`, so once it's running
-with that flag it reloads automatically whenever `infra/Caddyfile`
-changes on disk — no container restart needed for a routing change to
-take effect (see the comment on that service in
-`infra/docker-compose.yml` for why this matters: it's a bind-mounted
-file, and `docker compose up -d` alone never notices its contents
-changed). If you're updating an existing deployment whose `caddy`
-container predates `--watch`, `docker compose up -d` still picks it up
-correctly on that one deploy — a `command:` change is a service
-definition change, so compose recreates the container for it exactly
-like it would for a new image tag.
+The `caddy` service bind-mounts the **directory** `infra/caddy/` (not
+the single file) and runs with `--watch`, so a `git pull` that changes
+the Caddyfile is picked up by the running container and Caddy reloads
+it without a restart. A single-file mount would NOT work: it pins the
+old inode and `git pull` swaps the file for a new one (see the
+troubleshooting entry about `/health` returning the website). Never
+mount `infra/` itself into the container — it contains `infra/.env`.
+
+### Verify the edge
+
+Safe checks (no secrets, no OAuth parameters printed):
+
+```bash
+C="docker compose --env-file infra/.env -f infra/docker-compose.yml"
+
+# 1. Which Caddyfile does the RUNNING container see? (expect the
+#    vkAuthAlias block; its absence means a stale mount.)
+$C exec caddy grep -c vkAuthAlias /etc/caddy/Caddyfile
+
+# 2. Same file as on the host? Compare checksums.
+sha256sum infra/caddy/Caddyfile
+$C exec caddy sha256sum /etc/caddy/Caddyfile
+
+# 3. What config did Caddy actually load? (expect a rewrite to
+#    /api/v1... for /auth/vk/start in the output.)
+$C exec caddy wget -qO- http://localhost:2019/config/ | grep -c 'api/v1'
+
+# 4. Is the API reachable from inside the infrastructure, and does the
+#    route redirect? Prints only the status code and the Location
+#    origin+path (never the query string, which carries the OAuth params).
+$C exec api node -e "fetch('http://127.0.0.1:3000/api/v1/auth/vk/start',{redirect:'manual'}).then(r=>{const l=r.headers.get('location');console.log(r.status,l?new URL(l).origin+new URL(l).pathname:'')})"
+
+# 5. Through the public edge (status and server only).
+curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://zybrilka.ru/auth/vk/start
+```
+
+Check 4 answering **404** means the running `api` image predates the
+auth module (or was built without `authConfig` wiring — fixed by
+`apps/api/src/createApp.ts`): rebuild it with
+`$C up -d --build --no-deps api`; `--build` matters here because `api`,
+unlike `caddy`, is built from this repo.
+
+Expected: 302 (or 503 `vk_not_configured` if VK_* are unset) from the
+API and from the edge — `200 text/html` from the edge means Caddy is
+still serving the SPA for that path.
 
 ## DNS requirements
 
@@ -344,3 +435,37 @@ A schema rollback (undoing a migration) is not automated — Drizzle
 migrations are forward-only here. If a bad migration shipped, restore
 from a pre-migration backup instead of trying to hand-write a down
 migration.
+
+
+## Деплой на текущий VPS
+
+Для production на текущем VPS используется отдельный checkout `/opt/Zybrilka-release` и файл `infra/docker-compose.deploy.yml`. Не заменяйте их стандартным Compose-файлом: пути сборки и конфигурация рассчитаны на эту схему.
+
+Переменные окружения находятся в `/opt/Zybrilka/infra/.env`. Не выводите их содержимое и не добавляйте файл в Git.
+
+Проверить конфигурацию перед деплоем:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml config --quiet
+```
+
+Применить миграции базы данных:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml run --rm migrate
+```
+
+Перезапустить API и веб-приложение после обновления их образов:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml up -d api web
+```
+
+Проверить состояние контейнеров и API:
+
+```bash
+docker compose -p infra --project-directory /opt/Zybrilka-release --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release/infra/docker-compose.deploy.yml ps
+curl -fsS https://zybrilka.ru/health
+```
+
+Перед миграциями или рискованными изменениями базы создавайте резервную копию и проверяйте её доступность. Не удаляйте неизвестные файлы и резервные копии в `/opt/Zybrilka`.

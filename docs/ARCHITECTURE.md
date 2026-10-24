@@ -195,7 +195,7 @@ Zybrilka/
 │   └── adaptive/       pure functions: priority scoring, mastery updates, spaced repetition
 ├── design/             5 concept prototypes → chosen design tokens
 ├── docs/               ARCHITECTURE.md, DECISIONS.md, SOURCES.md (legal status per content source)
-├── infra/              docker-compose.yml, Caddyfile, backup scripts
+├── infra/              docker-compose.yml, caddy/Caddyfile, backup scripts
 ├── .github/workflows/  ci.yml
 └── CLAUDE.md
 ```

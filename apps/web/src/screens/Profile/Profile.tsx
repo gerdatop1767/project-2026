@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLearningProfile, getProgressSummary } from '../../lib/api.js';
+import { useAuth } from '../../lib/authContext.js';
+import { GuestProfileCard } from '../../ui/AccountGate/GuestProfileCard.js';
 import type { LearningProfileResponse, ProgressSummary } from '@zybrilka/shared';
 import { selfReportedScoreLabel, targetScoreLabel } from '../../lib/learningProfileLabels.js';
 import { subjects as staticSubjects } from '../../data/subjects.js';
@@ -10,6 +12,9 @@ import { StatTile } from '../../ui/Statistics/StatTile.js';
 import { SubjectTile } from '../../ui/SubjectTile/SubjectTile.js';
 import { useNavigation } from '../../lib/navigation.js';
 import { SlideUp } from '../../ui/motion/motion.js';
+import { ProfileIdentityCard } from './account/ProfileIdentityCard.js';
+import { useIdentities } from './account/useIdentities.js';
+import { SignInMethodsSection } from './account/SignInMethodsSection.js';
 import styles from './Profile.module.css';
 
 function findSubject(subjectId: string) {
@@ -29,7 +34,36 @@ function findSubject(subjectId: string) {
  * straight from GET /progress/summary and GET /me/learning/profile.
  */
 export function Profile() {
-  const { navigate } = useNavigation();
+  const { user } = useAuth();
+  return user === null ? <GuestProfile /> : <AccountProfile />;
+}
+
+/** Guest mode: the header and its menu stay; no personal data is loaded. */
+function GuestProfile() {
+  const { navigate, overlay } = useNavigation();
+  return (
+    <SlideUp className={styles.stack}>
+      <div className={styles.headerRow}>
+        <h1 className="text-h1">Профиль</h1>
+        <button
+          type="button"
+          className={styles.iconButton}
+          aria-label="Меню"
+          onClick={() =>
+            navigate({ screen: 'menu', from: overlay?.screen === 'profile' ? overlay : undefined })
+          }
+        >
+          <Icon name="settings" size={20} />
+        </button>
+      </div>
+      <GuestProfileCard />
+    </SlideUp>
+  );
+}
+
+function AccountProfile() {
+  const { navigate, overlay } = useNavigation();
+  const identities = useIdentities();
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [learningProfile, setLearningProfile] = useState<LearningProfileResponse | null>(null);
 
@@ -65,23 +99,15 @@ export function Profile() {
           type="button"
           className={styles.iconButton}
           aria-label="Меню"
-          onClick={() => navigate({ screen: 'menu' })}
+          onClick={() =>
+            navigate({ screen: 'menu', from: overlay?.screen === 'profile' ? overlay : undefined })
+          }
         >
           <Icon name="settings" size={20} />
         </button>
       </div>
 
-      <Card className={styles.identityCard}>
-        <div className={styles.identity}>
-          <span className={styles.avatarWrap} aria-hidden="true">
-            <Icon name="profile" size={32} />
-          </span>
-          <div className={styles.identityText}>
-            <p className="text-h3">Имя не задано</p>
-            <p className="text-body-sm text-secondary">Профиль ещё не настроен</p>
-          </div>
-        </div>
-      </Card>
+      <ProfileIdentityCard identities={identities} />
 
       <div className={styles.statsGrid}>
         <StatTile
@@ -101,6 +127,10 @@ export function Profile() {
         />
       </div>
 
+      <Card>
+        <SignInMethodsSection identities={identities} />
+      </Card>
+
       <div>
         <SectionHeader
           title="Предметы ЕГЭ"
@@ -117,9 +147,10 @@ export function Profile() {
                   key={s.subjectId}
                   type="button"
                   className={styles.subjectCard}
+                  data-subject-interactive
                   onClick={() => navigate({ screen: 'subject', subjectId: s.subjectId })}
                 >
-                  {subject && <SubjectTile glyph={subject.glyph} color={subject.color} size={40} />}
+                  {subject && <SubjectTile glyph={subject.glyph} size={40} />}
                   <span className={styles.subjectText}>
                     <span className="text-body">{subject?.shortName ?? s.subjectId}</span>
                     <span className="text-body-sm text-secondary">
@@ -216,7 +247,11 @@ export function Profile() {
             <span className={styles.settingsLabel}>Язык</span>
             <span className="text-body-sm text-secondary">Русский</span>
           </div>
-          <div className={styles.settingsRow}>
+          <button
+            type="button"
+            className={styles.settingsRow}
+            onClick={() => navigate({ screen: 'privacy' })}
+          >
             <span className={styles.settingsIcon}>
               <Icon name="shield" size={18} />
             </span>
@@ -224,7 +259,8 @@ export function Profile() {
               Конфиденциальность
               <span className={styles.settingsSublabel}>Данные и безопасность</span>
             </span>
-          </div>
+            <Icon name="chevronRight" size={16} className={styles.subjectChevron} />
+          </button>
           <div className={styles.settingsInfo}>
             <Icon name="info" size={18} />
             <span className="text-body-sm">

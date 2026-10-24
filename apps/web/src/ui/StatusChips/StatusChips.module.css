@@ -54,7 +54,7 @@
   display: block;
   height: 3px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--color-tint) 8%, transparent);
   overflow: hidden;
 }
 
@@ -116,4 +116,77 @@
   .flameIconUp {
     animation: none;
   }
+}
+
+.levelButton {
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow var(--duration-fast) ease;
+}
+
+.levelButton:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 35%, transparent);
+}
+
+.levelButton:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+.guestChip {
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 35%, transparent);
+}
+
+.guestChip .chipValue {
+  color: var(--color-accent-primary-end);
+}
+
+.guestChip:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+.guestIcon {
+  color: var(--color-text-secondary);
+}
+
+/* Streak chip: a faint rim in the flame's own colour, a little stronger
+   with each tier — the header stays calm; the flame carries the effect. */
+.streakChip {
+  --streak-tone: transparent;
+  box-shadow: inset 0 0 0 1px var(--streak-tone);
+  transition: box-shadow var(--duration-base) var(--easing-standard);
+}
+
+.streakChip[data-tier='1'] {
+  --streak-tone: color-mix(in srgb, #ff8a2a 22%, transparent);
+}
+.streakChip[data-tier='2'] {
+  --streak-tone: color-mix(in srgb, #ff6a1f 30%, transparent);
+}
+.streakChip[data-tier='3'] {
+  --streak-tone: color-mix(in srgb, #ff4d6d 34%, transparent);
+}
+.streakChip[data-tier='4'] {
+  --streak-tone: color-mix(in srgb, #c04dff 40%, transparent);
+}
+.streakChip[data-tier='5'] {
+  --streak-tone: color-mix(in srgb, #7c6bff 45%, transparent);
+}
+.streakChip[data-tier='6'] {
+  --streak-tone: color-mix(in srgb, #b05cff 55%, transparent);
+  background:
+    radial-gradient(
+      80% 120% at 0% 50%,
+      color-mix(in srgb, #b05cff 14%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-elevated);
 }

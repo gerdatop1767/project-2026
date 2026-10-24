@@ -55,6 +55,52 @@ export function ScaleIn({ children, delayMs, className, style, ...rest }: Motion
   );
 }
 
+/** The step and cap every list cascade shares: siblings appear ~28 ms
+ * apart and anything past the 7th item arrives with it — a list reads
+ * as one block, never a long drip. */
+export const STAGGER_STEP_MS = 28;
+export const STAGGER_MAX_INDEX = 6;
+export function staggerDelay(index: number): number {
+  return Math.min(Math.max(index, 0), STAGGER_MAX_INDEX) * STAGGER_STEP_MS;
+}
+
+/**
+ * Its direct children rise in one after another (~28 ms apart, capped).
+ * For a screen's top-level sections or a short grid of cards.
+ */
+export function Stagger({ children, className, ...rest }: Omit<MotionProps, 'delayMs'>) {
+  return (
+    <div className={clsx(styles.stagger, className)} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+/** Same stagger as `<Stagger>`, as a class for an element that is not a div (a `<ul>`, a grid). */
+export const staggerClassName = styles.stagger;
+
+/**
+ * Wraps the current screen inside the app shells. Keyed by screen, so it
+ * re-plays only when the visitor actually moves to another screen (not on
+ * data updates): the whole screen fades in while settling a few px.
+ */
+export function ScreenEnter({ screenKey, children }: { screenKey: string; children: ReactNode }) {
+  return (
+    <div key={screenKey} className={styles.screen} data-screen={screenKey}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * New content arriving in place of old (another task, another tab's
+ * panel): its children fade in with a short rise. Key it by what it shows
+ * (`key={taskId}`) so it re-plays on each swap. Adds no box of its own.
+ */
+export function ContentSwap({ children }: { children: ReactNode }) {
+  return <div className={styles.contentSwap}>{children}</div>;
+}
+
 export interface CollapseProps {
   open: boolean;
   children: ReactNode;

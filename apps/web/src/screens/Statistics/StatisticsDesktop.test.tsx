@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StatisticsDesktop } from './StatisticsDesktop.js';
 import { NavigationProvider } from '../../lib/navigation.js';
@@ -38,23 +38,27 @@ beforeEach(() => {
   vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({ items: [] });
 });
 
+/** The bars of "Активность по дням". */
+function activityBars() {
+  const chart = screen.getByRole('group', { name: /Решённые задания по дням/ });
+  return chart.querySelector('[class*="bars"]')!.children;
+}
+
 describe('StatisticsDesktop — period switching', () => {
   it('renders the daily-activity chart for the default 30-day period, zero-filled from real daily data', () => {
     renderStatistics();
-    const chart = screen.getByRole('img', { name: 'График активности по дням' });
-    expect(chart.children).toHaveLength(30);
+    expect(activityBars()).toHaveLength(30);
   });
 
-  it('"Все время" renders the full 90-day zero-filled series without throwing', async () => {
+  it('"Всё время" renders the full 90-day zero-filled series without throwing', async () => {
     const user = userEvent.setup();
     renderStatistics();
-    await user.click(screen.getByRole('tab', { name: 'Все время' }));
+    await user.click(screen.getByRole('tab', { name: 'Всё время' }));
 
-    const chart = screen.getByRole('img', { name: 'График активности по дням' });
-    expect(chart.children).toHaveLength(90);
-
-    const line = screen.getByRole('img', { name: 'График динамики правильных ответов' });
-    expect(line.querySelectorAll('circle')).toHaveLength(90);
+    expect(activityBars()).toHaveLength(90);
+    // 90 points: no bead string of markers — the line itself, tappable per day.
+    const line = screen.getByRole('group', { name: /Процент правильных ответов по дням/ });
+    expect(line.querySelector('path[class*="line"]')).toBeInTheDocument();
     expect(api.getProgressDaily).toHaveBeenLastCalledWith({ days: 90, subject: 'math' });
   });
 
@@ -63,18 +67,14 @@ describe('StatisticsDesktop — period switching', () => {
     renderStatistics();
 
     await user.click(screen.getByRole('tab', { name: '7 дней' }));
-    expect(screen.getByRole('img', { name: 'График активности по дням' }).children).toHaveLength(7);
+    expect(activityBars()).toHaveLength(7);
     expect(api.getProgressDaily).toHaveBeenLastCalledWith({ days: 7, subject: 'math' });
 
     await user.click(screen.getByRole('tab', { name: '30 дней' }));
-    expect(screen.getByRole('img', { name: 'График активности по дням' }).children).toHaveLength(
-      30,
-    );
+    expect(activityBars()).toHaveLength(30);
 
-    await user.click(screen.getByRole('tab', { name: 'Все время' }));
-    expect(screen.getByRole('img', { name: 'График активности по дням' }).children).toHaveLength(
-      90,
-    );
+    await user.click(screen.getByRole('tab', { name: 'Всё время' }));
+    expect(activityBars()).toHaveLength(90);
   });
 });
 
@@ -85,7 +85,9 @@ describe('StatisticsDesktop — real progress data', () => {
       correctTotal: 2,
       incorrectTotal: 1,
       accuracyPercent: 66.7,
-      bySubject: [{ subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 }],
+      bySubject: [
+        { subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],
@@ -115,7 +117,9 @@ describe('StatisticsDesktop — real progress data', () => {
       correctTotal: 2,
       incorrectTotal: 1,
       accuracyPercent: 66.7,
-      bySubject: [{ subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 }],
+      bySubject: [
+        { subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 },
+      ],
       byTaskNumber: [],
       byTopic: [],
       timeBySubject: [],
@@ -134,12 +138,20 @@ describe('StatisticsDesktop — real progress data', () => {
     vi.mocked(api.getProgressDaily).mockResolvedValue({
       items: [{ date: new Date().toISOString().slice(0, 10), solved: 5, accuracyPercent: 100 }],
     });
+    const user = userEvent.setup();
     renderStatistics();
-    const chart = await screen.findByRole('img', { name: 'График активности по дням' });
-    // The most recent bar (today, last child) must reflect the real
-    // solved=5 attempt, not a synthetic value.
-    const lastBar = chart.children[chart.children.length - 1]!.querySelector('[title]');
-    expect(lastBar?.getAttribute('title')).toMatch(/: 5$/);
+    // The most recent day (today) must read the real solved=5 attempt.
+    const chart = await screen.findByRole('group', { name: /Решённые задания по дням/ });
+    await waitFor(() =>
+      expect(
+        (
+          chart.querySelector('[class*="bars"]')!.lastElementChild!.firstElementChild as HTMLElement
+        ).style.getPropertyValue('--h'),
+      ).toBe('1'),
+    );
+    chart.focus();
+    await user.keyboard('{End}');
+    expect(screen.getAllByText('Решено 5 заданий')[0]).toBeInTheDocument();
   });
 
   it('the errors donut and "Сложные темы" use real /mistakes data, showing an empty state with none', () => {
@@ -151,7 +163,17 @@ describe('StatisticsDesktop — real progress data', () => {
 describe('StatisticsDesktop — Statistics 2.0 ordering (additive, never replacing existing stats)', () => {
   it('places "По номерам" after the existing charts, never before them', () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 5, total: 4, completed: 3, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 5,
+          total: 4,
+          completed: 3,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     renderStatistics();
     const headings = screen
@@ -173,7 +195,17 @@ describe('StatisticsDesktop — Statistics 2.0 ordering (additive, never replaci
 describe('StatisticsDesktop — По номерам detail (Statistics 2.0)', () => {
   it('clicking a real task number opens its detail, with a working back button', async () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 5, total: 4, completed: 3, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 5,
+          total: 4,
+          completed: 3,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     vi.mocked(api.getTaskNumberStatisticsDetail).mockResolvedValue({
       subjectId: 'math',
@@ -211,7 +243,17 @@ describe('StatisticsDesktop — По номерам detail (Statistics 2.0)', ()
 
   it('shows an honest empty state when the selected number has no attempts yet', async () => {
     vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({
-      items: [{ subjectId: 'math', taskNumber: 7, total: 2, completed: 0, correct: 0, incorrect: 0, accuracyPercent: null }],
+      items: [
+        {
+          subjectId: 'math',
+          taskNumber: 7,
+          total: 2,
+          completed: 0,
+          correct: 0,
+          incorrect: 0,
+          accuracyPercent: null,
+        },
+      ],
     });
     vi.mocked(api.getTaskNumberStatisticsDetail).mockResolvedValue({
       subjectId: 'math',

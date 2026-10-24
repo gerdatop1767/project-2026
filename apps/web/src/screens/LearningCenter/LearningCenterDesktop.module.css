@@ -6,6 +6,10 @@
   margin-bottom: var(--space-6);
 }
 
+.signInWarning {
+  margin-bottom: var(--space-6);
+}
+
 .search {
   position: relative;
   flex-shrink: 0;
@@ -46,15 +50,35 @@
   display: flex;
   flex-direction: column;
   min-height: 10rem;
+  /* Lit from its icon's corner, in the icon's own colour. */
+  background:
+    radial-gradient(
+      80% 70% at 0% 0%,
+      color-mix(in srgb, var(--section-accent) 14%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  border: 1px solid color-mix(in srgb, var(--section-accent) 16%, var(--color-border-subtle));
+  transition:
+    transform 280ms var(--easing-out),
+    border-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sectionCard:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--section-accent) 50%, var(--color-border-subtle));
+    box-shadow:
+      var(--shadow-e1),
+      0 14px 34px -18px color-mix(in srgb, var(--section-accent) 70%, transparent);
+  }
 }
 
 .sectionImg {
-  width: 3rem;
-  height: 3rem;
-  object-fit: contain;
+  width: 3.5rem;
+  height: 3.5rem;
   margin-bottom: var(--space-3);
-  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--section-accent) 55%, transparent))
-    drop-shadow(0 0 4px color-mix(in srgb, var(--section-accent) 65%, transparent));
 }
 
 .sectionBody {
@@ -102,16 +126,45 @@
   text-align: left;
 }
 
-.subjectRow:hover {
-  background: var(--color-bg-elevated);
+@media (hover: hover) and (pointer: fine) {
+  .subjectRow:hover {
+    background: var(--color-bg-elevated);
+  }
 }
 
 .subjectIcon {
+  position: relative;
+  isolation: isolate; /* keeps the halo below the icon, above the row */
   flex-shrink: 0;
   width: 2.25rem;
   height: 2.25rem;
-  object-fit: contain;
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--subject-accent) 55%, transparent));
+}
+
+/* A soft halo of the subject's own colour under its icon (the colour comes
+   from the icon itself, see SubjectIcon: --subject-glow on this row). */
+.subjectIcon::after {
+  content: '';
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -30%;
+  height: 55%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--subject-glow, transparent) 55%, transparent),
+    transparent
+  );
+  opacity: 0.55;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .subjectRow:hover .subjectIcon::after {
+    opacity: 0.95;
+  }
 }
 
 .subjectName {
@@ -148,23 +201,29 @@
   gap: var(--space-2);
   padding: var(--space-4);
   border-radius: var(--radius-card);
-  background: var(--color-bg-elevated);
+  /* Each card keeps its own colour: a faint wash of its icon's light. */
+  background:
+    radial-gradient(
+      80% 70% at 0% 0%,
+      color-mix(in srgb, var(--rec-accent) 12%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-elevated);
 }
 
 .recommendIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: var(--radius-card);
-  color: #fff;
+  margin-bottom: var(--space-1);
 }
 
 .recommendBody {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  /* Clear of the round arrow in the bottom-right corner. */
+  padding-right: 2.5rem;
 }
 
 .recommendBadge {

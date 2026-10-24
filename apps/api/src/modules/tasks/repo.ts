@@ -214,18 +214,26 @@ export async function hasEssayAck(db: Database, userId: string, taskId: string):
   return (row?.value ?? 0) > 0;
 }
 
-/** Idempotent — a repeat "Я решил" click on the same task is a no-op, never a duplicate row. */
+/**
+ * Idempotent — a repeat "Я решил" click on the same task is a no-op,
+ * never a duplicate row. Returns true only when this call actually
+ * created the row (first-ever "Я решил" for this user+task), so the
+ * caller can drive one-time, non-repeatable side effects (counting the
+ * essay toward progress) off a real signal instead of re-checking.
+ */
 export async function acknowledgeEssay(
   db: Database,
   userId: string,
   taskId: string,
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const inserted = await db
     .insert(schema.essayAcknowledgements)
     .values({ userId, taskId })
     .onConflictDoNothing({
       target: [schema.essayAcknowledgements.userId, schema.essayAcknowledgements.taskId],
-    });
+    })
+    .returning({ id: schema.essayAcknowledgements.id });
+  return inserted.length > 0;
 }
 
 export async function createAttempt(

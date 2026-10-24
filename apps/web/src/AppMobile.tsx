@@ -5,13 +5,14 @@ import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
 import { MobileMenu } from './ui/MobileMenu/MobileMenu.js';
 import { TaskMobile } from './screens/Task/TaskMobile.js';
 import { ResultMobile } from './screens/Result/ResultMobile.js';
+import { useAccountGate } from './lib/accountGate.js';
 import { useNavigation, type MainTabId } from './lib/navigation.js';
 import { HomeMobile } from './screens/Home/HomeMobile.js';
 import { StatisticsMobile } from './screens/Statistics/StatisticsMobile.js';
 import { MistakesMobile } from './screens/Mistakes/MistakesMobile.js';
 import { AchievementsMobile } from './screens/Achievements/AchievementsMobile.js';
 import { RatingMobile } from './screens/Rating/RatingMobile.js';
-import { AboutMobile } from './screens/About/AboutMobile.js';
+import { Level } from './screens/Level/Level.js';
 import { HelpMobile } from './screens/Help/HelpMobile.js';
 import { FriendsMobile } from './screens/Friends/FriendsMobile.js';
 import { FriendProfileMobile } from './screens/Friends/FriendProfileMobile.js';
@@ -20,7 +21,6 @@ import { SubjectMobile } from './screens/Subject/SubjectMobile.js';
 import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { Profile } from './screens/Profile/Profile.js';
 import { Training } from './screens/Training/Training.js';
-import { TrainingByNumber } from './screens/Training/TrainingByNumber.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
 
 /**
@@ -49,10 +49,27 @@ import { LearningSession } from './screens/LearningSession/LearningSession.js';
  */
 export function AppMobile() {
   const { tab, overlay, navigate, back } = useNavigation();
-  const isMenuOpen = overlay?.screen === 'menu';
-  const contentOverlay = isMenuOpen ? null : overlay;
+  const menuRoute = overlay?.screen === 'menu' ? overlay : null;
+  const isMenuOpen = menuRoute !== null;
+  // The screen the menu was opened from stays mounted under the drawer —
+  // swapping it for the tab screen behind the backdrop re-mounted and
+  // re-fetched a different screen, flashed it through the dim layer, and
+  // closing the menu then landed there instead of where the visitor was.
+  const contentOverlay = menuRoute ? (menuRoute.from ?? null) : overlay;
+  const underMenu = menuRoute?.from;
+  const closeMenu = underMenu ? () => navigate(underMenu, { replace: true }) : back;
+
+  const { isGuest, requireAccount } = useAccountGate();
+  const navItems = isGuest
+    ? defaultBottomNavItems.map((item) =>
+        item.id === 'statistics' || item.id === 'mistakes' ? { ...item, locked: true } : item,
+      )
+    : defaultBottomNavItems;
 
   function selectTab(id: string) {
+    // Guest mode: these two need an account — explain, stay where we are.
+    if (id === 'statistics' && !requireAccount('statistics')) return;
+    if (id === 'mistakes' && !requireAccount('mistakes')) return;
     // Профиль/Мои ошибки are real overlay screens (see navigation.tsx's
     // doc comments), not MainTabIds, so they need their own navigate()
     // — unlike every other overlay entry, the bottom nav stays visible
@@ -68,7 +85,7 @@ export function AppMobile() {
     navigate({ screen: id as MainTabId });
   }
 
-  const menu = <MobileMenu open={isMenuOpen} onClose={back} activeTab={tab} />;
+  const menu = <MobileMenu open={isMenuOpen} onClose={closeMenu} activeTab={tab} />;
 
   // Профиль and Мои ошибки are the two overlays that keep the bottom
   // nav visible (with their own slot highlighted) — every other
@@ -82,13 +99,9 @@ export function AppMobile() {
     (contentOverlay.screen === 'profile' || contentOverlay.screen === 'mistakes');
 
   const nav = !contentOverlay ? (
-    <BottomNav items={defaultBottomNavItems} activeId={tab} onSelect={selectTab} />
+    <BottomNav items={navItems} activeId={tab} onSelect={selectTab} />
   ) : showsBottomNavOverlay ? (
-    <BottomNav
-      items={defaultBottomNavItems}
-      activeId={contentOverlay.screen}
-      onSelect={selectTab}
-    />
+    <BottomNav items={navItems} activeId={contentOverlay.screen} onSelect={selectTab} />
   ) : undefined;
 
   return (
@@ -117,6 +130,7 @@ export function AppMobile() {
                 from={contentOverlay.from}
                 collectionSlug={contentOverlay.collectionSlug}
                 initialMode={contentOverlay.initialMode}
+                initialTaskNumber={contentOverlay.initialTaskNumber}
               />
             )}
             {contentOverlay.screen === 'task' && (
@@ -144,6 +158,7 @@ export function AppMobile() {
                 customOrderedTasks={contentOverlay.customOrderedTasks}
                 returnTo={contentOverlay.returnTo}
                 timeSpentMs={contentOverlay.timeSpentMs}
+                revealed={contentOverlay.revealed}
               />
             )}
             {contentOverlay.screen === 'learningSession' && (
@@ -167,16 +182,8 @@ export function AppMobile() {
             {contentOverlay.screen === 'trainingVariants' && (
               <WipPlaceholder title="Варианты" note="Экран в разработке — следующий блок." />
             )}
-            {contentOverlay.screen === 'trainingByNumber' && (
-              <TrainingByNumber
-                subjectId={contentOverlay.subjectId}
-                collectionSlug={contentOverlay.collectionSlug}
-                from={contentOverlay.from}
-                initialTaskNumber={contentOverlay.initialTaskNumber}
-              />
-            )}
             {contentOverlay.screen === 'rating' && <RatingMobile />}
-            {contentOverlay.screen === 'about' && <AboutMobile />}
+            {contentOverlay.screen === 'level' && <Level />}
             {contentOverlay.screen === 'learningCenter' && (
               <WipPlaceholder
                 title="Учебный центр"

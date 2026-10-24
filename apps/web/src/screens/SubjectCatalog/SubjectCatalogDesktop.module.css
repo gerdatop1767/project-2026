@@ -21,8 +21,8 @@
   background: linear-gradient(
     90deg,
     var(--color-bg-base) 0%,
-    rgba(5, 7, 15, 0.75) 35%,
-    rgba(5, 7, 15, 0.15) 75%
+    color-mix(in srgb, var(--color-bg-base) 75%, transparent) 35%,
+    color-mix(in srgb, var(--color-bg-base) 15%, transparent) 75%
   );
 }
 
@@ -48,14 +48,39 @@
 .statCard {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  border: 1px solid
+    color-mix(in srgb, var(--card-glow, var(--color-border-subtle)) 20%, var(--color-border-subtle));
+  /* Lit from the icon's side by the icon's own colour. */
+  background:
+    radial-gradient(
+      70% 120% at 0% 50%,
+      color-mix(in srgb, var(--card-glow, transparent) 15%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  transition: border-color 260ms ease;
 }
 
 .statIcon {
   flex-shrink: 0;
-  width: 2.75rem;
-  height: 2.75rem;
-  object-fit: contain;
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.statValue {
+  font-family: var(--font-family-display);
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Not a link — no lift; the icon replays and the rim warms up. */
+  .statCard:hover {
+    border-color: color-mix(in srgb, var(--card-glow) 45%, var(--color-border-subtle));
+  }
 }
 
 .grid {
@@ -74,30 +99,43 @@
   cursor: pointer;
   text-align: left;
   padding: 0;
-  transition: transform var(--duration-fast) var(--easing-standard);
+  transition:
+    transform 280ms var(--easing-out),
+    border-color 280ms ease,
+    box-shadow 280ms ease,
+    scale 160ms var(--easing-out);
 }
 
-.subjectCard:hover {
-  transform: translateY(-2px);
-  border-color: var(--subject-accent, var(--color-border-subtle));
+@media (hover: hover) and (pointer: fine) {
+  .subjectCard:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(
+      in srgb,
+      var(--subject-glow, var(--subject-accent)) 60%,
+      var(--color-border-subtle)
+    );
+    box-shadow: 0 20px 44px -26px var(--subject-glow, var(--subject-accent));
+  }
 }
 
+/* A soft pool of the subject's own light behind its artwork. */
 .subjectThumb {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 8rem;
   padding: var(--space-3);
-  background: var(--color-bg-surface);
+  background: radial-gradient(
+    60% 85% at 50% 55%,
+    color-mix(in srgb, var(--subject-glow, transparent) 13%, transparent),
+    transparent 75%
+  );
 }
 
 .subjectImg {
-  width: 100%;
+  display: block;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
-  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--subject-accent) 55%, transparent))
-    drop-shadow(0 0 5px color-mix(in srgb, var(--subject-accent) 65%, transparent));
+  aspect-ratio: 1 / 1; /* the artwork (and its halo) is square, whatever the card width */
 }
 
 .subjectFooter {

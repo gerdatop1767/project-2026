@@ -1,0 +1,43 @@
+/*
+ * Count-up. The final value (`.sizer`, invisible) and the counting figure
+ * (`.figure`) share one grid cell, so the box is the final width from the
+ * first frame; tabular figures keep each digit the same width while it
+ * counts. Both are drawn by `::before` from a data attribute, so the
+ * element's text content is only the hidden final value.
+ */
+
+.root {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The real value: read by screen readers, copied, found by tests. */
+.text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.visual {
+  display: inline-grid;
+}
+
+.sizer,
+.figure {
+  grid-area: 1 / 1;
+  white-space: pre;
+}
+
+.sizer::before,
+.figure::before {
+  content: attr(data-text);
+}
+
+.sizer {
+  visibility: hidden;
+}

@@ -1,0 +1,139 @@
+.flame {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+  color: var(--color-text-secondary);
+}
+
+.body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.core {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+/* Glow strength grows with the tier (still a soft halo, never a blaze). */
+.flame[data-tier='1'] .glow {
+  opacity: 0.45;
+}
+.flame[data-tier='2'] .glow {
+  opacity: 0.6;
+}
+.flame[data-tier='3'] .glow {
+  opacity: 0.7;
+}
+.flame[data-tier='4'] .glow,
+.flame[data-tier='5'] .glow {
+  opacity: 0.8;
+}
+.flame[data-tier='6'] .glow {
+  opacity: 0.95;
+}
+
+/* From tier 3 the flame sways a little — transform only, slow. */
+.flame[data-tier='3'] .body,
+.flame[data-tier='4'] .body,
+.flame[data-tier='5'] .body,
+.flame[data-tier='6'] .body {
+  animation: sway 2.8s ease-in-out infinite alternate;
+}
+
+.flame[data-tier='4'] .core,
+.flame[data-tier='5'] .core,
+.flame[data-tier='6'] .core {
+  animation: coreFlicker 1.9s ease-in-out infinite alternate;
+}
+
+.flame[data-tier='6'] .sparks {
+  animation: sparks 3.2s ease-in-out infinite;
+}
+
+.flame[data-tier='5'] .sparks {
+  opacity: 0.75;
+}
+
+@keyframes sway {
+  from {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  50% {
+    transform: scale(0.98, 1.04) skewX(-2deg);
+  }
+  to {
+    transform: scale(1.01, 0.99) skewX(1.5deg);
+  }
+}
+
+@keyframes coreFlicker {
+  from {
+    transform: scale(1, 1);
+    opacity: 0.95;
+  }
+  to {
+    transform: scale(0.94, 1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes sparks {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-1.2px);
+  }
+}
+
+/* A new tier was just reached: one burst, then back to normal. */
+.flame[data-level-up] .body {
+  animation: levelUp 760ms var(--easing-out) 1;
+}
+
+.ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ring 760ms var(--easing-out) 1 forwards;
+}
+
+@keyframes levelUp {
+  30% {
+    transform: scale(1.32);
+  }
+  60% {
+    transform: scale(0.94);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes ring {
+  from {
+    opacity: 0.9;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flame .body,
+  .flame .core,
+  .flame .sparks,
+  .flame[data-level-up] .body,
+  .ring {
+    animation: none;
+  }
+
+  .ring {
+    display: none;
+  }
+}

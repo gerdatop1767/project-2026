@@ -1,4 +1,5 @@
 import { useNavigation, type Route } from '../../lib/navigation.js';
+import { accountFeatureForRoute, useAccountGate } from '../../lib/accountGate.js';
 import { Icon } from '../Icon/Icon.js';
 import type { IconName } from '../Icon/icons.js';
 import { clsx } from '../../lib/clsx.js';
@@ -35,33 +36,37 @@ const sidebarItems: readonly SidebarItem[] = [
   },
   { id: 'rating', label: 'Рейтинг', icon: 'crown', route: { screen: 'rating' } },
   { id: 'friends', label: 'Друзья', icon: 'friends', route: { screen: 'friends' } },
-  { id: 'about', label: 'О проекте', icon: 'info', route: { screen: 'about' } },
 ];
 
 /**
- * Desktop's persistent left sidebar. Home has no entry here (the
- * approved reference dropped it — the user is already on a screen,
- * so a link back to the marketing landing page is redundant); it's
- * still reachable as the tab underneath every overlay and via BackRow.
+ * Desktop's persistent left sidebar. Home has no entry of its own: for a
+ * signed-in visitor `/` IS the Учебный центр, so that entry is the active
+ * one there. Home is still the tab underneath every overlay and the
+ * target of BackRow.
  */
 export function DesktopSidebar() {
-  const { tab, overlay, navigate } = useNavigation();
-  const currentId = overlay?.screen ?? tab;
+  const { tab, overlay } = useNavigation();
+  const { isGuest, navigateGuarded } = useAccountGate();
+  const currentId = overlay?.screen ?? (tab === 'home' ? 'learningCenter' : tab);
 
   return (
     <nav className={styles.sidebar} aria-label="Zybrilka">
       {sidebarItems.map((item) => {
         const isActive = item.id === currentId;
+        const locked = isGuest && accountFeatureForRoute(item.route) !== null;
         return (
           <button
             key={item.id}
             type="button"
             className={clsx(styles.sidebarItem, isActive && styles.sidebarItemActive)}
             aria-current={isActive ? 'page' : undefined}
-            onClick={() => navigate(item.route)}
+            aria-label={locked ? `${item.label} — нужен вход` : undefined}
+            data-locked={locked || undefined}
+            onClick={() => navigateGuarded(item.route)}
           >
             <Icon name={item.icon} size={20} filled={isActive} />
             {item.label}
+            {locked && <Icon name="lock" size={14} className={styles.sidebarLock} />}
           </button>
         );
       })}

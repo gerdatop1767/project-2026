@@ -14,6 +14,8 @@
     "errors:rebuild-stats": "tsx --conditions=@zybrilka/source --env-file-if-exists=../../.env src/scripts/rebuildAllErrorStatistics.ts"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/rate-limit": "^11.2.1",
     "@zybrilka/db": "workspace:*",
     "@zybrilka/shared": "workspace:*",
     "drizzle-orm": "^0.45.3",

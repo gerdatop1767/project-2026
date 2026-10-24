@@ -8,8 +8,9 @@ export interface LogoProps {
   size?: number;
   /** The approved package ships two distinct bison-icon crops — a
    * refined one for desktop headers, a simpler one for mobile — not a
-   * single asset scaled between them. */
-  icon?: LogoIconVariant;
+   * single asset scaled between them. `null` renders the wordmark alone
+   * (the public landing, where the big hero mascot is the only bison). */
+  icon?: LogoIconVariant | null;
   /** Hides the "Zybrilka" wordmark, e.g. where space is tight. */
   wordmark?: boolean;
   className?: string;
@@ -39,14 +40,16 @@ export function Logo({
 }: LogoProps) {
   const content = (
     <>
-      <img
-        src={iconSrc[icon]}
-        alt={wordmark ? '' : 'Zybrilka'}
-        height={size}
-        width={size}
-        className={styles.icon}
-      />
-      {wordmark && (
+      {icon && (
+        <img
+          src={iconSrc[icon]}
+          alt={wordmark ? '' : 'Zybrilka'}
+          height={size}
+          width={size}
+          className={styles.icon}
+        />
+      )}
+      {(wordmark || !icon) && (
         <span className={styles.wordmark} style={{ fontSize: size * 0.62 }}>
           Zybr<span className={styles.wordmarkAccent}>ilka</span>
         </span>

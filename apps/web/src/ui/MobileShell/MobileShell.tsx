@@ -3,6 +3,7 @@ import { clsx } from '../../lib/clsx.js';
 import { Logo } from '../Logo/Logo.js';
 import { StatusChips } from '../StatusChips/StatusChips.js';
 import { useNavigation } from '../../lib/navigation.js';
+import { ScreenEnter } from '../motion/motion.js';
 import styles from './MobileShell.module.css';
 
 export interface MobileShellProps {
@@ -51,7 +52,11 @@ export function MobileShell({ children, nav }: MobileShellProps) {
           Boolean(nav) && styles.contentWithNav,
         )}
       >
-        {children}
+        {/* The menu drawer is an overlay route but draws OVER the screen
+            below it, so it never counts as a screen change. */}
+        <ScreenEnter screenKey={overlay && overlay.screen !== 'menu' ? overlay.screen : tab}>
+          {children}
+        </ScreenEnter>
       </main>
       {nav && <div className={styles.nav}>{nav}</div>}
     </div>

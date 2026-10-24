@@ -59,23 +59,66 @@
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-pill, 999px);
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-on-accent);
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   border: none;
 }
 
-.ctaDisabled {
-  background: var(--color-bg-elevated);
+.ctaButton:hover {
+  filter: brightness(1.08);
+}
+
+.ctaButton:active {
+  transform: scale(0.98);
+}
+
+.ctaButton:focus-visible,
+.categoryCard:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 3px;
+}
+
+.handle {
+  margin: 0;
   color: var(--color-text-secondary);
-  cursor: not-allowed;
+  font-size: var(--font-size-body-sm);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The landing's support bison, on a soft static glow (no blur filter). */
+.art {
+  position: relative;
+  justify-self: center;
+  width: 100%;
+  max-width: 17rem;
+}
+
+.glow {
+  position: absolute;
+  inset: 12% 6% 4%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-accent-primary) 38%, transparent),
+    transparent
+  );
 }
 
 .mascot {
+  position: relative;
+  display: block;
   width: 100%;
   height: auto;
-  justify-self: center;
 }
 
 .grid {
@@ -97,12 +140,18 @@
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--easing-standard);
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
 }
 
 .categoryCard:hover {
   transform: translateY(-2px);
   border-color: var(--accent, var(--color-border-subtle));
+}
+
+.categoryTitle {
+  font-weight: 700;
 }
 
 .categoryIcon {
@@ -138,7 +187,16 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .mascot {
-    max-width: 14rem;
+  .art {
+    max-width: 13rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .categoryCard,
+  .categoryCard:hover,
+  .ctaButton:active {
+    transform: none;
+    transition: none;
   }
 }

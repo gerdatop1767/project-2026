@@ -17,6 +17,9 @@ export interface MistakeCardDesktopProps {
    * caller has no real similarity lookup to back it with. */
   onSolveSimilar?: () => void;
   solvingSimilar?: boolean;
+  /** «Убрать из ошибок»; without it the corner shows the plain status glyph. */
+  onDismiss?: () => void;
+  dismissing?: boolean;
 }
 
 /**
@@ -34,11 +37,13 @@ export function MistakeCardDesktop({
   favorited,
   onSolveSimilar,
   solvingSimilar = false,
+  onDismiss,
+  dismissing = false,
 }: MistakeCardDesktopProps) {
   const color = getTopicColor(mistake.topic);
 
   return (
-    <div className={styles.card}>
+    <div className={styles.card} data-busy={dismissing || undefined}>
       <button
         type="button"
         className={`${styles.checkbox} ${selected ? styles.checkboxChecked : ''}`}
@@ -54,15 +59,29 @@ export function MistakeCardDesktop({
           {mistake.topic}
         </span>
         <p className={`text-h3 ${styles.title}`}>Задание {mistake.taskNumber}</p>
-        <p className={`text-body-sm ${styles.condition}`}>
+        <div className={`text-body-sm ${styles.condition}`}>
           <InlineMathText text={mistake.condition} />
-        </p>
+        </div>
         <p className={styles.date}>{formatDateShort(mistake.date)}</p>
       </div>
 
-      <span className={styles.statusIcon} aria-hidden="true">
-        <Icon name="close" size={16} />
-      </span>
+      {onDismiss ? (
+        <button
+          type="button"
+          className={`${styles.statusIcon} ${styles.dismissButton}`}
+          aria-label={`Убрать из ошибок (задание ${mistake.taskNumber})`}
+          title="Убрать из ошибок"
+          disabled={dismissing}
+          aria-busy={dismissing || undefined}
+          onClick={onDismiss}
+        >
+          <Icon name={dismissing ? 'spinner' : 'close'} size={16} />
+        </button>
+      ) : (
+        <span className={styles.statusIcon} aria-hidden="true">
+          <Icon name="close" size={16} />
+        </span>
+      )}
 
       <div className={styles.actions}>
         <Button variant="primary" fullWidth onClick={onReview}>
@@ -83,10 +102,6 @@ export function MistakeCardDesktop({
           </Button>
         )}
       </div>
-
-      <button type="button" className={styles.moreButton} aria-label="Ещё">
-        <Icon name="more" size={18} />
-      </button>
     </div>
   );
 }

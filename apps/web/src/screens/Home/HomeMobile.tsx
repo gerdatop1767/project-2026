@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -9,13 +10,14 @@ import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
 import type { ProgressSummary } from '@zybrilka/shared';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { SignInMethodWarning } from '../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import styles from './HomeMobile.module.css';
 
 /**
  * Mobile Home (S1 Block 6, approved design — mobile/01_home.png): the
  * logged-in dashboard. Structurally its own composition, not a scaled
- * desktop layout — desktop Home is a separate marketing page
- * (see HomeDesktop.tsx).
+ * desktop layout — desktop's `/` is the Учебный центр (see AppDesktop.tsx).
  *
  * "Решено"/"Правильно" are real (`GET /progress/summary`, Block D).
  * There's no backend streak/level/XP system at all yet, so "Серия"
@@ -26,6 +28,11 @@ export function HomeMobile() {
   const { navigate } = useNavigation();
   const popularSubjects = subjects.slice(0, 6);
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
+  // Until the summary arrives the stats read "···" (a real 0 would be a
+  // claim), and "—" if it could not be loaded at all.
+  const [progressFailedState, setProgressFailed] = useState(false);
+  const { isGuest } = useAccountGate();
+  const progressFailed = progressFailedState || isGuest;
   // Real published-task counts per subject (one request) — replaces the
   // static `subject.taskCount` demo numbers. null until loaded; a
   // subject absent from the response has 0 published tasks.
@@ -33,14 +40,15 @@ export function HomeMobile() {
 
   useEffect(() => {
     let cancelled = false;
-    void getProgressSummary()
-      .then((data) => {
-        if (!cancelled) setProgress(data);
-      })
-      .catch(() => {
-        // No backend data yet (or the request failed) — stats stay at
-        // their neutral zero state below.
-      });
+    // A guest has no saved progress: the stats honestly read "—".
+    if (!isGuest)
+      void getProgressSummary()
+        .then((data) => {
+          if (!cancelled) setProgress(data);
+        })
+        .catch(() => {
+          if (!cancelled) setProgressFailed(true);
+        });
     void getTaskCountsBySubject()
       .then((res) => {
         if (cancelled) return;
@@ -54,29 +62,21 @@ export function HomeMobile() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   return (
     <SlideUp className={styles.stack}>
+      <SignInMethodWarning />
       <div className={styles.hero}>
         <div className={styles.heroTiles} aria-hidden="true">
-          <span
-            className={styles.heroTilePi}
-            style={{ ['--tile-glow' as string]: subjects[0]!.color }}
-          >
-            <img src={`/branding/v2/subjects/${subjects[0]!.id}.png`} alt="" />
+          <span className={styles.heroTilePi}>
+            <SubjectIcon subjectId={subjects[0]!.id} />
           </span>
-          <span
-            className={styles.heroTileAa}
-            style={{ ['--tile-glow' as string]: subjects[1]!.color }}
-          >
-            <img src={`/branding/v2/subjects/${subjects[1]!.id}.png`} alt="" />
+          <span className={styles.heroTileAa}>
+            <SubjectIcon subjectId={subjects[1]!.id} />
           </span>
-          <span
-            className={styles.heroTileM}
-            style={{ ['--tile-glow' as string]: subjects[4]!.color }}
-          >
-            <img src={`/branding/v2/subjects/${subjects[4]!.id}.png`} alt="" />
+          <span className={styles.heroTileM}>
+            <SubjectIcon subjectId={subjects[4]!.id} />
           </span>
         </div>
         <p className={clsx('text-h2', styles.heroHeading)}>
@@ -91,7 +91,9 @@ export function HomeMobile() {
           className={styles.heroCta}
           onClick={() => navigate({ screen: 'subjectCatalog' })}
         >
-          Начать тренировку <Icon name="arrowRight" size={18} />
+          <span className={styles.heroCtaLabel}>
+            Начать тренировку <Icon name="arrowRight" size={18} className={styles.heroCtaArrow} />
+          </span>
         </Button>
       </div>
 
@@ -107,8 +109,14 @@ export function HomeMobile() {
               id: 'solved',
               value: (
                 <span className={styles.statValue}>
-                  <Icon name="success" size={16} className={styles.statIconSuccess} />
-                  {progress?.solvedTotal ?? 0}
+                  <span
+                    className={clsx(styles.statIcon, styles.statIconSuccess)}
+                    data-ready={progress ? '' : undefined}
+                    aria-hidden="true"
+                  >
+                    <Icon name="checklist" size={15} />
+                  </span>
+                  {progress ? progress.solvedTotal : progressFailed ? '—' : '···'}
                 </span>
               ),
               label: 'Решено',
@@ -117,8 +125,18 @@ export function HomeMobile() {
               id: 'accuracy',
               value: (
                 <span className={styles.statValue}>
-                  <Icon name="star" size={16} className={styles.statIconGold} />
-                  {progress ? Math.round(progress.accuracyPercent) : 0}%
+                  <span
+                    className={clsx(styles.statIcon, styles.statIconGold)}
+                    data-ready={progress ? '' : undefined}
+                    aria-hidden="true"
+                  >
+                    <Icon name="target" size={15} />
+                  </span>
+                  {progress
+                    ? `${Math.round(progress.accuracyPercent)}%`
+                    : progressFailed
+                      ? '—'
+                      : '···'}
                 </span>
               ),
               label: 'Правильно',
@@ -126,6 +144,20 @@ export function HomeMobile() {
           ]}
         />
       </div>
+
+      {isGuest && (
+        <button
+          type="button"
+          className={styles.guestHint}
+          onClick={() => navigate({ screen: 'login' })}
+        >
+          <Icon name="profile" size={18} className={styles.guestHintIcon} />
+          <span className={styles.guestHintText}>
+            Ты занимаешься как гость — прогресс не сохраняется.{' '}
+            <span className={styles.guestHintLink}>Войти</span>
+          </span>
+        </button>
+      )}
 
       <div>
         <div className={styles.sectionHeader}>
@@ -139,31 +171,30 @@ export function HomeMobile() {
           </button>
         </div>
         <div className={styles.subjectGrid}>
-          {popularSubjects.map((subject) => (
+          {popularSubjects.map((subject, index) => (
             <button
               key={subject.id}
               type="button"
               className={styles.subjectCard}
-              style={{ ['--subject-accent' as string]: subject.color }}
+              data-subject-interactive
               onClick={() => navigate({ screen: 'subject', subjectId: subject.id })}
             >
-              <span className={styles.subjectThumb}>
-                <img
-                  src={`/branding/v2/subjects/${subject.id}.png`}
-                  alt=""
-                  className={styles.subjectThumbImg}
-                  loading="lazy"
-                />
-              </span>
-              <span className={styles.subjectCardText}>
-                <span className="text-card-title">{subject.shortName}</span>
-                <span className={styles.subjectCardCount}>
-                  {taskCounts
-                    ? `${(taskCounts[subject.id] ?? 0).toLocaleString('ru-RU')} заданий`
-                    : '···'}
+              <span className={styles.subjectCardInner}>
+                <span className={styles.subjectThumb}>
+                  <SubjectIcon subjectId={subject.id} reveal={index} />
                 </span>
+                <span className={styles.subjectCardText}>
+                  <span className={`text-card-title ${styles.subjectName}`}>
+                    {subject.shortName}
+                  </span>
+                  <span className={styles.subjectCardCount}>
+                    {taskCounts
+                      ? `${(taskCounts[subject.id] ?? 0).toLocaleString('ru-RU')} заданий`
+                      : '···'}
+                  </span>
+                </span>
+                <Icon name="chevronRight" size={16} className={styles.subjectCardChevron} />
               </span>
-              <Icon name="chevronRight" size={16} className={styles.subjectCardChevron} />
             </button>
           ))}
         </div>
@@ -183,15 +214,11 @@ export function HomeMobile() {
         <button
           type="button"
           className={styles.continueCard}
-          style={{ ['--subject-accent' as string]: subjects[0]!.color }}
+          data-subject-interactive
           onClick={() => startRealTask(navigate, { subject: 'math' })}
         >
           <span className={styles.continueThumb}>
-            <img
-              src={`/branding/v2/subjects/${subjects[0]!.id}.png`}
-              alt=""
-              className={styles.subjectThumbImg}
-            />
+            <SubjectIcon subjectId={subjects[0]!.id} />
           </span>
           <span className={styles.continueCardText}>
             <span className="text-body" style={{ fontWeight: 600 }}>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Profile } from './Profile.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
@@ -9,6 +9,13 @@ import * as api from '../../lib/api.js';
 vi.mock('../../lib/api.js', () => ({
   getProgressSummary: vi.fn(),
   getLearningProfile: vi.fn(),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
 }));
 
 function OverlayMarker() {
@@ -158,7 +165,11 @@ describe('Profile', () => {
       timeBySubject: [],
     });
     renderProfile();
-    await waitFor(() => expect(screen.getByText('75%')).toBeInTheDocument(), { timeout: 2000 });
+    // The overall "Точность" tile also reads 75% here; this is about the row.
+    const row = (await screen.findByText('Математика')).closest('button')!;
+    await waitFor(() => expect(within(row).getByText('75%')).toBeInTheDocument());
+    // The profile's numbers are simply shown — no rolling digits here.
+    expect(document.querySelector('[data-animated-number]')).toBeNull();
   });
 
   it('shows an honest "—" (not 0%) for a subject with no solved attempts yet', async () => {
@@ -196,7 +207,7 @@ describe('Profile', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('notifications');
   });
 
-  it('opens the Menu drawer (Рейтинг/Настройки/Помощь/О проекте…) via the header gear button', async () => {
+  it('opens the Menu drawer (Рейтинг/Настройки/Помощь…) via the header gear button', async () => {
     const user = userEvent.setup();
     renderProfile();
     await user.click(screen.getByRole('button', { name: 'Меню' }));

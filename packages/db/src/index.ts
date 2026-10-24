@@ -9,4 +9,5 @@ export { importVariant4 } from './importEge2026Variant4.js';
 export { importVariant5 } from './importEge2026Variant5.js';
 export { importRussianVariant1 } from './importRussianDoshchinsky2027Variant1.js';
 export { canonicalSubjects } from './canonicalSubjects.js';
+export { adminTelegramChats, adminTelegramReadiness } from './telegram.js';
 export { syncSubjects } from './syncSubjects.js';

@@ -5,7 +5,7 @@ import { Icon } from '../../ui/Icon/Icon.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { SubjectHeaderMobile } from '../../ui/SubjectHeader/SubjectHeaderMobile.js';
 import { WipPlaceholder } from '../../ui/WipPlaceholder/WipPlaceholder.js';
-import { SlideUp } from '../../ui/motion/motion.js';
+import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
 import styles from './RatingMobile.module.css';
 
 const viewTabs = [
@@ -41,10 +41,12 @@ export function RatingMobile() {
 
       <Tabs items={viewTabs} activeId={view} onChange={setView} aria-label="Раздел рейтинга" />
 
-      <WipPlaceholder
-        title={viewTabs.find((t) => t.id === view)!.label}
-        note="Экран в разработке — следующий блок."
-      />
+      <ContentSwap key={view}>
+        <WipPlaceholder
+          title={viewTabs.find((t) => t.id === view)!.label}
+          note="Экран в разработке — следующий блок."
+        />
+      </ContentSwap>
     </SlideUp>
   );
 }

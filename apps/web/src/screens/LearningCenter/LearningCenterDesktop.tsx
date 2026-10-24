@@ -1,48 +1,49 @@
 import { useNavigation } from '../../lib/navigation.js';
+import { clsx } from '../../lib/clsx.js';
 import { subjects } from '../../data/subjects.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import type { IconName } from '../../ui/Icon/icons.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import {
+  FeatureIcon,
+  featureIconGlow,
+  type FeatureIconName,
+} from '../../ui/FeatureIcon/FeatureIcon.js';
+import { staggerClassName } from '../../ui/motion/motion.js';
+import { SignInMethodWarning } from '../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
-  image: string;
-  color: string;
+  icon: FeatureIconName;
   title: string;
   description: string;
 }
 
 const sections: readonly LearningSection[] = [
   {
-    image: '/branding/v2/learning/theory.png',
-    color: 'var(--color-accent-primary)',
+    icon: 'theory',
     title: 'Теория',
     description: 'Краткие и понятные конспекты по всем темам ЕГЭ',
   },
   {
-    image: '/branding/v2/learning/practice.png',
-    color: 'var(--color-accent-secondary)',
+    icon: 'practice',
     title: 'Практика',
     description: 'Разборы заданий и примеры решений',
   },
   {
-    image: '/branding/v2/learning/strategy.png',
-    color: 'var(--color-gold)',
+    icon: 'strategy',
     title: 'Стратегии',
     description: 'Советы, лайфхаки и эффективные методики',
   },
   {
-    image: '/branding/v2/learning/useful-materials.png',
-    color: 'var(--color-warning)',
+    icon: 'materials',
     title: 'Полезные материалы',
     description: 'Сборники, файлы и дополнительные ресурсы',
   },
 ];
 
 interface Recommendation {
-  icon: IconName;
-  color: string;
+  icon: FeatureIconName;
   badge: string;
   title: string;
   description: string;
@@ -50,22 +51,19 @@ interface Recommendation {
 
 const recommendations: readonly Recommendation[] = [
   {
-    icon: 'topic',
-    color: 'var(--color-accent-primary)',
+    icon: 'topics',
     badge: 'Популярное',
     title: 'Основные темы ЕГЭ',
     description: 'Самые важные темы, которые встречаются в экзамене',
   },
   {
-    icon: 'variant',
-    color: 'var(--color-accent-secondary)',
+    icon: 'typical',
     badge: 'Новое',
     title: 'Типовые задания',
     description: 'Разбор сложных заданий с примерами решений',
   },
   {
-    icon: 'hint',
-    color: 'var(--color-gold)',
+    icon: 'tips',
     badge: 'Советы',
     title: 'Как эффективно готовиться',
     description: 'Методики, планирование и полезные лайфхаки',
@@ -82,7 +80,6 @@ export function LearningCenterDesktop() {
 
   return (
     <div>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
       <div className={styles.headRow}>
         <div>
           <h1 className="text-h1">Учебный центр</h1>
@@ -101,14 +98,19 @@ export function LearningCenterDesktop() {
         </div>
       </div>
 
-      <div className={styles.sectionsGrid}>
+      <SignInMethodWarning className={styles.signInWarning} />
+
+      <div className={clsx(styles.sectionsGrid, staggerClassName)}>
         {sections.map((section) => (
           <Card
             key={section.title}
             className={styles.sectionCard}
-            style={{ ['--section-accent' as string]: section.color }}
+            data-icon-host
+            style={{ ['--section-accent' as string]: featureIconGlow(section.icon) }}
           >
-            <img src={section.image} alt="" aria-hidden="true" className={styles.sectionImg} />
+            <span className={styles.sectionImg}>
+              <FeatureIcon name={section.icon} />
+            </span>
             <div className={styles.sectionBody}>
               <p className="text-body" style={{ fontWeight: 700 }}>
                 {section.title}
@@ -131,23 +133,20 @@ export function LearningCenterDesktop() {
         <p className="text-h3">Выбери предмет</p>
         <p className="text-body-sm text-secondary">Перейди к материалам нужного предмета</p>
       </div>
-      <div className={styles.subjectsGrid}>
-        {subjects.map((subject) => (
+      <div className={clsx(styles.subjectsGrid, staggerClassName)}>
+        {subjects.map((subject, index) => (
           <button
             key={subject.id}
             type="button"
             className={styles.subjectRow}
-            style={{ ['--subject-accent' as string]: subject.color }}
+            data-subject-interactive
             onClick={() =>
               navigate({ screen: 'subject', subjectId: subject.id, from: 'learningCenter' })
             }
           >
-            <img
-              src={`/branding/v2/subjects/${subject.id}.png`}
-              alt=""
-              aria-hidden="true"
-              className={styles.subjectIcon}
-            />
+            <span className={styles.subjectIcon}>
+              <SubjectIcon subjectId={subject.id} reveal={index} />
+            </span>
             <span className={styles.subjectName}>{subject.shortName}</span>
             <Icon name="arrowRight" size={16} className={styles.subjectArrow} />
           </button>
@@ -157,11 +156,16 @@ export function LearningCenterDesktop() {
       <Card className={styles.recommendCard}>
         <p className="text-h3">Рекомендации для тебя</p>
         <p className="text-body-sm text-secondary">На основе твоей активности</p>
-        <div className={styles.recommendGrid}>
+        <div className={clsx(styles.recommendGrid, staggerClassName)}>
           {recommendations.map((item) => (
-            <div key={item.title} className={styles.recommendItem}>
-              <span className={styles.recommendIcon} style={{ background: item.color }}>
-                <Icon name={item.icon} size={22} />
+            <div
+              key={item.title}
+              className={styles.recommendItem}
+              data-icon-host
+              style={{ ['--rec-accent' as string]: featureIconGlow(item.icon) }}
+            >
+              <span className={styles.recommendIcon}>
+                <FeatureIcon name={item.icon} />
               </span>
               <div className={styles.recommendBody}>
                 <span className={styles.recommendBadge}>{item.badge}</span>

@@ -1,9 +1,14 @@
 import { useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import {
+  FeatureIcon,
+  featureIconGlow,
+  type FeatureIconName,
+} from '../../ui/FeatureIcon/FeatureIcon.js';
 import styles from './SubjectCatalogDesktop.module.css';
 
 /**
@@ -25,26 +30,24 @@ export function SubjectCatalogDesktop() {
 
   const stats = [
     {
-      image: '/branding/v2/summary/subjects.png',
+      icon: 'subjects',
       label: 'предметов',
       value: `${subjects.length}`,
     },
     {
-      image: '/branding/v2/summary/tasks.png',
+      icon: 'tasks',
       label: 'заданий',
       value: totalTasks !== null ? `${totalTasks.toLocaleString('ru-RU')}+` : '···',
     },
     {
-      image: '/branding/v2/summary/full-statistics.png',
+      icon: 'statistics',
       label: 'статистика',
       value: 'Полная',
     },
-  ] as const;
+  ] as const satisfies readonly { icon: FeatureIconName; label: string; value: string }[];
 
   return (
     <div>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
-
       <div className={styles.hero}>
         <img
           src="/branding/v2/hero-mascot-desktop.webp"
@@ -61,10 +64,17 @@ export function SubjectCatalogDesktop() {
 
       <div className={styles.statsRow}>
         {stats.map((stat) => (
-          <Card key={stat.label} className={styles.statCard}>
-            <img src={stat.image} alt="" aria-hidden="true" className={styles.statIcon} />
+          <Card
+            key={stat.label}
+            className={styles.statCard}
+            data-icon-host
+            style={{ ['--card-glow' as string]: featureIconGlow(stat.icon) }}
+          >
+            <span className={styles.statIcon}>
+              <FeatureIcon name={stat.icon} />
+            </span>
             <span>
-              <strong className="text-body">{stat.value}</strong>
+              <strong className={styles.statValue}>{stat.value}</strong>
               <br />
               <span className="text-body-sm text-secondary">{stat.label}</span>
             </span>
@@ -73,23 +83,21 @@ export function SubjectCatalogDesktop() {
       </div>
 
       <div className={styles.grid}>
-        {subjects.map((subject) => (
+        {subjects.map((subject, index) => (
           <button
             key={subject.id}
             type="button"
             className={styles.subjectCard}
             style={{ ['--subject-accent' as string]: subject.color }}
+            data-subject-interactive
             onClick={() =>
               navigate({ screen: 'subject', subjectId: subject.id, from: 'subjectCatalog' })
             }
           >
             <div className={styles.subjectThumb}>
-              <img
-                src={`/branding/v2/subjects/${subject.id}.png`}
-                alt=""
-                aria-hidden="true"
-                className={styles.subjectImg}
-              />
+              <span className={styles.subjectImg}>
+                <SubjectIcon subjectId={subject.id} reveal={index} parallax />
+              </span>
             </div>
             <div className={styles.subjectFooter}>
               <span>

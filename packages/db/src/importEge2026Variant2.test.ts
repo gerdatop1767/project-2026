@@ -47,7 +47,7 @@ describe('importVariant2', () => {
     expect(parseIntervalSet(task15!.correctAnswer)).not.toBeNull();
   });
 
-  it('task 18 is a short_answer parameter answer (point ∪ interval, like Вариант 1\'s task 18)', async () => {
+  it("task 18 is a short_answer parameter answer (point ∪ interval, like Вариант 1's task 18)", async () => {
     const { db } = testDb;
     const rows = await db
       .select()

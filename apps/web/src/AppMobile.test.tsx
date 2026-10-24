@@ -12,6 +12,7 @@ vi.mock('./lib/api.js', () => ({
   listTasksByNumber: vi.fn(),
   getProgressSummary: vi.fn(() => new Promise(() => {})),
   getVariantProgress: vi.fn(() => new Promise(() => {})),
+  getProgressDaily: vi.fn(() => new Promise(() => {})),
   getTaskCountsBySubject: vi.fn(() => new Promise(() => {})),
   getProgressByTaskNumber: vi.fn(() => new Promise(() => {})),
   getProgressByTopic: vi.fn(() => new Promise(() => {})),
@@ -19,6 +20,13 @@ vi.mock('./lib/api.js', () => ({
   getMistakes: vi.fn(() => new Promise(() => {})),
   getSimilarTasks: vi.fn(() => Promise.resolve([])),
   getLearningProfile: vi.fn(() => new Promise(() => {})),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
   listFavoriteTaskIds: vi.fn(() => Promise.resolve({ taskIds: [] })),
   addFavorite: vi.fn(() => Promise.resolve()),
   removeFavorite: vi.fn(() => Promise.resolve()),
@@ -316,5 +324,21 @@ describe("AppMobile — menu (opened from Профиль's header button)", () =
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Начать тренировку/ })).toBeInTheDocument();
     });
+  });
+
+  it('keeps Профиль under the open menu, and closing the menu returns to Профиль', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    expect(await screen.findByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    // Still mounted underneath the drawer — never swapped for Home.
+    expect(screen.getByRole('heading', { name: 'Профиль', hidden: true })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Закрыть меню' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/profile');
   });
 });

@@ -34,17 +34,25 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: var(--space-3) var(--space-2);
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
+  padding: var(--space-4) var(--space-2) var(--space-3);
+  /* Lit from the top by its own icon's colour. */
+  background:
+    radial-gradient(
+      90% 60% at 50% 0%,
+      color-mix(in srgb, var(--card-glow, transparent) 16%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  border: 1px solid
+    color-mix(in srgb, var(--card-glow, var(--color-border-subtle)) 22%, var(--color-border-subtle));
   border-radius: var(--radius-card);
   text-align: center;
 }
 
 .statIcon {
-  width: 2rem;
-  height: 2rem;
-  object-fit: contain;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: var(--space-1);
 }
 
 .list {
@@ -63,7 +71,10 @@
   border-radius: var(--radius-card);
   background: var(--color-bg-surface);
   text-align: left;
-  transition: background-color var(--duration-fast) var(--easing-standard);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    box-shadow 280ms ease,
+    scale 160ms var(--easing-out);
 }
 
 .subjectRow:active {
@@ -77,13 +88,6 @@
   flex-shrink: 0;
   width: 2.75rem;
   height: 2.75rem;
-}
-
-.subjectThumbImg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--subject-accent) 55%, transparent));
 }
 
 .subjectBody {

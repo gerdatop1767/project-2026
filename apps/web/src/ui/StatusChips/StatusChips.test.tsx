@@ -2,11 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StatusChips } from './StatusChips.js';
+import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { StreakProvider, useStreakContext } from '../../lib/streakContext.js';
 import * as api from '../../lib/api.js';
+import { NavigationProvider } from '../../lib/navigation.js';
 
 vi.mock('../../lib/api.js', () => ({
   getStreak: vi.fn(() => new Promise(() => {})),
+  getXpSummary: vi.fn(() => new Promise(() => {})),
 }));
 
 describe('StatusChips — outside a StreakProvider (default context)', () => {
@@ -28,13 +31,15 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
   it('shows "—" while the real streak is still loading, never a fabricated 0', async () => {
     vi.mocked(api.getStreak).mockReturnValue(new Promise(() => {}));
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
-    // Level stays "—" unconditionally — no backend behind it yet.
-    expect(screen.getByText('Уровень').closest('div')).toHaveTextContent('—');
+    // Level is "—" too until GET /progress/xp answers.
+    expect(screen.getByRole('button', { name: /Уровень загружается/ })).toHaveTextContent('—');
   });
 
   it('shows the real currentStreak once GET /progress/streak resolves', async () => {
@@ -44,9 +49,11 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
       isActiveToday: true,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
   });
@@ -58,9 +65,11 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
       isActiveToday: false,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('0')).toBeInTheDocument());
   });
@@ -72,9 +81,11 @@ describe('StatusChips — with a real StreakProvider (GET /progress/streak)', ()
       isActiveToday: true,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
     expect(api.getStreak).toHaveBeenCalledTimes(1);
@@ -98,9 +109,11 @@ describe('StatusChips — streak-increase animation', () => {
       isActiveToday: true,
     });
     render(
-      <StreakProvider>
-        <StatusChips />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
     expect(document.querySelector('[class*="chipStreakUp"]')).not.toBeInTheDocument();
@@ -108,14 +121,24 @@ describe('StatusChips — streak-increase animation', () => {
 
   it('pulses only when a refresh genuinely raises the known streak value', async () => {
     vi.mocked(api.getStreak)
-      .mockResolvedValueOnce({ currentStreak: 5, lastActiveDate: '2026-10-02', isActiveToday: false })
-      .mockResolvedValueOnce({ currentStreak: 6, lastActiveDate: '2026-10-03', isActiveToday: true });
+      .mockResolvedValueOnce({
+        currentStreak: 5,
+        lastActiveDate: '2026-10-02',
+        isActiveToday: false,
+      })
+      .mockResolvedValueOnce({
+        currentStreak: 6,
+        lastActiveDate: '2026-10-03',
+        isActiveToday: true,
+      });
     const user = userEvent.setup();
     render(
-      <StreakProvider>
-        <StatusChips />
-        <RefreshButton />
-      </StreakProvider>,
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+          <RefreshButton />
+        </StreakProvider>
+      </TestAuthProvider>,
     );
     await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
     expect(document.querySelector('[class*="chipStreakUp"]')).not.toBeInTheDocument();
@@ -123,5 +146,115 @@ describe('StatusChips — streak-increase animation', () => {
     await user.click(screen.getByRole('button', { name: 'refresh' }));
     await waitFor(() => expect(screen.getByText('6')).toBeInTheDocument());
     expect(document.querySelector('[class*="chipStreakUp"]')).toBeInTheDocument();
+  });
+});
+
+describe('StatusChips — streak flame tiers', () => {
+  const streakOf = (n: number) => ({
+    currentStreak: n,
+    lastActiveDate: '2026-10-03',
+    isActiveToday: true,
+  });
+  const renderWith = () =>
+    render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+          <RefreshButton />
+        </StreakProvider>
+      </TestAuthProvider>,
+    );
+  const flame = () => document.querySelector('svg[data-tier]')!;
+
+  it.each([
+    [0, '0'],
+    [1, '1'],
+    [5, '2'],
+    [15, '3'],
+    [30, '4'],
+    [40, '5'],
+    [60, '6'],
+    [120, '6'],
+  ])('%i days draws tier %s (0 = no lit flame)', async (days, tier) => {
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(days));
+    renderWith();
+    await waitFor(() => expect(flame()).toHaveAttribute('data-tier', tier));
+    expect(screen.getByLabelText(new RegExp(`Серия: ${days} `))).toBeInTheDocument();
+  });
+
+  it('the level-up burst plays only when a real refresh crosses into a new tier', async () => {
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(4));
+    const user = userEvent.setup();
+    renderWith();
+    await waitFor(() => expect(flame()).toHaveAttribute('data-tier', '1'));
+    expect(flame()).not.toHaveAttribute('data-level-up');
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(5));
+    await user.click(screen.getByRole('button', { name: 'refresh' }));
+    await waitFor(() => expect(flame()).toHaveAttribute('data-level-up'));
+    expect(flame()).toHaveAttribute('data-tier', '2');
+  });
+
+  it('a higher streak within the same tier pulses but does not burst', async () => {
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(6));
+    const user = userEvent.setup();
+    renderWith();
+    await waitFor(() => expect(flame()).toHaveAttribute('data-tier', '2'));
+    vi.mocked(api.getStreak).mockResolvedValue(streakOf(7));
+    await user.click(screen.getByRole('button', { name: 'refresh' }));
+    await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
+    expect(flame()).not.toHaveAttribute('data-level-up');
+  });
+});
+
+describe('StatusChips — level (GET /progress/xp)', () => {
+  const xpAt = (totalXp: number, level: number, extra: object = {}) => ({
+    totalXp,
+    level,
+    levelStartXp: 50,
+    nextLevelXp: 130,
+    xpIntoLevel: totalXp - 50,
+    xpForNextLevel: 80,
+    xpToNextLevel: 130 - totalXp,
+    progress: (totalXp - 50) / 80,
+    maxLevel: 50,
+    isMaxLevel: false,
+    ...extra,
+  });
+
+  it('shows the real level from the server and a progress bar', async () => {
+    vi.mocked(api.getStreak).mockResolvedValue({
+      currentStreak: 1,
+      lastActiveDate: '2026-10-03',
+      isActiveToday: true,
+    });
+    vi.mocked(api.getXpSummary).mockResolvedValue(xpAt(90, 2));
+    render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
+    );
+    const chip = await screen.findByRole('button', {
+      name: 'Уровень 2, до следующего 40 XP. Открыть страницу уровня',
+    });
+    expect(chip).toHaveTextContent('2');
+    expect(chip.querySelector('[style*="width: 50%"]')).not.toBeNull();
+  });
+
+  it('opens the «Уровень» page on click', async () => {
+    vi.mocked(api.getXpSummary).mockResolvedValue(xpAt(90, 2));
+    window.history.replaceState(null, '', '/');
+    render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <NavigationProvider>
+          <StreakProvider>
+            <StatusChips />
+          </StreakProvider>
+        </NavigationProvider>
+      </TestAuthProvider>,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: /Уровень 2/ }));
+    expect(window.location.pathname).toBe('/level');
   });
 });

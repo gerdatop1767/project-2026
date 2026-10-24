@@ -9,20 +9,29 @@
 .hero {
   position: relative;
   overflow: hidden;
+  isolation: isolate;
   border-radius: var(--radius-card);
   padding: var(--space-5);
-  background: var(--color-bg-surface);
-  box-shadow: var(--shadow-e1);
+  background:
+    radial-gradient(
+      90% 70% at 100% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 22%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  box-shadow:
+    var(--shadow-e1),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 16%, transparent);
 }
 
 .heroHeading {
-  max-width: 10rem;
+  max-width: 11rem;
   position: relative;
   z-index: 1;
 }
 
 .heroSubtitle {
-  max-width: 13rem;
+  max-width: 13.5rem;
   position: relative;
   z-index: 1;
 }
@@ -34,64 +43,169 @@
   color: transparent;
 }
 
-/* Tucked into the top-right corner, fully inside .hero's rounded card.
- * QA v3 Block 5: the previous 4px offset put this cluster right inside
- * the card's own 20px border-radius arc — .hero's overflow:hidden then
- * clipped whichever tile's rotated corner reached furthest into that
- * arc (heroTileAa sat flush at right:0 with no margin of its own,
- * so it was the one visibly cut off). The fix is geometric, not a
- * random nudge: offset the whole cluster far enough from the card's
- * outer edge to clear the radius, and give every individual tile a
- * real inset from the cluster's own edges too, so no tile's rotated
- * footprint is ever flush against a boundary. */
+/* Three real subject tiles in an even triangle, top-right, kept clear of
+ * the card's rounded corner (the cluster is inset by more than the
+ * radius) and of the heading (which is width-capped above). Each tile
+ * bobs gently, out of step with the others. */
 .heroTiles {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 4.5rem;
-  height: 3.5rem;
+  top: 1rem;
+  right: 1rem;
+  width: 7.25rem;
+  height: 6.5rem;
   pointer-events: none;
 }
 
-.heroTiles span {
+.heroTiles > span {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5rem;
-  background: var(--color-bg-elevated);
-  box-shadow: var(--shadow-e2);
+  width: 3.25rem;
+  height: 3.25rem;
+  /* Two gentle bobs, then still — not a forever-running loop on Home. */
+  animation: heroFloat 5.2s ease-in-out 2;
 }
 
 .heroTiles img {
-  width: 68%;
-  height: 68%;
-  object-fit: contain;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--tile-glow) 60%, transparent));
+  width: 100%;
+  height: 100%;
 }
 
 .heroTilePi {
-  top: 0.25rem;
-  right: 1.75rem;
-  transform: rotate(-8deg);
+  top: 0;
+  left: 0.6rem;
+  rotate: -8deg;
 }
 
 .heroTileAa {
-  top: 1.25rem;
-  right: 0.25rem;
-  transform: rotate(6deg);
+  top: 1.1rem;
+  right: 0;
+  rotate: 7deg;
 }
 
 .heroTileM {
-  top: 1.75rem;
-  right: 2rem;
-  transform: rotate(10deg);
+  bottom: 0;
+  left: 1.6rem;
+  rotate: 4deg;
 }
 
+.heroTiles > .heroTileAa {
+  animation-delay: -1.7s;
+}
+
+.heroTiles > .heroTileM {
+  animation-delay: -3.4s;
+}
+
+/* Narrow phones: the third heading line spans the card, so the cluster
+ * shrinks to stay beside the two short first lines only. */
+@media (max-width: 374px) {
+  .heroTiles {
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 5.25rem;
+    height: 4rem;
+  }
+
+  .heroTiles > span {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .heroTilePi {
+    left: 0.4rem;
+  }
+
+  .heroTileAa {
+    top: 0.6rem;
+  }
+
+  .heroTileM {
+    left: 1.25rem;
+  }
+}
+
+@keyframes heroFloat {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -4px;
+  }
+}
+
+/* Glass CTA: the accent gradient with a light rim, an inner sheen and a
+ * soft glow; presses down a touch. */
 .heroCta {
+  position: relative;
   margin-top: var(--space-4);
+  overflow: hidden;
+  min-height: 3.25rem;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-on-accent) 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-on-accent) 35%, transparent),
+    0 10px 28px -10px color-mix(in srgb, var(--color-accent-primary-end) 80%, transparent);
+  transition:
+    transform 140ms var(--easing-out),
+    box-shadow 200ms ease,
+    filter 200ms ease;
+}
+
+.heroCta::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 50% 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-on-accent) 18%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.heroCta:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-on-accent) 28%, transparent),
+    0 4px 14px -8px color-mix(in srgb, var(--color-accent-primary-end) 80%, transparent);
+}
+
+.heroCtaLabel {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.heroCtaArrow {
+  transition: transform 200ms var(--easing-out);
+}
+
+.heroCta:active .heroCtaArrow {
+  transform: translateX(3px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .heroCta:hover .heroCtaArrow {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroTiles > span {
+    animation: none;
+  }
+
+  .heroCta,
+  .heroCtaArrow {
+    transition: none;
+  }
+
+  .heroCta:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* ---- Progress card ---- */
@@ -132,18 +246,53 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
+/* Metric icons sit in a small tinted disc and pop once when the real
+ * value arrives (data-ready) — never before, so "···" stays still. */
+.statIcon {
+  --tone: var(--color-text-secondary);
+  display: inline-grid;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 30%, transparent);
+  color: var(--tone);
+}
+
+.statIcon[data-ready] {
+  animation: statPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes statPop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
 .statIconGold {
-  color: var(--color-gold);
+  --tone: var(--color-gold);
 }
 
 .statIconSuccess {
-  color: var(--color-success);
+  --tone: var(--color-success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statIcon[data-ready] {
+    animation: none;
+  }
 }
 
 /* ---- Section header ---- */
@@ -169,55 +318,92 @@
 
 /* ---- Popular subjects grid ---- */
 
+/*
+ * Why names used to break mid-word ("Математ-ика"): the card names are set in
+ * the wide display font (Unbounded), where the longest single word,
+ * «Обществознание», is ~11.4 em wide (159 px at 14 px). The old row layout
+ * (icon + name + chevron side by side) left only 70–105 px for the text on a
+ * phone, so no size could make a whole word fit, and the global
+ * `.text-card-title { overflow-wrap: break-word }` broke it inside the word.
+ *
+ * Fix at the source instead of per subject:
+ * - the card is a size container; narrow cards stack icon / name / count so
+ *   the name gets the full card width, wide cards use the row layout;
+ * - the name is sized from that width so the longest word always fits
+ *   (never above the normal 14 px), and never breaks inside a word;
+ * - the grid stays at two columns only while a card is wide enough for the
+ *   name to keep its full 14 px: the longest word needs 11.6 em ≈ 162 px plus
+ *   1.25rem of padding, so 11.5rem (184 px). Below that (phones up to ~410 px)
+ *   it becomes one column rather than shrinking the text.
+ */
 .subjectGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(11.5rem, calc((100% - var(--space-3)) / 2))), 1fr)
+  );
   gap: var(--space-3);
 }
 
 .subjectCard {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1, 8px);
+  container-type: inline-size;
   min-width: 0;
-  padding: var(--space-3) var(--space-1, 8px) var(--space-3) var(--space-2);
+  padding: 0;
   border: none;
   border-radius: var(--radius-card);
   background: var(--color-bg-surface);
   text-align: left;
-  transition: background-color var(--duration-fast) var(--easing-standard);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    box-shadow 280ms ease,
+    scale 160ms var(--easing-out);
 }
 
 .subjectCard:active {
   background: var(--color-bg-elevated);
 }
 
+/* Narrow card (two columns on a phone): icon + chevron on top, name below. */
+.subjectCardInner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    'thumb chevron'
+    'text text';
+  align-items: center;
+  row-gap: var(--space-2);
+  padding: 0.625rem;
+}
+
 .subjectThumb {
+  grid-area: thumb;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
-}
-
-.subjectThumbImg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--subject-accent) 55%, transparent));
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
 .subjectCardText {
-  flex: 1;
+  grid-area: text;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* Long single words like "Обществознание" have no space to wrap at —
-     without this they overflowed the two-column card at phone widths
-     instead of breaking onto a second line. */
-  overflow-wrap: break-word;
+}
+
+.subjectCardText .subjectName {
+  /* Whole words only: never split inside a word (overrides the global
+     `.text-card-title` break-word, which is only a last resort elsewhere). */
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+  /* Fallback where container units are unsupported: the size that fits the
+     longest name in the narrowest two-column card. */
+  font-size: 0.75rem;
+  /* The name's room is the card minus the inner padding (1.25rem); 11.6 is
+     the longest word's width in em, with a little air. */
+  font-size: min(var(--font-size-body-sm), calc((100cqw - 1.25rem) / 11.6));
 }
 
 .subjectCardCount {
@@ -226,8 +412,24 @@
 }
 
 .subjectCardChevron {
-  flex-shrink: 0;
+  grid-area: chevron;
+  justify-self: end;
   color: var(--color-text-disabled);
+}
+
+/* Wide card (one column, tablets): the roomy row layout, full-size name. */
+@container (min-width: 15rem) {
+  .subjectCardInner {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: 'thumb text chevron';
+    column-gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .subjectThumb {
+    width: 2rem;
+    height: 2rem;
+  }
 }
 
 /* ---- Continue card ---- */
@@ -272,4 +474,43 @@
   border-radius: 50%;
   background: var(--gradient-primary);
   color: #fff;
+}
+
+/* Guest mode: a quiet one-line way into an account, never a nag. */
+.guestHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent-primary) 10%, var(--color-bg-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 22%, transparent);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.guestHintIcon {
+  flex-shrink: 0;
+  color: var(--color-accent-primary-end);
+}
+
+.guestHintText {
+  min-width: 0;
+}
+
+.guestHintLink {
+  color: var(--color-accent-primary-end);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.guestHint:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
 }

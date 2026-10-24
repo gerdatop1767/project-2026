@@ -1,10 +1,17 @@
+import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
 import { useEffect, useState } from 'react';
-import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
+import {
+  trainingByNumberRouteFor,
+  useNavigation,
+  type Route,
+  type RevealedAnswer,
+} from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
   buildSessionProgress,
   explanationForPart,
+  hasDetailedExplanation,
   splitMultiPartExplanation,
   toSampleTask,
 } from '../../lib/taskAdapter.js';
@@ -16,6 +23,7 @@ import { LearningSessionResultAction } from '../../ui/LearningSession/LearningSe
 import type { SampleTask, TaskVariant } from '../../data/sampleTask.js';
 import { subjects } from '../../data/subjects.js';
 import { getProgressSummary } from '../../lib/api.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
 import { CanvasWorkspaceMobile } from '../../ui/CanvasWorkspace/CanvasWorkspaceMobile.js';
@@ -53,6 +61,8 @@ export interface ResultMobileProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time chip is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** A guest's check — see the `result` route's `revealed`. */
+  revealed?: RevealedAnswer;
 }
 
 const XP_REWARD = 20;
@@ -75,6 +85,7 @@ export function ResultMobile({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  revealed,
 }: ResultMobileProps) {
   const { navigate, back } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
@@ -86,7 +97,10 @@ export function ResultMobile({
     customOrderedTasks,
     returnTo,
   });
-  const goBack = returnTo ? () => navigate(returnTo) : back;
+  // The task/result has no address of its own, so the current history
+  // entry IS the page underneath it: replace it with the exact place to
+  // return to instead of pushing a duplicate stop onto the Back stack.
+  const goBack = returnTo ? () => navigate(returnTo, { replace: true }) : back;
   const learningSession = useActiveLearningSessionForTask(taskId);
   // The router remounts this component (key={taskId}) whenever the task
   // or its correctness changes, so state starts fresh here.
@@ -105,7 +119,7 @@ export function ResultMobile({
     void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
-        setTask(toSampleTask(fetchedTask, siblings));
+        setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -113,10 +127,13 @@ export function ResultMobile({
     return () => {
       cancelled = true;
     };
-  }, [taskId, subjectId, taskNumber]);
+  }, [taskId, subjectId, taskNumber, revealed]);
 
+  const { isGuest } = useAccountGate();
   useEffect(() => {
     let cancelled = false;
+    // A guest's answers aren't recorded, so there is no accuracy to show.
+    if (isGuest) return;
     void getProgressSummary()
       .then((data) => {
         if (!cancelled) setAccuracyPercent(Math.round(data.accuracyPercent));
@@ -128,7 +145,7 @@ export function ResultMobile({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   if (loadError) {
     return (
@@ -199,7 +216,8 @@ export function ResultMobile({
     <SlideUp key={`${taskId}-${correct}`} className={styles.stack}>
       <TaskChrome
         subject={subject}
-        task={task}
+        taskId={task.id}
+        taskNumber={task.number}
         onBack={goBack}
         numberStripRange={taskNav.orderedTasks}
         onSelectNumber={taskNav.goTo}
@@ -208,6 +226,8 @@ export function ResultMobile({
         onGoTo={taskNav.goTo}
         indexInSession={sessionProgress.indexInSession}
         totalInSession={sessionProgress.totalInSession}
+        reportScreen="result"
+        variantId={taskNav.variantId ?? variantId}
       />
 
       <div
@@ -321,31 +341,39 @@ export function ResultMobile({
         </Button>
         <Collapse open={solutionOpen}>
           <div className={styles.solutionSteps}>
-            {multiPartGrade && explanationSections
-              ? multiPartGrade.parts.map((part, i) => (
-                  <div key={part.id} className={styles.solutionStep}>
-                    <span className={styles.solutionStepIndex}>{i + 1}</span>
-                    <p className={clsx('text-body-sm', styles.solutionStepBody)}>
-                      <strong>{part.label}) </strong>
-                      <InlineMathText text={explanationForPart(explanationSections, part.label)} />
+            {multiPartGrade && explanationSections ? (
+              multiPartGrade.parts.map((part, i) => (
+                <div key={part.id} className={styles.solutionStep}>
+                  <span className={styles.solutionStepIndex}>{i + 1}</span>
+                  <p className={clsx('text-body-sm', styles.solutionStepBody)}>
+                    <strong>{part.label}) </strong>
+                    <InlineMathText text={explanationForPart(explanationSections, part.label)} />
+                  </p>
+                </div>
+              ))
+            ) : hasDetailedExplanation(task) ? (
+              <div className={styles.solutionStep}>
+                <div className={styles.solutionStepBody}>
+                  <MathText text={task.explanation} className="text-body-sm" />
+                </div>
+              </div>
+            ) : (
+              task.steps.map((step, i) => (
+                <div key={i} className={styles.solutionStep}>
+                  <span className={styles.solutionStepIndex}>{i + 1}</span>
+                  <div className={styles.solutionStepBody}>
+                    {step.title && (
+                      <p className="text-body-sm" style={{ fontWeight: 700 }}>
+                        <InlineMathText text={step.title} />
+                      </p>
+                    )}
+                    <p className="text-body-sm">
+                      <InlineMathText text={step.text} />
                     </p>
                   </div>
-                ))
-              : task.steps.map((step, i) => (
-                  <div key={i} className={styles.solutionStep}>
-                    <span className={styles.solutionStepIndex}>{i + 1}</span>
-                    <div className={styles.solutionStepBody}>
-                      {step.title && (
-                        <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                          <InlineMathText text={step.title} />
-                        </p>
-                      )}
-                      <p className="text-body-sm">
-                        <InlineMathText text={step.text} />
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                </div>
+              ))
+            )}
           </div>
           {task.canonicalSolution && (
             <div className={styles.canonicalSolutionWrap}>

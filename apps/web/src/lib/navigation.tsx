@@ -7,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { pathForRoute, routeFromPath } from './routes.js';
+import { trackRoute } from './analytics.js';
+import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 
 /**
@@ -16,7 +17,7 @@ import type { SubjectModeId } from '../data/subjectContent.js';
  * couple of different labels for slot 2/4 across mocks (Учёба vs
  * Тренировка, Достижения vs Ошибки vs Рейтинг); a real nav needs one
  * fixed set, so this uses the pattern that recurs across the most
- * screens. Мои ошибки / Рейтинг / О проекте stay reachable from Home
+ * screens. Мои ошибки / Рейтинг stay reachable from Home
  * and the Menu overlay rather than living in the tab bar itself.
  * Профиль is an overlay (see `OverlayRoute`), not a tab — it opens
  * from Menu on top of whichever tab is underneath, the same as every
@@ -34,6 +35,10 @@ export const mainTabIds: readonly MainTabId[] = ['home', 'training', 'statistics
  */
 export type OverlayRoute =
   | { screen: 'onboarding' }
+  /** The unified sign-in/sign-up screen — VK ID + Yandex ID. Reached
+   * from Home's "Войти" entry point; addressable (see routes.ts) so a VK
+   * or Yandex OAuth redirect (`?vk=` / `?yandex=`) can land here directly. */
+  | { screen: 'login' }
   | { screen: 'learningCenter' }
   | { screen: 'subjectCatalog' }
   | {
@@ -57,6 +62,10 @@ export type OverlayRoute =
        * default "Темы" tab — absent means "let the page pick its own
        * default", same as before this existed. */
       initialMode?: SubjectModeId;
+      /** With `initialMode: 'byNumber'`: pre-selects this one task
+       * number (a task's "К списку заданий №N"). Never starts training
+       * on its own; an out-of-range number is ignored. */
+      initialTaskNumber?: number;
     }
   | {
       screen: 'task';
@@ -110,6 +119,10 @@ export type OverlayRoute =
       /** Same purpose as `task.returnTo` above — Result's back arrow
        * needs the same parent-overlay context Task had. */
       returnTo?: Route;
+      /** A guest's check: nothing was recorded, so re-fetching the task
+       * won't reveal its answer — the check response's own answer and
+       * explanation come along instead. */
+      revealed?: RevealedAnswer;
       /** The real elapsed solving time already submitted with this
        * attempt (see `useSolvingTimer`) — absent when the timer was
        * never started. Carried the same way `userAnswer` is, purely for
@@ -137,31 +150,13 @@ export type OverlayRoute =
   | { screen: 'trainingTopic' }
   | { screen: 'trainingRandom' }
   | { screen: 'trainingVariants' }
-  /** The dedicated "Задания по номерам" screen (real, not a WIP
-   * placeholder) — multi-select task numbers, two *independent*
-   * toggles per number (🎲 Случайное / 🔄 Только нерешённые — both can
-   * be on at once), and an optional shuffle of solving order. See
-   * TrainingByNumber.tsx. Reachable both from Training's mode grid and
-   * from Subject's own "Задания по номерам" tab — `from` carries
-   * whichever one it was, and an optional `subjectId`/`collectionSlug`
-   * seed the screen's own pickers, matching the `subject` overlay's
-   * own `from`/`collectionSlug` pattern. */
-  | {
-      screen: 'trainingByNumber';
-      from?: Route;
-      subjectId?: string;
-      collectionSlug?: string;
-      /** Pre-selects this one number on entry (e.g. "Другие задания
-       * №13"'s "К списку заданий №13" button) — the user can freely
-       * add/remove numbers afterward, same chips as any other entry.
-       * An out-of-range number for the resolved subject is silently
-       * ignored (TrainingByNumber's own existing out-of-range rule —
-       * see `selectSubject`), never a crash or a fake selection. */
-      initialTaskNumber?: number;
-    }
   | { screen: 'rating' }
-  | { screen: 'about' }
-  | { screen: 'menu' }
+  /** «Уровень»: the account's real level, XP and XP history (docs/XP.md). */
+  | { screen: 'level' }
+  /** The mobile menu drawer, drawn over the screen it was opened from.
+   * `from` is that screen, so it stays mounted underneath while the menu
+   * is open and closing the menu returns exactly there. */
+  | { screen: 'menu'; from?: OverlayRoute }
   | { screen: 'favorites' }
   | { screen: 'mockExams' }
   | { screen: 'topics' }
@@ -169,6 +164,16 @@ export type OverlayRoute =
   | { screen: 'friendProfile'; friendId: string }
   | { screen: 'settings' }
   | { screen: 'help' }
+  /** Public info pages, readable signed in or out and rendered outside
+   * the app shells (see App.tsx): FAQ, privacy policy, terms of use. */
+  | { screen: 'faq' }
+  /** The marketing landing, kept for later (see lib/features.ts). */
+  | { screen: 'landing' }
+  /** The external browser's last page of a VK sign-in started in the
+   * Telegram Mini App (see screens/TelegramReturn). */
+  | { screen: 'telegramReturn' }
+  | { screen: 'privacy' }
+  | { screen: 'terms' }
   | { screen: 'notifications' }
   | {
       screen: 'profile';
@@ -180,6 +185,12 @@ export type OverlayRoute =
       from?: Route;
     };
 
+export interface RevealedAnswer {
+  correctAnswer: string;
+  correctAnswerDisplay: string | null;
+  explanation: string;
+}
+
 export type Route = { screen: MainTabId } | OverlayRoute;
 
 const routeLabels: Partial<Record<Route['screen'], string>> = {
@@ -187,13 +198,16 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   training: 'Тренировка',
   statistics: 'Статистика',
   achievements: 'Достижения',
+  login: 'Вход',
   learningCenter: 'Учебный центр',
   learningSession: 'Тренировка',
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',
-  trainingByNumber: 'По номерам',
   rating: 'Рейтинг',
-  about: 'О проекте',
+  level: 'Уровень',
+  faq: 'Вопросы и ответы',
+  privacy: 'Политика конфиденциальности',
+  terms: 'Пользовательское соглашение',
 };
 
 /** A human label for any route, used by BackRow to name where it's
@@ -206,20 +220,17 @@ export function getRouteLabel(route: Route): string {
 /**
  * "К списку заданий №N" (Similar Tasks' `OtherVariantsSection`/
  * `OtherVariantsSectionDesktop`, both mobile and desktop) — the ONE
- * shared way every Task/Result screen builds this route, so neither
- * platform invents its own. Pre-selects `taskNumber` on
- * TrainingByNumber (see its `initialTaskNumber` doc comment) without
- * starting training; `from` matches the existing cross-source
- * "Другие задания" convention (`handleSelectVariant` elsewhere in
- * these same screens) of returning to the subject page, since this
- * leaves the current task's source/session context behind.
+ * shared way every Task/Result screen builds this route: the subject
+ * page, opened in its "По номерам" mode with №N pre-selected. A normal
+ * page in the same navigation as Темы/Варианты — Back from it simply
+ * goes back, with no extra stop on the way.
  */
 export function trainingByNumberRouteFor(subjectId: string, taskNumber: number): Route {
   return {
-    screen: 'trainingByNumber',
+    screen: 'subject',
     subjectId,
+    initialMode: 'byNumber',
     initialTaskNumber: taskNumber,
-    from: { screen: 'subject', subjectId },
   };
 }
 
@@ -228,9 +239,62 @@ interface NavigationContextValue {
   tab: MainTabId;
   /** The active overlay, or null when a tab screen is showing. */
   overlay: OverlayRoute | null;
-  navigate: (route: Route) => void;
-  /** Closes the current overlay, returning to its underlying tab. */
+  navigate: (route: Route, options?: NavigateOptions) => void;
+  /**
+   * Closes the current overlay. When the app itself has history to go
+   * back to, that is a real browser Back; when this overlay is the very
+   * first entry of the visit (opened by URL, a refresh, an OAuth return)
+   * there is nothing in the app to go back to, so it returns to the
+   * underlying tab instead of leaving the site. Takes no arguments on
+   * purpose: it is passed straight to `onClick` in many places.
+   */
   back: () => void;
+  /**
+   * Like `back()`, but for a screen that must end on a specific route
+   * when the app has no history of its own to return to (e.g. the sign-in
+   * page always closes to the public Home, never to a private tab).
+   */
+  leave: (fallback: Route) => void;
+}
+
+export interface NavigateOptions {
+  /** Replace the current history entry instead of adding one — for
+   * redirects the user did not ask for (access gate, post-sign-in), so
+   * the entry they bounce from is not left behind to trap Back. */
+  replace?: boolean;
+  /** Marks the entry as the access gate's sign-in redirect (a signed-out
+   * visitor sent from a private URL to /login) — see `isSignInGateEntry`. */
+  signInGate?: boolean;
+}
+
+/**
+ * Every entry the app writes carries its position in this visit's own
+ * history (`history.state.zybrilka.index`, 0 = first app entry). That is
+ * how `back()` knows whether `history.back()` stays inside the app: the
+ * browser itself never says whether a previous entry is ours.
+ */
+function currentHistoryIndex(): number {
+  const state = window.history.state as { zybrilka?: { index?: unknown } } | null;
+  const index = state?.zybrilka?.index;
+  return typeof index === 'number' && Number.isInteger(index) && index > 0 ? index : 0;
+}
+
+/**
+ * Whether the current entry is the sign-in screen the access gate put in
+ * place of a private page. Going "back" from there only reaches more
+ * private pages (after a sign-out the trainer's whole history is still
+ * behind it), each of which the gate turns into this same screen again —
+ * so its × must take the visitor out to the landing instead.
+ */
+export function isSignInGateEntry(): boolean {
+  const state = window.history.state as { zybrilka?: { gate?: unknown } } | null;
+  return state?.zybrilka?.gate === true;
+}
+
+function writeHistory(mode: 'push' | 'replace', path: string, index: number, gate = false) {
+  const state = { zybrilka: gate ? { index, gate } : { index } };
+  if (mode === 'push') window.history.pushState(state, '', path);
+  else window.history.replaceState(state, '', path);
 }
 
 const NavigationContext = createContext<NavigationContextValue | null>(null);
@@ -264,6 +328,21 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Mark this visit's first entry (a fresh load, refresh or OAuth return
+    // arrives with no marker) and tidy the URL of a removed page, so
+    // `back()` can tell "nothing of ours behind this" from "go back".
+    // The `#hash` is carried over untouched: Telegram's launch data lives
+    // there and its own script may still be about to read it.
+    const { pathname, search, hash } = window.location;
+    if (isRemovedPath(pathname)) {
+      writeHistory('replace', `/${hash}`, 0);
+    } else if (isLegacyPath(pathname)) {
+      const path = pathForRoute(routeFromPath(pathname + search)) ?? '/';
+      writeHistory('replace', path + hash, currentHistoryIndex(), isSignInGateEntry());
+    } else {
+      writeHistory('replace', pathname + search + hash, currentHistoryIndex(), isSignInGateEntry());
+    }
+
     function onPopState() {
       const route = routeFromPath(window.location.pathname + window.location.search);
       if (isTabRoute(route)) {
@@ -277,7 +356,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  const navigate = useCallback((route: Route) => {
+  const navigate = useCallback((route: Route, options?: NavigateOptions) => {
+    trackRoute(route);
     if (isTabRoute(route)) {
       setTab(route.screen);
       setOverlay(null);
@@ -285,11 +365,25 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       setOverlay(route);
     }
     const path = pathForRoute(route);
+    if (path === null) return;
     const currentPath = window.location.pathname + window.location.search;
-    if (path !== null && path !== currentPath) {
-      window.history.pushState(null, '', path);
+    if (options?.replace) {
+      writeHistory('replace', path, currentHistoryIndex(), options.signInGate);
+    } else if (path !== currentPath) {
+      writeHistory('push', path, currentHistoryIndex() + 1);
     }
   }, []);
+
+  const leave = useCallback(
+    (fallback: Route) => {
+      if (currentHistoryIndex() > 0) {
+        window.history.back();
+      } else {
+        navigate(fallback, { replace: true });
+      }
+    },
+    [navigate],
+  );
 
   // Only routes `navigate()` actually pushed a history entry for can
   // be popped — `menu`/`task`/`result` have no URL (see routes.ts), so
@@ -297,11 +391,11 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   // routing existed.
   const back = useCallback(() => {
     if (overlay && pathForRoute(overlay) !== null) {
-      window.history.back();
+      leave({ screen: tab });
     } else {
       setOverlay(null);
     }
-  }, [overlay]);
+  }, [overlay, tab, leave]);
 
   // Memoized so a re-render of this provider (e.g. from a parent
   // provider's own state changing, unrelated to navigation) doesn't
@@ -309,11 +403,17 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   // identity and force them all to re-render — only an actual
   // tab/overlay change should do that.
   const value = useMemo<NavigationContextValue>(
-    () => ({ tab, overlay, navigate, back }),
-    [tab, overlay, navigate, back],
+    () => ({ tab, overlay, navigate, back, leave }),
+    [tab, overlay, navigate, back, leave],
   );
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
+}
+
+/** Like useNavigation, but null outside a NavigationProvider (for hooks
+ * that must also work in isolated component tests). */
+export function useOptionalNavigation(): NavigationContextValue | null {
+  return useContext(NavigationContext);
 }
 
 export function useNavigation(): NavigationContextValue {

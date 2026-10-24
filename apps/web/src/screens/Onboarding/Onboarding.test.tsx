@@ -37,7 +37,9 @@ describe('Onboarding', () => {
       subjects: [],
     });
     renderOnboarding();
-    expect(screen.getByText('Добро пожаловать в Zybrilka!')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Добро пожаловать в Zybrilka!' }),
+    ).toBeInTheDocument();
   });
 
   it('progresses through subject selection to the current-level step', async () => {
@@ -48,10 +50,12 @@ describe('Onboarding', () => {
     const user = userEvent.setup();
     renderOnboarding();
     await user.click(screen.getByRole('button', { name: 'Начать' }));
-    expect(screen.getByText('Какие предметы сдаёшь?')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Какие предметы сдаёшь?' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Далее' }));
-    expect(screen.getByText('Примерно на сколько ты сейчас пишешь?')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Примерно на сколько ты сейчас пишешь?' }),
+    ).toBeInTheDocument();
   });
 
   it('requires a self-reported score per selected subject before continuing to target', async () => {
@@ -96,7 +100,9 @@ describe('Onboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Далее' }));
     await user.click(screen.getAllByRole('button', { name: '70+' })[0]!);
     await user.click(screen.getByRole('button', { name: 'Далее' }));
-    expect(screen.getByText('Какой результат хочешь получить?')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Какой результат хочешь получить?' }),
+    ).toBeInTheDocument();
 
     const next = screen.getByRole('button', { name: 'Далее' });
     expect(next).toBeDisabled();
@@ -121,7 +127,7 @@ describe('Onboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Далее' }));
     await user.click(screen.getAllByRole('button', { name: '90+' })[0]!);
     await user.click(screen.getByRole('button', { name: 'Далее' }));
-    expect(screen.getByText('Почти готово!')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Почти готово!' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Перейти к тренировкам' }));
 
@@ -152,7 +158,7 @@ describe('Onboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Перейти к тренировкам' }));
 
     await screen.findByText('Не удалось сохранить профиль. Попробуй ещё раз.');
-    expect(screen.getByText('Почти готово!')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Почти готово!' })).toBeInTheDocument();
     expect(api.saveLearningProfile).toHaveBeenCalledTimes(1);
   });
 
@@ -179,12 +185,12 @@ describe('Onboarding', () => {
     renderOnboarding();
     await waitFor(() => expect(api.getLearningProfile).toHaveBeenCalled());
     await user.click(screen.getByRole('button', { name: 'Начать' }));
-    expect(screen.getByRole('button', { name: /Математика/ })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('checkbox', { name: /Математика/ })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
-    expect(screen.getByRole('button', { name: /Русский язык/ })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('checkbox', { name: /Русский язык/ })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
   });

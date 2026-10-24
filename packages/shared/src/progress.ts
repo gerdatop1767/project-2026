@@ -98,6 +98,10 @@ export const progressByTopicResponseSchema = z.object({
     z.object({
       topicId: z.uuid(),
       topicName: z.string(),
+      /** Stable topic slug — the web client groups topics into sections by it. */
+      topicSlug: z.string().optional(),
+      /** EGE task numbers that have tasks in this topic under the given filters. */
+      taskNumbers: z.array(z.number().int().positive()).optional(),
       /** Real, unique published tasks in this topic under the given filters. */
       total: z.number().int().nonnegative(),
       /** Unique tasks (not attempts) the current user has answered at least once. */

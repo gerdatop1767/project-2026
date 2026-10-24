@@ -51,7 +51,7 @@ export function SubjectHeaderMobile({
           <Icon name="back" size={20} />
         </button>
       )}
-      <SubjectTile glyph={subject.glyph} color={subject.color} size={40} />
+      <SubjectTile glyph={subject.glyph} size={40} />
       <div className={styles.headerText}>
         {onSelectSubject ? (
           <button

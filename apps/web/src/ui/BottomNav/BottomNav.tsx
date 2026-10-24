@@ -7,6 +7,8 @@ export interface BottomNavItem {
   id: string;
   label: string;
   icon: IconName;
+  /** Needs an account (guest mode): a small lock, and a tap explains why. */
+  locked?: boolean;
 }
 
 export interface BottomNavProps {
@@ -18,7 +20,7 @@ export interface BottomNavProps {
 
 /**
  * Primary navigation foundation (Design Spec Section 3): 5 items on
- * mobile, collapses to a left rail at >=768px. Task/battle screens
+ * mobile and tablet widths (the desktop shell has its own sidebar). Task/battle screens
  * hide this entirely — that's the screen's job, not this component's.
  */
 export function BottomNav({ items, activeId, onSelect, className }: BottomNavProps) {
@@ -32,9 +34,18 @@ export function BottomNav({ items, activeId, onSelect, className }: BottomNavPro
             type="button"
             className={styles.item}
             aria-current={isActive ? 'page' : undefined}
+            aria-label={item.locked ? `${item.label} — нужен вход` : undefined}
+            data-locked={item.locked || undefined}
             onClick={() => onSelect(item.id)}
           >
-            <Icon name={item.icon} filled={isActive} size={22} />
+            <span className={styles.iconWrap}>
+              <Icon name={item.icon} filled={isActive} size={22} />
+              {item.locked && (
+                <span className={styles.lock} aria-hidden="true">
+                  <Icon name="lock" size={10} />
+                </span>
+              )}
+            </span>
             <span className={styles.label}>{item.label}</span>
           </button>
         );

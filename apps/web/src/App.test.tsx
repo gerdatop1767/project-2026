@@ -5,12 +5,21 @@ import { App } from './App.js';
 import { NavigationProvider } from './lib/navigation.js';
 import { ToastProvider } from './ui/Toast/ToastProvider.js';
 import * as api from './lib/api.js';
+import { makeAuthUser, TestAuthProvider } from './lib/authTestUtils.js';
+import type { AuthUser } from '@zybrilka/shared';
 import type * as ApiModule from './lib/api.js';
 
 vi.mock('./lib/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
   getRandomTask: vi.fn(),
   getLearningProfile: vi.fn(),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
 }));
 
 const RANDOM_TASK = {
@@ -41,12 +50,19 @@ beforeEach(() => {
   vi.mocked(api.getLearningProfile).mockResolvedValue({ onboardingCompleted: true, subjects: [] });
 });
 
-function renderApp() {
+/** `user`: a signed-in, onboarded user by default; `null` = signed out;
+ * `undefined` = session check still pending. */
+function renderApp(
+  user: AuthUser | null | undefined = makeAuthUser(),
+  logout?: () => Promise<void>,
+) {
   return render(
     <NavigationProvider>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+      <TestAuthProvider user={user} logout={logout}>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </TestAuthProvider>
     </NavigationProvider>,
   );
 }
@@ -94,7 +110,8 @@ describe('App — mobile', () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: /Профиль/ }));
-    expect(screen.getByText('Имя не задано')).toBeInTheDocument();
+    // Name comes from the signed-in user's VK profile.
+    expect(screen.getByText('Иван Петров')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Профиль' })).toHaveAttribute('aria-current', 'page');
   });
 
@@ -123,20 +140,48 @@ describe('App — desktop', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the desktop marketing Home without a sidebar', () => {
+  it('a signed-in visitor\'s "/" is the Учебный центр with the sidebar — never the old marketing page', async () => {
     const restore = mockDesktop(true);
     renderApp();
-    expect(screen.getByText(/ЕГЭ становится проще/)).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Zybrilka' })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Учебный центр' }),
+    ).toBeInTheDocument();
+    const sidebar = screen.getByRole('navigation', { name: 'Zybrilka' });
+    expect(within(sidebar).getByRole('button', { name: 'Учебный центр' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // The old landing copy and its logged-out-style header are gone from the app.
+    expect(screen.queryByText(/ЕГЭ становится проще/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Начать заниматься/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Начать бесплатно/)).not.toBeInTheDocument();
+    // This IS the home screen, so there is no "back to Главная" row on it.
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: 'Главная' })).toBeNull();
+    // …and it is not the support screen.
+    expect(screen.queryByText('Нужна')).not.toBeInTheDocument();
     restore();
   });
 
-  it('shows the sidebar once navigated to an inner screen', async () => {
+  it('the logo opens the Учебный центр as a screen of its own — no "← Главная" row, the sidebar is the way around', async () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     expect(screen.getByRole('navigation', { name: 'Zybrilka' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/learning');
+    expect(
+      within(screen.getByRole('main')).queryByRole('button', { name: 'Главная' }),
+    ).not.toBeInTheDocument();
+    restore();
+  });
+
+  it('has no «О проекте» anywhere in the sidebar or the menu', async () => {
+    const restore = mockDesktop(true);
+    const user = userEvent.setup();
+    renderApp();
+    expect(screen.queryByText('О проекте')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    expect(screen.queryByText('О проекте')).not.toBeInTheDocument();
     restore();
   });
 
@@ -144,7 +189,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     const dialog = screen.getByRole('dialog', { name: 'Меню' });
     expect(dialog).toBeInTheDocument();
@@ -160,9 +205,9 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Помощь' }));
+    await user.click(screen.getByRole('button', { name: /^Помощь/ }));
     expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
     expect(screen.getByText('Нужна')).toBeInTheDocument();
     restore();
@@ -172,7 +217,7 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     expect(screen.queryByRole('button', { name: 'Моя статистика' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Настройки' })).not.toBeInTheDocument();
@@ -183,38 +228,40 @@ describe('App — desktop', () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
-    await user.click(screen.getByRole('button', { name: 'О проекте' }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
+    await user.click(screen.getByRole('button', { name: 'Рейтинг' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('button', { name: /^Профиль/ }));
     expect(screen.getByText('Мой профиль')).toBeInTheDocument();
 
-    const backRow = within(screen.getByRole('main')).getByRole('button', { name: 'О проекте' });
+    const backRow = within(screen.getByRole('main')).getByRole('button', { name: 'Рейтинг' });
     await user.click(backRow);
-    expect(screen.getByText('Наши принципы')).toBeInTheDocument();
+    expect(screen.getByText(/Соревнуйся с другими/)).toBeInTheDocument();
     restore();
   });
 
-  it('opens Помощь from Menu and BackRow closes it, returning to the underlying tab', async () => {
+  it('opens Помощь from Menu; with no "← Главная" row there, the sidebar takes the visitor on', async () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Помощь' }));
+    await user.click(screen.getByRole('button', { name: /^Помощь/ }));
     expect(screen.getByText('Нужна')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('main')).queryByRole('button', { name: /Главная/ }),
+    ).not.toBeInTheDocument();
 
-    const backRow = within(screen.getByRole('main')).getByRole('button', { name: /Главная/ });
-    await user.click(backRow);
+    await user.click(screen.getByRole('button', { name: 'Учебный центр' }));
     expect(screen.queryByText('Нужна')).not.toBeInTheDocument();
     restore();
   });
 
-  it('sidebar-level overlays (Мои ошибки, Рейтинг, О проекте, Предметы, Учебный центр, Помощь) always show "Главная" as Back, never a stale previous tab', async () => {
+  it('sidebar-level overlays (Мои ошибки, Рейтинг) show no back row at all — neither "Главная" nor a stale previous tab', async () => {
     const restore = mockDesktop(true);
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     // Switch the underlying tab away from Home first — this is exactly
     // the scenario that used to leak the wrong tab's name into these
     // screens' Back button ("Достижения" instead of "Главная").
@@ -223,12 +270,12 @@ describe('App — desktop', () => {
     for (const [sidebarLabel, screenText] of [
       ['Мои ошибки', 'Разбирай ошибки'],
       ['Рейтинг', 'Соревнуйся с другими'],
-      ['О проекте', 'Наши принципы'],
     ] as const) {
       await user.click(screen.getByRole('button', { name: sidebarLabel }));
       await screen.findByText(new RegExp(screenText));
-      const backRow = within(screen.getByRole('main')).getByRole('button', { name: 'Главная' });
-      expect(backRow).toBeInTheDocument();
+      const main = within(screen.getByRole('main'));
+      expect(main.queryByRole('button', { name: 'Главная' })).not.toBeInTheDocument();
+      expect(main.queryByRole('button', { name: 'Достижения' })).not.toBeInTheDocument();
       // Re-enter Достижения before the next iteration so each screen is
       // independently checked against the same "stale tab" scenario.
       await user.click(screen.getByRole('button', { name: 'Достижения' }));
@@ -237,7 +284,7 @@ describe('App — desktop', () => {
   });
 });
 
-describe('App — first-login gate (Learning Profile, Phase 1)', () => {
+describe('App — access gate (server-truth auth state)', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '/');
   });
@@ -247,67 +294,273 @@ describe('App — first-login gate (Learning Profile, Phase 1)', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('shows the public landing (not an automatic onboarding redirect) for a brand-new user', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
-    });
-    renderApp();
-    await waitFor(() => {
-      expect(screen.getByText(/ЕГЭ становится проще/)).toBeInTheDocument();
-    });
-    expect(window.location.pathname).toBe('/');
-    expect(screen.queryByText('Добро пожаловать в Zybrilka!')).not.toBeInTheDocument();
+  it('shows a neutral loading state (no landing, no login, no trainer) until the session check resolves', () => {
+    render(
+      <NavigationProvider>
+        <TestAuthProvider user={undefined}>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </TestAuthProvider>
+      </NavigationProvider>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Загрузка');
+    expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Войти или создать аккаунт')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
   });
 
-  it('"Начать бесплатно" on the landing is what actually starts onboarding', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
-    });
+  it('signed out: `/` opens the trainer as a GUEST — the marketing landing is hidden, not deleted', async () => {
+    renderApp(null);
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+    // A quiet way into an account instead of streak/level.
+    expect(screen.getByRole('button', { name: /Гость/ })).toBeInTheDocument();
+  });
+
+  it('signed out (desktop): the trainer with its sidebar; Статистика and Мои ошибки are visibly locked', async () => {
+    const restore = mockDesktop(true);
+    try {
+      renderApp(null);
+      const nav = await screen.findByRole('navigation', { name: 'Zybrilka' });
+      expect(
+        within(nav).getByRole('button', { name: 'Статистика — нужен вход' }),
+      ).toBeInTheDocument();
+      expect(
+        within(nav).getByRole('button', { name: 'Мои ошибки — нужен вход' }),
+      ).toBeInTheDocument();
+      expect(within(nav).getByRole('button', { name: 'Тренировка' })).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it('the landing is kept at /landing, and its CTA still opens the unified auth screen', async () => {
+    window.history.replaceState(null, '', '/landing');
     const user = userEvent.setup();
-    renderApp();
-    await screen.findByText(/ЕГЭ становится проще/);
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
-    expect(screen.getByText('Добро пожаловать в Zybrilka!')).toBeInTheDocument();
+    renderApp(null);
+    await screen.findByText(/Подготовка к/);
+    await user.click(screen.getAllByRole('button', { name: /Начать бесплатно/ })[0]!);
+    expect(screen.getByText('Войти или создать аккаунт')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/login');
+  });
+
+  it.each(['/training', '/subjects', '/subjects/math', '/rating'])(
+    'signed out: %s opens for a guest — no redirect to sign-in',
+    async (path) => {
+      window.history.replaceState(null, '', path);
+      renderApp(null);
+      await waitFor(() => expect(window.location.pathname).toBe(path));
+      expect(screen.queryByText('Войти или создать аккаунт')).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    ['/statistics', 'Статистика — после входа'],
+    ['/training/mistakes', 'Мои ошибки — после входа'],
+    ['/learning/session/abc', 'Умная тренировка — после входа'],
+  ])(
+    'signed out: account-only %s → the trainer home with a «нужна регистрация» window, never a blank page',
+    async (path, title) => {
+      window.history.replaceState(null, '', path);
+      renderApp(null);
+      expect(await screen.findByRole('dialog', { name: title })).toBeInTheDocument();
+      await waitFor(() => expect(window.location.pathname).toBe('/'));
+      expect(
+        screen.getByRole('button', { name: 'Войти или зарегистрироваться' }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it('signed out: /onboarding never shows the welcome to a guest — home instead', async () => {
+    window.history.replaceState(null, '', '/onboarding');
+    renderApp(null);
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Добро пожаловать в Zybrilka!' }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+  });
+
+  it('signed out: Профиль is an honest guest card with the way in', async () => {
+    window.history.replaceState(null, '', '/profile');
+    renderApp(null);
+    expect(await screen.findByText('Ты занимаешься как гость')).toBeInTheDocument();
+    expect(screen.queryByText('Мой профиль')).not.toBeInTheDocument();
+  });
+
+  it('signed out: static info pages stay reachable', async () => {
+    window.history.replaceState(null, '', '/help');
+    renderApp(null);
+    await waitFor(() => expect(screen.getByText('Нужна')).toBeInTheDocument());
+    expect(window.location.pathname).toBe('/help');
+  });
+
+  it.each([
+    ['/faq', 'Вопросы и ответы'],
+    ['/privacy', 'Политика конфиденциальности'],
+    ['/terms', 'Пользовательское соглашение'],
+  ])('signed out: %s is a public page, never the login screen', async (path, heading) => {
+    window.history.replaceState(null, '', path);
+    renderApp(null);
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        // Long title words carry soft hyphens for narrow phones.
+        name: (name) => name.replaceAll('\u00ad', '') === heading,
+      }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe(path);
+  });
+
+  it('signed in with onboarding pending: /privacy stays readable, no redirect to onboarding', async () => {
+    window.history.replaceState(null, '', '/privacy');
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: (name) => name.replaceAll('\u00ad', '') === 'Политика конфиденциальности',
+      }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/privacy');
+    expect(screen.getByRole('button', { name: 'Открыть тренажёр' })).toBeInTheDocument();
+  });
+
+  it('signed in + onboarding NOT completed (new or unfinished account): sent to onboarding, never the main menu', async () => {
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
+    expect(window.location.pathname).toBe('/onboarding');
+    expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();
+  });
+
+  it('signed in + onboarding not completed: a deep link into the trainer is redirected to onboarding too', async () => {
+    window.history.replaceState(null, '', '/statistics');
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
     expect(window.location.pathname).toBe('/onboarding');
   });
 
-  it('shows the desktop landing (not the normal marketing Home) for a brand-new user', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
+  it('signed in + onboarding completed: straight to the main menu, no onboarding, no landing', async () => {
+    renderApp(makeAuthUser({ onboardingCompleted: true }));
+    expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Добро пожаловать в Zybrilka!' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
+    // The diagnostic/onboarding is only reachable on purpose (Профиль →
+    // «Предметы ЕГЭ»), it is never auto-started for an onboarded user.
+    expect(window.location.pathname).toBe('/');
+    expect(api.getLearningProfile).not.toHaveBeenCalled();
+  });
+
+  it('signed in, but the API did not send onboardingCompleted (older/incompatible build): no onboarding loop — the normal app opens', async () => {
+    const legacy = { ...makeAuthUser(), onboardingCompleted: undefined } as unknown as AuthUser;
+    renderApp(legacy);
+    expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Добро пожаловать в Zybrilka!' }),
+    ).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('unknown onboarding status never grants access: signed OUT stays a guest — Статистика stays locked', async () => {
+    window.history.replaceState(null, '', '/statistics');
+    renderApp(null);
+    expect(
+      await screen.findByRole('dialog', { name: 'Статистика — после входа' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Прогресс по заданиям')).not.toBeInTheDocument();
+  });
+
+  it('signed in + onboarded: may still open onboarding on purpose (to retake it) without being bounced', async () => {
+    window.history.replaceState(null, '', '/onboarding');
+    renderApp(makeAuthUser({ onboardingCompleted: true }));
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
+    expect(window.location.pathname).toBe('/onboarding');
+  });
+
+  it('signed in: the profile shows the VK name and falls back to a neutral prompt without one', async () => {
+    window.history.replaceState(null, '', '/profile');
+    const { unmount } = renderApp(makeAuthUser({ firstName: 'Анна', lastName: 'Ким' }));
+    expect(await screen.findByText('Анна Ким')).toBeInTheDocument();
+    unmount();
+    renderApp(makeAuthUser({ firstName: null, lastName: null }));
+    expect(await screen.findByText('Имя не задано')).toBeInTheDocument();
+  });
+
+  it('signed in: only the first name is shown when VK gave no last name (no "null" text)', async () => {
+    window.history.replaceState(null, '', '/profile');
+    renderApp(makeAuthUser({ firstName: 'Анна', lastName: null }));
+    expect(await screen.findByText('Анна')).toBeInTheDocument();
+    expect(screen.queryByText(/null|undefined/)).not.toBeInTheDocument();
+  });
+
+  it('signed in: the VK avatar is rendered, and a broken image falls back to the default icon', async () => {
+    window.history.replaceState(null, '', '/profile');
+    const { container } = renderApp(makeAuthUser({ avatarUrl: 'https://sun9.userapi.com/a.jpg' }));
+    await screen.findByText('Иван Петров');
+    // Shown on the identity card and in «Личные данные».
+    const imgs = [...container.querySelectorAll('img[src="https://sun9.userapi.com/a.jpg"]')];
+    expect(imgs.length).toBeGreaterThan(0);
+    for (const img of imgs) expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
+    act(() => {
+      for (const img of imgs) img.dispatchEvent(new Event('error'));
     });
+    await waitFor(() =>
+      expect(container.querySelector('img[src="https://sun9.userapi.com/a.jpg"]')).toBeNull(),
+    );
+  });
+});
+
+describe('App — sign out', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/profile');
+  });
+  afterEach(() => {
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('desktop profile "Выйти из аккаунта" calls the real logout', async () => {
     const restore = mockDesktop(true);
-    renderApp();
-    await waitFor(() => {
-      expect(screen.getByText(/ЕГЭ становится проще/)).toBeInTheDocument();
-    });
-    // The desktop landing has no sidebar — it's shown outside the
-    // normal app shell, same as the mobile landing has no bottom nav.
-    expect(screen.queryByRole('navigation', { name: 'Zybrilka' })).not.toBeInTheDocument();
+    const logout = vi.fn(async () => {});
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: /Выйти из аккаунта/ }));
+    expect(logout).toHaveBeenCalledTimes(1);
     restore();
   });
 
-  it('does not redirect a returning user (onboardingCompleted: true)', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: true,
-      subjects: [],
-    });
-    renderApp();
-    await waitFor(() => expect(api.getLearningProfile).toHaveBeenCalled());
-    expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
+  it('desktop menu "Выйти" calls the real logout', async () => {
+    const restore = mockDesktop(true);
+    const logout = vi.fn(async () => {});
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    await user.click(screen.getByRole('button', { name: /^Выйти$/ }));
+    expect(logout).toHaveBeenCalledTimes(1);
+    restore();
   });
 
-  it('does not redirect when landing directly on a deep link (overlay already open)', async () => {
-    vi.mocked(api.getLearningProfile).mockResolvedValue({
-      onboardingCompleted: false,
-      subjects: [],
+  it('mobile menu "Выйти из аккаунта" calls the real logout', async () => {
+    const logout = vi.fn(async () => {});
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    await user.click(screen.getByRole('button', { name: 'Выйти из аккаунта' }));
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('says so when the server could not end the session — never silently pretends', async () => {
+    const restore = mockDesktop(true);
+    const logout = vi.fn(async () => {
+      throw new Error('network');
     });
-    window.history.replaceState(null, '', '/help');
-    renderApp();
-    await waitFor(() => expect(screen.getByText('Нужна')).toBeInTheDocument());
-    expect(window.location.pathname).toBe('/help');
+    const user = userEvent.setup();
+    renderApp(makeAuthUser(), logout);
+    await user.click(screen.getByRole('button', { name: /Выйти из аккаунта/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось выйти');
+    restore();
   });
 });
 
@@ -373,7 +626,7 @@ describe('App — URL routing is the source of truth', () => {
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(screen.getByRole('button', { name: /Начать бесплатно/ }));
+    await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     expect(window.location.pathname).toBe('/learning');
 
     await user.click(screen.getByRole('button', { name: 'Предметы' }));
@@ -398,5 +651,153 @@ describe('App — URL routing is the source of truth', () => {
     expect(screen.getByText('Темы ЕГЭ')).toBeInTheDocument();
 
     restore();
+  });
+});
+
+/**
+ * Sign-in redirects, the close button, the removed «О проекте» page and what a
+ * signed-in visitor lands on — the pieces behind "after VK I end up on Помощь",
+ * "the × sometimes does nothing" and "the old landing shows up".
+ */
+describe('App — sign-in redirects, × and removed pages', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/');
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const landingHeading = () => screen.findByRole('heading', { level: 1, name: /Подготовка к/ });
+
+  it('a guest tapping Статистика gets the window OVER the current screen; «Войти» opens sign-in; × comes back', async () => {
+    const user = userEvent.setup();
+    renderApp(null);
+    await screen.findByText(/Готов к новой/);
+    await user.click(screen.getByRole('button', { name: 'Статистика — нужен вход' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'Статистика — после входа' }),
+    ).toBeInTheDocument();
+    // The current screen is untouched underneath, the address too.
+    expect(window.location.pathname).toBe('/');
+    expect(screen.getByText(/Готов к новой/, { exact: false })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Войти или зарегистрироваться' }));
+    await screen.findByText('Войти или создать аккаунт');
+    expect(window.location.pathname).toBe('/login');
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+  });
+
+  it('«Не сейчас» closes the window and leaves the guest exactly where they were', async () => {
+    const user = userEvent.setup();
+    renderApp(null);
+    await screen.findByText(/Готов к новой/);
+    await user.click(screen.getByRole('button', { name: 'Мои ошибки — нужен вход' }));
+    await screen.findByRole('dialog', { name: 'Мои ошибки — после входа' });
+    await user.click(screen.getByRole('button', { name: 'Не сейчас' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Мои ошибки — после входа' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('sign-in opened straight by URL (nothing behind it): × lands in the trainer, never leaves the site', async () => {
+    window.history.replaceState(null, '', '/login');
+    const user = userEvent.setup();
+    renderApp(null);
+    await screen.findByText('Войти или создать аккаунт');
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it("sign-in opened from the kept landing's CTA: × is a real Back to the landing", async () => {
+    window.history.replaceState(null, '', '/landing');
+    const user = userEvent.setup();
+    renderApp(null);
+    await landingHeading();
+    await user.click(screen.getAllByRole('button', { name: /Начать бесплатно/ })[0]!);
+    await screen.findByText('Войти или создать аккаунт');
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await landingHeading();
+    await waitFor(() => expect(window.location.pathname).toBe('/landing'));
+  });
+
+  it('a signed-in visitor returning from VK to "/" lands in the app (Учебный центр), never on Помощь', async () => {
+    const restore = mockDesktop(true);
+    renderApp(makeAuthUser({ onboardingCompleted: true }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Учебный центр' }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+    expect(screen.queryByText('Нужна')).not.toBeInTheDocument();
+    restore();
+  });
+
+  it('a signed-in visitor on mobile lands on the main menu dashboard, never on Помощь', async () => {
+    const restore = mockDesktop(false);
+    renderApp(makeAuthUser({ onboardingCompleted: true }));
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    expect(screen.queryByText('Нужна')).not.toBeInTheDocument();
+    restore();
+  });
+
+  it('a brand-new account (what VK returns for a first sign-in) is sent to onboarding by REPLACING the entry — no extra history, Back cannot loop', async () => {
+    const length = window.history.length;
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
+    expect(window.location.pathname).toBe('/onboarding');
+    expect(window.history.length).toBe(length);
+  });
+
+  it('onboarding\'s first-step "Назад" never leaves the app (the gate keeps a new account on onboarding)', async () => {
+    window.history.replaceState(null, '', '/onboarding');
+    const user = userEvent.setup();
+    renderApp(makeAuthUser({ onboardingCompleted: false }));
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
+    const length = window.history.length;
+    await user.click(screen.getByRole('button', { name: 'Назад' }));
+    await screen.findByRole('heading', { name: 'Добро пожаловать в Zybrilka!' });
+    expect(window.location.pathname).toBe('/onboarding');
+    expect(window.history.length).toBe(length);
+  });
+
+  it('the removed /about page: a guest gets the trainer home, the address is corrected to /', async () => {
+    window.history.replaceState(null, '', '/about');
+    renderApp(null);
+    expect(await screen.findByText(/Готов к новой/)).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    expect(screen.queryByText(/Наши принципы/)).not.toBeInTheDocument();
+  });
+
+  it('the removed /about page: a signed-in visitor gets their normal home, not an error and not Помощь', async () => {
+    const restore = mockDesktop(true);
+    window.history.replaceState(null, '', '/about');
+    renderApp(makeAuthUser({ onboardingCompleted: true }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Учебный центр' }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    expect(screen.queryByText(/Наши принципы/)).not.toBeInTheDocument();
+    restore();
+  });
+
+  it("the kept landing's support entry point opens a window over the page: no navigation to /help", async () => {
+    window.history.replaceState(null, '', '/landing');
+    const user = userEvent.setup();
+    renderApp(null);
+    await landingHeading();
+    await user.click(
+      within(screen.getByRole('contentinfo')).getByRole('button', { name: 'Поддержка' }),
+    );
+    expect(await screen.findByRole('dialog', { name: /Нужна помощь/ })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/landing');
+    // The landing is still rendered behind the window.
+    expect(
+      screen.getByRole('heading', { level: 1, hidden: true, name: /Подготовка к/ }),
+    ).toBeTruthy();
   });
 });

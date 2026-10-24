@@ -24,7 +24,7 @@
 
 .selected {
   background: var(--color-accent-primary);
-  color: var(--color-bg-base);
+  color: var(--color-on-accent);
 }
 
 .chip:disabled {

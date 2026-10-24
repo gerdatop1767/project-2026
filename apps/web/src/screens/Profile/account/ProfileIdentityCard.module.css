@@ -1,0 +1,167 @@
+/* One compact card: [avatar] [name · how you sign in · edit controls]. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-primary) 14%, var(--color-bg-surface)),
+    color-mix(in srgb, var(--color-accent-secondary) 14%, var(--color-bg-surface))
+  );
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent-primary) 40%, transparent);
+}
+
+.main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'avatar info'
+    'avatar actions';
+  align-items: start;
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
+}
+
+.avatarButton {
+  grid-area: avatar;
+  position: relative;
+  flex-shrink: 0;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-accent-primary);
+  cursor: pointer;
+}
+
+.avatarButton:disabled {
+  cursor: default;
+}
+
+.avatarFrame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--color-bg-elevated);
+  box-shadow: inset 0 0 0 1.5px var(--color-accent-primary);
+  overflow: hidden;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarBadge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: #fff;
+  border: 2px solid var(--color-bg-surface);
+}
+
+.info {
+  grid-area: info;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  align-self: center;
+}
+
+.name,
+.summary {
+  margin: 0;
+  overflow-wrap: anywhere; /* a 40-character name must wrap, not overflow */
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.actionsRow {
+  grid-area: actions;
+}
+
+/* Smaller than the default button, still a comfortable tap target. */
+.compact {
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+  font-size: var(--font-size-body-sm);
+  white-space: nowrap;
+}
+
+.nameForm {
+  grid-area: info / info / actions / actions;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  color: var(--color-error);
+}
+
+.success {
+  color: var(--color-success);
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  opacity: 0;
+}
+
+/* Phones: the action row spans the whole card so both buttons share its width. */
+@media (max-width: 30rem) {
+  .main {
+    grid-template-areas:
+      'avatar info'
+      'actions actions';
+  }
+
+  .actionsRow > * {
+    flex: 1 1 auto;
+  }
+
+  .compact {
+    padding-inline: var(--space-2);
+  }
+}
+
+/* Very narrow phones: drop the decorative icons so both buttons fit one row. */
+@media (max-width: 24rem) {
+  .btnIcon {
+    display: none;
+  }
+
+  .avatarButton {
+    align-self: center;
+  }
+}

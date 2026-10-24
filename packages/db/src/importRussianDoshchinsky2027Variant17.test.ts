@@ -6,11 +6,13 @@ import { createTestDb } from './testing.js';
 
 /**
  * Verifies the Вариант 17 Russian import in isolation, mirroring
- * importRussianDoshchinsky2027Variant1.test.ts. 5 of 27 tasks are
- * intentionally `needs_review` (8, 10, 18, 26, 27) — genuine unresolved
- * derivation questions (and the essay task 27, which this variant does not
- * carry a sampleEssayMd for), not guessed to inflate the published count.
- * See variant17-audit2-report.md for the full per-task reasoning.
+ * importRussianDoshchinsky2027Variant1.test.ts. Tasks 10, 18 and 26
+ * were resolved during a third audit pass (confirmed against the
+ * source page images and, for task 26, a corrected sentence-index
+ * reference). Task 8 remains `needs_review`: three independent audit
+ * passes found no однородные-члены error among the five remaining
+ * candidate sentences for its "А" slot — a genuine unresolved
+ * question, not guessed to inflate the published count.
  */
 describe('importRussianVariant17', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
@@ -37,7 +39,7 @@ describe('importRussianVariant17', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks exactly 22 of 27 tasks published, 5 needs_review (8, 10, 18, 26, 27)', async () => {
+  it('marks exactly 26 of 27 tasks published, 1 needs_review (8)', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -47,11 +49,11 @@ describe('importRussianVariant17', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([8, 10, 18, 26, 27]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(22);
+    expect(needsReviewNumbers).toEqual([8]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(26);
   });
 
-  it('task 27 is an essay task with empty correctAnswer, never auto-graded', async () => {
+  it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {
     const { db } = testDb;
     const [task27] = await db
       .select()
@@ -66,8 +68,10 @@ describe('importRussianVariant17', () => {
     expect(task27).toBeDefined();
     expect(task27!.answerType).toBe('essay');
     expect(task27!.correctAnswer).toBe('');
-    expect(task27!.status).toBe('needs_review');
+    expect(task27!.status).toBe('published');
     expect(task27!.passageId).not.toBeNull();
+    expect(task27!.sampleEssayMd).toBeTruthy();
+    expect(task27!.sampleEssayMd).toContain('пример');
   });
 
   it('every published task has a non-empty correctAnswer and explanationMd', async () => {
@@ -78,7 +82,10 @@ describe('importRussianVariant17', () => {
       .where(and(eq(schema.tasks.subjectId, 'russian'), eq(schema.tasks.sourceVariant, 17)));
     for (const row of rows) {
       if (row.status !== 'published') continue;
-      expect(row.correctAnswer.length).toBeGreaterThan(0);
+      // Essay tasks intentionally carry an empty correctAnswer — never graded (EssayNotGradableError).
+      if (row.answerType !== 'essay') {
+        expect(row.correctAnswer.length).toBeGreaterThan(0);
+      }
       expect(row.explanationMd.length).toBeGreaterThan(0);
       expect(row.hintMd?.length ?? 0).toBeGreaterThan(0);
     }

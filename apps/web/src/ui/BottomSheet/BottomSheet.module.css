@@ -12,13 +12,15 @@
   border-radius: var(--radius-modal) var(--radius-modal) 0 0;
   box-shadow: var(--shadow-e3);
   padding: var(--space-3) var(--space-6) var(--space-6);
-  padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0));
+  padding-bottom: calc(var(--space-6) + var(--safe-bottom));
   transform: translateY(100%);
-  transition: transform var(--duration-page) var(--easing-standard);
+  /* Closing slides away fast; opening uses the iOS sheet curve. */
+  transition: transform 220ms var(--easing-standard);
 }
 
 .panelOpen {
   transform: translateY(0);
+  transition: transform 440ms var(--easing-drawer);
 }
 
 .panel:focus-visible {
@@ -39,6 +41,30 @@
   justify-content: space-between;
   gap: var(--space-4);
   margin-bottom: var(--space-4);
+}
+
+.headerIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-input);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-warning) 28%, transparent);
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
 }
 
 .closeButton {

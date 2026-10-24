@@ -72,9 +72,7 @@ describe('getSimilarTasks — taskNumber is a hard filter, never a weight', () =
       answerType: 'short_answer',
     });
     targetId = target!.id;
-    await testDb.db
-      .insert(schema.taskSkills)
-      .values({ taskId: targetId, skillId: skill1!.id });
+    await testDb.db.insert(schema.taskSkills).values({ taskId: targetId, skillId: skill1!.id });
 
     // Same number (5), but a WORSE match: different topic, no shared
     // skill, different difficulty — should still be the only thing

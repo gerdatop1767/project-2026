@@ -1,0 +1,291 @@
+/*
+ * Support window over the public pages. Dark surface, one violet accent,
+ * the project's tokens and fonts. Only `transform`/`opacity` animate.
+ * Enter is a touch slower than exit (280 ms in, 160 ms out): slow where the
+ * user is looking, fast where the system is just getting out of the way.
+ */
+
+.root {
+  --exit: 160ms;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  padding-top: calc(var(--space-4) + var(--safe-top));
+  padding-bottom: calc(var(--space-4) + var(--safe-bottom));
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-bg-base) 78%, transparent);
+  opacity: 0;
+  transition: opacity var(--exit) ease;
+}
+
+.backdrop[data-shown] {
+  opacity: 1;
+  transition-duration: 260ms;
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  @media (min-width: 768px) {
+    .backdrop {
+      backdrop-filter: blur(6px);
+    }
+  }
+}
+
+.panel {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 34rem;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-6) var(--space-5) var(--space-5);
+  border-radius: 1.75rem;
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(
+      90% 70% at 100% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 24%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 28%, transparent),
+    0 24px 64px -16px rgb(0 0 0 / 0.7);
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.97);
+  transition:
+    transform var(--exit) ease,
+    opacity var(--exit) ease;
+}
+
+.panel[data-shown] {
+  opacity: 1;
+  transform: none;
+  transition:
+    transform 280ms var(--easing-out),
+    opacity 220ms ease;
+}
+
+.panel:focus-visible {
+  outline: none;
+}
+
+.close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-tint) 6%, transparent);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 160ms var(--easing-out),
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.close:active {
+  transform: scale(0.94);
+}
+
+.close:focus-visible,
+.action:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 3px;
+}
+
+/* ---- Copy ---- */
+
+.copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius-chip);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  color: color-mix(in srgb, var(--color-text-primary) 88%, transparent);
+  background: color-mix(in srgb, var(--color-accent-primary) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 38%, transparent);
+}
+
+.title {
+  font-family: var(--font-family-display);
+  font-weight: 800;
+  font-size: clamp(1.75rem, 1.3rem + 2vw, 2.25rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.accent {
+  color: color-mix(in srgb, var(--color-accent-primary) 68%, var(--color-tint));
+}
+
+.text {
+  max-width: 24rem;
+  margin-top: var(--space-3);
+  font-size: var(--font-size-body);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 3.25rem;
+  margin-top: var(--space-5);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-chip);
+  font-size: 1rem;
+  font-weight: var(--font-weight-semibold);
+  color: #fff;
+  text-decoration: none;
+  background: var(--color-accent-primary);
+  box-shadow: 0 12px 28px -14px color-mix(in srgb, var(--color-accent-primary) 90%, transparent);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 160ms var(--easing-out),
+    background-color 180ms ease;
+}
+
+.action:active {
+  transform: scale(0.97);
+}
+
+.handle {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-disabled);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Mascot ---- */
+
+.art {
+  position: relative;
+  z-index: 0;
+  display: grid;
+  place-items: end center;
+  justify-self: center;
+  width: 9.5rem;
+  margin-top: var(--space-2);
+  pointer-events: none;
+}
+
+.glow {
+  position: absolute;
+  inset: 8% -18% 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-accent-primary) 46%, transparent),
+    transparent
+  );
+}
+
+.mascot {
+  position: relative;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 14px 18px rgb(0 0 0 / 0.5));
+  will-change: transform;
+}
+
+/* Starts after the window has settled; transform only. */
+.panel[data-shown] .mascot {
+  animation: float 5s ease-in-out 700ms infinite alternate;
+}
+
+@keyframes float {
+  to {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@media (min-width: 560px) {
+  .panel {
+    grid-template-columns: minmax(0, 1fr) 11.5rem;
+    align-items: center;
+    column-gap: var(--space-4);
+    padding: var(--space-8) var(--space-8) var(--space-8);
+  }
+
+  .art {
+    width: 11.5rem;
+    margin-top: 0;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .close:hover {
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-tint) 12%, transparent);
+  }
+
+  .action:hover {
+    background: var(--color-accent-primary-hover);
+  }
+}
+
+/* Very short screens (landscape phones): keep the mascot out of the way. */
+@media (max-height: 480px) {
+  .art {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .panel[data-shown] {
+    transform: none;
+    transition: opacity 140ms ease;
+  }
+
+  .backdrop,
+  .backdrop[data-shown] {
+    transition-duration: 140ms;
+  }
+
+  .panel[data-shown] .mascot {
+    animation: none;
+  }
+}

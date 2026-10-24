@@ -303,15 +303,18 @@ describe('SubjectMobile — Задания по номерам tab (audit: the t
     expect(screen.getByRole('button', { name: 'По номерам' })).toBeInTheDocument();
   });
 
-  it('navigates to the dedicated TrainingByNumber screen, carrying subject/collection/from', async () => {
+  it('opens in place, like Темы/Варианты — same page, no new screen or history entry', async () => {
     mockCollections();
     mockProgress();
     const user = userEvent.setup();
     renderSubject();
+    const before = screen.getByTestId('overlay').textContent;
+    const historyLength = window.history.length;
     await user.click(screen.getByRole('button', { name: 'По номерам' }));
-    await waitFor(() =>
-      expect(screen.getByTestId('overlay')).toHaveTextContent('trainingByNumber'),
-    );
+    expect(await screen.findByText('Задания по номерам')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '№1' })).toBeInTheDocument();
+    expect(screen.getByTestId('overlay').textContent).toBe(before);
+    expect(window.history.length).toBe(historyLength);
   });
 });
 

@@ -15,7 +15,10 @@ export function useTaskCountsBySubject(): Record<string, number> | null {
 
   useEffect(() => {
     let cancelled = false;
-    void getTaskCountsBySubject()
+    // Started inside a promise chain so even a synchronous failure lands in
+    // the `.catch` below instead of escaping the effect.
+    void Promise.resolve()
+      .then(() => getTaskCountsBySubject())
       .then((res) => {
         if (cancelled) return;
         const map: Record<string, number> = {};

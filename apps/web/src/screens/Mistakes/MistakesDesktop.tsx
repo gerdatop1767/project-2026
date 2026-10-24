@@ -1,22 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
-import { getMistakes, getSimilarTasks } from '../../lib/api.js';
-import { toSampleMistake } from '../../lib/mistakeAdapter.js';
+import { getSimilarTasks } from '../../lib/api.js';
+import { useMistakes } from '../../lib/useMistakes.js';
+import { Button } from '../../ui/Button/Button.js';
 import { useToast } from '../../ui/Toast/ToastProvider.js';
 import { formatDateShort } from '../../lib/formatDate.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Chip } from '../../ui/Chip/Chip.js';
-import { Select } from '../../ui/Select/Select.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { RankedBarList } from '../../ui/Charts/RankedBarList.js';
 import { MistakeCardDesktop } from '../../ui/Mistakes/MistakeCardDesktop.js';
 import { MistakeNumberGroup } from '../../ui/Mistakes/MistakeNumberGroup.js';
 import { FeedbackState } from '../../ui/FeedbackState/FeedbackState.js';
-import { FadeIn } from '../../ui/motion/motion.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
+import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
+import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './MistakesDesktop.module.css';
 
 type FilterId = 'all' | 'unsolved' | 'byTopic' | 'byDate';
@@ -33,36 +32,41 @@ type FilterId = 'all' | 'unsolved' | 'byTopic' | 'byDate';
 export function MistakesDesktop() {
   const { navigate } = useNavigation();
   const { show: showToast } = useToast();
-  const [subjectId, setSubjectId] = useState('math');
+  // Subject filter, load state and «Убрать из ошибок» shared with mobile —
+  // the subject picker used to change only its own label, never the list.
+  const data = useMistakes();
+  const { mistakes, subject } = data;
+  const loading = data.state === 'loading' && mistakes.length === 0;
   const [filter, setFilter] = useState<FilterId>('all');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [favorited, setFavorited] = useState<ReadonlySet<string>>(new Set());
-  const [mistakes, setMistakes] = useState<readonly Mistake[]>([]);
-  const [loading, setLoading] = useState(true);
   // Only one card's "Решить похожее" can be in flight at a time — same
   // pattern as MistakesMobile.
   const [solvingSimilarId, setSolvingSimilarId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getMistakes()
-      .then((items) => {
-        if (cancelled) return;
-        setMistakes(items.map(toSampleMistake));
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const summary = useMemo(() => computeMistakesSummary(mistakes), [mistakes]);
   const unsolvedCount = summary.unsolvedCount;
 
   const groups = useMemo(() => buildGroups(mistakes, filter), [mistakes, filter]);
+
+  async function removeMistake(m: Mistake) {
+    const ok = await data.dismiss(m.id);
+    if (!ok) {
+      showToast({ variant: 'error', message: 'Не удалось убрать задание. Попробуй ещё раз.' });
+      return;
+    }
+    showToast({
+      variant: 'success',
+      message: `Задание ${m.taskNumber} убрано из ошибок`,
+      actionLabel: 'Вернуть',
+      durationMs: 6000,
+      onAction: () => {
+        void data.restore(m.id).then((restored) => {
+          if (!restored) showToast({ variant: 'error', message: 'Не удалось вернуть задание.' });
+        });
+      },
+    });
+  }
 
   function toggleSelect(id: string) {
     setSelected((prev) => toggleInSet(prev, id));
@@ -118,11 +122,8 @@ export function MistakesDesktop() {
       .finally(() => setSolvingSimilarId(null));
   }
 
-  const subjectOptions = subjects.map((s) => ({ value: s.id, label: s.shortName }));
-
   return (
     <FadeIn className={styles.page}>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
       <div className={styles.headerRow}>
         <div>
           <h1 className="text-h1">Мои ошибки</h1>
@@ -131,7 +132,13 @@ export function MistakesDesktop() {
           </p>
         </div>
         <div className={styles.subjectSelect}>
-          <Select options={subjectOptions} value={subjectId} onChange={setSubjectId} />
+          <SubjectSelect
+            value={subject.id}
+            onChange={(id) => {
+              data.selectSubject(id);
+              setSelected(new Set());
+            }}
+          />
         </div>
       </div>
 
@@ -152,46 +159,69 @@ export function MistakesDesktop() {
 
       <div className={styles.grid}>
         <div className={styles.list}>
+          {data.state === 'error' && (
+            <div role="alert" className={styles.errorBox}>
+              <FeedbackState
+                variant="error"
+                title="Не удалось загрузить ошибки"
+                description="Проверь соединение и попробуй ещё раз."
+              />
+              <Button variant="secondary" onClick={data.reload}>
+                Повторить
+              </Button>
+            </div>
+          )}
           {loading && <p className="text-body-sm text-secondary">Загрузка ошибок…</p>}
-          {!loading && groups.length === 0 && (
+          {!loading && data.state !== 'error' && mistakes.length === 0 && (
+            <FeedbackState
+              variant="info"
+              title={`По предмету «${subject.shortName}» ошибок нет`}
+              description="Когда ответ окажется неверным, задание появится здесь."
+            />
+          )}
+          {!loading && mistakes.length > 0 && groups.length === 0 && (
             <FeedbackState
               variant="info"
               title="Здесь пока пусто"
               description="Все ошибки в этом фильтре уже разобраны."
             />
           )}
-          {groups.map((group) => {
-            const cards = group.items.map((m) => (
-              <MistakeCardDesktop
-                key={m.id}
-                mistake={m}
-                selected={selected.has(m.id)}
-                onToggleSelect={() => toggleSelect(m.id)}
-                onReview={() => openMistake(m)}
-                onToggleFavorite={() => toggleFavorite(m.id)}
-                favorited={favorited.has(m.id)}
-                onSolveSimilar={() => solveSimilar(m)}
-                solvingSimilar={solvingSimilarId === m.id}
-              />
-            ));
-            if (group.taskNumber !== null) {
+          <ContentSwap key={`${subject.id}:${filter}`}>
+            {groups.map((group) => {
+              const cards = group.items.map((m) => (
+                <MistakeCardDesktop
+                  key={m.id}
+                  mistake={m}
+                  selected={selected.has(m.id)}
+                  onToggleSelect={() => toggleSelect(m.id)}
+                  onReview={() => openMistake(m)}
+                  onToggleFavorite={() => toggleFavorite(m.id)}
+                  favorited={favorited.has(m.id)}
+                  onSolveSimilar={() => solveSimilar(m)}
+                  solvingSimilar={solvingSimilarId === m.id}
+                  onDismiss={() => void removeMistake(m)}
+                  dismissing={data.isPending(m.id)}
+                />
+              ));
+              if (group.taskNumber !== null) {
+                return (
+                  <MistakeNumberGroup
+                    key={group.taskNumber}
+                    taskNumber={group.taskNumber}
+                    count={group.items.length}
+                  >
+                    {cards}
+                  </MistakeNumberGroup>
+                );
+              }
               return (
-                <MistakeNumberGroup
-                  key={group.taskNumber}
-                  taskNumber={group.taskNumber}
-                  count={group.items.length}
-                >
-                  {cards}
-                </MistakeNumberGroup>
+                <div key={group.label}>
+                  {group.label && <p className={`text-h3 ${styles.groupLabel}`}>{group.label}</p>}
+                  <div className={styles.list}>{cards}</div>
+                </div>
               );
-            }
-            return (
-              <div key={group.label}>
-                {group.label && <p className={`text-h3 ${styles.groupLabel}`}>{group.label}</p>}
-                <div className={styles.list}>{cards}</div>
-              </div>
-            );
-          })}
+            })}
+          </ContentSwap>
         </div>
 
         <div className={styles.sidebar}>

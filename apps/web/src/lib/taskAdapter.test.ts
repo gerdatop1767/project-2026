@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSessionProgress,
   explanationForPart,
+  hasDetailedExplanation,
   splitMultiPartExplanation,
   toSampleTask,
 } from './taskAdapter.js';
@@ -222,5 +223,117 @@ describe('toSampleTask — otherVariants preview (Similar Tasks raw-LaTeX bugfix
     const sample = toSampleTask(publicTask, []);
     expect(sample.sampleEssay).toBeUndefined();
     expect(sample.essayAcknowledged).toBeUndefined();
+  });
+});
+
+/**
+ * Bugfix: a task whose `solutionSteps` is an empty array (present, just
+ * empty — not null) used to render NO solution at all, because
+ * `task.solutionSteps?.map(...) ?? fallback` only falls back on
+ * null/undefined, and `[].map(...)` is `[]`, which is not nullish. This
+ * silently hid every explanation for every Дощинский ЕГЭ 2027 русский
+ * язык вариант 14-18 task (all 135 of them import with
+ * `solutionSteps: []`, real content living only in `explanationMd`) —
+ * the user saw an answer with zero explanation text anywhere on the
+ * Result screen. `steps` must fall back to one block holding
+ * `explanationMd` whenever `solutionSteps` is null OR empty, matching
+ * what already happens for `solutionSteps: null`.
+ */
+describe('toSampleTask — steps fallback for empty solutionSteps (variant 14-18 bugfix)', () => {
+  const baseTask: TaskWithSolution = {
+    id: 'task-empty-steps',
+    subjectId: 'russian',
+    taskNumber: 1,
+    topicId: null,
+    topicName: null,
+    difficulty: 2,
+    conditionMd: 'Условие.',
+    passage: null,
+    imageUrl: null,
+    hintMd: null,
+    answerType: 'short_answer',
+    answerOptions: null,
+    answerParts: null,
+    source: 'Дощинский',
+    sourceUrl: null,
+    sourceYear: 2027,
+    tags: [],
+    status: 'published',
+    correctAnswer: 'это',
+    correctAnswerDisplay: null,
+    explanationMd: 'Полное объяснение: почему именно это слово подходит по контексту.',
+    solutionSteps: [],
+  };
+
+  it('falls back to one step holding explanationMd when solutionSteps is [] (not just null)', () => {
+    const sample = toSampleTask(baseTask, []);
+    expect(sample.steps).toEqual([
+      { text: 'Полное объяснение: почему именно это слово подходит по контексту.' },
+    ]);
+  });
+
+  it('still uses the real named steps when solutionSteps is actually populated', () => {
+    const withSteps = {
+      ...baseTask,
+      solutionSteps: [{ title: 'Шаг 1', explanation: 'Делаем так.' }],
+    };
+    const sample = toSampleTask(withSteps, []);
+    expect(sample.steps).toEqual([{ title: 'Шаг 1', text: 'Делаем так.' }]);
+  });
+
+  it('still falls back correctly when solutionSteps is null', () => {
+    const withNull = { ...baseTask, solutionSteps: null };
+    const sample = toSampleTask(withNull, []);
+    expect(sample.steps).toEqual([
+      { text: 'Полное объяснение: почему именно это слово подходит по контексту.' },
+    ]);
+  });
+});
+
+/**
+ * Bugfix: on the Result screens, `task.steps` used to be the only
+ * thing rendered — fine when `steps` is the single-block fallback
+ * holding `explanationMd` (the two ARE the same text), but wrong when a
+ * task has real `solutionSteps` authored separately: those can be a
+ * short per-row/per-part recap, much terser than the full reasoning in
+ * `explanationMd` (true for most Дощинский ЕГЭ 2027 Вариант 2-13
+ * орфография/пунктуация tasks). `hasDetailedExplanation` is what the
+ * Result screens now check before choosing to render `task.explanation`
+ * instead of `task.steps`.
+ */
+describe('hasDetailedExplanation', () => {
+  it('is false when explanation is empty', () => {
+    expect(hasDetailedExplanation({ explanation: '', steps: [{ text: 'Шаг.' }] })).toBe(false);
+  });
+
+  it('is false when steps is exactly the single-block explanation fallback — nothing extra to show', () => {
+    const explanation = 'Полное объяснение решения.';
+    expect(hasDetailedExplanation({ explanation, steps: [{ text: explanation }] })).toBe(false);
+  });
+
+  it('is true when solutionSteps carries a terser summary than explanationMd', () => {
+    expect(
+      hasDetailedExplanation({
+        explanation:
+          'Ряд 1: слово1 (корень X, буква А), слово2 (словарное, буква А) — везде А, подходит.',
+        steps: [{ title: 'Проверяем ряд 1', text: 'Буквы совпадают: А, А.' }],
+      }),
+    ).toBe(true);
+  });
+
+  it('is true for a titled single step whose text happens to equal the explanation (title makes it a real extra step, not a bare fallback)', () => {
+    const explanation = 'Полное объяснение.';
+    expect(
+      hasDetailedExplanation({ explanation, steps: [{ title: 'Шаг 1', text: explanation }] }),
+    ).toBe(true);
+  });
+
+  it('is true for multiple steps even if their combined text overlaps the explanation', () => {
+    expect(
+      hasDetailedExplanation({
+        explanation: 'Полное объяснение из двух шагов.',
+        steps: [{ text: 'Шаг один.' }, { text: 'Шаг два.' }],
+      }),
+    ).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react';
 import { clsx } from '../../lib/clsx.js';
 import { Icon } from '../Icon/Icon.js';
+import type { IconName } from '../Icon/icons.js';
 import { Overlay, usePanelFocus } from '../Overlay/Overlay.js';
 import styles from './BottomSheet.module.css';
 
@@ -8,6 +9,12 @@ export interface BottomSheetProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  /** A short line under the title (also the dialog's description). */
+  subtitle?: string;
+  /** An icon tile before the title. */
+  icon?: IconName;
+  /** Extra class for the panel, for a dialog with its own surface. */
+  className?: string;
   children: ReactNode;
 }
 
@@ -19,8 +26,17 @@ export interface BottomSheetProps {
  * to a later block (Escape/backdrop/close-button dismissal covers this
  * one).
  */
-export function BottomSheet({ open, onClose, title, children }: BottomSheetProps) {
+export function BottomSheet({
+  open,
+  onClose,
+  title,
+  subtitle,
+  icon,
+  className,
+  children,
+}: BottomSheetProps) {
   const titleId = useId();
+  const subtitleId = useId();
   const panelRef = usePanelFocus(open);
 
   return (
@@ -28,18 +44,31 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
       {(entered) => (
         <div
           ref={panelRef}
-          className={clsx(styles.panel, entered && styles.panelOpen)}
+          className={clsx(styles.panel, entered && styles.panelOpen, className)}
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
+          aria-describedby={title && subtitle ? subtitleId : undefined}
           tabIndex={-1}
         >
           <div className={styles.handle} aria-hidden="true" />
           {title && (
             <div className={styles.header}>
-              <h2 id={titleId} className="text-h3">
-                {title}
-              </h2>
+              {icon && (
+                <span className={styles.headerIcon} aria-hidden="true">
+                  <Icon name={icon} size={22} />
+                </span>
+              )}
+              <div className={styles.headerText}>
+                <h2 id={titleId} className="text-h3">
+                  {title}
+                </h2>
+                {subtitle && (
+                  <p id={subtitleId} className={styles.subtitle}>
+                    {subtitle}
+                  </p>
+                )}
+              </div>
               <button
                 type="button"
                 className={styles.closeButton}

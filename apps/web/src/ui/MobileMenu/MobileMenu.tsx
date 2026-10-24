@@ -4,7 +4,11 @@ import { Icon } from '../Icon/Icon.js';
 import type { IconName } from '../Icon/icons.js';
 import { SubjectTile } from '../SubjectTile/SubjectTile.js';
 import { Avatar } from '../Leaderboard/Avatar.js';
-import { useNavigation, type MainTabId, type OverlayRoute } from '../../lib/navigation.js';
+import { type MainTabId, type OverlayRoute } from '../../lib/navigation.js';
+import { useAccountGate } from '../../lib/accountGate.js';
+import { useAuth } from '../../lib/authContext.js';
+import { displayName } from '../../lib/userDisplay.js';
+import { useTheme } from '../../lib/theme.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MobileMenu.module.css';
 
@@ -121,25 +125,24 @@ export interface MobileMenuProps {
  * everywhere else.
  */
 export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
-  const { navigate } = useNavigation();
-  const [darkTheme, setDarkTheme] = useState(true);
+  const { navigateGuarded: navigate, isGuest } = useAccountGate();
+  const { user, logout, isOwner } = useAuth();
+  const [logoutError, setLogoutError] = useState(false);
+  const [theme, setTheme] = useTheme();
+  const darkTheme = theme === 'dark';
 
   function go(route: MenuRoute) {
     // `navigate` already replaces the 'menu' overlay with the new tab
     // or overlay route, which closes the drawer on its own — calling
     // `onClose` (== `back`, which clears the overlay) here as well
     // would immediately wipe out whatever `navigate` just set for any
-    // overlay destination (task/mistakes/rating/about/…).
+    // overlay destination (task/mistakes/rating/help/…).
     navigate(route);
   }
 
+  // The whole site follows (and remembers) this switch — see lib/theme.ts.
   function toggleTheme() {
-    const next = !darkTheme;
-    setDarkTheme(next);
-    // No light theme is designed/approved yet — this really flips a
-    // document attribute a future theme stylesheet can key off, rather
-    // than pretending to do something it can't.
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    setTheme(darkTheme ? 'light' : 'dark');
   }
 
   return (
@@ -152,7 +155,7 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
           aria-label="Меню"
         >
           <div className={styles.header}>
-            <SubjectTile glyph="pi" color="var(--color-subject-math)" size={48} />
+            <SubjectTile glyph="pi" size={48} />
             <div className={styles.headerBody}>
               <p className={`text-h3 ${styles.headerTitle}`}>Зубрилка</p>
               <p className={`text-body-sm text-secondary ${styles.headerSubtitle}`}>
@@ -174,12 +177,19 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
             className={styles.profileRow}
             onClick={() => go({ screen: 'profile' })}
           >
-            <Avatar username="?" color="var(--color-accent-primary)" size={48} />
+            <Avatar
+              username={displayName(user) ?? '?'}
+              color="var(--color-accent-primary)"
+              size={48}
+              avatarUrl={user?.avatarUrl ?? undefined}
+            />
             <div className={styles.profileBody}>
               <p className={`text-body ${styles.profileName}`} style={{ fontWeight: 700 }}>
                 Профиль
               </p>
-              <p className="text-body-sm text-secondary">Имя не задано</p>
+              <p className="text-body-sm text-secondary">
+                {isGuest ? 'Гость — без аккаунта' : (displayName(user) ?? 'Имя не задано')}
+              </p>
             </div>
             <Icon name="chevronRight" size={18} className={styles.navChevron} />
           </button>
@@ -287,24 +297,49 @@ export function MobileMenu({ open, onClose, activeTab }: MobileMenuProps) {
               <span className={styles.plainLabel}>Помощь</span>
               <Icon name="chevronRight" size={18} className={styles.navChevron} />
             </button>
-            <button
-              type="button"
-              className={styles.plainItem}
-              onClick={() => go({ screen: 'about' })}
-            >
-              <span className={styles.plainIcon}>
-                <Icon name="faq" size={20} />
-              </span>
-              <span className={styles.plainLabel}>О проекте</span>
-              <Icon name="chevronRight" size={18} className={styles.navChevron} />
-            </button>
-            <button type="button" className={styles.plainItem} aria-label="Выйти из аккаунта">
-              <span className={styles.plainIcon}>
-                <Icon name="logout" size={20} />
-              </span>
-              <span className={styles.plainLabel}>Выйти</span>
-              <Icon name="chevronRight" size={18} className={styles.navChevron} />
-            </button>
+            {isOwner && (
+              <a className={clsx(styles.plainItem, styles.plainLink)} href="/admin">
+                <span className={styles.plainIcon} style={{ color: 'var(--color-gold)' }}>
+                  <Icon name="shield" size={20} />
+                </span>
+                <span className={styles.plainLabel}>Админ-панель</span>
+                <Icon name="chevronRight" size={18} className={styles.navChevron} />
+              </a>
+            )}
+            {isGuest ? (
+              <button
+                type="button"
+                className={styles.plainItem}
+                onClick={() => go({ screen: 'login' })}
+              >
+                <span className={styles.plainIcon}>
+                  <Icon name="profile" size={20} />
+                </span>
+                <span className={styles.plainLabel}>Войти или зарегистрироваться</span>
+                <Icon name="chevronRight" size={18} className={styles.navChevron} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.plainItem}
+                aria-label="Выйти из аккаунта"
+                onClick={() => {
+                  setLogoutError(false);
+                  logout().catch(() => setLogoutError(true));
+                }}
+              >
+                <span className={styles.plainIcon}>
+                  <Icon name="logout" size={20} />
+                </span>
+                <span className={styles.plainLabel}>Выйти</span>
+                <Icon name="chevronRight" size={18} className={styles.navChevron} />
+              </button>
+            )}
+            {logoutError && (
+              <p role="alert" className="text-body-sm">
+                Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.
+              </p>
+            )}
           </div>
         </div>
       )}

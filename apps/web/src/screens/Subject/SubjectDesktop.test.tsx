@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SubjectDesktop } from './SubjectDesktop.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
+import { subjectIconSrc } from '../../ui/SubjectIcon/subjectIcons.js';
 
 vi.mock('../../lib/api.js', () => ({
   getRandomTask: vi.fn(),
@@ -66,7 +67,7 @@ describe('SubjectDesktop — hero icon and glow', () => {
   it('renders the real subject illustration instead of the old glyph tile', () => {
     mockCollections();
     renderSubject();
-    const img = document.querySelector('img[src="/branding/v2/subjects/math.png"]');
+    const img = document.querySelector(`img[src="${subjectIconSrc('math')}"]`);
     expect(img).toBeInTheDocument();
     // No leftover SubjectTile glyph (rendered as an inline SVG/lucide
     // icon) inside the hero — the image itself carries the artwork now.
@@ -392,14 +393,16 @@ describe('SubjectDesktop — Задания по номерам tab (audit: the 
     expect(screen.getByText('Выбрать конкретное задание')).toBeInTheDocument();
   });
 
-  it('navigates to the dedicated TrainingByNumber screen, carrying subject/collection/from — not an inline block', async () => {
+  it('opens in place, like Темы/Варианты — same page, no new screen or history entry', async () => {
     mockCollections();
     const user = userEvent.setup();
     renderSubject();
+    const before = screen.getByTestId('overlay').textContent;
+    const historyLength = window.history.length;
     await user.click(screen.getByText('Задания по номерам'));
-    await waitFor(() =>
-      expect(screen.getByTestId('overlay')).toHaveTextContent('trainingByNumber'),
-    );
+    expect(await screen.findByRole('button', { name: '№1' })).toBeInTheDocument();
+    expect(screen.getByTestId('overlay').textContent).toBe(before);
+    expect(window.history.length).toBe(historyLength);
   });
 });
 

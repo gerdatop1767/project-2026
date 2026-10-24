@@ -1,151 +1,386 @@
+/*
+ * Desktop ☰ menu — a glass panel dropped from the menu button: a deep
+ * violet gradient with a fine luminous rim and a soft outer glow, the
+ * mascot in a glowing ring, then rows as small cards. All colours come
+ * from tokens, so the light theme gets a pale lilac panel for free.
+ */
+
 .panel {
+  --panel-rim: color-mix(in srgb, var(--color-accent-primary-end) 55%, transparent);
   position: fixed;
-  top: 5.5rem;
+  top: 5.25rem;
   right: var(--space-8);
   z-index: var(--z-modal);
-  width: 24rem;
-  max-height: calc(100vh - 7rem);
+  isolation: isolate;
+  width: 27.5rem;
+  max-height: calc(100vh - 6.5rem);
+  max-height: calc(100dvh - 6.5rem);
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-5) var(--space-5);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-modal);
-  box-shadow: var(--shadow-e3);
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-6) var(--space-6);
+  border-radius: 1.75rem;
+  background:
+    radial-gradient(
+      120% 60% at 50% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 34%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-accent-primary) 16%, var(--color-bg-elevated)),
+      var(--color-bg-surface) 60%
+    );
+  box-shadow:
+    inset 0 0 0 1px var(--panel-rim),
+    inset 0 1px 0 color-mix(in srgb, var(--color-tint) 12%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 18%, transparent),
+    0 0 42px color-mix(in srgb, var(--color-accent-primary) 30%, transparent),
+    var(--shadow-e3);
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-8px) scale(0.97);
+  transform-origin: top right; /* it drops from the menu button */
   transition:
-    opacity var(--duration-page) var(--easing-standard),
-    transform var(--duration-page) var(--easing-standard);
+    opacity 150ms ease,
+    transform 170ms ease;
+  outline: none;
 }
 
 .panelOpen {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  transition:
+    opacity 200ms ease,
+    transform 280ms var(--easing-out);
+}
+
+/* A diagonal light streak across the top-right, as on the reference. */
+.streak {
+  position: absolute;
+  z-index: -1;
+  top: -3rem;
+  right: -5rem;
+  width: 18rem;
+  height: 14rem;
+  border-radius: 50%;
+  border-bottom: 2px solid color-mix(in srgb, var(--color-accent-primary-end) 70%, transparent);
+  filter: blur(1px);
+  opacity: 0.55;
+  transform: rotate(-28deg);
+  pointer-events: none;
 }
 
 .closeButton {
   position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
+  top: var(--space-5);
+  right: var(--space-5);
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: none;
   border-radius: 999px;
-  background: var(--color-bg-surface);
+  background: color-mix(in srgb, var(--color-bg-base) 55%, transparent);
+  box-shadow: inset 0 0 0 1px var(--panel-rim);
   color: var(--color-text-primary);
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
+}
+
+.closeButton:active {
+  transform: scale(0.94);
 }
 
 .identity {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: var(--space-1);
-  padding-bottom: var(--space-4);
+  padding: var(--space-2) 0 var(--space-3);
 }
 
-.mascot {
-  width: 5.5rem;
-  height: 5.5rem;
+.crown {
+  position: absolute;
+  top: var(--space-2);
+  left: 3.25rem;
+  color: color-mix(in srgb, var(--color-accent-primary-end) 70%, transparent);
+  opacity: 0.7;
+  transform: rotate(-18deg);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-accent-primary) 70%, transparent));
+}
+
+.avatar {
+  display: block;
+  width: 6.5rem;
+  height: 6.5rem;
+  margin-bottom: var(--space-2);
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--gradient-primary);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-accent-primary) 18%, transparent),
+    0 0 32px color-mix(in srgb, var(--color-accent-primary-end) 50%, transparent);
+}
+
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 999px;
   object-fit: cover;
-  box-shadow: var(--shadow-e2);
-  margin-bottom: var(--space-2);
+  background: var(--color-bg-elevated);
 }
 
 .brand {
-  font-size: var(--font-size-h3, 1.25rem);
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.625rem;
+  line-height: 2rem;
   font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.brandAccent {
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-.list {
+.tagline {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+}
+
+.group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   width: 100%;
+  min-height: 4.25rem;
   padding: var(--space-3) var(--space-4);
   border: none;
-  border-radius: var(--radius-card);
-  background: var(--color-bg-surface);
+  border-radius: 1.125rem;
+  background: color-mix(in srgb, var(--color-bg-elevated) 70%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-accent-primary) 22%, var(--color-border-subtle));
   color: var(--color-text-primary);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
+  font: inherit;
   text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 
-.row:hover {
-  background: var(--color-bg-base);
+a.row {
+  text-decoration: none;
+}
+
+/* Owner-only entry to the admin panel: the same row, a quieter gold rim
+   so it reads as "special" without shouting. */
+.rowOwner .rowIcon {
+  color: var(--color-gold);
+}
+
+.row[data-static] {
+  cursor: default;
+}
+
+button.row:active,
+a.row:active {
+  transform: scale(0.985);
+}
+
+.row:focus-visible,
+.closeButton:focus-visible,
+.toggle:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.row:hover,
+  a.row:hover {
+    background: color-mix(in srgb, var(--color-accent-primary) 14%, var(--color-bg-elevated));
+    box-shadow: inset 0 0 0 1px var(--panel-rim);
+  }
+
+  button.row:hover .rowChevron,
+  a.row:hover .rowChevron {
+    transform: translateX(2px);
+  }
+
+  .closeButton:hover {
+    background: color-mix(in srgb, var(--color-accent-primary) 22%, var(--color-bg-elevated));
+  }
+}
+
+.rowIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent-primary) 34%, var(--color-bg-elevated)),
+    color-mix(in srgb, var(--color-accent-primary) 12%, var(--color-bg-elevated))
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 35%, transparent);
+  color: var(--color-text-primary);
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .rowLabel {
-  flex: 1;
-  min-width: 0;
+  font-size: var(--font-size-body);
+  line-height: 1.375rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+.rowCaption {
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
 }
 
 .rowChevron {
   flex-shrink: 0;
   color: var(--color-text-secondary);
+  transition: transform var(--duration-fast) ease;
 }
 
 .rowDanger {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-error) 16%, transparent),
+    color-mix(in srgb, var(--color-error) 6%, transparent)
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-error) 45%, transparent);
   color: var(--color-error);
+}
+
+.rowDanger .rowIcon {
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-error) 40%, transparent);
+  color: var(--color-error);
+}
+
+.rowDanger .rowChevron {
+  color: var(--color-error);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.rowDanger:hover {
+    background: color-mix(in srgb, var(--color-error) 20%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-error) 65%, transparent);
+  }
 }
 
 .divider {
   height: 1px;
-  margin: var(--space-2) 0;
-  background: var(--color-border-subtle);
+  margin: var(--space-1) 0;
+  background: color-mix(in srgb, var(--color-tint) 12%, transparent);
 }
 
 .toggle {
   flex-shrink: 0;
   position: relative;
-  width: 2.75rem;
-  height: 1.5rem;
+  width: 3.25rem;
+  height: 1.875rem;
   min-height: 0;
   padding: 0;
   border: none;
   border-radius: 999px;
-  background: var(--color-bg-base);
+  background: color-mix(in srgb, var(--color-tint) 16%, var(--color-bg-base));
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--easing-standard);
+  transition:
+    background-color var(--duration-base) var(--easing-standard),
+    box-shadow var(--duration-base) var(--easing-standard);
 }
 
 .toggleOn {
   background: var(--gradient-primary);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent-primary-end) 45%, transparent);
 }
 
 .toggleThumb {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 1.25rem;
-  height: 1.25rem;
+  top: 3px;
+  left: 3px;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 999px;
-  background: #fff;
-  transition: transform var(--duration-fast) var(--easing-standard);
+  background: var(--color-on-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform var(--duration-base) var(--easing-out);
 }
 
 .toggleOn .toggleThumb {
-  transform: translateX(1.25rem);
+  transform: translateX(1.375rem);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  text-align: center;
+}
+
+/* Light theme: the same panel as a pale lilac card — no heavy glow. */
+:global(:root[data-theme='light']) .panel {
+  background:
+    radial-gradient(
+      120% 55% at 50% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 14%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 30%, transparent),
+    0 0 32px color-mix(in srgb, var(--color-accent-primary) 14%, transparent),
+    var(--shadow-e3);
+}
+
+:global(:root[data-theme='light']) .row:not(.rowDanger) {
+  background: var(--color-bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+}
+
+:global(:root[data-theme='light']) .rowIcon {
+  color: var(--color-accent-primary);
+}
+
+:global(:root[data-theme='light']) .rowDanger .rowIcon {
+  color: var(--color-error);
 }
 
 @media (max-width: 480px) {
@@ -153,5 +388,26 @@
     right: var(--space-4);
     left: var(--space-4);
     width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .panelOpen {
+    transform: none;
+    transition-duration: 1ms;
+  }
+
+  .row,
+  .rowChevron,
+  .toggle,
+  .toggleThumb,
+  .closeButton {
+    transition: none;
+  }
+
+  button.row:active,
+  .closeButton:active {
+    transform: none;
   }
 }

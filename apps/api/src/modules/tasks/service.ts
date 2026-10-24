@@ -17,6 +17,7 @@ import {
   type TaskWithSolution,
 } from '@zybrilka/shared';
 import * as repo from './repo.js';
+import * as xpService from '../xp/service.js';
 import { getCanonicalSolutionForTask } from './canonicalSolution.js';
 import { updateSkillStatisticsForTaskAttempt } from '../learning/service.js';
 import { updateTaskStatistics } from '../learning/taskStatistics/service.js';
@@ -157,8 +158,18 @@ export class NotAnEssayTaskError extends Error {
 /**
  * Records "Я решил" for an essay task — deliberately NOT a graded
  * attempt (essay tasks are never auto-graded, see
- * `EssayNotGradableError`): just "the user says they wrote it",
- * idempotent across repeat clicks (see `repo.acknowledgeEssay`).
+ * `EssayNotGradableError`): no correctness is decided, no points are
+ * assigned, no mistake/skill-statistics/error-signature machinery
+ * (all built around objectively right/wrong answers) is touched.
+ *
+ * It still needs to register as "task completed" in the existing
+ * progress system rather than a parallel one, so on the FIRST ack for
+ * this user+task only (see `repo.acknowledgeEssay`'s return value —
+ * false on every repeat click, so this block never runs twice) it
+ * writes one plain `attempts` row (`isCorrect: true` — "done", not a
+ * quality grade) and records daily activity for the streak, exactly
+ * like `submitAttempt` would for a gradable task. Idempotent across
+ * repeat clicks: a second "Я решил" is a no-op, no duplicate progress.
  */
 export async function acknowledgeEssay(
   db: Database,
@@ -168,7 +179,19 @@ export async function acknowledgeEssay(
   const row = await repo.getTaskById(db, taskId);
   if (!row) return 'not_found';
   if (row.task.answerType !== 'essay') throw new NotAnEssayTaskError();
-  await repo.acknowledgeEssay(db, userId, taskId);
+
+  await db.transaction(async (tx) => {
+    const isFirstAck = await repo.acknowledgeEssay(tx, userId, taskId);
+    if (!isFirstAck) return;
+    const attempt = await repo.createAttempt(tx, {
+      userId,
+      taskId,
+      answerRaw: '',
+      isCorrect: true,
+    });
+    await repo.recordDailyActivity(tx, userId, toMoscowDateString(attempt.createdAt));
+  });
+
   return 'ok';
 }
 
@@ -181,10 +204,18 @@ export async function getRandomTask(
   return row && toPublicTask(row);
 }
 
+/**
+ * Grades an answer and — for a signed-in user — records it. A guest
+ * (`userId === null`) gets exactly the same grading and explanation but
+ * NOTHING is written: no attempt, mistake, streak day, skill or task
+ * statistics. A guest has no account, and an id a client could claim
+ * (like the old `x-anon-id`) must never let their answers land in
+ * someone else's profile or skew everyone's task statistics.
+ */
 export async function submitAttempt(
   db: Database,
   taskId: string,
-  userId: string,
+  userId: string | null,
   input: AttemptRequest,
 ): Promise<AttemptResult | undefined> {
   const row = await repo.getTaskById(db, taskId);
@@ -211,10 +242,24 @@ export async function submitAttempt(
           digitSetOrderInsensitive: row.task.digitSetOrderInsensitive,
         });
 
+  if (userId === null) {
+    return {
+      correct,
+      correctAnswer: row.task.correctAnswer,
+      correctAnswerDisplay: row.task.correctAnswerDisplay,
+      explanation: row.task.explanationMd,
+      attemptId: null,
+      mistakeId: null,
+    };
+  }
+
   // One transaction: the attempt, its mistakes update, and the skill
   // statistics it feeds (ZUBRILKA LEARNING INTELLIGENCE Phase 3) must
   // never diverge — either all three are written, or none are.
-  const { attempt, mistakeId } = await db.transaction(async (tx) => {
+  const { attempt, mistakeId, xp } = await db.transaction(async (tx) => {
+    // XP first takes this account's ledger lock (and imports pre-XP
+    // history once) so the award below sees a settled total.
+    const totalBefore = await xpService.prepareForAward(tx, userId);
     const attempt = await repo.createAttempt(tx, {
       userId,
       taskId,
@@ -247,7 +292,17 @@ export async function submitAttempt(
       },
       attempt.createdAt,
     );
-    return { attempt, mistakeId };
+    // XP is decided here, from this server-graded attempt, in the same
+    // transaction: no XP without the attempt, no attempt without its XP.
+    const xp = await xpService.awardForAttempt(tx, {
+      userId,
+      task: row.task,
+      attemptId: attempt.id,
+      correct,
+      at: attempt.createdAt,
+      totalBefore,
+    });
+    return { attempt, mistakeId, xp };
   });
 
   return {
@@ -257,13 +312,14 @@ export async function submitAttempt(
     explanation: row.task.explanationMd,
     attemptId: attempt.id,
     mistakeId,
+    xp,
   };
 }
 
 async function submitMultiPartAttempt(
   db: Database,
   row: repo.TaskWithTopic,
-  userId: string,
+  userId: string | null,
   answer: Readonly<Record<string, string>>,
   timeSpentMs: number | undefined,
 ): Promise<AttemptResult> {
@@ -274,8 +330,22 @@ async function submitMultiPartAttempt(
     ? gradeMultiPart(spec, answer)
     : { parts: [], correctParts: 0, totalParts: 0, status: 'all_incorrect' as const };
 
+  const graded = {
+    correct: grading.status === 'all_correct',
+    correctAnswer: row.task.correctAnswer,
+    correctAnswerDisplay: row.task.correctAnswerDisplay,
+    explanation: row.task.explanationMd,
+    parts: [...grading.parts],
+    correctParts: grading.correctParts,
+    totalParts: grading.totalParts,
+    partStatus: grading.status,
+  };
+  // A guest: graded, never recorded (see submitAttempt).
+  if (userId === null) return { ...graded, attemptId: null, mistakeId: null };
+
   const wrongParts = grading.parts.filter((p) => !p.correct).map((p) => p.id);
-  const { attempt, mistakeId } = await db.transaction(async (tx) => {
+  const { attempt, mistakeId, xp } = await db.transaction(async (tx) => {
+    const totalBefore = await xpService.prepareForAward(tx, userId);
     const attempt = await repo.createAttempt(tx, {
       userId,
       taskId: row.task.id,
@@ -305,19 +375,17 @@ async function submitMultiPartAttempt(
       },
       attempt.createdAt,
     );
-    return { attempt, mistakeId };
+    // Only an all-parts-correct answer counts as correct for XP.
+    const xp = await xpService.awardForAttempt(tx, {
+      userId,
+      task: row.task,
+      attemptId: attempt.id,
+      correct: grading.status === 'all_correct',
+      at: attempt.createdAt,
+      totalBefore,
+    });
+    return { attempt, mistakeId, xp };
   });
 
-  return {
-    correct: grading.status === 'all_correct',
-    correctAnswer: row.task.correctAnswer,
-    correctAnswerDisplay: row.task.correctAnswerDisplay,
-    explanation: row.task.explanationMd,
-    attemptId: attempt.id,
-    mistakeId,
-    parts: [...grading.parts],
-    correctParts: grading.correctParts,
-    totalParts: grading.totalParts,
-    partStatus: grading.status,
-  };
+  return { ...graded, attemptId: attempt.id, mistakeId, xp };
 }

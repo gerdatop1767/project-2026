@@ -1,20 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
+import { subjects } from '../../data/subjects.js';
 import { SubjectTile } from './SubjectTile.js';
+import { SUBJECT_ICON_FILES, isSubjectIconId } from '../SubjectIcon/subjectIcons.js';
 
 describe('SubjectTile', () => {
-  it('renders the literal pi glyph for math', () => {
-    render(<SubjectTile glyph="pi" color="#22c55e" />);
-    expect(screen.getByText('π')).toBeInTheDocument();
-  });
+  it.each(subjects.map((s) => [s.id, s.glyph] as const))(
+    'shows the approved artwork of %s for its glyph',
+    (id, glyph) => {
+      const { container } = render(<SubjectTile glyph={glyph} />);
+      const img = container.querySelector('img');
+      expect(isSubjectIconId(id)).toBe(true);
+      expect(img?.getAttribute('src')).toBe(
+        `/branding/v2/subject-icons/${SUBJECT_ICON_FILES[id as keyof typeof SUBJECT_ICON_FILES]}`,
+      );
+    },
+  );
 
-  it('renders the literal Aa glyph for Russian', () => {
-    render(<SubjectTile glyph="aa" color="#4da3ff" />);
-    expect(screen.getByText('Aa')).toBeInTheDocument();
-  });
-
-  it('renders an icon for subjects without a text glyph', () => {
-    const { container } = render(<SubjectTile glyph="globe" color="#a855f7" />);
-    expect(container.querySelector('svg')).toBeInTheDocument();
+  it('keeps its box size and marks the selected subject', () => {
+    const { container } = render(<SubjectTile glyph="pi" size={48} selected />);
+    const box = container.firstElementChild as HTMLElement;
+    expect(box.style.width).toBe('48px');
+    expect(box.style.height).toBe('48px');
+    expect(container.querySelector('[data-selected]')).toBeInTheDocument();
   });
 });

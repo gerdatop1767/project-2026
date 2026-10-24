@@ -1,7 +1,7 @@
 import type { MainTabId, OverlayRoute, Route } from './navigation.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 
-const subjectModeIds: readonly SubjectModeId[] = ['topics', 'variants', 'favorites'];
+const subjectModeIds: readonly SubjectModeId[] = ['topics', 'byNumber', 'variants', 'favorites'];
 
 /**
  * URL <-> Route mapping. The URL is the single source of truth for
@@ -36,23 +36,28 @@ const slugToSubjectId: Record<string, string> = Object.fromEntries(
 
 /** Overlay screens with no params — a straight path <-> screen lookup. */
 const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
+  login: '/login',
   learningCenter: '/learning',
   subjectCatalog: '/subjects',
   mistakes: '/training/mistakes',
   trainingTopic: '/training/topic',
   trainingRandom: '/training/random',
   trainingVariants: '/training/variants',
-  trainingByNumber: '/training/by-number',
   rating: '/rating',
-  about: '/about',
+  level: '/level',
   favorites: '/favorites',
   mockExams: '/mock-exams',
   topics: '/topics',
   friends: '/friends',
   settings: '/settings',
   help: '/help',
+  faq: '/faq',
+  privacy: '/privacy',
+  terms: '/terms',
   notifications: '/notifications',
   onboarding: '/onboarding',
+  landing: '/landing',
+  telegramReturn: '/telegram-return',
 };
 
 const tabPaths: Record<string, string> = {
@@ -84,6 +89,9 @@ export function pathForRoute(route: Route): string | null {
     const params = new URLSearchParams();
     if (route.collectionSlug) params.set('source', route.collectionSlug);
     if (route.initialMode) params.set('mode', route.initialMode);
+    if (route.initialMode === 'byNumber' && route.initialTaskNumber) {
+      params.set('n', String(route.initialTaskNumber));
+    }
     const query = params.size > 0 ? `?${params.toString()}` : '';
     return `/subjects/${slug}${query}`;
   }
@@ -105,6 +113,26 @@ export function pathForRoute(route: Route): string | null {
 }
 
 const simpleOverlayScreens = new Set(Object.keys(simpleOverlayPaths));
+
+const legacyByNumberPath = '/training/by-number';
+
+/** Paths of screens that were removed from the product. `routeFromPath`
+ * already lands them on Home; this lets the router also correct the
+ * address bar (see NavigationProvider) so an old bookmark or link does
+ * not keep showing a URL of a page that no longer exists. */
+const removedPaths: ReadonlySet<string> = new Set(['/about']);
+
+/** A path that still works but has a newer address (today: the old
+ * standalone "По номерам" page) — the router rewrites the address bar. */
+export function isLegacyPath(pathname: string): boolean {
+  const path = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
+  return path === legacyByNumberPath;
+}
+
+export function isRemovedPath(pathname: string): boolean {
+  const path = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
+  return removedPaths.has(path);
+}
 
 /** Parses a pathname (optionally with a `?query` string attached) into
  * a Route, defaulting to Home for anything unrecognized rather than
@@ -130,7 +158,28 @@ export function routeFromPath(pathname: string): Route {
     const initialMode = subjectModeIds.includes(modeParam as SubjectModeId)
       ? (modeParam as SubjectModeId)
       : undefined;
-    return { screen: 'subject', subjectId, from: 'subjectCatalog', collectionSlug, initialMode };
+    const n = Number(params.get('n'));
+    const initialTaskNumber =
+      initialMode === 'byNumber' && Number.isInteger(n) && n > 0 ? n : undefined;
+    return {
+      screen: 'subject',
+      subjectId,
+      from: 'subjectCatalog',
+      collectionSlug,
+      initialMode,
+      ...(initialTaskNumber ? { initialTaskNumber } : {}),
+    };
+  }
+
+  // "По номерам" used to be its own screen; old links land on the
+  // subject page in that mode (math was that screen's default subject).
+  if (path === legacyByNumberPath) {
+    return {
+      screen: 'subject',
+      subjectId: 'math',
+      from: 'subjectCatalog',
+      initialMode: 'byNumber',
+    };
   }
 
   if (path === '/profile') return { screen: 'profile' };

@@ -1,0 +1,85 @@
+/*
+ * Landing line icons.
+ *
+ * The tile is quiet (a faint fill and hairline), the strokes are near-white,
+ * and one accent element is purple. When the icon's list item is revealed
+ * (Reveal → data-reveal: pending → shown) every stroke draws itself once
+ * with a strong ease-out, the accent a beat after the outline.
+ * Hover (fine pointers only) brightens the tile and nudges the accent up.
+ */
+
+.tile {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.9375rem;
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(
+      120% 120% at 30% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 20%, transparent),
+      transparent 70%
+    ),
+    color-mix(in srgb, var(--color-tint) 4%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-tint) 9%, transparent);
+  transition: box-shadow 220ms ease;
+}
+
+.svg {
+  width: 1.625rem;
+  height: 1.625rem;
+  overflow: visible;
+}
+
+.draw {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 0;
+  transition:
+    stroke-dashoffset 900ms var(--easing-out) calc(var(--reveal-delay, 0ms) + 120ms),
+    opacity 200ms ease calc(var(--reveal-delay, 0ms) + 120ms);
+}
+
+.accent {
+  color: color-mix(in srgb, var(--color-accent-primary-end) 78%, var(--color-tint));
+  stroke: currentColor;
+  transition:
+    stroke-dashoffset 700ms var(--easing-out) calc(var(--reveal-delay, 0ms) + 420ms),
+    opacity 200ms ease calc(var(--reveal-delay, 0ms) + 420ms),
+    transform 220ms var(--easing-out);
+}
+
+/* Before the reveal: nothing drawn yet. Opacity hides the round-cap dots a
+   zero-length dash would otherwise leave behind. */
+:global([data-reveal='pending']) .draw {
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :global([data-icon-host]):hover .tile {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 45%, transparent),
+      0 8px 24px -12px color-mix(in srgb, var(--color-accent-primary) 80%, transparent);
+  }
+
+  :global([data-icon-host]):hover .accent {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draw,
+  .accent {
+    transition: opacity 200ms ease;
+  }
+
+  :global([data-reveal='pending']) .draw {
+    stroke-dashoffset: 0;
+  }
+
+  :global([data-icon-host]):hover .accent {
+    transform: none;
+  }
+}

@@ -67,7 +67,6 @@ import {
   Gem,
   GraduationCap,
   PlayCircle,
-  MoreVertical,
   LayoutGrid,
   UserPlus,
   Keyboard,
@@ -99,6 +98,12 @@ import {
   Pencil,
   Pause,
   Shuffle,
+  Mail,
+  Image as ImageIcon,
+  Link2,
+  Tag,
+  Ellipsis,
+  Send,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -178,7 +183,6 @@ export const icons = {
   gem: Gem,
   graduation: GraduationCap,
   play: PlayCircle,
-  more: MoreVertical,
   grid: LayoutGrid,
   friends: UserPlus,
   keyboard: Keyboard,
@@ -214,6 +218,12 @@ export const icons = {
   edit: Pencil,
   pause: Pause,
   infinite: InfinityIcon,
+  mail: Mail,
+  image: ImageIcon,
+  link: Link2,
+  tag: Tag,
+  more: Ellipsis,
+  send: Send,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;

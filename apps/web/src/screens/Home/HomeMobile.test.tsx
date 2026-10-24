@@ -5,6 +5,7 @@ import { HomeMobile } from './HomeMobile.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import * as api from '../../lib/api.js';
+import { subjectIconSrc, type SubjectIconId } from '../../ui/SubjectIcon/subjectIcons.js';
 
 vi.mock('../../lib/api.js', () => ({
   getRandomTask: vi.fn(),
@@ -82,6 +83,8 @@ describe('HomeMobile', () => {
     renderHome();
     await waitFor(() => expect(screen.getByText('248')).toBeInTheDocument());
     expect(screen.getByText('82%')).toBeInTheDocument();
+    // Seen on every visit: plain numbers, no rolling digits.
+    expect(document.querySelector('[data-animated-number]')).toBeNull();
   });
 
   it('shows a neutral dash for streak, never a fabricated day count', () => {
@@ -90,10 +93,14 @@ describe('HomeMobile', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
-  it('shows 0/0% before the real progress data has loaded, never a fabricated fallback', () => {
-    renderHome();
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.getByText('0%')).toBeInTheDocument();
+  it('shows a neutral placeholder before the real progress data has loaded — never a number it does not have', () => {
+    const { container } = renderHome();
+    // "Решено" and "Правильно" (subject task counts use the same placeholder).
+    expect(screen.getAllByText('···').length).toBeGreaterThanOrEqual(2);
+    // The metric icons only "pop" once real data has arrived.
+    expect(container.querySelector('[data-ready]')).toBeNull();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 
   it('renders every popular subject as a tappable card', () => {
@@ -139,7 +146,7 @@ describe('HomeMobile', () => {
     renderHome();
     for (const subject of subjects.slice(0, 6)) {
       expect(
-        document.querySelector(`img[src="/branding/v2/subjects/${subject.id}.png"]`),
+        document.querySelector(`img[src="${subjectIconSrc(subject.id as SubjectIconId)}"]`),
       ).toBeInTheDocument();
     }
   });

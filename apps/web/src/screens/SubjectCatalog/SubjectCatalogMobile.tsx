@@ -2,7 +2,13 @@ import { useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { FadeIn, SlideUp } from '../../ui/motion/motion.js';
+import { FadeIn, SlideUp, staggerDelay } from '../../ui/motion/motion.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import {
+  FeatureIcon,
+  featureIconGlow,
+  type FeatureIconName,
+} from '../../ui/FeatureIcon/FeatureIcon.js';
 import styles from './SubjectCatalogMobile.module.css';
 
 /**
@@ -24,21 +30,21 @@ export function SubjectCatalogMobile() {
 
   const stats = [
     {
-      image: '/branding/v2/summary/subjects.png',
+      icon: 'subjects',
       label: 'предметов',
       value: `${subjects.length}`,
     },
     {
-      image: '/branding/v2/summary/tasks.png',
+      icon: 'tasks',
       label: 'заданий',
       value: totalTasks !== null ? `${totalTasks.toLocaleString('ru-RU')}+` : '···',
     },
     {
-      image: '/branding/v2/summary/full-statistics.png',
+      icon: 'statistics',
       label: 'статистика',
       value: 'Полная',
     },
-  ] as const;
+  ] as const satisfies readonly { icon: FeatureIconName; label: string; value: string }[];
 
   return (
     <SlideUp className={styles.stack}>
@@ -55,8 +61,15 @@ export function SubjectCatalogMobile() {
 
       <div className={styles.statsRow}>
         {stats.map((stat, index) => (
-          <FadeIn key={stat.label} delayMs={index * 40} className={styles.statCard}>
-            <img src={stat.image} alt="" aria-hidden="true" className={styles.statIcon} />
+          <FadeIn
+            key={stat.label}
+            delayMs={staggerDelay(index)}
+            className={styles.statCard}
+            style={{ ['--card-glow' as string]: featureIconGlow(stat.icon) }}
+          >
+            <span className={styles.statIcon}>
+              <FeatureIcon name={stat.icon} />
+            </span>
             <span className="text-body" style={{ fontWeight: 700 }}>
               {stat.value}
             </span>
@@ -67,23 +80,17 @@ export function SubjectCatalogMobile() {
 
       <div className={styles.list}>
         {subjects.map((subject, index) => (
-          <FadeIn key={subject.id} delayMs={index * 30}>
+          <FadeIn key={subject.id} delayMs={staggerDelay(index)}>
             <button
               type="button"
               className={styles.subjectRow}
-              style={{ ['--subject-accent' as string]: subject.color }}
+              data-subject-interactive
               onClick={() =>
                 navigate({ screen: 'subject', subjectId: subject.id, from: 'subjectCatalog' })
               }
             >
               <span className={styles.subjectThumb}>
-                <img
-                  src={`/branding/v2/subjects/${subject.id}.png`}
-                  alt=""
-                  aria-hidden="true"
-                  className={styles.subjectThumbImg}
-                  loading="lazy"
-                />
+                <SubjectIcon subjectId={subject.id} reveal={index} />
               </span>
               <span className={styles.subjectBody}>
                 <span className="text-body" style={{ fontWeight: 700 }}>

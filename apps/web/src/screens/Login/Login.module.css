@@ -1,0 +1,324 @@
+/*
+ * The sign-in / sign-up screen follows the app's theme like every other
+ * screen: dark Zybrilka in the dark theme, light in the light one (tokens.css
+ * `[data-theme='light']`). It used to redefine the tokens to a fixed light
+ * palette here, which made it the one white page in a dark site.
+ */
+.page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+}
+
+/* Soft decorative rays/blobs — pure CSS, no image asset needed for
+   the "light lilac background with soft rays" look. */
+.rayTopLeft,
+.rayBottomRight {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.rayTopLeft {
+  top: -10rem;
+  left: -8rem;
+  width: 28rem;
+  height: 28rem;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-accent-primary) 22%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+.rayBottomRight {
+  bottom: -12rem;
+  right: -10rem;
+  width: 32rem;
+  height: 32rem;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-accent-primary-end) 18%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+.closeButton {
+  position: absolute;
+  top: var(--space-5);
+  right: var(--space-5);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-e1);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--easing-standard);
+}
+
+.closeButton:active {
+  transform: scale(0.94);
+}
+
+.layout {
+  position: relative;
+  z-index: 1;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-8);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26rem;
+  gap: var(--space-10);
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  animation: fadeIn var(--duration-page) var(--easing-standard) both;
+}
+
+.headline {
+  margin: 0;
+  font-size: 2.5rem;
+  line-height: 1.15;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.subtext {
+  margin: 0;
+  max-width: 30rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.benefits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+}
+
+.benefitIcon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--color-accent-primary);
+}
+
+.handwritten {
+  margin: var(--space-2) 0 0;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--color-accent-primary);
+  transform: rotate(-3deg);
+  width: fit-content;
+}
+
+.handwrittenArrow {
+  color: var(--color-accent-primary);
+  flex-shrink: 0;
+  margin-bottom: -0.25rem;
+}
+
+.card {
+  position: relative;
+  background: var(--color-bg-surface);
+  border-radius: 2rem;
+  box-shadow:
+    var(--shadow-e2),
+    inset 0 0 0 1px var(--color-border-subtle);
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  animation: scaleIn var(--duration-reveal) var(--easing-standard) both;
+}
+
+.vkButton {
+  background: #0077ff;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.vkButton:hover:not(:disabled) {
+  background: #0066dd;
+}
+
+/* Yandex ID button: Yandex's own black-and-white sign-in style. */
+.yandexButton {
+  background: #000000;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.yandexButton:hover:not(:disabled) {
+  background: #1f1f1f;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.formError {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-error);
+}
+
+.accountHint {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.consent {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.stateText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.stateSpinner {
+  color: var(--color-accent-primary);
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy,
+  .card {
+    animation: none;
+  }
+
+  .stateSpinner {
+    animation-duration: 1600ms;
+  }
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-8) var(--space-5) var(--space-10);
+    gap: var(--space-6);
+    align-items: stretch;
+    min-height: 0;
+  }
+
+  .rayTopLeft,
+  .rayBottomRight {
+    width: 18rem;
+    height: 18rem;
+  }
+
+  .headline {
+    font-size: 1.875rem;
+  }
+
+  .card {
+    padding: var(--space-6) var(--space-4);
+    border-radius: 1.5rem;
+  }
+
+  .closeButton {
+    top: var(--space-4);
+    right: var(--space-4);
+  }
+}
+
+/* Telegram Mini App: VK ID runs in the external browser meanwhile. */
+.vkWaiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent-primary) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 25%, transparent);
+  text-align: center;
+}
+
+.vkWaitingTitle {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.vkHint {
+  margin: calc(var(--space-2) * -1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-label);
+  text-align: center;
+}

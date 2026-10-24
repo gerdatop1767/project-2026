@@ -11,6 +11,27 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Safe-area insets in one place. Outside Telegram these are just the
+   device's own insets; inside a Mini App (lib/telegramMiniApp.ts sets
+   data-telegram) Telegram's header/fullscreen insets are taken into account
+   too. Use var(--safe-*) instead of env(safe-area-inset-*). */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+:root[data-telegram='true'] {
+  --safe-top: max(
+    env(safe-area-inset-top, 0px),
+    calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px))
+  );
+  --safe-right: max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+  --safe-left: max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px));
+}
+
 html,
 body {
   height: 100%;
@@ -179,4 +200,36 @@ a,
    .scrollInline/.scrollBlock wrapper around it), never break apart. */
 .katex {
   white-space: nowrap;
+}
+
+/*
+ * Subject cards light up in their subject's own colour. Any element marked
+ * `data-subject-interactive` that holds a SubjectIcon gets `--subject-glow`
+ * from that icon (SubjectIcon.tsx) and `data-pressed` while it is pressed.
+ * `:where()` keeps these at zero specificity, so a screen's own card styles
+ * always win where they say something different.
+ */
+:where([data-subject-interactive]) {
+  transition:
+    background-color 160ms ease,
+    box-shadow 280ms ease,
+    scale 160ms var(--easing-out);
+}
+
+:where([data-subject-interactive][data-pressed]) {
+  scale: 0.985;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :where([data-subject-interactive]):hover {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--subject-glow, transparent) 55%, transparent),
+      0 14px 32px -20px color-mix(in srgb, var(--subject-glow, transparent) 85%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where([data-subject-interactive][data-pressed]) {
+    scale: none;
+  }
 }

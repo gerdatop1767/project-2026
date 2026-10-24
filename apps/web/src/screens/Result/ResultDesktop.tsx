@@ -1,10 +1,17 @@
+import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
 import { useEffect, useState } from 'react';
-import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
+import {
+  trainingByNumberRouteFor,
+  useNavigation,
+  type Route,
+  type RevealedAnswer,
+} from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
   buildSessionProgress,
   explanationForPart,
+  hasDetailedExplanation,
   splitMultiPartExplanation,
   toSampleTask,
 } from '../../lib/taskAdapter.js';
@@ -53,6 +60,8 @@ export interface ResultDesktopProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** A guest's check — see the `result` route's `revealed`. */
+  revealed?: RevealedAnswer;
 }
 
 const XP_REWARD = 20;
@@ -76,6 +85,7 @@ export function ResultDesktop({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  revealed,
 }: ResultDesktopProps) {
   const { navigate, back } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
@@ -87,7 +97,10 @@ export function ResultDesktop({
     customOrderedTasks,
     returnTo,
   });
-  const goBack = returnTo ? () => navigate(returnTo) : back;
+  // The task/result has no address of its own, so the current history
+  // entry IS the page underneath it: replace it with the exact place to
+  // return to instead of pushing a duplicate stop onto the Back stack.
+  const goBack = returnTo ? () => navigate(returnTo, { replace: true }) : back;
   const learningSession = useActiveLearningSessionForTask(taskId);
   function retryTask() {
     navigate({
@@ -119,7 +132,7 @@ export function ResultDesktop({
     void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
-        setTask(toSampleTask(fetchedTask, siblings));
+        setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -127,7 +140,7 @@ export function ResultDesktop({
     return () => {
       cancelled = true;
     };
-  }, [taskId, subjectId, taskNumber]);
+  }, [taskId, subjectId, taskNumber, revealed]);
 
   if (loadError) {
     return (
@@ -380,25 +393,33 @@ export function ResultDesktop({
                   )}
                 </div>
                 <div className={styles.steps}>
-                  {(correct || detailedSolution ? task.steps : task.steps.slice(-1)).map(
-                    (step, i) => {
-                      const stepNumber = correct || detailedSolution ? i + 1 : task.steps.length;
-                      return (
-                        <div key={stepNumber} className={styles.step}>
-                          <span className={styles.stepIndex}>{stepNumber}</span>
-                          <div className={styles.stepBody}>
-                            {step.title && (
-                              <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                                <InlineMathText text={step.title} />
+                  {(correct || detailedSolution) && hasDetailedExplanation(task) ? (
+                    <div className={styles.step}>
+                      <div className={styles.stepBody}>
+                        <MathText text={task.explanation} className="text-body-sm" />
+                      </div>
+                    </div>
+                  ) : (
+                    (correct || detailedSolution ? task.steps : task.steps.slice(-1)).map(
+                      (step, i) => {
+                        const stepNumber = correct || detailedSolution ? i + 1 : task.steps.length;
+                        return (
+                          <div key={stepNumber} className={styles.step}>
+                            <span className={styles.stepIndex}>{stepNumber}</span>
+                            <div className={styles.stepBody}>
+                              {step.title && (
+                                <p className="text-body-sm" style={{ fontWeight: 700 }}>
+                                  <InlineMathText text={step.title} />
+                                </p>
+                              )}
+                              <p className="text-body-sm">
+                                <InlineMathText text={step.text} />
                               </p>
-                            )}
-                            <p className="text-body-sm">
-                              <InlineMathText text={step.text} />
-                            </p>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    },
+                        );
+                      },
+                    )
                   )}
                 </div>
               </>

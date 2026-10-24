@@ -9,6 +9,13 @@ import type * as ApiModule from '../../lib/api.js';
 vi.mock('../../lib/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
   getLearningProfile: vi.fn(),
+  getIdentities: vi.fn(() =>
+    Promise.resolve({
+      identities: [{ provider: 'email' as const, linkedAt: '2026-01-01T00:00:00.000Z' }],
+      available: { vk: true, telegram: false },
+      canUnlink: false,
+    }),
+  ),
 }));
 
 function OverlayMarker() {
@@ -40,7 +47,11 @@ describe('ProfileDesktop', () => {
   it('renders the personal/settings sections, not stats or achievements', () => {
     renderProfile();
     expect(screen.getByText('Мой профиль')).toBeInTheDocument();
-    expect(screen.getByText('Основная информация')).toBeInTheDocument();
+    // Picture + nickname are edited in the one top card; there is no second «Личные данные» block.
+    expect(screen.getByRole('button', { name: /Изменить аватар/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Изменить ник/ })).toBeInTheDocument();
+    expect(screen.queryByText('Личные данные')).not.toBeInTheDocument();
+    expect(screen.getByText('Способы входа')).toBeInTheDocument();
     expect(screen.getByText('Учебные настройки')).toBeInTheDocument();
     expect(screen.getByText('Настройки аккаунта')).toBeInTheDocument();
     expect(screen.getByText('Действия')).toBeInTheDocument();
@@ -90,17 +101,15 @@ describe('ProfileDesktop', () => {
     expect(screen.getByText(/Математика: 90\+, Русский язык: 100/)).toBeInTheDocument();
   });
 
-  it('BackRow with no `from` falls back to closing the overlay (default tab)', async () => {
-    const user = userEvent.setup();
+  it('opened over the home screen, it draws no "← Главная" row (home is in the sidebar)', () => {
     renderProfile();
-    await user.click(screen.getByRole('button', { name: 'Главная' }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('none');
+    expect(screen.queryByRole('button', { name: 'Главная' })).not.toBeInTheDocument();
   });
 
   it('BackRow with an explicit `from` returns to that exact route', async () => {
     const user = userEvent.setup();
-    renderProfile({ screen: 'about' });
-    await user.click(screen.getByRole('button', { name: 'О проекте' }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('about');
+    renderProfile({ screen: 'rating' });
+    await user.click(screen.getByRole('button', { name: 'Рейтинг' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('rating');
   });
 });

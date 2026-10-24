@@ -2,10 +2,16 @@ import type {
   AttemptRequest,
   AttemptResult,
   CollectionListItem,
+  ComplaintContextInput,
+  ComplaintReasonValue,
   EssayAckResponse,
   FavoritesListResponse,
   LearningProfileResponse,
+  AuthUser,
+  IdentitiesResponse,
+  IdentityProvider,
   LearningSessionResponse,
+  MeResponse,
   Mistake,
   ProgressByTaskNumberResponse,
   ProgressByTopicResponse,
@@ -14,6 +20,8 @@ import type {
   SaveLearningProfileRequest,
   SimilarTaskEntry,
   StreakResponse,
+  XpHistoryResponse,
+  XpSummaryResponse,
   TaskCountsBySubjectResponse,
   TaskNumberStatisticsDetail,
   TaskPublic,
@@ -21,6 +29,7 @@ import type {
   VariantDetail,
   VariantProgressResponse,
 } from '@zybrilka/shared';
+import { registerPrivateCacheReset } from './privateCaches.js';
 
 const ANON_ID_STORAGE_KEY = 'zybrilka_anon_id';
 
@@ -44,6 +53,18 @@ export function getAnonId(): string {
   }
 }
 
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+/** Subscribes to "the server says there is no valid session" (a 401 from
+ * any private endpoint — the session expired, was revoked, or deleted).
+ * The auth provider uses this to drop the client's signed-in state and
+ * close the private screens. Returns an unsubscribe function. */
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener);
+  return () => unauthorizedListeners.delete(listener);
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -53,7 +74,55 @@ export class ApiError extends Error {
   }
 }
 
+/*
+ * A short-lived read cache for the dashboard reads several screens make on
+ * every visit (progress summary, task counts, collections, statistics).
+ * Screens re-mount on every tab switch, so without it each visit to
+ * Статистика re-sent the same 5–6 requests and re-rendered as each one
+ * landed. A cached read resolves at once; a read in flight is shared.
+ *
+ * It can never show stale results after the user does something: any
+ * non-GET request (an answer, a favorite, a profile change, sign-in/out)
+ * clears it, as does a sign-out/account switch (privateCaches), and an
+ * entry lives at most READ_CACHE_TTL_MS anyway. A failed read is not kept.
+ */
+const READ_CACHE_TTL_MS = 30_000;
+const readCache = new Map<string, { at: number; generation: number; value: Promise<unknown> }>();
+let readCacheGeneration = 0;
+
+function clearReadCache() {
+  readCacheGeneration++;
+  readCache.clear();
+}
+
+registerPrivateCacheReset(clearReadCache);
+
+function cachedApiFetch<T>(path: string): Promise<T> {
+  const hit = readCache.get(path);
+  if (hit && hit.generation === readCacheGeneration && Date.now() - hit.at < READ_CACHE_TTL_MS) {
+    return hit.value as Promise<T>;
+  }
+  const generation = readCacheGeneration;
+  const value = apiFetch<T>(path);
+  readCache.set(path, { at: Date.now(), generation, value });
+  value.catch(() => {
+    if (readCache.get(path)?.value === value) readCache.delete(path);
+  });
+  return value;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const mutates = init?.method !== undefined && init.method !== 'GET';
+  if (mutates) clearReadCache();
+  try {
+    return await rawApiFetch<T>(path, init);
+  } finally {
+    // Again once it lands: a read that started meanwhile saw the old data.
+    if (mutates) clearReadCache();
+  }
+}
+
+async function rawApiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   // An absolute URL (resolved against the current origin) rather than a
   // bare relative path — Node's fetch (used by jsdom in tests) has no
   // document base URI to resolve a relative path against, unlike a real
@@ -73,6 +142,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
+  // `/auth/*` answers are about signing in/out themselves (e.g. a failed
+  // Telegram sign-in is a 400, logout is a 204) — only a 401 from a
+  // private endpoint means "the session you thought you had is gone".
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    unauthorizedListeners.forEach((listener) => listener());
+  }
   if (!response.ok) {
     let body: unknown;
     try {
@@ -120,7 +195,7 @@ export function getRandomTask(params: {
 }
 
 export function listCollections(): Promise<CollectionListItem[]> {
-  return apiFetch<{ items: CollectionListItem[] }>('/collections').then((r) => r.items);
+  return cachedApiFetch<{ items: CollectionListItem[] }>('/collections').then((r) => r.items);
 }
 
 export function getVariant(id: string): Promise<VariantDetail> {
@@ -172,7 +247,7 @@ export function listTasksByNumber(
  * subjects.ts. A subject with no rows here has 0 published tasks.
  */
 export function getTaskCountsBySubject(): Promise<TaskCountsBySubjectResponse> {
-  return apiFetch('/tasks/counts');
+  return cachedApiFetch('/tasks/counts');
 }
 
 /**
@@ -196,7 +271,19 @@ export function getSimilarTasks(taskId: string, limit?: number): Promise<Similar
  * packages/shared/src/learning/streak.ts. Never computed here.
  */
 export function getStreak(): Promise<StreakResponse> {
-  return apiFetch('/progress/streak');
+  return cachedApiFetch('/progress/streak');
+}
+
+/** The account's level and XP — computed server-side from the XP ledger
+ * (docs/XP.md); the client never derives a level itself. */
+export function getXpSummary(): Promise<XpSummaryResponse> {
+  return cachedApiFetch('/progress/xp');
+}
+
+/** XP awards, newest first; pass the previous page's `nextCursor`. */
+export function getXpHistory(cursor?: string | null): Promise<XpHistoryResponse> {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  return apiFetch(`/progress/xp/history${qs}`);
 }
 
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {
@@ -206,17 +293,46 @@ export function submitAttempt(taskId: string, request: AttemptRequest): Promise<
   });
 }
 
+export type ComplaintReason = ComplaintReasonValue;
+
+/** «Сообщить об ошибке» — needs a session (401 otherwise). */
+export function reportTask(
+  taskId: string,
+  reason: ComplaintReason,
+  comment?: string,
+  context?: ComplaintContextInput,
+): Promise<{ id: string; reportId?: string; status: 'created' | 'already_reported' }> {
+  return apiFetch(`/tasks/${taskId}/complaints`, {
+    method: 'POST',
+    body: JSON.stringify({
+      reason,
+      ...(comment ? { comment } : {}),
+      ...(context ? { context } : {}),
+    }),
+  });
+}
+
 /** "Я решил" for an essay task — not a graded attempt, see EssayAckResponse's doc comment. */
 export function acknowledgeEssay(taskId: string): Promise<EssayAckResponse> {
   return apiFetch(`/tasks/${taskId}/essay-ack`, { method: 'POST' });
 }
 
 export function getMistakes(): Promise<Mistake[]> {
-  return apiFetch<{ items: Mistake[] }>('/mistakes').then((r) => r.items);
+  return cachedApiFetch<{ items: Mistake[] }>('/mistakes').then((r) => r.items);
+}
+
+/** «Убрать из ошибок»: hides one of the user's own mistakes (history and
+ * the task itself stay). Reversible with `restoreMistake`. */
+export function dismissMistake(id: string): Promise<{ id: string; status: string }> {
+  return apiFetch(`/mistakes/${id}/dismiss`, { method: 'POST' });
+}
+
+export function restoreMistake(id: string): Promise<{ id: string; status: string }> {
+  return apiFetch(`/mistakes/${id}/restore`, { method: 'POST' });
 }
 
 export function getProgressSummary(): Promise<ProgressSummary> {
-  return apiFetch('/progress/summary');
+  return cachedApiFetch('/progress/summary');
 }
 
 /**
@@ -236,7 +352,7 @@ export function getProgressByTaskNumber(params: {
   if (params.collection) query.set('collection', params.collection);
   if (params.variant) query.set('variant', params.variant);
   const qs = query.toString();
-  return apiFetch(`/progress/by-task-number${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch(`/progress/by-task-number${qs ? `?${qs}` : ''}`);
 }
 
 /**
@@ -254,7 +370,22 @@ export function getProgressByTopic(params: {
   if (params.collection) query.set('collection', params.collection);
   if (params.variant) query.set('variant', params.variant);
   const qs = query.toString();
-  return apiFetch(`/progress/by-topic${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch(`/progress/by-topic${qs ? `?${qs}` : ''}`);
+}
+
+/** The public topic list (names + published-task totals; `completed` is
+ * always 0) — what a guest's «По теме» / «Темы» are built from. */
+export function getTopics(params: {
+  subject?: string;
+  collection?: string;
+  variant?: string;
+}): Promise<ProgressByTopicResponse> {
+  const query = new URLSearchParams();
+  if (params.subject) query.set('subject', params.subject);
+  if (params.collection) query.set('collection', params.collection);
+  if (params.variant) query.set('variant', params.variant);
+  const qs = query.toString();
+  return cachedApiFetch(`/topics${qs ? `?${qs}` : ''}`);
 }
 
 /**
@@ -283,7 +414,7 @@ export function getProgressDaily(
   if (params.days) query.set('days', String(params.days));
   if (params.subject) query.set('subject', params.subject);
   const qs = query.toString();
-  return apiFetch(`/progress/daily${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch(`/progress/daily${qs ? `?${qs}` : ''}`);
 }
 
 /** All of the current user's favorited task ids — see apps/api's
@@ -367,5 +498,116 @@ export function startVariantSession(variantId: string): Promise<LearningSessionR
  * `VariantProgressItem`'s doc comment for field semantics.
  */
 export function getVariantProgress(): Promise<VariantProgressResponse> {
-  return apiFetch('/progress/variants');
+  return cachedApiFetch('/progress/variants');
+}
+
+/** «Войти через Яндекс»: a plain navigation to this API's own server-side
+ * OAuth start (state + PKCE live in an httpOnly cookie there). When Yandex
+ * ID isn't configured it lands back on /login?yandex=not_configured. */
+export function yandexLoginUrl(): string {
+  return new URL('/api/v1/auth/yandex/start', window.location.origin).toString();
+}
+
+/** «Подключить Яндекс» in the profile: the same flow, adding Yandex to the
+ * signed-in account (the account is taken from the session server-side). */
+export function yandexLinkUrl(): string {
+  return new URL('/api/v1/auth/yandex/start?link=1', window.location.origin).toString();
+}
+
+/** The VK ID "Продолжить через ВКонтакте" button's target — a plain
+ * navigation (not a fetch), since this must trigger a real browser
+ * redirect to id.vk.com. Resolves to this API's own `/auth/vk/start`,
+ * which 503s with `vk_not_configured` if the backend has no VK
+ * credentials set up yet — never a URL that only looks like it works. */
+export function vkLoginUrl(): string {
+  return new URL('/api/v1/auth/vk/start', window.location.origin).toString();
+}
+
+/** Telegram Mini App → VK ID in the external browser: prepares a one-time
+ * handoff (the claim secret stays in this WebView's httpOnly cookie) and
+ * returns the URL to open with Telegram's `openLink`. */
+export function startVkHandoff(): Promise<{ startUrl: string }> {
+  return apiFetch('/auth/vk/handoff', { method: 'POST' });
+}
+
+export type VkHandoffStatus = 'pending' | 'ok' | 'cancelled' | 'failed' | 'expired';
+
+/** Asks whether the VK sign-in started from this Mini App has finished;
+ * `ok` means this WebView now has its own session. */
+export function claimVkHandoff(): Promise<{ status: VkHandoffStatus; started?: boolean }> {
+  return apiFetch('/auth/vk/handoff/claim', { method: 'POST' });
+}
+
+/** Same as `startVkHandoff`, for Yandex ID opened from the Mini App. */
+export function startYandexHandoff(): Promise<{ startUrl: string }> {
+  return apiFetch('/auth/yandex/handoff', { method: 'POST' });
+}
+
+/** Same as `claimVkHandoff`, for Yandex ID. */
+export function claimYandexHandoff(): Promise<{ status: VkHandoffStatus; started?: boolean }> {
+  return apiFetch('/auth/yandex/handoff/claim', { method: 'POST' });
+}
+
+/** The current session's user, or `null` when signed out — never
+ * throws for "not logged in" (see /auth/me's always-200 contract),
+ * only for an actual network/server failure. */
+export function getCurrentUser(): Promise<MeResponse> {
+  return apiFetch('/auth/me');
+}
+
+export function logout(): Promise<void> {
+  return apiFetch('/auth/logout', { method: 'POST' });
+}
+
+// ---------------------------------------------------------------- profile
+
+/** Sets the user's own display name; `null` (or blank) goes back to the
+ * name the sign-in provider supplied. Resolves to the refreshed user. */
+export function updateProfileName(displayName: string | null): Promise<{ user: AuthUser }> {
+  return apiFetch('/me/profile', { method: 'PATCH', body: JSON.stringify({ displayName }) });
+}
+
+/** Uploads the (already downsized) avatar as raw bytes. The server decides
+ * what the file really is; the browser's `type` is only a hint. */
+export function uploadAvatar(image: Blob): Promise<{ user: AuthUser }> {
+  return apiFetch('/me/avatar', {
+    method: 'PUT',
+    body: image,
+    headers: { 'content-type': image.type },
+  });
+}
+
+export function deleteAvatar(): Promise<{ user: AuthUser }> {
+  return apiFetch('/me/avatar', { method: 'DELETE' });
+}
+
+// -------------------------------------------------------- sign-in methods
+
+export function getIdentities(): Promise<IdentitiesResponse> {
+  return apiFetch('/me/identities');
+}
+
+export function unlinkIdentity(provider: IdentityProvider): Promise<IdentitiesResponse> {
+  return apiFetch(`/me/identities/${provider}`, { method: 'DELETE' });
+}
+
+export function linkTelegram(
+  initData: string,
+): Promise<{ status: 'linked' | 'already_linked'; user: AuthUser }> {
+  return apiFetch('/me/identities/telegram', {
+    method: 'POST',
+    body: JSON.stringify({ initData }),
+  });
+}
+
+/** Navigation target that ADDS VK to the signed-in account (a full-page
+ * redirect, like the VK sign-in button). The server reads the account from
+ * the session, not from this URL. */
+export function vkLinkUrl(): string {
+  return new URL('/api/v1/auth/vk/start?link=1', window.location.origin).toString();
+}
+
+/** Signs in (or registers) with the signed Telegram Mini App launch data. */
+export function loginWithTelegram(initData: string): Promise<{ user: AuthUser; created: boolean }> {
+  return apiFetch('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) });
 }

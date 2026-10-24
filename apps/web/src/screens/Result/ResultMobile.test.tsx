@@ -125,6 +125,15 @@ describe('ResultMobile — correct state', () => {
     expect(screen.getByText(EXPLANATION)).toBeInTheDocument();
   });
 
+  it('still reveals the explanation when solutionSteps is [] (not just undefined/null) — Дощинский вариант 14-18 bugfix', async () => {
+    vi.mocked(api.getTask).mockResolvedValue({ ...taskWithSolution, solutionSteps: [] });
+    const user = userEvent.setup();
+    renderResult(true);
+    await screen.findByText('Правильно!');
+    await user.click(screen.getByRole('button', { name: /Показать решение/ }));
+    expect(screen.getByText(EXPLANATION)).toBeInTheDocument();
+  });
+
   it('(J) does not render the canonical solution block for a task without one — existing flow unchanged', async () => {
     const user = userEvent.setup();
     renderResult(true);
@@ -238,6 +247,52 @@ describe('ResultMobile — incorrect state', () => {
   it('shows the task number via the meta chip on the task chrome', async () => {
     renderResult(false);
     expect(await screen.findByText(`Задание №${TASK_NUMBER}`)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Bugfix: `solutionSteps` can be authored as a short per-row/per-part
+ * recap, much terser than `explanationMd` — e.g. most Дощинский ЕГЭ
+ * 2027 Вариант 2-13 орфография/пунктуация tasks. "Показать решение"
+ * must reveal the full `explanationMd` in that case, not the terse
+ * steps (see taskAdapter.ts's `hasDetailedExplanation`).
+ */
+describe('ResultMobile — full explanationMd shown over terse solutionSteps ("Показать решение")', () => {
+  const FULL_EXPLANATION =
+    'Ряд 1: слово1 (корень X, буква А — проверочное слово Y), слово2 (словарное, буква А). Везде А, ряд подходит.';
+  const terseTask = {
+    ...taskWithSolution,
+    explanationMd: FULL_EXPLANATION,
+    solutionSteps: [
+      { title: 'Проверяем ряд 1', explanation: 'Буквы совпадают: А, А.' },
+      { title: 'Проверяем ряд 2', explanation: 'Буквы не совпадают.' },
+    ],
+  };
+
+  it('reveals the full explanationMd, not the terse per-step summaries', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getTask).mockResolvedValue(terseTask);
+    renderResult(false);
+    await user.click(await screen.findByRole('button', { name: /Показать решение/ }));
+    expect(await screen.findByText(FULL_EXPLANATION)).toBeInTheDocument();
+    expect(screen.queryByText('Буквы совпадают: А, А.')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the real steps when explanationMd is empty, even with solutionSteps present', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getTask).mockResolvedValue({ ...terseTask, explanationMd: '' });
+    renderResult(false);
+    await user.click(await screen.findByRole('button', { name: /Показать решение/ }));
+    expect(await screen.findByText('Буквы совпадают: А, А.')).toBeInTheDocument();
+    expect(await screen.findByText('Буквы не совпадают.')).toBeInTheDocument();
+  });
+
+  it('never shows the explanation twice when steps is just the explanation fallback (no real solutionSteps)', async () => {
+    const user = userEvent.setup();
+    renderResult(false); // taskWithSolution: no solutionSteps, EXPLANATION only
+    await user.click(await screen.findByRole('button', { name: /Показать решение/ }));
+    const matches = await screen.findAllByText(EXPLANATION);
+    expect(matches).toHaveLength(1);
   });
 });
 
@@ -576,7 +631,8 @@ describe('ResultMobile — "К списку заданий №N" (navigation to 
   it('navigates to По номерам with this taskNumber pre-selected', async () => {
     function ByNumberOverlayDetail() {
       const { overlay } = useNavigation();
-      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      if (overlay?.screen !== 'subject' || overlay.initialMode !== 'byNumber')
+        return <p data-testid="by-number">none</p>;
       return (
         <p data-testid="by-number">
           byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}

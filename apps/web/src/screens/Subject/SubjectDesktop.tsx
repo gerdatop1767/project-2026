@@ -7,9 +7,12 @@ import {
   getProgressByTopic,
   getProgressSummary,
   getTaskCountsBySubject,
+  getTopics,
   listCollections,
 } from '../../lib/api.js';
 import { getSubjectContent, type SubjectModeId } from '../../data/subjectContent.js';
+import { ByNumberPanel } from './ByNumberPanel.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { BackRow, type BackRowProps } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Button } from '../../ui/Button/Button.js';
@@ -20,7 +23,8 @@ import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { FavoritesList } from '../../ui/Favorites/FavoritesList.js';
 import { clsx } from '../../lib/clsx.js';
-import { FadeIn } from '../../ui/motion/motion.js';
+import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
+import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectDesktop.module.css';
 
 /** Sentinel Select value for "Общий банк" (no collection filter) — Select's
@@ -45,12 +49,14 @@ export interface SubjectDesktopProps {
   /** Opens straight into this mode tab (e.g. Result's "К списку
    * заданий" wants "По номерам") instead of the default "Темы". */
   initialMode?: SubjectModeId;
+  /** With `initialMode: 'byNumber'`: the number to pre-select. */
+  initialTaskNumber?: number;
 }
 
 type TopicProgressItem = ProgressByTopicResponse['items'][number];
 
 const modes: readonly {
-  id: SubjectModeId | 'byNumber';
+  id: SubjectModeId;
   label: string;
   caption: string;
   icon: IconName;
@@ -81,12 +87,19 @@ export function SubjectDesktop({
   from,
   collectionSlug,
   initialMode,
+  initialTaskNumber,
 }: SubjectDesktopProps) {
   const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const content = getSubjectContent(subject.id);
 
-  const [mode, setMode] = useState<SubjectModeId>(initialMode ?? 'topics');
+  const { isGuest, requireAccount } = useAccountGate();
+  // A guest's progress isn't kept: "—", never a loading dots forever.
+  const pending = isGuest ? '—' : '···';
+  // Избранное lives in an account — a guest starts on Темы instead.
+  const [mode, setMode] = useState<SubjectModeId>(
+    isGuest && initialMode === 'favorites' ? 'topics' : (initialMode ?? 'topics'),
+  );
   const [selectedTopic, setSelectedTopic] = useState<TopicProgressItem | null>(null);
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   const [collectionsLoaded, setCollectionsLoaded] = useState(false);
@@ -108,19 +121,21 @@ export function SubjectDesktop({
 
   useEffect(() => {
     let cancelled = false;
-    void getProgressSummary()
-      .then((data) => {
-        if (cancelled) return;
-        const entry = data.bySubject.find((s) => s.subjectId === subject.id);
-        setSolved(entry?.uniqueSolved ?? 0);
-        setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSolved(0);
-          setAccuracyPercent(0);
-        }
-      });
+    // Solved/accuracy are personal — a guest has none to load.
+    if (!isGuest)
+      void getProgressSummary()
+        .then((data) => {
+          if (cancelled) return;
+          const entry = data.bySubject.find((s) => s.subjectId === subject.id);
+          setSolved(entry?.uniqueSolved ?? 0);
+          setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSolved(0);
+            setAccuracyPercent(0);
+          }
+        });
     void getTaskCountsBySubject()
       .then((res) => {
         if (cancelled) return;
@@ -133,7 +148,7 @@ export function SubjectDesktop({
     return () => {
       cancelled = true;
     };
-  }, [subject.id]);
+  }, [subject.id, isGuest]);
 
   // Real collections for this subject — "Источник" always offers "Общий
   // банк" plus whatever collections/variants exist, generically, never a
@@ -169,7 +184,9 @@ export function SubjectDesktop({
   // current scope simply doesn't appear rather than showing a fake 0/0.
   useEffect(() => {
     let cancelled = false;
-    void getProgressByTopic({
+    // A guest gets the public topic list (same shape, nothing personal).
+    const loadTopics = isGuest ? getTopics : getProgressByTopic;
+    void loadTopics({
       subject: subject.id,
       collection: effectiveTopicsSlug ?? undefined,
     })
@@ -182,7 +199,7 @@ export function SubjectDesktop({
     return () => {
       cancelled = true;
     };
-  }, [subject.id, effectiveTopicsSlug]);
+  }, [subject.id, effectiveTopicsSlug, isGuest]);
 
   // Where Task's back arrow returns — this subject page in whichever
   // mode/source is currently active (audit Block 3), so Subject → Task
@@ -245,12 +262,7 @@ export function SubjectDesktop({
           className={styles.heroIllustration}
           style={{ ['--subject-accent' as string]: subject.color }}
         >
-          <img
-            src={`/branding/v2/subjects/${subject.id}.png`}
-            alt=""
-            aria-hidden="true"
-            className={styles.heroImg}
-          />
+          <SubjectIcon subjectId={subject.id} selected parallax />
         </div>
         <div className={styles.heroText}>
           <h1 className="text-h1">{subject.shortName}</h1>
@@ -258,11 +270,12 @@ export function SubjectDesktop({
           <div className={styles.heroStats}>
             <span className={styles.heroStat}>
               <Icon name="target" size={16} />
-              <strong>{solved ?? '···'}</strong> заданий решено
+              <strong>{solved ?? pending}</strong> заданий решено
             </span>
             <span className={styles.heroStat}>
               <Icon name="progress" size={16} />
-              <strong>{accuracyPercent !== null ? `${accuracyPercent}%` : '···'}</strong> средняя точность
+              <strong>{accuracyPercent !== null ? `${accuracyPercent}%` : pending}</strong> средняя
+              точность
             </span>
           </div>
         </div>
@@ -274,16 +287,9 @@ export function SubjectDesktop({
             key={item.id}
             type="button"
             className={clsx(styles.modeButton, mode === item.id && styles.modeButtonActive)}
+            aria-pressed={mode === item.id}
             onClick={() => {
-              if (item.id === 'byNumber') {
-                navigate({
-                  screen: 'trainingByNumber',
-                  subjectId: subject.id,
-                  collectionSlug: effectiveTopicsSlug ?? undefined,
-                  from: currentReturnTo(),
-                });
-                return;
-              }
+              if (item.id === 'favorites' && !requireAccount('favorites')) return;
               setMode(item.id);
               setSelectedTopic(null);
             }}
@@ -299,37 +305,53 @@ export function SubjectDesktop({
 
       <div className={styles.grid}>
         <div className={styles.main}>
-          {mode === 'topics' && !selectedTopic && (
-            <TopicsList
-              topics={topics}
-              collections={collections}
-              selectedSlug={effectiveTopicsSlug}
-              onSourceChange={setTopicsSlug}
-              onSelect={setSelectedTopic}
-            />
-          )}
-          {mode === 'topics' && selectedTopic && (
-            <TopicDetail
-              subjectName={subject.shortName}
-              topic={selectedTopic}
-              onStart={() => startTopicTraining(selectedTopic)}
-            />
-          )}
-          {mode === 'variants' && (
-            <VariantBuilder
-              taskNumberCount={content.taskNumberCount}
-              collections={collections}
-              onStart={startVariant}
-            />
-          )}
-          {mode === 'favorites' && (
-            <Card>
-              <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
-                Избранное
-              </p>
-              <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
-            </Card>
-          )}
+          <ContentSwap key={selectedTopic ? 'topicDetail' : mode}>
+            {mode === 'topics' && !selectedTopic && (
+              <TopicsList
+                topics={topics}
+                collections={collections}
+                selectedSlug={effectiveTopicsSlug}
+                onSourceChange={setTopicsSlug}
+                onSelect={setSelectedTopic}
+              />
+            )}
+            {mode === 'topics' && selectedTopic && (
+              <TopicDetail
+                subjectName={subject.shortName}
+                topic={selectedTopic}
+                onStart={() => startTopicTraining(selectedTopic)}
+              />
+            )}
+            {mode === 'byNumber' && (
+              <ByNumberPanel
+                subjectId={subject.id}
+                collections={collections}
+                collectionSlug={collectionSlug}
+                initialTaskNumber={initialTaskNumber}
+                returnTo={(slug) => ({
+                  screen: 'subject',
+                  subjectId: subject.id,
+                  collectionSlug: slug,
+                  initialMode: 'byNumber',
+                })}
+              />
+            )}
+            {mode === 'variants' && (
+              <VariantBuilder
+                taskNumberCount={content.taskNumberCount}
+                collections={collections}
+                onStart={startVariant}
+              />
+            )}
+            {mode === 'favorites' && (
+              <Card>
+                <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
+                  Избранное
+                </p>
+                <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
+              </Card>
+            )}
+          </ContentSwap>
         </div>
 
         <div className={styles.sidebar}>
@@ -337,11 +359,13 @@ export function SubjectDesktop({
             <p className="text-h3">Твой прогресс</p>
             <div className={styles.progressRing}>
               <CircularProgress value={accuracyPercent ?? 0} size={110} strokeWidth={10}>
-                <span className="text-h2">{accuracyPercent !== null ? `${accuracyPercent}%` : '···'}</span>
+                <span className="text-h2">
+                  {accuracyPercent !== null ? `${accuracyPercent}%` : pending}
+                </span>
               </CircularProgress>
             </div>
             <p className="text-body-sm text-secondary" style={{ textAlign: 'center' }}>
-              {solved ?? '···'} из {totalTasks ?? '—'} заданий решено
+              {solved ?? pending} из {totalTasks ?? '—'} заданий решено
             </p>
           </Card>
 

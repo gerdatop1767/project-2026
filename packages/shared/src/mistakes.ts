@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const mistakeStatusSchema = z.enum(['open', 'resolved']);
+export const mistakeStatusSchema = z.enum(['open', 'resolved', 'dismissed']);
 export type MistakeStatus = z.infer<typeof mistakeStatusSchema>;
 
 export const mistakeSchema = z.object({

@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
+import { trackSubject } from '../../lib/analytics.js';
 import { useNavigation } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
 import { getSubjectContent } from '../../data/subjectContent.js';
 import {
   getProgressByTopic,
   getRandomTask,
+  getTopics,
+  getVariant,
   listCollections,
   startLearningSession,
   startVariantSession,
 } from '../../lib/api.js';
+import { useAccountGate, type AccountFeature } from '../../lib/accountGate.js';
 import type { CollectionListItem, ProgressByTopicResponse } from '@zybrilka/shared';
 import {
   applyLearningSessionResponse,
@@ -23,7 +26,9 @@ import { Input } from '../../ui/Input/Input.js';
 import { Select } from '../../ui/Select/Select.js';
 import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { clsx } from '../../lib/clsx.js';
-import { SlideUp } from '../../ui/motion/motion.js';
+import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
+import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
+import { TopicPicker } from '../../ui/Training/TopicPicker.js';
 import styles from './Training.module.css';
 
 type TopicItem = ProgressByTopicResponse['items'][number];
@@ -82,16 +87,11 @@ const amountOptions: readonly { id: AmountId; icon: IconName; label: string }[] 
   { id: 'custom', icon: 'edit', label: 'Своё число' },
 ];
 
-const subjectSelectOptions = subjects.map((subject) => ({
-  value: subject.id,
-  label: subject.name,
-}));
-
 /**
  * Training (Design Spec Section 7): subject → mode → the selected
  * mode's own settings, then into Task. No "Быстрый старт" shortcuts —
  * those live one level up, as the three real 🎲/🔄/🔢 entry points
- * already offered elsewhere (Subject's own tabs, TrainingByNumber).
+ * already offered elsewhere (the Subject page's own modes, incl. По номерам).
  *
  * "По теме" is wired to real topics (`GET /progress/by-topic`, the
  * same data Subject's "Темы" tab already uses) with independent
@@ -102,8 +102,29 @@ const subjectSelectOptions = subjects.map((subject) => ({
  * real Mistakes screen. "Умная тренировка" is untouched — the real
  * backend learning session, its own `limit`.
  */
+/** Modes built from a personal history — a guest is told they need an account. */
+const accountModes: Partial<Record<TrainingMode['id'], AccountFeature>> = {
+  mistakes: 'mistakes',
+  smart: 'smartTraining',
+};
+
+/** The EGE numbers to offer inside a topic: the ones its tasks really
+ * have (from the API), or — for an older API response without them —
+ * every number of the subject. */
+function topicNumbersFor(topic: TopicItem | null, subjectId: string): number[] {
+  if (topic?.taskNumbers && topic.taskNumbers.length > 0) return topic.taskNumbers;
+  return Array.from({ length: getSubjectContent(subjectId).taskNumberCount }, (_, i) => i + 1);
+}
+
 export function Training() {
   const { navigate } = useNavigation();
+  const { isGuest, requireAccount } = useAccountGate();
+
+  /** «Только нерешённые» needs to know what you solved — an account. */
+  function toggleUnseen(on: boolean, set: (value: boolean) => void) {
+    if (!on && !requireAccount('unseen')) return;
+    set(!on);
+  }
   const { setSession } = useLearningSessionContext();
   const [subjectId, setSubjectId] = useState('math');
   const [modeId, setModeId] = useState<TrainingMode['id']>('topic');
@@ -153,7 +174,9 @@ export function Training() {
   // tab already uses) — never a static/fake list.
   useEffect(() => {
     let cancelled = false;
-    void getProgressByTopic({ subject: subjectId, collection: collectionSlug ?? undefined })
+    // A guest gets the public topic list (same shape, nothing personal).
+    const loadTopics = isGuest ? getTopics : getProgressByTopic;
+    void loadTopics({ subject: subjectId, collection: collectionSlug ?? undefined })
       .then((res) => {
         if (!cancelled) setTopics(res.items);
       })
@@ -163,13 +186,20 @@ export function Training() {
     return () => {
       cancelled = true;
     };
-  }, [subjectId, collectionSlug]);
+  }, [subjectId, collectionSlug, isGuest]);
 
   function selectSubject(id: string) {
+    trackSubject(id);
     setSubjectId(id);
     setTopicId(null);
     setTopicNumbers(new Set());
     setVariantId(null);
+  }
+
+  function selectTopic(id: string | null) {
+    setTopicId(id);
+    // Numbers belong to a topic: a new topic starts with none picked.
+    setTopicNumbers(new Set());
   }
 
   function handleSelectCollection(slug: string) {
@@ -187,6 +217,7 @@ export function Training() {
   }
 
   const selectedCollection = collections.find((c) => c.collection.slug === collectionSlug) ?? null;
+  const selectedTopic = topics.find((t) => t.topicId === topicId) ?? null;
 
   /** Which real variant to open: manual pick when both toggles are off,
    * otherwise picked among `selectedCollection.variants` — 🎲 widens
@@ -246,6 +277,30 @@ export function Training() {
         }
         if (!resolved) {
           setStartError('Выбери вариант, чтобы начать.');
+          return;
+        }
+        // A guest: the variant's own tasks, in order, in the normal task
+        // screen — the tracked variant session needs an account.
+        if (isGuest) {
+          const detail = await getVariant(resolved);
+          const first = detail.tasks[0];
+          if (!first) {
+            setStartError('Не удалось начать вариант — попробуй ещё раз.');
+            return;
+          }
+          navigate({
+            screen: 'task',
+            subjectId: first.task.subjectId,
+            taskNumber: first.task.taskNumber,
+            taskId: first.task.id,
+            variantId: resolved,
+            collectionSlug: collectionSlug ?? undefined,
+            customOrderedTasks: detail.tasks.map((t) => ({
+              taskId: t.task.id,
+              taskNumber: t.task.taskNumber,
+            })),
+            returnTo: { screen: 'training' },
+          });
           return;
         }
         // A real VARIANT session (Statistics 2.0's "Статистика
@@ -327,14 +382,15 @@ export function Training() {
 
   return (
     <SlideUp className={styles.stack}>
-      <h1 className="text-h1">Тренировка</h1>
-
-      <Select
-        label="Предмет"
-        options={subjectSelectOptions}
-        value={subjectId}
-        onChange={selectSubject}
-      />
+      <header className={styles.header}>
+        <h1 className="text-h1">Тренировка</h1>
+        <SubjectSelect
+          label="Предмет"
+          value={subjectId}
+          onChange={selectSubject}
+          className={styles.subject}
+        />
+      </header>
 
       <div>
         <SectionHeader title="Режим тренировки" />
@@ -347,7 +403,12 @@ export function Training() {
                 type="button"
                 className={clsx(styles.modeCard, selected && styles.modeCardSelected)}
                 aria-pressed={selected}
-                onClick={() => setModeId(mode.id)}
+                data-locked={(isGuest && accountModes[mode.id] !== undefined) || undefined}
+                onClick={() => {
+                  const feature = accountModes[mode.id];
+                  if (feature && !requireAccount(feature)) return;
+                  setModeId(mode.id);
+                }}
               >
                 <span
                   className={styles.modeIcon}
@@ -359,9 +420,14 @@ export function Training() {
                   <span className="text-body">{mode.label}</span>
                   <span className="text-body-sm text-secondary">{mode.description}</span>
                 </span>
+                {isGuest && accountModes[mode.id] && (
+                  <span className={styles.modeLock} aria-label="нужен вход">
+                    <Icon name="lock" size={16} />
+                  </span>
+                )}
                 {selected && (
                   <span className={styles.modeCheck}>
-                    <Icon name="check" size={20} />
+                    <Icon name="check" size={14} />
                   </span>
                 )}
               </button>
@@ -370,181 +436,187 @@ export function Training() {
         </div>
       </div>
 
-      {(modeId === 'topic' || modeId === 'variant') && collections.length > 0 && (
-        <div>
-          <SectionHeader title="Сборник" />
-          <Select
-            options={collections.map((c) => ({
-              value: c.collection.slug,
-              label: c.collection.title,
-            }))}
-            value={collectionSlug}
-            onChange={handleSelectCollection}
-            placeholder="Все источники"
-          />
-        </div>
-      )}
-
-      {modeId === 'variant' && (
-        <>
-          <div className={styles.chipRow}>
-            <Chip icon="dice" selected={variantRandom} onClick={() => setVariantRandom((v) => !v)}>
-              Случайный вариант
-            </Chip>
-            <Chip icon="retry" selected={variantUnseen} onClick={() => setVariantUnseen((v) => !v)}>
-              Только нерешённые
-            </Chip>
-          </div>
-
-          {selectedCollection && selectedCollection.variants.length > 0 && (
-            <div>
-              <SectionHeader title="Вариант" />
-              <div className={styles.chipRow}>
-                {selectedCollection.variants.map((v) => (
-                  <Chip
-                    key={v.id}
-                    selected={v.id === variantId}
-                    onClick={() => setVariantId(v.id)}
-                    disabled={variantRandom || variantUnseen}
-                  >
-                    Вариант {v.variantNumber}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {modeId === 'topic' && (
-        <>
+      <ContentSwap key={modeId}>
+        {(modeId === 'topic' || modeId === 'variant') && collections.length > 0 && (
           <div>
-            <SectionHeader title="Тема" />
-            {topics.length === 0 ? (
-              <p className="text-body-sm text-secondary">
-                В этом источнике пока нет тем — попробуй сменить «Сборник».
-              </p>
-            ) : (
-              <div className={styles.chipRow}>
-                {topics.map((topic) => (
-                  <Chip
-                    key={topic.topicId}
-                    selected={topic.topicId === topicId}
-                    onClick={() => setTopicId(topic.topicId)}
-                  >
-                    {topic.topicName}
-                  </Chip>
-                ))}
-              </div>
-            )}
+            <SectionHeader title="Сборник" />
+            <Select
+              options={collections.map((c) => ({
+                value: c.collection.slug,
+                label: c.collection.title,
+              }))}
+              value={collectionSlug}
+              onChange={handleSelectCollection}
+              placeholder="Все источники"
+            />
           </div>
+        )}
 
-          {topicId && (
-            <>
-              <div>
-                <SectionHeader title="Номера внутри темы (необязательно)" />
-                <div className={styles.chipRow}>
-                  {Array.from(
-                    { length: getSubjectContent(subjectId).taskNumberCount },
-                    (_, i) => i + 1,
-                  ).map((number) => (
-                    <Chip
-                      key={number}
-                      selected={topicNumbers.has(number)}
-                      onClick={() => toggleTopicNumber(number)}
-                    >
-                      №{number}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <SectionHeader title="Режим выборки" />
-                <div className={styles.chipRow}>
-                  <Chip
-                    icon="dice"
-                    selected={topicRandom}
-                    onClick={() => setTopicRandom((v) => !v)}
-                  >
-                    Случайное
-                  </Chip>
-                  <Chip
-                    icon="retry"
-                    selected={topicUnseen}
-                    onClick={() => setTopicUnseen((v) => !v)}
-                  >
-                    Только нерешённые
-                  </Chip>
-                </div>
-              </div>
-
-              {topicNumbers.size === 0 && (
-                <div>
-                  <SectionHeader title="Количество заданий" />
-                  <div className={styles.chipRow}>
-                    {amountOptions.map((option) => (
-                      <Chip
-                        key={option.id}
-                        icon={option.icon}
-                        selected={amount === option.id}
-                        onClick={() => setAmount(option.id)}
-                      >
-                        {option.label}
-                      </Chip>
-                    ))}
-                  </div>
-                  {amount === 'custom' && (
-                    <Input
-                      label="Сколько заданий"
-                      placeholder="Например, 15"
-                      inputMode="numeric"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value.replace(/\D/g, ''))}
-                      style={{ marginTop: 'var(--space-2)' }}
-                    />
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      {modeId === 'smart' && (
-        <>
-          <div>
-            <SectionHeader title="Режим выборки" />
+        {modeId === 'variant' && (
+          <>
             <div className={styles.chipRow}>
-              <Chip icon="dice" selected={smartRandom} onClick={() => setSmartRandom((v) => !v)}>
-                Случайное
+              <Chip
+                icon="dice"
+                selected={variantRandom}
+                onClick={() => setVariantRandom((v) => !v)}
+              >
+                Случайный вариант
               </Chip>
               <Chip
                 icon="retry"
-                selected={smartUnseen}
-                onClick={() => setSmartUnseen((v) => !v)}
+                selected={variantUnseen}
+                onClick={() => toggleUnseen(variantUnseen, setVariantUnseen)}
               >
                 Только нерешённые
               </Chip>
             </div>
-          </div>
 
-          <div>
-            <SectionHeader title="Количество заданий" />
-            <div className={styles.chipRow}>
-              {smartQuantityOptions.map((option) => (
-                <Chip
-                  key={option}
-                  selected={option === smartQuantity}
-                  onClick={() => setSmartQuantity(option)}
-                >
-                  {option}
+            {selectedCollection && selectedCollection.variants.length > 0 && (
+              <div>
+                <SectionHeader title="Вариант" />
+                <div className={styles.chipRow}>
+                  {selectedCollection.variants.map((v) => (
+                    <Chip
+                      key={v.id}
+                      selected={v.id === variantId}
+                      onClick={() => setVariantId(v.id)}
+                      disabled={variantRandom || variantUnseen}
+                    >
+                      Вариант {v.variantNumber}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {modeId === 'topic' && (
+          <>
+            <div>
+              <SectionHeader title="Тема" />
+              {topics.length === 0 ? (
+                <p className="text-body-sm text-secondary">
+                  В этом источнике пока нет тем — попробуй сменить «Сборник».
+                </p>
+              ) : (
+                <TopicPicker
+                  key={`${subjectId}:${collectionSlug ?? ''}`}
+                  subjectId={subjectId}
+                  topics={topics}
+                  selectedId={topicId}
+                  onSelect={selectTopic}
+                  showProgress={!isGuest}
+                />
+              )}
+            </div>
+
+            {topicId && (
+              <>
+                <div>
+                  <SectionHeader title="Номера внутри темы (необязательно)" />
+                  <div className={styles.chipRow}>
+                    {topicNumbersFor(selectedTopic, subjectId).map((number) => (
+                      <Chip
+                        key={number}
+                        selected={topicNumbers.has(number)}
+                        onClick={() => toggleTopicNumber(number)}
+                      >
+                        №{number}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={styles.settingsRow}>
+                  <div>
+                    <SectionHeader title="Режим выборки" />
+                    <div className={styles.chipRow}>
+                      <Chip
+                        icon="dice"
+                        selected={topicRandom}
+                        onClick={() => setTopicRandom((v) => !v)}
+                      >
+                        Случайное
+                      </Chip>
+                      <Chip
+                        icon="retry"
+                        selected={topicUnseen}
+                        onClick={() => toggleUnseen(topicUnseen, setTopicUnseen)}
+                      >
+                        Только нерешённые
+                      </Chip>
+                    </div>
+                  </div>
+
+                  {topicNumbers.size === 0 && (
+                    <div>
+                      <SectionHeader title="Количество заданий" />
+                      <div className={styles.chipRow}>
+                        {amountOptions.map((option) => (
+                          <Chip
+                            key={option.id}
+                            icon={option.icon}
+                            selected={amount === option.id}
+                            onClick={() => setAmount(option.id)}
+                          >
+                            {option.label}
+                          </Chip>
+                        ))}
+                      </div>
+                      {amount === 'custom' && (
+                        <Input
+                          label="Сколько заданий"
+                          placeholder="Например, 15"
+                          inputMode="numeric"
+                          value={customAmount}
+                          onChange={(e) => setCustomAmount(e.target.value.replace(/\D/g, ''))}
+                          style={{ marginTop: 'var(--space-2)' }}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {modeId === 'smart' && (
+          <div className={styles.settingsRow}>
+            <div>
+              <SectionHeader title="Режим выборки" />
+              <div className={styles.chipRow}>
+                <Chip icon="dice" selected={smartRandom} onClick={() => setSmartRandom((v) => !v)}>
+                  Случайное
                 </Chip>
-              ))}
+                <Chip
+                  icon="retry"
+                  selected={smartUnseen}
+                  onClick={() => toggleUnseen(smartUnseen, setSmartUnseen)}
+                >
+                  Только нерешённые
+                </Chip>
+              </div>
+            </div>
+
+            <div>
+              <SectionHeader title="Количество заданий" />
+              <div className={styles.chipRow}>
+                {smartQuantityOptions.map((option) => (
+                  <Chip
+                    key={option}
+                    selected={option === smartQuantity}
+                    onClick={() => setSmartQuantity(option)}
+                  >
+                    {option}
+                  </Chip>
+                ))}
+              </div>
             </div>
           </div>
-        </>
-      )}
+        )}
+      </ContentSwap>
 
       {startError && (
         <p className="text-body-sm" style={{ color: 'var(--color-error)' }}>
@@ -552,9 +624,11 @@ export function Training() {
         </p>
       )}
 
-      <Button variant="primary" fullWidth loading={starting} onClick={() => void handleStart()}>
-        Начать тренировку
-      </Button>
+      <div className={styles.startBar}>
+        <Button variant="primary" fullWidth loading={starting} onClick={() => void handleStart()}>
+          Начать тренировку
+        </Button>
+      </div>
     </SlideUp>
   );
 }
