@@ -8,8 +8,13 @@ import {
   helpText,
   iosGuideCaption,
   iosGuideKeyboard,
+  keyboardButtonOf,
   mainKeyboard,
+  mainMenuText,
+  persistentKeyboard,
   plainTextReply,
+  splitCaption,
+  supportText,
   unknownCommandText,
   welcomeBackText,
   welcomeCaption,
@@ -65,19 +70,39 @@ function commandOf(text: string): string | null {
   return match ? match[1]!.toLowerCase() : null;
 }
 
+/**
+ * The main menu: the site and iOS buttons (inline). Sent right after the
+ * greeting on /start, and again by «📚 Меню» or /menu — one implementation.
+ */
+async function sendMainMenu(ctx: BotContext, chatId: number) {
+  await ctx.telegram.sendMessage(chatId, mainMenuText, {
+    parseMode: 'HTML',
+    replyMarkup: mainKeyboard(ctx.siteUrl),
+  });
+}
+
+/**
+ * /start: the greeting carries the persistent «📚 Меню / 💬 Поддержка»
+ * keyboard (a message has room for one keyboard only, so the inline menu
+ * follows as the next message). The first time it is the welcome photo
+ * with the greeting as its caption; afterwards a short welcome back. Each
+ * /start sends the same two messages — nothing piles up or repeats.
+ */
 async function sendWelcome(ctx: BotContext, chatId: number, first: boolean) {
-  const keyboard = mainKeyboard(ctx.siteUrl);
   if (first) {
-    await ctx.photos.send(ctx.telegram, chatId, 'welcome', welcomeCaption, {
+    const { caption, rest } = splitCaption(welcomeCaption);
+    await ctx.photos.send(ctx.telegram, chatId, 'welcome', caption, {
       parseMode: 'HTML',
-      replyMarkup: keyboard,
+      replyMarkup: persistentKeyboard,
     });
+    if (rest) await ctx.telegram.sendMessage(chatId, rest, { parseMode: 'HTML' });
   } else {
     await ctx.telegram.sendMessage(chatId, welcomeBackText, {
       parseMode: 'HTML',
-      replyMarkup: keyboard,
+      replyMarkup: persistentKeyboard,
     });
   }
+  await sendMainMenu(ctx, chatId);
 }
 
 async function sendIosGuide(ctx: BotContext, chatId: number) {
@@ -92,6 +117,8 @@ async function handleMessage(ctx: BotContext, message: TelegramMessage) {
   if (message.chat.type !== 'private' || !message.from || message.from.is_bot) return;
   const chatId = message.chat.id;
   const command = message.text ? commandOf(message.text) : null;
+  // A tap on the bottom keyboard arrives as its button's text.
+  const button = !command && message.text ? keyboardButtonOf(message.text) : null;
   if (command === 'start') {
     const { first } = await recordStart(ctx.db, chatId, message.from.id);
     await sendWelcome(ctx, chatId, first);
@@ -99,10 +126,16 @@ async function handleMessage(ctx: BotContext, message: TelegramMessage) {
     await sendIosGuide(ctx, chatId);
   } else if (command === 'help') {
     await ctx.telegram.sendMessage(chatId, helpText, { replyMarkup: mainKeyboard(ctx.siteUrl) });
+  } else if (command === 'menu' || button === 'menu') {
+    await sendMainMenu(ctx, chatId);
+  } else if (command === 'support' || button === 'support') {
+    await ctx.telegram.sendMessage(chatId, supportText, { replyMarkup: persistentKeyboard });
   } else if (command) {
-    await ctx.telegram.sendMessage(chatId, unknownCommandText);
+    await ctx.telegram.sendMessage(chatId, unknownCommandText, { replyMarkup: persistentKeyboard });
   } else {
-    await ctx.telegram.sendMessage(chatId, plainTextReply);
+    // Replies without inline buttons carry the bottom keyboard, so a chat
+    // started before it existed gets it without an extra message.
+    await ctx.telegram.sendMessage(chatId, plainTextReply, { replyMarkup: persistentKeyboard });
   }
 }
 
