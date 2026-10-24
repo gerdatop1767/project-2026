@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-import { createTelegramClient, TelegramApiError } from './client.js';
+import { createServer, type Server, type Socket } from 'node:net';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createTelegramClient, networkCause, TelegramApiError } from './client.js';
 
 const TOKEN = '123456:SECRET-token_value';
 
@@ -121,5 +122,135 @@ describe('Telegram client', () => {
       'https://example.org',
     );
     expect(form.get('photo')).toBeInstanceOf(Blob);
+  });
+
+  it('a 5xx is a network failure that may have been acted on', async () => {
+    const client = createTelegramClient({
+      token: TOKEN,
+      fetch: respond(502, { ok: false, description: 'Bad Gateway' }),
+    });
+    const error = (await client.sendMessage(1, 'x').catch((e: unknown) => e)) as TelegramApiError;
+    expect(error.network).toEqual({ code: 'HTTP_502', timeout: false, maybeDelivered: true });
+  });
+});
+
+/**
+ * Real fetch against local sockets that misbehave the way a network can —
+ * the error shapes are Node's own, not hand-made ones.
+ */
+describe('Telegram client: real network failures', () => {
+  const servers: Server[] = [];
+  afterEach(() => {
+    for (const s of servers.splice(0)) s.close();
+  });
+  const serve = (onRequest: (socket: Socket) => void) =>
+    new Promise<string>((resolve) => {
+      const server = createServer((socket) => socket.once('data', () => onRequest(socket)));
+      servers.push(server);
+      server.listen(0, '127.0.0.1', () => {
+        const { port } = server.address() as { port: number };
+        resolve(`http://127.0.0.1:${port}`);
+      });
+    });
+  const freePort = () =>
+    new Promise<number>((resolve) => {
+      const server = createServer().listen(0, '127.0.0.1', () => {
+        const { port } = server.address() as { port: number };
+        server.close(() => resolve(port));
+      });
+    });
+  const failure = async (apiBase: string, timeoutMs = 2_000) => {
+    const client = createTelegramClient({ token: TOKEN, apiBase, timeoutMs });
+    const error = await client.sendMessage(1, 'x').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(TelegramApiError);
+    const e = error as TelegramApiError;
+    expect(e.kind).toBe('network');
+    expect(`${e.message} ${JSON.stringify(e)}`).not.toContain('SECRET');
+    return e;
+  };
+
+  it('connection refused: nothing was sent, safe to retry', async () => {
+    const e = await failure(`http://127.0.0.1:${await freePort()}`);
+    expect(e.network).toEqual({ code: 'ECONNREFUSED', timeout: false, maybeDelivered: false });
+    expect(e.description).toBe('network error (ECONNREFUSED)');
+  });
+
+  it('the server drops the connection after reading the request: may have been delivered', async () => {
+    const e = await failure(await serve((socket) => socket.destroy()));
+    expect(e.network).toEqual({ code: 'UND_ERR_SOCKET', timeout: false, maybeDelivered: true });
+  });
+
+  it('a reset after the request: may have been delivered', async () => {
+    const e = await failure(await serve((socket) => socket.resetAndDestroy()));
+    expect(e.network).toEqual({ code: 'ECONNRESET', timeout: false, maybeDelivered: true });
+  });
+
+  it('no answer in time: a timeout that may have been delivered', async () => {
+    const e = await failure(await serve(() => undefined), 300);
+    expect(e.network).toEqual({ code: null, timeout: true, maybeDelivered: true });
+    expect(e.description).toBe('timeout');
+  });
+
+  it('a 200 whose body breaks off is not «rejected»: Telegram already did it', async () => {
+    const e = await failure(
+      await serve((socket) => {
+        socket.write(
+          'HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 80\r\n\r\n{"ok":',
+        );
+        setTimeout(() => socket.destroy(), 20);
+      }),
+    );
+    expect(e.status).toBe(200);
+    expect(e.network).toMatchObject({ code: 'UND_ERR_SOCKET', maybeDelivered: true });
+  });
+});
+
+describe('networkCause', () => {
+  const fetchFailed = (cause: unknown) => Object.assign(new TypeError('fetch failed'), { cause });
+
+  it('a connect that never completes (undici connect timeout) was not sent', () => {
+    const cause = Object.assign(new Error('Connect Timeout Error'), {
+      name: 'ConnectTimeoutError',
+      code: 'UND_ERR_CONNECT_TIMEOUT',
+    });
+    expect(networkCause(fetchFailed(cause))).toEqual({
+      code: 'UND_ERR_CONNECT_TIMEOUT',
+      timeout: false,
+      maybeDelivered: false,
+    });
+  });
+
+  it('DNS failures were not sent', () => {
+    const cause = Object.assign(new Error('getaddrinfo EAI_AGAIN api.telegram.org'), {
+      code: 'EAI_AGAIN',
+      syscall: 'getaddrinfo',
+    });
+    expect(networkCause(fetchFailed(cause))).toMatchObject({
+      code: 'EAI_AGAIN',
+      maybeDelivered: false,
+    });
+  });
+
+  it('IPv6 and IPv4 attempts that all failed to connect were not sent', () => {
+    const cause = Object.assign(
+      new AggregateError([
+        Object.assign(new Error('connect ENETUNREACH'), {
+          code: 'ENETUNREACH',
+          syscall: 'connect',
+        }),
+        Object.assign(new Error('connect ETIMEDOUT'), { code: 'ETIMEDOUT', syscall: 'connect' }),
+      ]),
+      { code: 'ETIMEDOUT' },
+    );
+    expect(networkCause(fetchFailed(cause))).toEqual({
+      code: 'ETIMEDOUT',
+      timeout: false,
+      maybeDelivered: false,
+    });
+  });
+
+  it('never keeps free text as a code', () => {
+    const cause = { code: `https://api.telegram.org/bot${TOKEN}/x` };
+    expect(networkCause(fetchFailed(cause)).code).toBeNull();
   });
 });

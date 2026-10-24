@@ -69,11 +69,17 @@ async function detail(db: Database, b: Broadcast) {
     .select({
       status: schema.broadcastDeliveries.status,
       errorCode: schema.broadcastDeliveries.errorCode,
+      // A code like ECONNRESET / TIMEOUT / HTTP_502 — never error text.
+      errorDetail: schema.broadcastDeliveries.errorDetail,
       n: count(),
     })
     .from(schema.broadcastDeliveries)
     .where(eq(schema.broadcastDeliveries.broadcastId, b.id))
-    .groupBy(schema.broadcastDeliveries.status, schema.broadcastDeliveries.errorCode);
+    .groupBy(
+      schema.broadcastDeliveries.status,
+      schema.broadcastDeliveries.errorCode,
+      schema.broadcastDeliveries.errorDetail,
+    );
   return {
     broadcast: b,
     attachments,

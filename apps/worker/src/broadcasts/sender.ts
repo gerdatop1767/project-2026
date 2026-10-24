@@ -29,9 +29,29 @@ export interface BroadcastSenderOptions {
   ratePerSecond?: number;
   batchSize?: number;
   sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
 }
 
 const RATE_LIMIT_RETRIES = 3;
+/** Waits before resending a message that provably never reached Telegram. */
+const NETWORK_RETRY_DELAYS_MS = [2_000, 5_000];
+/** Send passes per chat before a network failure becomes final. */
+const MAX_DELIVERY_ATTEMPTS = 5;
+/** Telegram unreachable even after the retries: the whole broadcast waits. */
+const OUTAGE_PAUSE_MS = 60_000;
+
+type DeliveryResult = {
+  /** `retry`: nothing reached the chat and Telegram looks unreachable — queue it again. */
+  status: 'sent' | 'failed' | 'blocked' | 'retry';
+  errorCode: string | null;
+  /** Underlying code only (ECONNRESET, TIMEOUT, HTTP_502…), never text. */
+  errorDetail: string | null;
+};
+
+function detailOf(error: TelegramApiError): string | null {
+  if (error.network) return error.network.code ?? (error.network.timeout ? 'TIMEOUT' : null);
+  return error.status ? `HTTP_${error.status}` : null;
+}
 
 class ContentError extends Error {}
 
@@ -46,9 +66,16 @@ class ContentError extends Error {}
  *   crash are closed as `interrupted` — never resent (no duplicates).
  * - The broadcast's status is re-read before every message, so «Остановить»
  *   takes effect at once.
- * - 429 → wait `retry_after` and retry the same chat; a chat that blocked
- *   the bot → `blocked` (and marked in telegram_bot_chats); other errors →
- *   `failed` with a short code. Counters only count real outcomes.
+ * - 429 → wait `retry_after` and retry the same message; a chat that
+ *   blocked the bot → `blocked` (and marked in telegram_bot_chats); other
+ *   errors → `failed` with a short code. Counters only count real outcomes.
+ * - Network failures are retried only when the request provably never
+ *   reached Telegram (DNS, connect): twice in place, then — Telegram looks
+ *   down — the chat goes back to the queue and the broadcast pauses a
+ *   minute, up to MAX_DELIVERY_ATTEMPTS passes. A connection that broke
+ *   after the request was sent may have delivered it: never resent
+ *   (`network_uncertain`). A message in several parts resumes at the part
+ *   that failed, so nothing already delivered is sent twice.
  */
 export class BroadcastSender {
   private readonly sleep: (ms: number) => Promise<void>;
@@ -56,6 +83,8 @@ export class BroadcastSender {
   private readonly batchSize: number;
   private attachments = new Map<string, Attachment[]>();
   private stopping = false;
+  private pausedUntil = 0;
+  private readonly now: () => number;
 
   /** Worker shutdown: finish the current message, start no new one. */
   stop() {
@@ -66,6 +95,7 @@ export class BroadcastSender {
     this.sleep = o.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.pause = Math.ceil(1000 / (o.ratePerSecond ?? 20));
     this.batchSize = o.batchSize ?? 25;
+    this.now = o.now ?? Date.now;
   }
 
   /** Once at start-up: whatever was mid-send when the worker stopped is not resent. */
@@ -119,15 +149,15 @@ export class BroadcastSender {
       .where(eq(schema.broadcastAttachments.id, a.id));
   }
 
-  /** Sends the whole broadcast to one chat; `progress.sent` counts the
-   * messages that went out (so a failure after the first is `partial`). */
+  /** Sends the broadcast to one chat, from the first part not yet sent;
+   * `progress.sent` counts the messages that went out. */
   private async sendContent(chatId: number, b: Broadcast, progress: { sent: number }) {
     const parsed = parseTelegramHtml(b.text);
     if (!parsed.ok) throw new ContentError(parsed.error);
     const images = await this.loadAttachments(b.id);
     const plan = planBroadcast(parsed.visibleLength, images.length, b.mediaMode);
     if (!plan.ok) throw new ContentError(plan.error);
-    for (const part of plan.parts as BroadcastPart[]) {
+    for (const part of (plan.parts as BroadcastPart[]).slice(progress.sent)) {
       if (part.kind === 'text') {
         await this.o.telegram.sendMessage(chatId, parsed.html, { parseMode: 'HTML' });
       } else if (part.kind === 'photo') {
@@ -156,28 +186,47 @@ export class BroadcastSender {
     }
   }
 
-  /** One chat, with 429 handling. */
-  private async deliver(chatId: number, b: Broadcast) {
+  /** One chat: retries what is safe to retry (see the class comment). */
+  private async deliver(chatId: number, b: Broadcast): Promise<DeliveryResult> {
     const progress = { sent: 0 };
-    for (let attempt = 0; ; attempt++) {
+    let rateLimited = 0;
+    let networkRetries = 0;
+    for (;;) {
       try {
         await this.sendContent(chatId, b, progress);
-        return { status: 'sent' as const, errorCode: null };
+        return { status: 'sent', errorCode: null, errorDetail: null };
       } catch (error) {
-        if (error instanceof ContentError)
-          return { status: 'failed' as const, errorCode: 'content' };
-        if (!(error instanceof TelegramApiError)) {
-          return { status: 'failed' as const, errorCode: 'unexpected' };
+        if (error instanceof ContentError) {
+          return { status: 'failed', errorCode: 'content', errorDetail: null };
         }
-        // Something already arrived: retrying would duplicate it.
-        if (progress.sent > 0) return { status: 'failed' as const, errorCode: 'partial' };
-        if (error.kind === 'rate_limited' && attempt < RATE_LIMIT_RETRIES) {
+        if (!(error instanceof TelegramApiError)) {
+          return {
+            status: 'failed',
+            errorCode: progress.sent > 0 ? 'partial' : 'unexpected',
+            errorDetail: null,
+          };
+        }
+        const errorDetail = detailOf(error);
+        if (error.kind === 'rate_limited' && rateLimited++ < RATE_LIMIT_RETRIES) {
           await this.sleep((error.retryAfter ?? 5) * 1000);
           continue;
         }
-        if (error.kind === 'unreachable')
-          return { status: 'blocked' as const, errorCode: 'blocked' };
-        return { status: 'failed' as const, errorCode: error.kind };
+        const notSent = error.kind === 'network' && error.network?.maybeDelivered === false;
+        if (notSent && networkRetries < NETWORK_RETRY_DELAYS_MS.length) {
+          await this.sleep(NETWORK_RETRY_DELAYS_MS[networkRetries++]!);
+          continue;
+        }
+        // Part of the message already arrived: resending from the start
+        // later would duplicate it.
+        if (progress.sent > 0) return { status: 'failed', errorCode: 'partial', errorDetail };
+        if (notSent) return { status: 'retry', errorCode: 'network', errorDetail };
+        if (error.kind === 'unreachable') {
+          return { status: 'blocked', errorCode: 'blocked', errorDetail: null };
+        }
+        if (error.kind === 'network') {
+          return { status: 'failed', errorCode: 'network_uncertain', errorDetail };
+        }
+        return { status: 'failed', errorCode: error.kind, errorDetail };
       }
     }
   }
@@ -216,6 +265,7 @@ export class BroadcastSender {
       .orderBy(asc(schema.broadcasts.confirmedAt))
       .limit(1);
     if (!next) return 0;
+    if (this.now() < this.pausedUntil) return 0;
     const b = next.recipientsTotal === null ? await this.snapshotAudience(next) : next;
     let handled = 0;
     for (;;) {
@@ -233,32 +283,42 @@ export class BroadcastSender {
             ),
           ),
         )
-        .returning({ chatId: schema.broadcastDeliveries.chatId });
+        .returning({
+          chatId: schema.broadcastDeliveries.chatId,
+          attempts: schema.broadcastDeliveries.attempts,
+        });
       if (claimed.length === 0) break;
-      for (const [index, { chatId }] of claimed.entries()) {
-        if (this.stopping || (index > 0 && (await this.currentStatus(b.id)) !== 'sending')) {
-          // Stopped (by the admin or a shutdown): hand back what was
-          // claimed but not sent — a restart picks it up, nothing is lost.
-          await this.o.db
-            .update(schema.broadcastDeliveries)
-            .set({ status: 'pending' })
-            .where(
-              and(
-                eq(schema.broadcastDeliveries.broadcastId, b.id),
-                inArray(
-                  schema.broadcastDeliveries.chatId,
-                  claimed.slice(index).map((c) => c.chatId),
-                ),
+      // Hand back what was claimed but not sent — the next pass (or a
+      // restart) picks it up, nothing is lost.
+      const release = (from: number) =>
+        this.o.db
+          .update(schema.broadcastDeliveries)
+          .set({ status: 'pending' })
+          .where(
+            and(
+              eq(schema.broadcastDeliveries.broadcastId, b.id),
+              inArray(
+                schema.broadcastDeliveries.chatId,
+                claimed.slice(from).map((c) => c.chatId),
               ),
-            );
+            ),
+          );
+      for (const [index, { chatId, attempts }] of claimed.entries()) {
+        if (this.stopping || (index > 0 && (await this.currentStatus(b.id)) !== 'sending')) {
+          await release(index);
           return handled;
         }
-        const result = await this.deliver(chatId, b);
+        let result = await this.deliver(chatId, b);
+        if (result.status === 'retry' && attempts + 1 >= MAX_DELIVERY_ATTEMPTS) {
+          result = { ...result, status: 'failed' };
+        }
         await this.o.db
           .update(schema.broadcastDeliveries)
           .set({
-            status: result.status,
+            status: result.status === 'retry' ? 'pending' : result.status,
             errorCode: result.errorCode,
+            errorDetail: result.errorDetail,
+            attempts: attempts + 1,
             sentAt: result.status === 'sent' ? new Date() : null,
           })
           .where(
@@ -267,6 +327,29 @@ export class BroadcastSender {
               eq(schema.broadcastDeliveries.chatId, chatId),
             ),
           );
+        if (result.status === 'retry') {
+          // Telegram is unreachable from here: sending to the next chats
+          // now would fail them all. Pause, keep everyone queued.
+          await release(index + 1);
+          this.pausedUntil = this.now() + OUTAGE_PAUSE_MS;
+          this.o.logger.warn(
+            { broadcastId: b.id, detail: result.errorDetail, attempt: attempts + 1 },
+            'broadcast paused: Telegram unreachable, will retry',
+          );
+          return handled;
+        }
+        if (result.status !== 'sent') {
+          this.o.logger.warn(
+            {
+              broadcastId: b.id,
+              status: result.status,
+              errorCode: result.errorCode,
+              detail: result.errorDetail,
+              attempt: attempts + 1,
+            },
+            'broadcast delivery not sent',
+          );
+        }
         const counter =
           result.status === 'sent'
             ? { sentCount: sql`${schema.broadcasts.sentCount} + 1` }
@@ -322,6 +405,12 @@ export class BroadcastSender {
       for (const chatId of chats) {
         const result = await this.deliver(chatId, b);
         if (result.status === 'sent') status = 'sent';
+        else {
+          this.o.logger.warn(
+            { broadcastId: b.id, errorCode: result.errorCode, detail: result.errorDetail },
+            'broadcast test not delivered',
+          );
+        }
       }
       await this.o.db
         .update(schema.broadcasts)

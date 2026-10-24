@@ -165,7 +165,12 @@ describe('BroadcastPage', () => {
       200,
       detail(
         { status: 'sending', recipientsTotal: 100, sentCount: 40, failedCount: 2, blockedCount: 3 },
-        { deliveries: [{ status: 'failed', errorCode: 'network', n: 2 }] },
+        {
+          deliveries: [
+            { status: 'failed', errorCode: 'network', errorDetail: 'ENETUNREACH', n: 2 },
+            { status: 'failed', errorCode: 'network_uncertain', errorDetail: 'ECONNRESET', n: 1 },
+          ],
+        },
       ),
     ]);
     renderAt(`/admin/broadcasts/${ID}`, <BroadcastPage id={ID} />);
@@ -173,7 +178,13 @@ describe('BroadcastPage', () => {
       'value',
       '45',
     );
-    expect(screen.getByText(/сеть \/ Telegram недоступен — 2/)).toBeInTheDocument();
+    const errors = screen.getAllByRole('listitem').map((li) => li.textContent);
+    expect(errors).toContain(
+      'ошибка: сеть / Telegram недоступен (сообщение не ушло) ENETUNREACH — 2',
+    );
+    expect(errors).toContain(
+      'ошибка: связь оборвалась после отправки — могло дойти; повторно не отправлялось, чтобы не было дубля ECONNRESET — 1',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Остановить рассылку' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Остановить' }));

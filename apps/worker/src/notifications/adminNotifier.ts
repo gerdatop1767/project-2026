@@ -183,7 +183,15 @@ export class AdminNotifier {
         } else {
           await this.finish(row.id, { status: 'failed', lastError: code });
         }
-        this.o.logger.warn({ kind, attempts: row.attempts }, 'admin notification not delivered');
+        this.o.logger.warn(
+          {
+            kind,
+            attempts: row.attempts,
+            code: error instanceof TelegramApiError ? (error.network?.code ?? null) : null,
+            timeout: error instanceof TelegramApiError ? (error.network?.timeout ?? false) : false,
+          },
+          'admin notification not delivered',
+        );
       }
     }
     return claimed.length;
