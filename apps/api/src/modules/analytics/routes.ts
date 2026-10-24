@@ -6,12 +6,14 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { isAllowedCampaignTarget, SLUG_RE } from './campaignLinks.js';
 import {
+  analyticsConsented,
   clientEventTypes,
   ensureVisitor,
   isLinkPreviewBot,
   recordEvent,
   safely,
   touchCampaign,
+  VISITOR_COOKIE,
 } from './recorder.js';
 
 export interface AnalyticsRoutesOptions {
@@ -70,6 +72,8 @@ export const analyticsRoutes: FastifyPluginAsync<AnalyticsRoutesOptions> = async
     async (request, reply) => {
       const body = eventsBodySchema.safeParse(request.body);
       if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      // No analytics consent: nothing is recorded and no cookie is set.
+      if (!analyticsConsented(request)) return reply.code(204).send();
       await safely(request, async () => {
         const visitor = await ensureVisitor(db, config, request, reply, body.data.client ?? null);
         const userId = request.sessionUserId ?? null;
@@ -107,6 +111,13 @@ export const analyticsRoutes: FastifyPluginAsync<AnalyticsRoutesOptions> = async
     },
   );
 
+  // The banner's «Отклонить необязательные»: drop the visitor cookie the
+  // page itself cannot touch (httpOnly). Recorded history stays anonymous.
+  app.delete('/events/visitor', async (_request, reply) => {
+    reply.clearCookie(VISITOR_COOKIE, { path: '/' });
+    return reply.code(204).send();
+  });
+
   app.get(
     '/go/:slug',
     { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
@@ -120,6 +131,17 @@ export const analyticsRoutes: FastifyPluginAsync<AnalyticsRoutesOptions> = async
       if (!campaign || !isAllowedCampaignTarget(campaign.targetPath)) return reply.redirect(home);
       if (!isLinkPreviewBot(request.headers['user-agent'])) {
         await safely(request, async () => {
+          if (!analyticsConsented(request)) {
+            // Counted, but anonymously: no visitor, no cookie, so this click
+            // cannot attribute a later registration.
+            await recordEvent(db, {
+              type: 'campaign_click',
+              userId: request.sessionUserId ?? null,
+              campaignId: campaign.id,
+              props: { via: 'link' },
+            });
+            return;
+          }
           const visitor = await ensureVisitor(db, config, request, reply, 'web');
           await touchCampaign(db, visitor.id, campaign.id);
           await recordEvent(db, {

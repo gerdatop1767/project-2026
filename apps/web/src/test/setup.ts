@@ -2,6 +2,8 @@ import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { resetPrivateCaches } from '../lib/privateCaches.js';
+import { resetConsentCacheForTests } from '../lib/consent.js';
+import { resetPromoForTests } from '../lib/telegramPromo.js';
 
 // Testing Library's auto-cleanup relies on a global `afterEach` hook, which
 // Vitest only provides when `test.globals` is enabled. This project keeps
@@ -23,6 +25,11 @@ afterEach(() => {
   delete document.documentElement.dataset.theme;
   document.documentElement.style.colorScheme = '';
   window.localStorage.removeItem('zybrilka-theme');
+  // Cookie choice and the Telegram button's 24 h snooze: fresh per test.
+  document.cookie = 'zc=; Max-Age=0; Path=/';
+  window.localStorage.removeItem('zybrilka-cookie-consent');
+  resetConsentCacheForTests();
+  resetPromoForTests();
 });
 
 // jsdom doesn't implement matchMedia. Components that check

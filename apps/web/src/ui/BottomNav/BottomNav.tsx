@@ -25,7 +25,7 @@ export interface BottomNavProps {
  */
 export function BottomNav({ items, activeId, onSelect, className }: BottomNavProps) {
   return (
-    <nav className={clsx(styles.nav, className)} aria-label="Zybrilka">
+    <nav className={clsx(styles.nav, className)} aria-label="Zybrilka" data-bottom-nav>
       {items.map((item) => {
         const isActive = item.id === activeId;
         return (

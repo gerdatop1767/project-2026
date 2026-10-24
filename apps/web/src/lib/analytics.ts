@@ -1,4 +1,5 @@
 import type { Route } from './navigation.js';
+import { getConsent, subscribeConsent } from './consent.js';
 import { getTelegramStartParam, isInTelegramWebView } from './telegramMiniApp.js';
 
 /**
@@ -7,6 +8,10 @@ import { getTelegramStartParam, isInTelegramWebView } from './telegramMiniApp.js
  * event type and ids (subject, task) — never an answer, a name or anything
  * typed by the user. The server identifies the browser by its own
  * httpOnly first-party cookie; nothing is stored here.
+ *
+ * Only with the visitor's consent to optional analytics cookies
+ * (lib/consent.ts, docs/COOKIES.md): before a choice or after «Отклонить
+ * необязательные» nothing is queued or sent, and the server sets no `zv`.
  *
  * Off in unit tests (fetch mocks there count requests) unless a test turns
  * it on explicitly.
@@ -47,8 +52,10 @@ function newId(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
+const consented = () => getConsent()?.analytics === true;
+
 export function track(type: ClientEventType, extra: { subjectId?: string; taskId?: string } = {}) {
-  if (!enabled) return;
+  if (!enabled || !consented()) return;
   const event: QueuedEvent = { id: newId(), type };
   if (extra.subjectId && SUBJECT_RE.test(extra.subjectId)) event.subjectId = extra.subjectId;
   if (extra.taskId) event.taskId = extra.taskId;
@@ -66,6 +73,10 @@ export function flushAnalytics() {
     timer = null;
   }
   if (!enabled || queue.length === 0) return;
+  if (!consented()) {
+    queue.length = 0;
+    return;
+  }
   const events = queue.splice(0, 20);
   const telegram = isInTelegramWebView();
   const startParam = telegram && !campaignSent ? getTelegramStartParam() : null;
@@ -86,10 +97,24 @@ export function flushAnalytics() {
   if (queue.length > 0) timer = setTimeout(flushAnalytics, FLUSH_DELAY_MS);
 }
 
-/** One `visit` per app load, flushed when the page is hidden. */
+/** One `visit` per app load (once consent allows it), flushed when the
+ * page is hidden. A choice made later in the visit starts it then; a
+ * «decline» drops anything queued and asks the server to forget `zv`. */
 let started = false;
+let watchingConsent = false;
 export function startAnalytics() {
-  if (!enabled || started) return;
+  if (!watchingConsent && enabled) {
+    watchingConsent = true;
+    subscribeConsent(() => {
+      if (consented()) {
+        startAnalytics();
+      } else {
+        queue.length = 0;
+        forgetVisitor();
+      }
+    });
+  }
+  if (!enabled || started || !consented()) return;
   started = true;
   track('visit');
   document.addEventListener('visibilitychange', () => {
@@ -109,5 +134,16 @@ export function trackRoute(route: Route) {
   if (route.screen === 'task' && route.taskId !== lastTask) {
     lastTask = route.taskId;
     track('task_started', { subjectId: route.subjectId, taskId: route.taskId });
+  }
+}
+
+function forgetVisitor() {
+  try {
+    void fetch(new URL('/api/v1/events/visitor', window.location.origin), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    }).catch(() => undefined);
+  } catch {
+    // Never surfaces an error.
   }
 }
