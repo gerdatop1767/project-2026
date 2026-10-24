@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { StatisticsMobile } from './StatisticsMobile.js';
 import { NavigationProvider } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
+import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
   getProgressSummary: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock('../../lib/api.js', () => ({
   getTaskNumberStatisticsDetail: vi.fn(() => new Promise(() => {})),
   getVariantProgress: vi.fn(() => Promise.resolve({ items: [] })),
   getProgressDaily: vi.fn(() => Promise.resolve({ items: [] })),
+  getLeaderboard: vi.fn(),
 }));
 
 function renderWithNav() {
@@ -496,5 +498,59 @@ describe('StatisticsMobile — subject switch never shows the previous subject',
 
     resolveRussian({ items: [row('russian', 26)] });
     expect(await screen.findByRole('listitem', { name: 'Задание 26: 100%' })).toBeInTheDocument();
+  });
+});
+
+describe('StatisticsMobile — «Рейтинг»', () => {
+  const board = (period: 'today' | 'week' | 'all') => ({
+    period,
+    subjectId: null,
+    since: '2026-10-17T12:00:00.000Z',
+    participants: 1,
+    entries: [
+      {
+        rank: 1,
+        name: 'Анна С.',
+        level: 3,
+        points: 950,
+        solved: 30,
+        accuracyPercent: 80,
+        isMe: false,
+        avatarHue: 200,
+      },
+    ],
+    me: { rank: null, level: 1, points: 0, solved: 0, accuracyPercent: null },
+  });
+
+  function renderSignedIn() {
+    return render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <NavigationProvider>
+          <StatisticsMobile />
+        </NavigationProvider>
+      </TestAuthProvider>,
+    );
+  }
+
+  it('shows the real leaderboard and keeps the tab and filters when coming back', async () => {
+    vi.mocked(api.getLeaderboard).mockImplementation(async ({ period }) => board(period));
+    const user = userEvent.setup();
+    const first = renderSignedIn();
+    await user.click(screen.getByRole('tab', { name: 'Рейтинг' }));
+    expect(await screen.findByRole('list', { name: 'Тройка лидеров' })).toBeInTheDocument();
+    expect(api.getLeaderboard).toHaveBeenCalledWith({ period: 'week', subject: null });
+    // One page title: the board steps down to h2 inside Статистика.
+    expect(screen.getByRole('heading', { level: 2, name: /Соревнуйся/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Сегодня' }));
+    await waitFor(() =>
+      expect(api.getLeaderboard).toHaveBeenLastCalledWith({ period: 'today', subject: null }),
+    );
+
+    // Leave the screen and come back: still on «Рейтинг», still «Сегодня».
+    first.unmount();
+    renderSignedIn();
+    expect(screen.getByRole('tab', { name: 'Рейтинг' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Сегодня' })).toHaveAttribute('aria-selected', 'true');
   });
 });
