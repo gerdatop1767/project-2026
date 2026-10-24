@@ -1,0 +1,138 @@
+.emblem {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  isolation: isolate;
+}
+
+.svg {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 2px 6px var(--rank-glow));
+}
+
+.level {
+  /* Above the SVG, which its drop-shadow filter lifts into its own layer. */
+  position: relative;
+  z-index: 1;
+  grid-area: 1 / 1;
+  /* The body's centre sits a little below the box's (crowns go on top). */
+  margin-top: 8%;
+  color: #fff;
+  font-family: var(--font-display, inherit);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.locked {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.sheen {
+  opacity: 0;
+}
+
+.halo {
+  position: absolute;
+  inset: -22%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--rank-glow) 0%, transparent 68%);
+  opacity: 0.7;
+}
+
+/* ---- Motion: only the one large emblem gets it (`animated`). Every loop
+   is slow and soft — a light sweep or a breathing glow, never a flash. */
+
+.animated {
+  animation: emblemIn 640ms var(--easing-out) both;
+}
+
+/* Знаток and up: a light band sweeps across now and then. */
+.animated:is(
+    [data-rank='scholar'],
+    [data-rank='master'],
+    [data-rank='expert'],
+    [data-rank='legend']
+  )
+  .sheen {
+  opacity: 0.28;
+  animation: sheen 7s ease-in-out 1.2s infinite;
+}
+
+/* Мастер and Эксперт: the glow behind breathes. */
+.animated:is([data-rank='master'], [data-rank='expert']) .halo {
+  animation: breathe 5s ease-in-out infinite;
+}
+
+/* Легенда: an iridescent aura turns slowly. */
+.animated[data-rank='legend'] .halo {
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 138, 216, 0.5),
+    rgba(140, 92, 255, 0.45),
+    rgba(77, 200, 255, 0.5),
+    rgba(255, 217, 121, 0.45),
+    rgba(255, 138, 216, 0.5)
+  );
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
+  mask: radial-gradient(circle, #000 30%, transparent 70%);
+  opacity: 0.85;
+  animation: turn 14s linear infinite;
+}
+
+@keyframes emblemIn {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheen {
+  0%,
+  70% {
+    transform: translateX(0) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(120px) skewX(-18deg);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated,
+  .animated .halo,
+  .animated .sheen {
+    animation: none !important;
+  }
+  .animated .sheen {
+    opacity: 0 !important;
+  }
+}

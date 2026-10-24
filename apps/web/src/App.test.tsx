@@ -236,7 +236,7 @@ describe('App — desktop', () => {
 
     const backRow = within(screen.getByRole('main')).getByRole('button', { name: 'Рейтинг' });
     await user.click(backRow);
-    expect(screen.getByText(/Соревнуйся с другими/)).toBeInTheDocument();
+    expect(screen.getByText(/набирай очки и поднимайся в рейтинге/)).toBeInTheDocument();
     restore();
   });
 
@@ -269,7 +269,7 @@ describe('App — desktop', () => {
 
     for (const [sidebarLabel, screenText] of [
       ['Мои ошибки', 'Разбирай ошибки'],
-      ['Рейтинг', 'Соревнуйся с другими'],
+      ['Рейтинг', 'набирай очки и поднимайся в рейтинге'],
     ] as const) {
       await user.click(screen.getByRole('button', { name: sidebarLabel }));
       await screen.findByText(new RegExp(screenText));

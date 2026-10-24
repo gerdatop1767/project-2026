@@ -42,7 +42,7 @@ export function DesktopShell({ header = 'status', sidebar = true, children }: De
         <div className={styles.topHeaderInner}>
           <Logo icon="desktop" size={50} onClick={() => navigate({ screen: 'learningCenter' })} />
           <div className={styles.topHeaderActions}>
-            {header === 'status' && <StatusChips />}
+            {header === 'status' && <StatusChips showRating />}
             <button
               type="button"
               className={styles.menuButton}

@@ -21,6 +21,8 @@ vi.mock('../../lib/api.js', () => ({
   listFavoriteTaskIds: vi.fn(() => Promise.resolve({ taskIds: [] })),
   addFavorite: vi.fn(() => Promise.resolve()),
   removeFavorite: vi.fn(() => Promise.resolve()),
+  // The rating place (StreakProvider): pending unless a test says otherwise.
+  getLeaderboard: vi.fn(() => new Promise(() => {})),
   getStreak: vi.fn(() =>
     Promise.resolve({ currentStreak: 0, lastActiveDate: null, isActiveToday: false }),
   ),

@@ -10,6 +10,8 @@ import { StreakProvider } from '../../lib/streakContext.js';
 import * as api from '../../lib/api.js';
 
 vi.mock('../../lib/api.js', () => ({
+  // The rating place (StreakProvider): pending unless a test says otherwise.
+  getLeaderboard: vi.fn(() => new Promise(() => {})),
   getStreak: vi.fn(),
   getXpSummary: vi.fn(),
   getXpHistory: vi.fn(),
@@ -71,6 +73,33 @@ describe('«Уровень» page', () => {
     renderLevel(true);
     await screen.findByText('Уровень 2');
     expect(screen.getByRole('button', { name: /^Уровень 2, до следующего 40 XP/ })).toBeVisible();
+  });
+
+  it('shows the rank of the current level, the next rank and the ladder of all ranks', async () => {
+    vi.mocked(api.getXpSummary).mockResolvedValue(summary({ level: 16, totalXp: 6000 }));
+    renderLevel();
+    expect(await screen.findByText(/Ранг «Мастер»/)).toHaveTextContent('4 из 6');
+    expect(screen.getByText(/Следующий ранг/)).toHaveTextContent(
+      'Следующий ранг — «Эксперт» с уровня 20',
+    );
+    const items = within(screen.getByRole('region', { name: 'Ранги' })).getAllByRole('listitem');
+    expect(items.map((li) => li.textContent)).toEqual([
+      expect.stringContaining('НовичокУровни 1–2'),
+      expect.stringContaining('УченикУровни 3–4'),
+      expect.stringContaining('ЗнатокУровни 5–14'),
+      expect.stringContaining('МастерУровни 15–19Ваш ранг'),
+      expect.stringContaining('ЭкспертУровни 20–24Откроется с уровня 20'),
+      expect.stringContaining('ЛегендаУровни 25–50Откроется с уровня 25'),
+    ]);
+    expect(items[3]).toHaveAttribute('aria-current', 'step');
+    expect(items[0]).toHaveTextContent('Пройден');
+  });
+
+  it('the top rank says so instead of a next rank', async () => {
+    vi.mocked(api.getXpSummary).mockResolvedValue(summary({ level: 27, totalXp: 30000 }));
+    renderLevel();
+    expect(await screen.findByText(/Ранг «Легенда»/)).toBeInTheDocument();
+    expect(screen.getByText('Это высший ранг — так держать!')).toBeInTheDocument();
   });
 
   it('lists the XP history and loads more pages', async () => {

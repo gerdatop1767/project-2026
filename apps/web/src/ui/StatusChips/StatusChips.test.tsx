@@ -8,6 +8,8 @@ import * as api from '../../lib/api.js';
 import { NavigationProvider } from '../../lib/navigation.js';
 
 vi.mock('../../lib/api.js', () => ({
+  // The rating place (StreakProvider): pending unless a test says otherwise.
+  getLeaderboard: vi.fn(() => new Promise(() => {})),
   getStreak: vi.fn(() => new Promise(() => {})),
   getXpSummary: vi.fn(() => new Promise(() => {})),
 }));
@@ -236,10 +238,84 @@ describe('StatusChips — level (GET /progress/xp)', () => {
       </TestAuthProvider>,
     );
     const chip = await screen.findByRole('button', {
-      name: 'Уровень 2, до следующего 40 XP. Открыть страницу уровня',
+      name: 'Уровень 2, до следующего 40 XP, ранг «Новичок». Открыть страницу уровня',
     });
     expect(chip).toHaveTextContent('2');
     expect(chip.querySelector('[style*="width: 50%"]')).not.toBeNull();
+  });
+
+  it('the level chip wears the rank of the server-reported level', async () => {
+    vi.mocked(api.getXpSummary).mockResolvedValue(xpAt(90, 16));
+    render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <StreakProvider>
+          <StatusChips />
+        </StreakProvider>
+      </TestAuthProvider>,
+    );
+    const chip = await screen.findByRole('button', { name: /ранг «Мастер»/ });
+    expect(chip).toHaveAttribute('data-rank', 'master');
+    expect(chip.querySelector('[data-rank="master"] svg')).not.toBeNull();
+  });
+
+  const board = (rank: number | null, participants = 40) => ({
+    period: 'week' as const,
+    subjectId: null,
+    since: '2026-10-17T00:00:00.000Z',
+    participants,
+    entries: [],
+    me: { rank, level: 3, points: rank === null ? 0 : 120, solved: 5, accuracyPercent: 80 },
+  });
+  const renderChips = (showRating: boolean) => {
+    window.history.replaceState(null, '', '/');
+    return render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <NavigationProvider>
+          <StreakProvider>
+            <StatusChips showRating={showRating} />
+          </StreakProvider>
+        </NavigationProvider>
+      </TestAuthProvider>,
+    );
+  };
+
+  it('desktop: shows the weekly rating place, asking only for «me» once', async () => {
+    vi.mocked(api.getXpSummary).mockResolvedValue(xpAt(90, 2));
+    vi.mocked(api.getLeaderboard).mockClear();
+    vi.mocked(api.getLeaderboard).mockResolvedValue(board(6));
+    renderChips(true);
+    const chip = await screen.findByRole('button', {
+      name: 'Место в рейтинге за неделю: 6 из 40. Открыть рейтинг',
+    });
+    expect(chip).toHaveTextContent('#6');
+    expect(api.getLeaderboard).toHaveBeenCalledTimes(1);
+    expect(api.getLeaderboard).toHaveBeenCalledWith({ period: 'week', limit: 0 });
+    await userEvent.click(chip);
+    expect(window.location.pathname).toBe('/rating');
+  });
+
+  it('desktop: no points this week → «—», never a made-up place', async () => {
+    vi.mocked(api.getLeaderboard).mockResolvedValue(board(null));
+    renderChips(true);
+    const chip = await screen.findByRole('button', {
+      name: 'На этой неделе ещё нет места в рейтинге. Открыть рейтинг',
+    });
+    expect(chip).toHaveTextContent('—');
+  });
+
+  it('desktop: while loading, a neutral dash', () => {
+    vi.mocked(api.getLeaderboard).mockReturnValue(new Promise(() => {}));
+    renderChips(true);
+    expect(
+      screen.getByRole('button', { name: 'Место в рейтинге загружается. Открыть рейтинг' }),
+    ).toHaveTextContent('—');
+  });
+
+  it('mobile header (no showRating): no rating chip — mobile shows it on the home screen', async () => {
+    vi.mocked(api.getLeaderboard).mockResolvedValue(board(6));
+    renderChips(false);
+    await screen.findByRole('button', { name: /Уровень/ });
+    expect(screen.queryByRole('button', { name: /рейтинг/i })).not.toBeInTheDocument();
   });
 
   it('opens the «Уровень» page on click', async () => {

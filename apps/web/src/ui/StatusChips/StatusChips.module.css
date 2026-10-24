@@ -38,6 +38,15 @@
   color: var(--color-text-primary);
 }
 
+.ratingIcon {
+  flex-shrink: 0;
+  color: #f5b432;
+}
+
+.ratingChip .chipValue {
+  font-variant-numeric: tabular-nums;
+}
+
 .levelChip {
   flex-direction: column;
   align-items: stretch;
@@ -61,7 +70,8 @@
 .levelBarFill {
   display: block;
   height: 100%;
-  background: var(--gradient-primary);
+  /* The rank's colours once the level is known (levelRanks.ts). */
+  background: linear-gradient(90deg, var(--rank-from, #8b14f5), var(--rank-to, #ce3dfd));
   transition: width var(--duration-base) var(--easing-standard);
 }
 
