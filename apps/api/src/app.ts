@@ -31,6 +31,7 @@ import { mistakesRoutes } from './modules/mistakes/routes.js';
 import { enqueueNotification } from './modules/notifications/outbox.js';
 import { errorKind, SiteErrorNotifier } from './modules/notifications/siteErrors.js';
 import { progressRoutes, publicTopicsRoutes } from './modules/progress/routes.js';
+import { leaderboardRoutes } from './modules/leaderboard/routes.js';
 import { tasksRoutes } from './modules/tasks/routes.js';
 import { variantsRoutes } from './modules/variants/routes.js';
 
@@ -117,6 +118,7 @@ export function buildApp({
     const privateRoutes: FastifyPluginAsync = async (scope) => {
       scope.register(mistakesRoutes, { db, prefix: '/api/v1' });
       scope.register(progressRoutes, { db, prefix: '/api/v1' });
+      scope.register(leaderboardRoutes, { db, prefix: '/api/v1' });
       scope.register(favoritesRoutes, { db, prefix: '/api/v1' });
       scope.register(learningProfileRoutes, { db, prefix: '/api/v1' });
       scope.register(learningRoutes, { db, prefix: '/api/v1' });
