@@ -39,14 +39,36 @@ describe('diagnose (read-only, safe to print)', () => {
         ADMIN_OWNER_USER_IDS: owner!.id,
         WEB_BASE_URL: 'https://zybrilka.ru',
       } as NodeJS.ProcessEnv),
-      { fetch: fetch as unknown as typeof globalThis.fetch, db: testDb.db },
+      {
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        db: testDb.db,
+        getMeAttempts: 2,
+        network: {
+          lookup: async () => [
+            { address: '149.154.167.220', family: 4 },
+            { address: '2001:67c:4e8:f004::9', family: 6 },
+          ],
+          tlsProbe: async (address) => {
+            if (address.includes(':')) {
+              throw Object.assign(new Error('connect ENETUNREACH'), { code: 'ENETUNREACH' });
+            }
+          },
+        },
+      },
     );
     const text = JSON.stringify(report);
     expect(text).not.toContain('SECRET');
     expect(text).not.toContain('secret-path');
     expect(report).toMatchObject({
       config: { botTokenSet: true, polling: false, healthCheckUrlSet: false, owners: 1 },
-      bot: { username: 'zybrilka_bot' },
+      bot: { username: 'zybrilka_bot', getMe: [{ ok: true }, { ok: true }] },
+      network: {
+        dns: { ipv4: ['149.154.167.220'], ipv6: ['2001:67c:4e8:f004::9'] },
+        tls: [
+          { address: '149.154.167.220', family: 4, ok: true },
+          { address: '2001:67c:4e8:f004::9', family: 6, ok: false, error: 'ENETUNREACH' },
+        ],
+      },
       webhook: {
         set: true,
         host: 'hooks.example.org',
@@ -64,6 +86,7 @@ describe('diagnose (read-only, safe to print)', () => {
     });
     // Only read-only Bot API methods.
     expect(fetch.mock.calls.map((c) => String(c[0]).split('/').pop()).sort()).toEqual([
+      'getMe',
       'getMe',
       'getWebhookInfo',
     ]);
