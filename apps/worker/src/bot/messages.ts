@@ -45,8 +45,68 @@ export function keyboardButtonOf(text: string): 'menu' | 'support' | null {
 export const mainMenuText =
   '<b>Главное меню</b> 📚\n\nОткрывай Зубрилку и решай задания — прогресс и ошибки сохраняются там же.';
 
-export const supportText =
-  'Поддержка скоро появится. Если возникла проблема, попробуй немного позже.';
+export { CALLBACK_SUPPORT_CLOSE } from './support.js';
+export const CALLBACK_REMINDERS_OFF = 'reminders_off';
+
+/** Under the support acknowledgement: ends the conversation. */
+export const supportCloseKeyboard: InlineKeyboard = {
+  inline_keyboard: [[{ text: 'Завершить обращение', callback_data: 'support_close' }]],
+};
+
+export const supportAlreadyOpenText =
+  'Обращение уже открыто — просто напиши сюда, сообщение попадёт в него.';
+
+/** Under every daily reminder (docs/REMINDERS.md). */
+export function reminderKeyboard(siteUrl: string): InlineKeyboard {
+  const training = new URL('/training', siteUrl).toString();
+  return {
+    inline_keyboard: [
+      [
+        siteUrl.startsWith('https://')
+          ? { text: 'Начать тренировку', web_app: { url: training } }
+          : { text: 'Начать тренировку', url: training },
+      ],
+      [{ text: 'Отключить напоминания', callback_data: CALLBACK_REMINDERS_OFF }],
+    ],
+  };
+}
+
+export const remindersOffText =
+  'Напоминания отключены. Включить их снова можно на сайте: Профиль → Уведомления.';
+export const remindersNoAccountText =
+  'Этот Telegram не привязан к аккаунту Зубрилки, поэтому напоминаний для него нет.';
+
+/** The answer to `/start link_<token>` (the site's «Привязать Telegram»). */
+export function linkResultText(
+  status:
+    | 'linked'
+    | 'already_linked'
+    | 'taken'
+    | 'provider_already_used'
+    | 'invalid'
+    | 'expired'
+    | 'used',
+): string {
+  switch (status) {
+    case 'linked':
+      return 'Готово! Telegram привязан к твоему аккаунту Зубрилки ✅\n\nТеперь можно включить ежедневные напоминания на сайте: Профиль → Уведомления.';
+    case 'already_linked':
+      return 'Этот Telegram уже привязан к твоему аккаунту ✅';
+    case 'taken':
+      return 'Этот Telegram уже привязан к другому аккаунту Зубрилки. Войди в тот аккаунт или отвяжи Telegram в его профиле.';
+    case 'provider_already_used':
+      return 'К твоему аккаунту уже привязан другой Telegram. Сначала отвяжи его в профиле на сайте.';
+    case 'expired':
+      return 'Ссылка устарела. Открой на сайте «Привязать Telegram» ещё раз — ссылка действует 15 минут.';
+    case 'used':
+      return 'Эта ссылка уже использована. Если нужно привязать заново — открой «Привязать Telegram» на сайте ещё раз.';
+    case 'invalid':
+      return 'Ссылка для привязки не подошла. Открой «Привязать Telegram» на сайте ещё раз.';
+  }
+}
+
+export const supportSaveFailedText =
+  'Не получилось сохранить сообщение 😔 Попробуй отправить его ещё раз через минуту.';
 
 /**
  * Splits a photo caption that Telegram would reject (over 1024 visible
@@ -131,6 +191,8 @@ const commandList = [
   '/start — открыть Зубрилку',
   '/menu — главное меню',
   '/ios — как установить Зубрилку на iPhone и iPad',
+  '/support — написать в поддержку',
+  '/reminders_off — отключить ежедневные напоминания',
 ];
 
 export const helpText = commandList.join('\n');
@@ -138,7 +200,8 @@ export const helpText = commandList.join('\n');
 export const unknownCommandText = ['Такой команды я не знаю 🤔', '', ...commandList].join('\n');
 
 export const plainTextReply = [
-  'Я бот Зубрилки и пока не умею отвечать на сообщения.',
+  'Я бот Зубрилки и сам на сообщения не отвечаю.',
   '',
+  'Нужна помощь? Нажми «💬 Поддержка» внизу и напиши — ответит человек.',
   'Нашёл ошибку в задании? Нажми «Сообщить об ошибке» прямо в задании — так мы быстрее её исправим.',
 ].join('\n');

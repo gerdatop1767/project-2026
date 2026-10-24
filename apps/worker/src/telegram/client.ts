@@ -44,7 +44,17 @@ export interface TelegramMessage {
   chat: TelegramChat;
   from?: TelegramUser;
   text?: string;
-  photo?: { file_id: string; width: number; height: number }[];
+  /** Text under a photo or a file. */
+  caption?: string;
+  photo?: { file_id: string; width: number; height: number; file_size?: number }[];
+  document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
+  /** Kinds support does not take (only their presence matters). */
+  voice?: unknown;
+  audio?: unknown;
+  video?: unknown;
+  video_note?: unknown;
+  sticker?: unknown;
+  animation?: unknown;
 }
 export interface TelegramCallbackQuery {
   id: string;
