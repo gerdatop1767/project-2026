@@ -32,6 +32,11 @@ const kinds: { key: keyof AdminNotificationSettings; title: string; text: string
     title: 'Жалобы на задания',
     text: 'Каждая новая жалоба: номер, предмет, задание, категория, текст и кнопка «Открыть жалобу».',
   },
+  {
+    key: 'support',
+    title: 'Поддержка',
+    text: 'Новое сообщение в поддержку через бота — одно уведомление на непрочитанную переписку, с кнопкой «Открыть переписку».',
+  },
 ];
 
 /** What still stands between the owner and the notifications, in order. */

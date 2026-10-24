@@ -1,0 +1,91 @@
+import { createTelegramLinkToken, schema, telegramReachability, type Database } from '@zybrilka/db';
+import {
+  minutesOfTime,
+  REMINDER_DEFAULT_TIME,
+  REMINDER_DEFAULT_TIMEZONE,
+  reminderSettingsRequestSchema,
+  timeOfMinutes,
+  type ReminderSettingsResponse,
+} from '@zybrilka/shared';
+import { eq } from 'drizzle-orm';
+import type { FastifyPluginAsync } from 'fastify';
+
+export interface ReminderRoutesOptions {
+  db: Database;
+}
+
+/**
+ * Daily Telegram reminders — the site side (docs/REMINDERS.md). Registered
+ * behind `requireSession`; every handler acts on `request.sessionUserId`
+ * only, so nobody can read or change another account's settings. Sending
+ * is the worker's job (apps/worker reminders).
+ */
+export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (app, { db }) => {
+  const userId = (request: { sessionUserId: string | null }) => request.sessionUserId!;
+
+  async function load(id: string): Promise<ReminderSettingsResponse> {
+    const [row] = await db
+      .select()
+      .from(schema.reminderSettings)
+      .where(eq(schema.reminderSettings.userId, id));
+    const reach = await telegramReachability(db, id);
+    return {
+      enabled: row?.enabled ?? false,
+      time: row ? timeOfMinutes(row.minuteOfDay) : REMINDER_DEFAULT_TIME,
+      timezone: row?.timezone ?? REMINDER_DEFAULT_TIMEZONE,
+      telegram: {
+        linked: reach.telegramId !== null,
+        botStarted: reach.botStarted,
+        blocked: reach.blocked,
+      },
+    };
+  }
+
+  app.get('/me/reminders', async (request, reply) => {
+    reply.header('cache-control', 'no-store');
+    return load(userId(request));
+  });
+
+  app.put(
+    '/me/reminders',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body = reminderSettingsRequestSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+      const minuteOfDay = minutesOfTime(body.data.time)!;
+      const now = new Date();
+      await db
+        .insert(schema.reminderSettings)
+        .values({
+          userId: userId(request),
+          enabled: body.data.enabled,
+          minuteOfDay,
+          timezone: body.data.timezone,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: schema.reminderSettings.userId,
+          set: {
+            enabled: body.data.enabled,
+            minuteOfDay,
+            timezone: body.data.timezone,
+            updatedAt: now,
+          },
+        });
+      reply.header('cache-control', 'no-store');
+      return load(userId(request));
+    },
+  );
+
+  // A one-time link for the bot: `t.me/<bot>?start=link_<token>`. Opening it
+  // in Telegram attaches that Telegram account (verified by Telegram) here.
+  app.post(
+    '/me/telegram/link',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request, reply) => {
+      const { token, expiresAt } = await createTelegramLinkToken(db, userId(request));
+      reply.header('cache-control', 'no-store');
+      return { token, expiresAt: expiresAt.toISOString() };
+    },
+  );
+};
