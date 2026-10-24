@@ -10,6 +10,8 @@ export type LeaderboardPeriod = (typeof leaderboardPeriods)[number];
 
 export const LEADERBOARD_DEFAULT_LIMIT = 50;
 export const LEADERBOARD_MAX_LIMIT = 100;
+/** How many generated avatar pictures the rating cycles through. */
+export const LEADERBOARD_AVATAR_VARIANTS = 24;
 
 export const leaderboardQuerySchema = z.object({
   period: z.enum(leaderboardPeriods).default('week'),
@@ -42,8 +44,15 @@ export const leaderboardEntrySchema = z.object({
   /** Correct answers / all answers in the period; null with no answers. */
   accuracyPercent: z.number().int().min(0).max(100).nullable(),
   isMe: z.boolean(),
-  /** 0–359: a stable colour for the initial-letter avatar. */
+  /** 0–359: a stable colour for the generated avatar. */
   avatarHue: z.number().int().min(0).max(359),
+  /** Which of the generated avatar pictures (0 … LEADERBOARD_AVATAR_VARIANTS−1):
+   * stable for a user, derived from a hash — never their photo or id. */
+  avatarVariant: z
+    .number()
+    .int()
+    .min(0)
+    .max(LEADERBOARD_AVATAR_VARIANTS - 1),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { schema, type Database } from '@zybrilka/db';
 import {
+  LEADERBOARD_AVATAR_VARIANTS,
   levelForXp,
   type LeaderboardEntry,
   type LeaderboardPeriod,
@@ -44,6 +45,15 @@ export function publicName(u: {
 /** A stable avatar colour that does not reveal the id it comes from. */
 export function avatarHue(userId: string): number {
   return createHash('sha256').update(`avatar:${userId}`).digest().readUInt16BE(0) % 360;
+}
+
+/** A stable generated-avatar picture, from other bits of the same hash —
+ * so colour and picture vary independently. */
+export function avatarVariant(userId: string): number {
+  return (
+    createHash('sha256').update(`avatar:${userId}`).digest().readUInt16BE(2) %
+    LEADERBOARD_AVATAR_VARIANTS
+  );
 }
 
 const percent = (correct: number, total: number) =>
@@ -149,6 +159,7 @@ export async function getLeaderboard(
       ...statFields(row.userId),
       isMe: row.userId === userId,
       avatarHue: avatarHue(row.userId),
+      avatarVariant: avatarVariant(row.userId),
     };
   });
 
