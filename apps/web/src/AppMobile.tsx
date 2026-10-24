@@ -14,6 +14,7 @@ import { AchievementsMobile } from './screens/Achievements/AchievementsMobile.js
 import { RatingMobile } from './screens/Rating/RatingMobile.js';
 import { Level } from './screens/Level/Level.js';
 import { TheoryCatalog } from './screens/Theory/TheoryCatalog.js';
+import { Notifications } from './screens/Notifications/Notifications.js';
 import { HelpMobile } from './screens/Help/HelpMobile.js';
 import { FriendsMobile } from './screens/Friends/FriendsMobile.js';
 import { FriendProfileMobile } from './screens/Friends/FriendProfileMobile.js';
@@ -215,6 +216,7 @@ export function AppMobile() {
               <WipPlaceholder title="Настройки" note="Экран в разработке — следующий блок." />
             )}
             {contentOverlay.screen === 'help' && <HelpMobile />}
+            {contentOverlay.screen === 'notifications' && <Notifications />}
           </>
         )}
       </MobileShell>

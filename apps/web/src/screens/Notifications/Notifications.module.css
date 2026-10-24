@@ -1,0 +1,206 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 40rem;
+}
+
+.page h1,
+.page > p {
+  margin: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--color-bg-surface);
+}
+
+.card p {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: 700;
+}
+
+.state {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.state[data-on] {
+  color: var(--color-success);
+}
+
+/* An accessible switch (role="switch"), 44 px tall tap area. */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 2rem;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-border-subtle);
+  cursor: pointer;
+  transition: background-color var(--duration-base) ease;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.switchOn {
+  background: var(--color-success);
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform var(--duration-base) var(--easing-out);
+}
+
+.switchOn .thumb {
+  transform: translateX(1.25rem);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--color-accent-secondary);
+  outline-offset: 3px;
+}
+
+.switch:disabled {
+  opacity: 0.7;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: end;
+}
+
+@media (max-width: 420px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.timeInput {
+  min-height: var(--touch-target-min);
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-input);
+  font: inherit;
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  color-scheme: inherit;
+}
+
+.timeInput:focus-visible {
+  outline: 2px solid var(--color-accent-secondary);
+  outline-offset: 1px;
+}
+
+.preview {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-accent-secondary) 8%, transparent);
+}
+
+.preview svg {
+  flex-shrink: 0;
+  margin-top: 0.15em;
+}
+
+.status {
+  min-height: 1.25em;
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.ok {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-success);
+}
+
+.ok svg {
+  flex-shrink: 0;
+  margin-top: 0.1em;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.link {
+  color: var(--color-accent-secondary);
+}
+
+.error {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-error);
+}

@@ -120,7 +120,7 @@ function AccountProfileDesktop({ from }: ProfileDesktopProps) {
       id: 'notifications',
       icon: 'notifications',
       label: 'Уведомления',
-      value: 'Напоминания, серия, обновления',
+      value: 'Ежедневные напоминания в Telegram',
       onClick: () => navigate({ screen: 'notifications' }),
     },
     { id: 'language', icon: 'language', label: 'Язык', value: 'Русский' },
