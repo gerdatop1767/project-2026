@@ -10,6 +10,7 @@ import { RatingDesktop } from './screens/Rating/RatingDesktop.js';
 import { Level } from './screens/Level/Level.js';
 import { LearningCenterDesktop } from './screens/LearningCenter/LearningCenterDesktop.js';
 import { TheoryCatalog } from './screens/Theory/TheoryCatalog.js';
+import { Notifications } from './screens/Notifications/Notifications.js';
 import { SubjectCatalogDesktop } from './screens/SubjectCatalog/SubjectCatalogDesktop.js';
 import { SubjectDesktop } from './screens/Subject/SubjectDesktop.js';
 import { ProfileDesktop } from './screens/Profile/ProfileDesktop.js';
@@ -109,9 +110,7 @@ export function AppDesktop() {
           <WipPlaceholder title="Настройки" note="Экран в разработке — следующий блок." />
         )}
         {overlay.screen === 'help' && <HelpDesktop />}
-        {overlay.screen === 'notifications' && (
-          <WipPlaceholder title="Уведомления" note="Экран в разработке — следующий блок." />
-        )}
+        {overlay.screen === 'notifications' && <Notifications />}
         {overlay.screen === 'profile' && <ProfileDesktop from={overlay.from} />}
       </DesktopShell>
     );

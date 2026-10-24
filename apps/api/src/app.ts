@@ -16,6 +16,7 @@ import { adminRoutes } from './modules/admin/routes.js';
 import { analyticsRoutes } from './modules/analytics/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { complaintsRoutes } from './modules/complaints/routes.js';
+import { reminderRoutes } from './modules/reminders/routes.js';
 import { profileRoutes } from './modules/profile/routes.js';
 import { collectionsRoutes } from './modules/collections/routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
@@ -166,6 +167,13 @@ export function buildApp({
         await scope.register(rateLimit, { global: false });
         scope.addHook('onRequest', rejectCrossSiteWrites);
         scope.register(analyticsRoutes, { db, config: authConfig, prefix: '/api/v1' });
+      });
+      app.register(async (scope) => {
+        // Daily reminders and the Telegram link: an account is required.
+        await scope.register(rateLimit, { global: false });
+        scope.addHook('onRequest', requireSession);
+        scope.addHook('onRequest', rejectCrossSiteWrites);
+        scope.register(reminderRoutes, { db, prefix: '/api/v1' });
       });
       app.register(async (scope) => {
         // Task complaints: an account is required, throttled per account.

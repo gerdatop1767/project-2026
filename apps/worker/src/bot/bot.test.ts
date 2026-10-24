@@ -10,13 +10,8 @@ import {
   type TelegramUpdate,
 } from '../telegram/client.js';
 import { handleUpdate, type BotContext } from './handleUpdate.js';
-import {
-  iosGuideCaption,
-  mainMenuText,
-  splitCaption,
-  supportText,
-  welcomeCaption,
-} from './messages.js';
+import { iosGuideCaption, mainMenuText, splitCaption, welcomeCaption } from './messages.js';
+import { supportTexts } from '@zybrilka/shared';
 import { BotPhotos } from './photos.js';
 import { loadOffset, startPolling } from './polling.js';
 
@@ -217,17 +212,17 @@ describe('Telegram bot', () => {
     expect(await chatRow(1020)).toBeUndefined();
   });
 
-  it('«💬 Поддержка» answers with the placeholder and keeps the keyboard', async () => {
+  it('«💬 Поддержка» asks for the message and keeps the keyboard', async () => {
     await handleUpdate(ctx, start(1021, '💬 Поддержка'));
     expect(telegram.sendPhoto).not.toHaveBeenCalled();
-    expect(telegram.sendMessage.mock.calls[0]![1]).toBe(supportText);
+    expect(telegram.sendMessage.mock.calls[0]![1]).toBe(supportTexts.prompt);
     expect(messageOptions(0).replyMarkup).toEqual(KEYBOARD);
   });
 
   it('button words inside a sentence or a command are not mistaken for buttons', async () => {
     await handleUpdate(ctx, start(1022, 'где меню?'));
     await handleUpdate(ctx, start(1022, '/menu_old'));
-    expect(telegram.sendMessage.mock.calls[0]![1]).toContain('пока не умею отвечать');
+    expect(telegram.sendMessage.mock.calls[0]![1]).toContain('сам на сообщения не отвечаю');
     expect(telegram.sendMessage.mock.calls[1]![1]).toContain('Такой команды я не знаю');
   });
 

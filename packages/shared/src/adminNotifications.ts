@@ -12,6 +12,7 @@ export const adminNotificationSettingsSchema = z.object({
   registrations: z.boolean().default(true),
   siteErrors: z.boolean().default(true),
   complaints: z.boolean().default(true),
+  support: z.boolean().default(true),
 });
 export type AdminNotificationSettings = z.infer<typeof adminNotificationSettingsSchema>;
 
@@ -51,8 +52,19 @@ export interface SiteErrorNotification {
   at: string;
 }
 
+export interface SupportNotification {
+  threadId: string;
+  /** The account's display name, if the chat is linked to one. */
+  name: string | null;
+  /** The start of the user's message (text only, trimmed). */
+  preview: string;
+  attachments: number;
+  at: string;
+}
+
 export type OutboxPayload =
   | { kind: 'registration'; data: RegistrationNotification }
+  | { kind: 'support'; data: SupportNotification }
   | { kind: 'complaint'; data: ComplaintNotification }
   | { kind: 'site_error'; data: SiteErrorNotification }
   | { kind: 'test'; data: { at: string } };
@@ -64,6 +76,7 @@ export const outboxKindSetting: Record<OutboxKind, keyof AdminNotificationSettin
   registration: 'registrations',
   complaint: 'complaints',
   site_error: 'siteErrors',
+  support: 'support',
   test: null,
 };
 

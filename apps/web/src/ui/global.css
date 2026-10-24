@@ -233,3 +233,13 @@ a,
     scale: none;
   }
 }
+
+/* Where fixed bottom elements (cookie banner, Telegram button) sit: clear
+   of the mobile bottom navigation whenever it is on screen. */
+:root {
+  --floating-bottom: calc(var(--space-4) + var(--safe-bottom));
+}
+
+:root:has([data-bottom-nav]) {
+  --floating-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom) + var(--space-3));
+}

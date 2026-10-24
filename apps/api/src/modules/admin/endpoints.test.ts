@@ -167,7 +167,8 @@ describe('admin endpoints (as the owner)', () => {
       const click = await app.inject({
         method: 'GET',
         url: `/api/v1/go/${c.slug}`,
-        headers: { 'user-agent': 'Mozilla/5.0' },
+        // A visitor who accepted analytics cookies (zc=a1): counted as a visitor.
+        headers: { 'user-agent': 'Mozilla/5.0', cookie: 'zc=a1' },
       });
       expect(click.headers.location).toBe(`${WEB}/training`);
       const list = (await get('/api/v1/admin/campaigns?period=7d')).json();

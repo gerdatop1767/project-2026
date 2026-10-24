@@ -6,6 +6,7 @@ import {
   trackRoute,
   trackSubject,
 } from './analytics.js';
+import { setConsent } from './consent.js';
 
 describe('client analytics', () => {
   const fetchMock = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
@@ -13,6 +14,7 @@ describe('client analytics', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockClear();
+    setConsent({ analytics: true });
     setAnalyticsEnabled(true);
   });
   afterEach(() => {
@@ -55,5 +57,13 @@ describe('client analytics', () => {
     fetchMock.mockImplementationOnce(() => Promise.reject(new Error('offline')));
     track('visit');
     expect(() => flushAnalytics()).not.toThrow();
+  });
+
+  it('sends nothing without consent to analytics cookies, or after a decline', () => {
+    setConsent({ analytics: false });
+    track('visit');
+    trackSubject('physics');
+    flushAnalytics();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

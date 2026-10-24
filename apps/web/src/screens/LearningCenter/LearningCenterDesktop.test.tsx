@@ -67,4 +67,11 @@ describe('LearningCenterDesktop', () => {
     await user.click(screen.getByText('Математика'));
     expect(screen.getByTestId('overlay')).toHaveTextContent('subject');
   });
+
+  it('«Рекомендации для тебя» is an honest placeholder — no invented picks', () => {
+    renderLearningCenter();
+    expect(screen.getByText('Рекомендации появятся позже')).toBeInTheDocument();
+    expect(screen.queryByText('Популярное')).not.toBeInTheDocument();
+    expect(screen.queryByText('Типовые задания')).not.toBeInTheDocument();
+  });
 });

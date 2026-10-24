@@ -49,34 +49,6 @@ const sections: readonly LearningSection[] = [
   },
 ];
 
-interface Recommendation {
-  icon: FeatureIconName;
-  badge: string;
-  title: string;
-  description: string;
-}
-
-const recommendations: readonly Recommendation[] = [
-  {
-    icon: 'topics',
-    badge: 'Популярное',
-    title: 'Основные темы ЕГЭ',
-    description: 'Самые важные темы, которые встречаются в экзамене',
-  },
-  {
-    icon: 'typical',
-    badge: 'Новое',
-    title: 'Типовые задания',
-    description: 'Разбор сложных заданий с примерами решений',
-  },
-  {
-    icon: 'tips',
-    badge: 'Советы',
-    title: 'Как эффективно готовиться',
-    description: 'Методики, планирование и полезные лайфхаки',
-  },
-];
-
 /**
  * Desktop "Учебный центр" (approved reference screenshot): a hub of
  * theory/practice/strategy/resource sections, a subject picker and
@@ -162,35 +134,20 @@ export function LearningCenterDesktop() {
 
       <Card className={styles.recommendCard}>
         <p className="text-h3">Рекомендации для тебя</p>
-        <p className="text-body-sm text-secondary">На основе твоей активности</p>
-        <div className={clsx(styles.recommendGrid, staggerClassName)}>
-          {recommendations.map((item) => (
-            <div
-              key={item.title}
-              className={styles.recommendItem}
-              data-icon-host
-              style={{ ['--rec-accent' as string]: featureIconGlow(item.icon) }}
-            >
-              <span className={styles.recommendIcon}>
-                <FeatureIcon name={item.icon} />
-              </span>
-              <div className={styles.recommendBody}>
-                <span className={styles.recommendBadge}>{item.badge}</span>
-                <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                  {item.title}
-                </p>
-                <p className="text-body-sm text-secondary">{item.description}</p>
-              </div>
-              <button
-                type="button"
-                className={styles.recommendArrow}
-                aria-label={item.title}
-                onClick={() => navigate({ screen: 'subjectCatalog' })}
-              >
-                <Icon name="arrowRight" size={16} />
-              </button>
-            </div>
-          ))}
+        {/* No recommendation engine behind this block yet: an honest
+            placeholder — no invented «personal» picks, no API requests. */}
+        <div className={styles.recommendEmpty} role="status">
+          <span className={styles.recommendEmptyIcon} aria-hidden="true">
+            <Icon name="smart" size={22} />
+          </span>
+          <div>
+            <p className="text-body" style={{ fontWeight: 700 }}>
+              Рекомендации появятся позже
+            </p>
+            <p className="text-body-sm text-secondary">
+              Решай задания — по ним мы подберём, что повторить и чем заняться дальше.
+            </p>
+          </div>
         </div>
       </Card>
     </div>

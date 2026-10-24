@@ -169,70 +169,9 @@ export async function listIdentities(db: Database, userId: string): Promise<Iden
     .orderBy(asc(schema.authIdentities.createdAt));
 }
 
-export type AddIdentityOutcome = 'linked' | 'already_linked' | 'taken' | 'provider_already_used';
-
-/**
- * Attaches (provider, providerUserId) to `userId` — and ONLY ever to that
- * user; an identity owned by someone else is never moved.
- * - 'linked': new row for this user;
- * - 'already_linked': this exact identity already belongs to this user;
- * - 'taken': it belongs to a different account;
- * - 'provider_already_used': this user already holds a DIFFERENT account of
- *   the same provider (one VK / one Telegram per account).
- * The unique (provider, providerUserId) index is the final arbiter under
- * concurrency: the loser of a race re-reads the owner and reports 'taken'.
- */
-export async function addIdentity(
-  db: Database,
-  userId: string,
-  provider: Provider,
-  providerUserId: string,
-): Promise<AddIdentityOutcome> {
-  return db.transaction(async (tx) => {
-    const owned = await tx
-      .select({
-        userId: schema.authIdentities.userId,
-        providerUserId: schema.authIdentities.providerUserId,
-      })
-      .from(schema.authIdentities)
-      .where(
-        and(
-          eq(schema.authIdentities.provider, provider),
-          eq(schema.authIdentities.providerUserId, providerUserId),
-        ),
-      );
-    if (owned[0]) return owned[0].userId === userId ? 'already_linked' : 'taken';
-
-    const mine = await tx
-      .select({ id: schema.authIdentities.id })
-      .from(schema.authIdentities)
-      .where(
-        and(eq(schema.authIdentities.userId, userId), eq(schema.authIdentities.provider, provider)),
-      );
-    if (mine.length > 0) return 'provider_already_used';
-
-    const inserted = await tx
-      .insert(schema.authIdentities)
-      .values({ userId, provider, providerUserId })
-      .onConflictDoNothing({
-        target: [schema.authIdentities.provider, schema.authIdentities.providerUserId],
-      })
-      .returning({ id: schema.authIdentities.id });
-    if (inserted.length > 0) return 'linked';
-
-    // Lost a race against another request linking the same identity.
-    const [winner] = await tx
-      .select({ userId: schema.authIdentities.userId })
-      .from(schema.authIdentities)
-      .where(
-        and(
-          eq(schema.authIdentities.provider, provider),
-          eq(schema.authIdentities.providerUserId, providerUserId),
-        ),
-      );
-    return winner?.userId === userId ? 'already_linked' : 'taken';
-  });
-}
+// The linking rules live in @zybrilka/db so the bot (worker) links through
+// the very same code (packages/db identities.ts).
+export { addIdentity, type AddIdentityOutcome } from '@zybrilka/db';
 
 export type RemoveIdentityOutcome = 'removed' | 'not_linked' | 'last_identity';
 

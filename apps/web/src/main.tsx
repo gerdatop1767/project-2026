@@ -6,6 +6,7 @@ import { LearningSessionProvider } from './lib/learningSessionContext.js';
 import { StreakProvider } from './lib/streakContext.js';
 import { AuthProvider } from './lib/authContext.js';
 import { ToastProvider } from './ui/Toast/ToastProvider.js';
+import { FloatingLayer } from './ui/FloatingLayer/FloatingLayer.js';
 import 'katex/dist/katex.min.css';
 import './index.css';
 
@@ -48,6 +49,7 @@ createRoot(root).render(
             <StreakProvider>
               <ToastProvider>
                 <App />
+                <FloatingLayer />
               </ToastProvider>
             </StreakProvider>
           </LearningSessionProvider>

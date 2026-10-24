@@ -57,6 +57,7 @@ import {
 } from './reports/notifications.js';
 import { enqueueNotification } from '../notifications/outbox.js';
 import { broadcastRoutes } from './broadcasts.js';
+import { supportRoutes } from './support.js';
 
 export interface AdminRoutesOptions {
   db: Database;
@@ -436,6 +437,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
 
   // ── Рассылки (только черновики и подтверждение; шлёт worker) ──────────
   await app.register(broadcastRoutes, { db });
+
+  // ── Поддержка (переписка через бота; отправляет worker) ───────────────
+  await app.register(supportRoutes, { db, botToken: config.TELEGRAM_BOT_TOKEN });
 
   // ── Уведомления в Telegram (только владельцу) ─────────────────────────
   app.get('/admin/notifications', async () =>

@@ -1,0 +1,145 @@
+.banner {
+  position: fixed;
+  z-index: var(--z-overlay);
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--floating-bottom);
+  max-width: 34rem;
+  margin: 0 auto;
+  max-height: calc(100dvh - var(--floating-bottom) - var(--space-6));
+  overflow-y: auto;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-bg-elevated);
+  box-shadow:
+    var(--shadow-e3),
+    inset 0 0 0 1px var(--color-border-subtle);
+  animation: bannerIn 320ms var(--easing-out) both;
+}
+
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* Wide screens: bottom-left, out of the way of the page's main column and
+   of the Telegram button on the right. */
+@media (min-width: 1024px) {
+  .banner {
+    left: var(--space-6);
+    right: auto;
+    width: 30rem;
+    margin: 0;
+  }
+}
+
+.title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+}
+
+.text {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.link {
+  color: var(--color-accent-secondary);
+}
+
+.categories {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.category {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-tint) 4%, transparent);
+  font-size: var(--font-size-body-sm);
+}
+
+.categoryHead {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.categoryState {
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.categoryText {
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.button {
+  flex: 1 1 9rem;
+  min-height: var(--touch-target-min);
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-button);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary {
+  color: var(--color-on-accent);
+  background: linear-gradient(90deg, var(--color-accent-primary), var(--color-accent-primary-end));
+}
+
+.secondary {
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+}
+
+.more {
+  min-height: var(--touch-target-min);
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-accent-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.button:focus-visible,
+.more:focus-visible,
+.link:focus-visible {
+  outline: 2px solid var(--color-accent-secondary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation: none;
+  }
+}

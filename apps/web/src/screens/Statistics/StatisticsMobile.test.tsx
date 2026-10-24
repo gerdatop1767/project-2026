@@ -517,6 +517,7 @@ describe('StatisticsMobile — «Рейтинг»', () => {
         accuracyPercent: 80,
         isMe: false,
         avatarHue: 200,
+        avatarVariant: 3,
       },
     ],
     me: { rank: null, level: 1, points: 0, solved: 0, accuracyPercent: null },
