@@ -155,11 +155,12 @@ function AccountChips({ className, showRating }: StatusChipsProps) {
               : `Уровень ${xp.level}, до следующего ${xp.xpToNextLevel} XP, ранг «${levelRankFor(xp.level).name}». Открыть страницу уровня`
         }
       >
+        {/* 24 px = --chip-icon: the same box as the flame and the place. */}
         <span className={styles.icon}>
           {xp === null ? (
             <Icon name="crown" size={20} className={styles.crownIcon} />
           ) : (
-            <LevelEmblem rank={levelRankFor(xp.level)} size={26} priority />
+            <LevelEmblem rank={levelRankFor(xp.level)} size={24} priority />
           )}
         </span>
         <span className={styles.chipText} aria-hidden="true">

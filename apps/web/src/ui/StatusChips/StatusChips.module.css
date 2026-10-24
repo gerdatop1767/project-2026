@@ -2,10 +2,11 @@
   /* One geometry for every chip (streak, level, rating, guest). */
   --chip-h: 3rem;
   --chip-pad-x: var(--space-3);
-  --chip-icon: 1.375rem;
+  /* One icon box for every chip: the flame, the level emblem, the place. */
+  --chip-icon: 1.5rem;
   --chip-gap: var(--space-2);
-  /* A thin bottom row every chip reserves; only the level chip draws its
-     progress bar in it — so icons and numbers share one axis. */
+  /* The level chip's progress bar sits in the bottom margin, under the
+     content — which stays on the chip's centre line in every chip. */
   --chip-bar-h: 3px;
   --chip-bar-gap: 5px;
   display: flex;
@@ -16,8 +17,11 @@
 
 .chip {
   display: grid;
+  /* Three rows: equal margins above and below the content, so the icon
+     and the number sit on the chip's centre line; the level bar (if any)
+     lives at the bottom of the lower margin. */
   grid-template-columns: var(--chip-icon) auto;
-  grid-template-rows: minmax(0, 1fr) var(--chip-bar-h);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   column-gap: var(--chip-gap);
   row-gap: 0;
@@ -32,7 +36,7 @@
 }
 
 .icon {
-  grid-row: 1;
+  grid-row: 2;
   grid-column: 1;
   display: grid;
   place-items: center;
@@ -42,14 +46,14 @@
 
 .flameIcon,
 .crownIcon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.375rem;
+  height: 1.375rem;
   object-fit: contain;
   flex-shrink: 0;
 }
 
 .chipText {
-  grid-row: 1;
+  grid-row: 2;
   grid-column: 2;
   display: flex;
   flex-direction: column;
@@ -76,8 +80,9 @@
 }
 
 .levelBar {
-  grid-row: 2;
+  grid-row: 3;
   grid-column: 1 / -1;
+  align-self: end;
   display: block;
   height: var(--chip-bar-h);
   border-radius: 2px;
@@ -98,7 +103,6 @@
   .row {
     --chip-h: 2.75rem;
     --chip-pad-x: var(--space-3);
-    --chip-icon: 1.25rem;
   }
 
   .chipLabel {
