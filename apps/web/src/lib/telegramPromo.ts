@@ -11,7 +11,7 @@ const STORAGE_KEY = 'zybrilka-tg-promo-hidden-until';
 let memoryHiddenUntil = 0;
 
 export function promoHiddenUntil(): number {
-  let stored = 0;
+  let stored: number;
   try {
     stored = Number(window.localStorage.getItem(STORAGE_KEY) ?? 0) || 0;
   } catch {
