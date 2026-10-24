@@ -3,94 +3,57 @@
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  isolation: isolate;
 }
 
-.svg {
+.art {
   grid-area: 1 / 1;
+  display: block;
   width: 100%;
   height: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 2px 6px var(--rank-glow));
+  object-fit: contain;
+  user-select: none;
 }
 
-.level {
-  /* Above the SVG, which its drop-shadow filter lifts into its own layer. */
-  position: relative;
+/* The level number: a small tag under the emblem, not over its symbol. */
+.levelTag {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
   z-index: 1;
-  grid-area: 1 / 1;
-  /* The body's centre sits a little below the box's (crowns go on top). */
-  margin-top: 8%;
-  color: #fff;
+  min-width: 2.1em;
+  padding: 0.12em 0.5em;
+  transform: translate(-50%, 30%);
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  box-shadow:
+    inset 0 0 0 1.5px var(--rank-to),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  color: var(--color-text-primary);
   font-family: var(--font-display, inherit);
   font-weight: 800;
-  line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  line-height: 1.1;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.locked {
+.locked .art {
   filter: grayscale(1);
   opacity: 0.4;
 }
 
-.sheen {
-  opacity: 0;
+/* Only the large emblem moves, once: a short, soft entrance. */
+.animated .art {
+  animation: emblemIn 420ms var(--easing-out) both;
 }
 
-.halo {
-  position: absolute;
-  inset: -22%;
-  z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--rank-glow) 0%, transparent 68%);
-  opacity: 0.7;
-}
-
-/* ---- Motion: only the one large emblem gets it (`animated`). Every loop
-   is slow and soft — a light sweep or a breathing glow, never a flash. */
-
-.animated {
-  animation: emblemIn 640ms var(--easing-out) both;
-}
-
-/* Знаток and up: a light band sweeps across now and then. */
-.animated:is(
-    [data-rank='scholar'],
-    [data-rank='master'],
-    [data-rank='expert'],
-    [data-rank='legend']
-  )
-  .sheen {
-  opacity: 0.28;
-  animation: sheen 7s ease-in-out 1.2s infinite;
-}
-
-/* Мастер and Эксперт: the glow behind breathes. */
-.animated:is([data-rank='master'], [data-rank='expert']) .halo {
-  animation: breathe 5s ease-in-out infinite;
-}
-
-/* Легенда: an iridescent aura turns slowly. */
-.animated[data-rank='legend'] .halo {
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 138, 216, 0.5),
-    rgba(140, 92, 255, 0.45),
-    rgba(77, 200, 255, 0.5),
-    rgba(255, 217, 121, 0.45),
-    rgba(255, 138, 216, 0.5)
-  );
-  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
-  mask: radial-gradient(circle, #000 30%, transparent 70%);
-  opacity: 0.85;
-  animation: turn 14s linear infinite;
+.animated .levelTag {
+  animation: tagIn 320ms var(--easing-out) 180ms both;
 }
 
 @keyframes emblemIn {
   from {
     opacity: 0;
-    transform: scale(0.82) rotate(-6deg);
+    transform: scale(0.92);
   }
   to {
     opacity: 1;
@@ -98,41 +61,20 @@
   }
 }
 
-@keyframes sheen {
-  0%,
-  70% {
-    transform: translateX(0) skewX(-18deg);
+@keyframes tagIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 70%);
   }
-  100% {
-    transform: translateX(120px) skewX(-18deg);
-  }
-}
-
-@keyframes breathe {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.04);
-  }
-}
-
-@keyframes turn {
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+    transform: translate(-50%, 30%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animated,
-  .animated .halo,
-  .animated .sheen {
-    animation: none !important;
-  }
-  .animated .sheen {
-    opacity: 0 !important;
+  .animated .art,
+  .animated .levelTag {
+    animation: none;
   }
 }

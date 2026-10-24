@@ -255,7 +255,10 @@ describe('StatusChips — level (GET /progress/xp)', () => {
     );
     const chip = await screen.findByRole('button', { name: /ранг «Мастер»/ });
     expect(chip).toHaveAttribute('data-rank', 'master');
-    expect(chip.querySelector('[data-rank="master"] svg')).not.toBeNull();
+    expect(chip.querySelector('[data-rank="master"] img')).toHaveAttribute(
+      'src',
+      '/branding/v2/levels/master.webp',
+    );
   });
 
   const board = (rank: number | null, participants = 40) => ({

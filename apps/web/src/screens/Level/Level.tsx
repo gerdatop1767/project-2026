@@ -120,7 +120,13 @@ export function Level() {
           style={levelRankStyle(levelRankFor(xp.level))}
         >
           <div className={styles.heroTop}>
-            <LevelEmblem rank={levelRankFor(xp.level)} level={xp.level} size={88} animated />
+            <LevelEmblem
+              rank={levelRankFor(xp.level)}
+              level={xp.level}
+              size={96}
+              animated
+              priority
+            />
             <div className={styles.heroText}>
               <p className={styles.rankName}>
                 Ранг «{levelRankFor(xp.level).name}»

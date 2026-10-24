@@ -5,6 +5,7 @@ import { useStreakContext } from '../../lib/streakContext.js';
 import { useAuth } from '../../lib/authContext.js';
 import { levelRankFor, levelRankStyle } from '../../lib/levelRanks.js';
 import { LevelEmblem } from '../LevelEmblem/LevelEmblem.js';
+import { formatPlace, PlaceIcon } from '../RatingPlace/PlaceIcon.js';
 import { useNavigation, useOptionalNavigation } from '../../lib/navigation.js';
 import { streakTier } from '@zybrilka/shared';
 import { StreakFlame } from './StreakFlame.js';
@@ -61,7 +62,9 @@ function GuestChip({ className }: StatusChipsProps) {
         onClick={() => navigate({ screen: 'login' })}
         aria-label="Гость. Войти или зарегистрироваться"
       >
-        <Icon name="profile" size={18} className={styles.guestIcon} />
+        <span className={styles.icon}>
+          <Icon name="profile" size={18} className={styles.guestIcon} />
+        </span>
         <span className={styles.chipText}>
           <span className={styles.chipLabel}>Гость</span>
           <span className={styles.chipValue}>Войти</span>
@@ -126,7 +129,9 @@ function AccountChips({ className, showRating }: StatusChipsProps) {
             : `Серия: ${streak.currentStreak} ${daysWord(streak.currentStreak)}`
         }
       >
-        <StreakFlame tier={tier} levelUp={levelUp} size={22} />
+        <span className={styles.icon}>
+          <StreakFlame tier={tier} levelUp={levelUp} size={22} />
+        </span>
         <span className={styles.chipText}>
           <span className={styles.chipLabel} aria-hidden="true">
             Серия
@@ -138,12 +143,7 @@ function AccountChips({ className, showRating }: StatusChipsProps) {
       </div>
       <button
         type="button"
-        className={clsx(
-          styles.chip,
-          styles.levelChip,
-          styles.levelButton,
-          levelBumped && styles.chipStreakUp,
-        )}
+        className={clsx(styles.chip, styles.levelButton, levelBumped && styles.chipStreakUp)}
         data-rank={xp === null ? undefined : levelRankFor(xp.level).id}
         style={xp === null ? undefined : levelRankStyle(levelRankFor(xp.level))}
         onClick={() => navigation?.navigate({ screen: 'level' })}
@@ -155,30 +155,30 @@ function AccountChips({ className, showRating }: StatusChipsProps) {
               : `Уровень ${xp.level}, до следующего ${xp.xpToNextLevel} XP, ранг «${levelRankFor(xp.level).name}». Открыть страницу уровня`
         }
       >
-        <span className={styles.levelChipRow}>
+        <span className={styles.icon}>
           {xp === null ? (
             <Icon name="crown" size={20} className={styles.crownIcon} />
           ) : (
-            <LevelEmblem rank={levelRankFor(xp.level)} size={22} />
+            <LevelEmblem rank={levelRankFor(xp.level)} size={26} priority />
           )}
-          <span className={styles.chipText} aria-hidden="true">
-            <span className={styles.chipLabel}>Уровень</span>
-            <span className={styles.chipValue}>{xp === null ? '—' : xp.level}</span>
-          </span>
         </span>
-        {xp !== null && (
-          <span className={styles.levelBar} aria-hidden="true">
-            <span
-              className={styles.levelBarFill}
-              style={{ width: `${Math.round(xp.progress * 100)}%` }}
-            />
-          </span>
-        )}
+        <span className={styles.chipText} aria-hidden="true">
+          <span className={styles.chipLabel}>Уровень</span>
+          <span className={styles.chipValue}>{xp === null ? '—' : xp.level}</span>
+        </span>
+        {/* Always present (empty while loading) so the chip never changes size. */}
+        <span className={styles.levelBar} aria-hidden="true">
+          <span
+            className={styles.levelBarFill}
+            style={{ width: `${xp === null ? 0 : Math.round(xp.progress * 100)}%` }}
+          />
+        </span>
       </button>
       {showRating && (
         <button
           type="button"
           className={clsx(styles.chip, styles.levelButton, styles.ratingChip)}
+          data-place={rating?.me.rank != null && rating.me.rank <= 3 ? 'top' : undefined}
           onClick={() => navigation?.navigate({ screen: 'rating' })}
           aria-label={
             rating === null
@@ -188,12 +188,12 @@ function AccountChips({ className, showRating }: StatusChipsProps) {
                 : `Место в рейтинге за неделю: ${rating.me.rank} из ${rating.participants}. Открыть рейтинг`
           }
         >
-          <Icon name="achievements" size={20} className={styles.ratingIcon} />
+          <span className={styles.icon}>
+            <PlaceIcon rank={rating?.me.rank} size={22} />
+          </span>
           <span className={styles.chipText} aria-hidden="true">
             <span className={styles.chipLabel}>Рейтинг</span>
-            <span className={styles.chipValue}>
-              {rating === null || rating.me.rank === null ? '—' : `#${rating.me.rank}`}
-            </span>
+            <span className={styles.chipValue}>{formatPlace(rating?.me.rank)}</span>
           </span>
         </button>
       )}
