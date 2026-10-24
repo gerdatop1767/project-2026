@@ -19,6 +19,15 @@ export interface InlineButton {
 export interface InlineKeyboard {
   inline_keyboard: InlineButton[][];
 }
+/** The keyboard under the input field (sends its button's text as a message). */
+export interface ReplyKeyboard {
+  keyboard: { text: string }[][];
+  /** Stays shown even after the user hides the system keyboard. */
+  is_persistent?: boolean;
+  /** Compact buttons instead of half the screen on phones. */
+  resize_keyboard?: boolean;
+  input_field_placeholder?: string;
+}
 
 export interface TelegramUser {
   id: number;
@@ -54,7 +63,7 @@ export type PhotoInput = { fileId: string } | { bytes: Uint8Array; filename: str
 
 export interface SendOptions {
   parseMode?: 'HTML';
-  replyMarkup?: InlineKeyboard;
+  replyMarkup?: InlineKeyboard | ReplyKeyboard;
   disablePreview?: boolean;
 }
 
@@ -72,6 +81,26 @@ export type TelegramFailure =
   /** Timeout, DNS, connection reset, 5xx — worth retrying later. */
   | 'network';
 
+/**
+ * What is known about a `network` failure — safe to log and store: an
+ * error code (never a message or URL, which could carry the token) and
+ * whether Telegram may already have acted on the request.
+ */
+export interface NetworkCause {
+  /** errno / undici code (ECONNRESET, ENOTFOUND, UND_ERR_CONNECT_TIMEOUT…),
+   * `HTTP_502` for a 5xx answer, or null when there is none (our timeout). */
+  code: string | null;
+  /** Our own request timeout fired. */
+  timeout: boolean;
+  /**
+   * False only when the request provably never reached Telegram (DNS,
+   * refused / unreachable / timed-out connect, certificate) — then it is
+   * safe to send again. True when the connection broke or timed out after
+   * the request may have been delivered: sending again could duplicate it.
+   */
+  maybeDelivered: boolean;
+}
+
 export class TelegramApiError extends Error {
   constructor(
     readonly method: string,
@@ -80,6 +109,8 @@ export class TelegramApiError extends Error {
     /** Telegram's own description (never contains the token). */
     readonly description: string,
     readonly retryAfter: number | null = null,
+    /** Set for `network` failures. */
+    readonly network: NetworkCause | null = null,
   ) {
     super(`Telegram ${method} failed (${kind}${status ? ` ${status}` : ''}): ${description}`);
     this.name = 'TelegramApiError';
@@ -96,6 +127,72 @@ function classify(status: number, description: string): TelegramFailure {
   if (status === 403 || (status === 400 && UNREACHABLE.test(description))) return 'unreachable';
   if (status >= 500) return 'network';
   return 'rejected';
+}
+
+/** Failures that happen before a request is sent: nothing reached Telegram. */
+const NOT_SENT_CODES = new Set([
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EAI_FAIL',
+  'ECONNREFUSED',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'EADDRNOTAVAIL',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+const CERTIFICATE_CODE = /^(CERT_|UNABLE_TO_|DEPTH_ZERO_|SELF_SIGNED_|ERR_TLS_CERT)/;
+
+interface ErrorLike {
+  name?: unknown;
+  code?: unknown;
+  syscall?: unknown;
+  errors?: unknown;
+  cause?: unknown;
+}
+
+/** Only codes made of A–Z, 0–9 and `_` are kept: never free text. */
+function safeCode(value: unknown): string | null {
+  return typeof value === 'string' && /^[A-Z0-9_]{2,40}$/.test(value) ? value : null;
+}
+
+function connectFailure(e: ErrorLike): boolean {
+  const code = safeCode(e.code);
+  return (
+    (code !== null && (NOT_SENT_CODES.has(code) || CERTIFICATE_CODE.test(code))) ||
+    e.syscall === 'connect' ||
+    e.syscall === 'getaddrinfo'
+  );
+}
+
+/**
+ * fetch() rejects with TypeError('fetch failed') and the real reason in
+ * `cause` (undici / errno). Several connect attempts (IPv6 and IPv4 tried
+ * in turn) fail as an AggregateError with one error per address.
+ */
+export function networkCause(error: unknown): NetworkCause {
+  const outer = (error ?? {}) as ErrorLike;
+  if (outer.name === 'TimeoutError') return { code: null, timeout: true, maybeDelivered: true };
+  const cause = (outer.cause ?? outer) as ErrorLike;
+  const attempts = Array.isArray(cause.errors) ? (cause.errors as ErrorLike[]) : null;
+  if (attempts && attempts.length > 0) {
+    return {
+      code: safeCode(cause.code) ?? safeCode(attempts[0]!.code),
+      timeout: false,
+      maybeDelivered: !attempts.every(connectFailure),
+    };
+  }
+  return {
+    code: safeCode(cause.code) ?? (cause === outer ? null : safeCode(cause.name)),
+    timeout: false,
+    maybeDelivered: !connectFailure(cause),
+  };
+}
+
+function networkError(method: string, network: NetworkCause, status: number | null = null) {
+  const description = network.timeout
+    ? 'timeout'
+    : `network error${network.code ? ` (${network.code})` : ''}`;
+  return new TelegramApiError(method, 'network', status, description, null, network);
 }
 
 export interface TelegramClientOptions {
@@ -142,9 +239,16 @@ export function largestPhotoId(message: TelegramMessage): string | null {
   return sizes.length ? sizes[sizes.length - 1]!.file_id : null;
 }
 
+/**
+ * Longer than undici's own 10 s connect timeout on purpose: a connection
+ * that never opens then fails as UND_ERR_CONNECT_TIMEOUT — known not sent,
+ * safe to retry — instead of an ambiguous timeout of the whole request.
+ */
+export const DEFAULT_TIMEOUT_MS = 20_000;
+
 export function createTelegramClient({
   token,
-  timeoutMs = 10_000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
   fetch: fetchImpl = fetch,
   apiBase = 'https://api.telegram.org',
 }: TelegramClientOptions): TelegramClient {
@@ -166,13 +270,7 @@ export function createTelegramClient({
       });
     } catch (error) {
       if (options.signal?.aborted) throw error;
-      const name = (error as { name?: string } | null)?.name;
-      throw new TelegramApiError(
-        method,
-        'network',
-        null,
-        name === 'TimeoutError' ? 'timeout' : 'network error',
-      );
+      throw networkError(method, networkCause(error));
     }
     let payload: {
       ok?: boolean;
@@ -182,10 +280,17 @@ export function createTelegramClient({
     };
     try {
       payload = (await response.json()) as typeof payload;
-    } catch {
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      // The answer broke off (or timed out) after its status line: with a
+      // 2xx Telegram has already done what was asked.
+      if (response.ok || response.status >= 500) {
+        const cause = networkCause(error);
+        throw networkError(method, { ...cause, maybeDelivered: true }, response.status);
+      }
       throw new TelegramApiError(
         method,
-        classify(response.status || 502, ''),
+        classify(response.status, ''),
         response.status,
         'invalid response',
       );
@@ -196,12 +301,17 @@ export function createTelegramClient({
         300,
       );
       const status = response.ok ? 400 : response.status;
+      const kind = classify(status, description);
       throw new TelegramApiError(
         method,
-        classify(status, description),
+        kind,
         status,
         description,
         payload.parameters?.retry_after ?? null,
+        // A 5xx gives no promise either way about what Telegram did.
+        kind === 'network'
+          ? { code: `HTTP_${status}`, timeout: false, maybeDelivered: true }
+          : null,
       );
     }
     return payload.result as T;

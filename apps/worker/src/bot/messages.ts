@@ -1,4 +1,5 @@
-import type { InlineButton, InlineKeyboard } from '../telegram/client.js';
+import { parseTelegramHtml, TELEGRAM_CAPTION_MAX } from '@zybrilka/shared';
+import type { InlineButton, InlineKeyboard, ReplyKeyboard } from '../telegram/client.js';
 
 /**
  * Everything the bot says to users. HTML parse mode; nothing here ever
@@ -14,6 +15,62 @@ export function openAppButton(siteUrl: string): InlineButton {
   return siteUrl.startsWith('https://')
     ? { text: 'Открыть Зубрилку', web_app: { url: siteUrl } }
     : { text: 'Открыть Зубрилку', url: siteUrl };
+}
+
+/** The two buttons under the input field (ReplyKeyboardMarkup): a tap sends
+ * the button's text as an ordinary message, handled in handleUpdate. */
+export const MENU_BUTTON = '📚 Меню';
+export const SUPPORT_BUTTON = '💬 Поддержка';
+
+export const persistentKeyboard: ReplyKeyboard = {
+  keyboard: [[{ text: MENU_BUTTON }, { text: SUPPORT_BUTTON }]],
+  // Shown even after the user hides the keyboard (Bot API 6.4+); older
+  // clients ignore it and keep the usual keyboard icon.
+  is_persistent: true,
+  // One compact row instead of half the screen on phones.
+  resize_keyboard: true,
+};
+
+/** «📚 Меню», «меню», «Меню » … → 'menu'; the same for «Поддержка». */
+export function keyboardButtonOf(text: string): 'menu' | 'support' | null {
+  const word = text
+    .replace(/[^\p{L}\s]/gu, '')
+    .trim()
+    .toLowerCase();
+  if (word === 'меню') return 'menu';
+  if (word === 'поддержка') return 'support';
+  return null;
+}
+
+export const mainMenuText =
+  '<b>Главное меню</b> 📚\n\nОткрывай Зубрилку и решай задания — прогресс и ошибки сохраняются там же.';
+
+export const supportText =
+  'Поддержка скоро появится. Если возникла проблема, попробуй немного позже.';
+
+/**
+ * Splits a photo caption that Telegram would reject (over 1024 visible
+ * characters) at a paragraph break: the photo keeps as much of the start as
+ * fits, the rest follows as a message. Paragraphs never split inside tags.
+ */
+export function splitCaption(html: string): { caption: string; rest: string | null } {
+  const visible = (part: string) => {
+    const parsed = parseTelegramHtml(part);
+    return parsed.ok ? parsed.visibleLength : part.length;
+  };
+  if (visible(html) <= TELEGRAM_CAPTION_MAX) return { caption: html, rest: null };
+  const paragraphs = html.split('\n\n');
+  let count = 1;
+  while (
+    count < paragraphs.length &&
+    visible(paragraphs.slice(0, count + 1).join('\n\n')) <= TELEGRAM_CAPTION_MAX
+  ) {
+    count++;
+  }
+  return {
+    caption: paragraphs.slice(0, count).join('\n\n'),
+    rest: paragraphs.slice(count).join('\n\n') || null,
+  };
 }
 
 export function mainKeyboard(siteUrl: string): InlineKeyboard {
@@ -72,6 +129,7 @@ export function iosGuideKeyboard(siteUrl: string): InlineKeyboard {
 const commandList = [
   'Вот что я умею:',
   '/start — открыть Зубрилку',
+  '/menu — главное меню',
   '/ios — как установить Зубрилку на iPhone и iPad',
 ];
 

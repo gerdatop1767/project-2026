@@ -1,3 +1,6 @@
+import dns from 'node:dns';
+import net from 'node:net';
+import tls from 'node:tls';
 import { adminTelegramChats, createDb, schema, type Database } from '@zybrilka/db';
 import { readWorkerStatus, WORKER_STATUS_KEY } from '@zybrilka/shared';
 import { eq, sql } from 'drizzle-orm';
@@ -14,10 +17,86 @@ import { createTelegramClient, TelegramApiError } from './telegram/client.js';
  * Prints booleans, counts and Telegram's own safe fields only — never the
  * token, never a full webhook URL (its path can be a secret), no user data.
  * Calls only getMe and getWebhookInfo: it sends nothing, changes nothing.
+ *
+ * `network` answers «why do requests to Telegram fail from this machine»:
+ * the DNS answer for api.telegram.org (IPv4 / IPv6), a TLS handshake to
+ * each address (no HTTP request, so no token is involved), Node's address
+ * selection settings, and several timed getMe calls with their error codes.
  */
+export const TELEGRAM_HOST = 'api.telegram.org';
+
+type LookupAll = (host: string) => Promise<{ address: string; family: number }[]>;
+type TlsProbe = (address: string, servername: string) => Promise<void>;
+
+const defaultLookup: LookupAll = (host) => dns.promises.lookup(host, { all: true });
+
+const defaultTlsProbe: TlsProbe = (address, servername) =>
+  new Promise((resolve, reject) => {
+    const socket = tls.connect({ host: address, port: 443, servername, timeout: 10_000 });
+    socket.once('secureConnect', () => {
+      socket.destroy();
+      resolve();
+    });
+    socket.once('timeout', () => {
+      socket.destroy();
+      reject(Object.assign(new Error('timeout'), { code: 'TIMEOUT' }));
+    });
+    socket.once('error', reject);
+  });
+
+const codeOf = (error: unknown) => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && /^[A-Z0-9_]{2,40}$/.test(code) ? code : 'ERROR';
+};
+
+export async function probeNetwork(
+  deps: { lookup?: LookupAll; tlsProbe?: TlsProbe; now?: () => number } = {},
+) {
+  const lookup = deps.lookup ?? defaultLookup;
+  const tlsProbe = deps.tlsProbe ?? defaultTlsProbe;
+  const now = deps.now ?? (() => performance.now());
+  const report: Record<string, unknown> = {
+    node: process.version,
+    autoSelectFamily: net.getDefaultAutoSelectFamily(),
+    autoSelectFamilyAttemptTimeoutMs: net.getDefaultAutoSelectFamilyAttemptTimeout(),
+    dnsResultOrder: dns.getDefaultResultOrder(),
+    // Node's fetch ignores these unless NODE_USE_ENV_PROXY is set.
+    proxyEnvSet: Boolean(process.env.HTTPS_PROXY || process.env.https_proxy),
+  };
+  let addresses: { address: string; family: number }[] = [];
+  const t0 = now();
+  try {
+    addresses = await lookup(TELEGRAM_HOST);
+    report.dns = {
+      ms: Math.round(now() - t0),
+      ipv4: addresses.filter((a) => a.family === 4).map((a) => a.address),
+      ipv6: addresses.filter((a) => a.family === 6).map((a) => a.address),
+    };
+  } catch (error) {
+    report.dns = { ms: Math.round(now() - t0), error: codeOf(error) };
+  }
+  report.tls = await Promise.all(
+    addresses.slice(0, 6).map(async ({ address, family }) => {
+      const start = now();
+      try {
+        await tlsProbe(address, TELEGRAM_HOST);
+        return { address, family, ok: true, ms: Math.round(now() - start) };
+      } catch (error) {
+        return { address, family, ok: false, ms: Math.round(now() - start), error: codeOf(error) };
+      }
+    }),
+  );
+  return report;
+}
+
 export async function diagnose(
   config: Config,
-  deps: { fetch?: typeof fetch; db?: Database } = {},
+  deps: {
+    fetch?: typeof fetch;
+    db?: Database;
+    network?: Parameters<typeof probeNetwork>[0];
+    getMeAttempts?: number;
+  } = {},
 ): Promise<Record<string, unknown>> {
   const report: Record<string, unknown> = {
     config: {
@@ -33,15 +112,30 @@ export async function diagnose(
   if (config.TELEGRAM_BOT_TOKEN) {
     const telegram = createTelegramClient({
       token: config.TELEGRAM_BOT_TOKEN,
-      timeoutMs: 10_000,
+      timeoutMs: config.TELEGRAM_REQUEST_TIMEOUT_MS,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
     });
-    try {
-      const me = await telegram.getMe();
-      report.bot = { username: me.username ?? null };
-    } catch (error) {
-      report.bot = { error: error instanceof TelegramApiError ? error.kind : 'unexpected' };
+    report.network = await probeNetwork(deps.network);
+    // Several calls: an intermittent network shows up as a mix of results.
+    const attempts: Record<string, unknown>[] = [];
+    let username: string | null = null;
+    for (let i = 0; i < (deps.getMeAttempts ?? 5); i++) {
+      const start = performance.now();
+      try {
+        const me = await telegram.getMe();
+        username = me.username ?? null;
+        attempts.push({ ok: true, ms: Math.round(performance.now() - start) });
+      } catch (error) {
+        attempts.push({
+          ok: false,
+          ms: Math.round(performance.now() - start),
+          kind: error instanceof TelegramApiError ? error.kind : 'unexpected',
+          code: error instanceof TelegramApiError ? (error.network?.code ?? null) : null,
+          timeout: error instanceof TelegramApiError ? (error.network?.timeout ?? false) : false,
+        });
+      }
     }
+    report.bot = { username, getMe: attempts };
     try {
       const info = await telegram.getWebhookInfo();
       let host: string | null = null;

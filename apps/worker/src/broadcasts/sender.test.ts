@@ -164,6 +164,209 @@ describe('BroadcastSender', () => {
     expect(telegram.sendMessage).toHaveBeenCalledTimes(5);
   });
 
+  const connectFailure = (method = 'sendMessage') =>
+    new TelegramApiError(method, 'network', null, 'network error (UND_ERR_CONNECT_TIMEOUT)', null, {
+      code: 'UND_ERR_CONNECT_TIMEOUT',
+      timeout: false,
+      maybeDelivered: false,
+    });
+  const brokenAfterSend = (method = 'sendMessage') =>
+    new TelegramApiError(method, 'network', null, 'network error (ECONNRESET)', null, {
+      code: 'ECONNRESET',
+      timeout: false,
+      maybeDelivered: true,
+    });
+  const deliveries = async (id: string) =>
+    Object.fromEntries(
+      (
+        await testDb.db
+          .select()
+          .from(schema.broadcastDeliveries)
+          .where(eq(schema.broadcastDeliveries.broadcastId, id))
+      ).map((r) => [r.chatId, r]),
+    );
+
+  it('regression: one recipient and one passing network blip — the message still arrives', async () => {
+    // Production: recipients_total 1, sent 0, failed 1, error_code network.
+    await testDb.db.delete(schema.telegramBotChats);
+    await testDb.db.insert(schema.telegramBotChats).values({ chatId: 777 });
+    telegram.sendMessage.mockRejectedValueOnce(connectFailure());
+    const b = await create();
+    await sender.processBroadcasts();
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(2);
+    expect(await load(b.id)).toMatchObject({
+      status: 'completed',
+      recipientsTotal: 1,
+      sentCount: 1,
+      failedCount: 0,
+    });
+  });
+
+  it('a network failure before sending is retried in place (2 s, 5 s) — no duplicates', async () => {
+    telegram.sendMessage
+      .mockRejectedValueOnce(connectFailure())
+      .mockRejectedValueOnce(connectFailure());
+    const b = await create();
+    await sender.processBroadcasts();
+    expect(sleeps.slice(0, 2)).toEqual([2000, 5000]);
+    expect(recipients()).toEqual([101, 101, 101, 102, 103, 104]);
+    expect(await load(b.id)).toMatchObject({ status: 'completed', sentCount: 4, failedCount: 0 });
+    expect((await deliveries(b.id))[101]).toMatchObject({
+      status: 'sent',
+      attempts: 1,
+      errorCode: null,
+    });
+  });
+
+  it('Telegram unreachable: the chat goes back to the queue and the broadcast pauses, nobody is failed', async () => {
+    let now = 1_000_000;
+    const paused = new BroadcastSender({
+      db: testDb.db,
+      telegram,
+      logger,
+      adminChats: async () => [],
+      sleep: async (ms) => void sleeps.push(ms),
+      now: () => now,
+    });
+    telegram.sendMessage.mockRejectedValue(connectFailure());
+    const b = await create();
+    await paused.processBroadcasts();
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(3); // first chat only
+    const rows = await deliveries(b.id);
+    expect(rows[101]).toMatchObject({
+      status: 'pending',
+      attempts: 1,
+      errorCode: 'network',
+      errorDetail: 'UND_ERR_CONNECT_TIMEOUT',
+    });
+    expect([rows[102]!.status, rows[103]!.status, rows[104]!.status]).toEqual([
+      'pending',
+      'pending',
+      'pending',
+    ]);
+    expect(await load(b.id)).toMatchObject({ status: 'sending', sentCount: 0, failedCount: 0 });
+
+    // Within the pause nothing is tried.
+    await paused.processBroadcasts();
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(3);
+
+    // Telegram is back: everyone gets it once.
+    telegram.sendMessage.mockImplementation(async (chatId: number) => reply(chatId));
+    now += 61_000;
+    await paused.processBroadcasts();
+    expect(await load(b.id)).toMatchObject({ status: 'completed', sentCount: 4, failedCount: 0 });
+    expect((await deliveries(b.id))[101]).toMatchObject({ status: 'sent', attempts: 2 });
+  });
+
+  it('after MAX attempts a network failure is final, with its code kept', async () => {
+    let now = 0;
+    const paused = new BroadcastSender({
+      db: testDb.db,
+      telegram,
+      logger,
+      adminChats: async () => [],
+      sleep: async () => undefined,
+      now: () => now,
+    });
+    telegram.sendMessage.mockImplementation(async (chatId: number) => {
+      if (chatId === 101) throw connectFailure();
+      return reply(chatId);
+    });
+    const b = await create();
+    for (let pass = 0; pass < 5; pass++) {
+      await paused.processBroadcasts();
+      now += 61_000;
+    }
+    expect((await deliveries(b.id))[101]).toMatchObject({
+      status: 'failed',
+      attempts: 5,
+      errorCode: 'network',
+      errorDetail: 'UND_ERR_CONNECT_TIMEOUT',
+    });
+    expect(await load(b.id)).toMatchObject({
+      status: 'completed_with_errors',
+      sentCount: 3,
+      failedCount: 1,
+    });
+  });
+
+  it('a connection broken after the request may have delivered it: never resent', async () => {
+    telegram.sendMessage.mockRejectedValueOnce(brokenAfterSend());
+    const b = await create();
+    await sender.processBroadcasts();
+    expect(recipients()).toEqual([101, 102, 103, 104]); // 101 tried once
+    expect((await deliveries(b.id))[101]).toMatchObject({
+      status: 'failed',
+      errorCode: 'network_uncertain',
+      errorDetail: 'ECONNRESET',
+    });
+    expect(await load(b.id)).toMatchObject({ sentCount: 3, failedCount: 1 });
+  });
+
+  it('a timeout is uncertain too: kept as TIMEOUT, not resent', async () => {
+    telegram.sendMessage.mockRejectedValueOnce(
+      new TelegramApiError('sendMessage', 'network', null, 'timeout', null, {
+        code: null,
+        timeout: true,
+        maybeDelivered: true,
+      }),
+    );
+    const b = await create();
+    await sender.processBroadcasts();
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(4);
+    expect((await deliveries(b.id))[101]).toMatchObject({
+      errorCode: 'network_uncertain',
+      errorDetail: 'TIMEOUT',
+    });
+  });
+
+  const withSeparateImage = async () => {
+    const b = await create({ mediaMode: 'separate' });
+    await testDb.db.insert(schema.broadcastAttachments).values({
+      broadcastId: b.id,
+      position: 1,
+      contentType: 'image/png',
+      data: PNG,
+      sizeBytes: PNG.length,
+      width: 16,
+      height: 16,
+    });
+    return b;
+  };
+
+  it('image + text: a failed text resumes at the text — the image is not sent twice', async () => {
+    telegram.sendMessage.mockRejectedValueOnce(connectFailure());
+    const b = await withSeparateImage();
+    await sender.processBroadcasts();
+    expect(telegram.sendPhoto.mock.calls.filter((c) => c[0] === 101)).toHaveLength(1);
+    expect(telegram.sendMessage.mock.calls.filter((c) => c[0] === 101)).toHaveLength(2);
+    expect(await load(b.id)).toMatchObject({ status: 'completed', sentCount: 4 });
+  });
+
+  it('image + text: a 429 on the text waits and resumes at the text', async () => {
+    telegram.sendMessage.mockRejectedValueOnce(
+      new TelegramApiError('sendMessage', 'rate_limited', 429, 'Too Many Requests', 3),
+    );
+    const b = await withSeparateImage();
+    await sender.processBroadcasts();
+    expect(sleeps).toContain(3000);
+    expect(telegram.sendPhoto.mock.calls.filter((c) => c[0] === 101)).toHaveLength(1);
+    expect(await load(b.id)).toMatchObject({ status: 'completed', sentCount: 4 });
+  });
+
+  it('image + text: an uncertain failure after the image is «partial», never resent', async () => {
+    telegram.sendMessage.mockRejectedValueOnce(brokenAfterSend());
+    const b = await withSeparateImage();
+    await sender.processBroadcasts();
+    expect(telegram.sendPhoto.mock.calls.filter((c) => c[0] === 101)).toHaveLength(1);
+    expect(telegram.sendMessage.mock.calls.filter((c) => c[0] === 101)).toHaveLength(1);
+    expect((await deliveries(b.id))[101]).toMatchObject({
+      status: 'failed',
+      errorCode: 'partial',
+      errorDetail: 'ECONNRESET',
+    });
+  });
+
   it('a stopped broadcast starts no new sends', async () => {
     const b = await create();
     telegram.sendMessage.mockImplementation(async (chatId: number) => {

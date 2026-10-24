@@ -66,7 +66,12 @@ interface Detail {
   attachments: Attachment[];
   validation: { ok: true; parts: BroadcastPart[] } | { ok: false; error: string };
   recipientsEstimate: number;
-  deliveries: { status: string; errorCode: string | null; n: number }[];
+  deliveries: {
+    status: string;
+    errorCode: string | null;
+    errorDetail?: string | null;
+    n: number;
+  }[];
   worker: WorkerStatusInfo | null;
 }
 
@@ -101,7 +106,9 @@ const errorCodeText: Record<string, string> = {
   interrupted: 'прервано перезапуском (не повторялось, чтобы не было дублей)',
   partial: 'дошла только часть сообщения',
   rejected: 'Telegram отклонил',
-  network: 'сеть / Telegram недоступен',
+  network: 'сеть / Telegram недоступен (сообщение не ушло)',
+  network_uncertain:
+    'связь оборвалась после отправки — могло дойти; повторно не отправлялось, чтобы не было дубля',
   rate_limited: 'лимит Telegram',
   content: 'содержимое не прошло проверку',
   unexpected: 'неожиданная ошибка',
@@ -675,9 +682,10 @@ export function BroadcastPage({ id = '' }: Record<string, string>) {
                         {d.deliveries
                           .filter((x) => x.errorCode)
                           .map((x) => (
-                            <li key={`${x.status}-${x.errorCode}`}>
+                            <li key={`${x.status}-${x.errorCode}-${x.errorDetail ?? ''}`}>
                               {deliveryText[x.status] ?? x.status}:{' '}
-                              {errorCodeText[x.errorCode!] ?? x.errorCode} — {num(x.n)}
+                              {errorCodeText[x.errorCode!] ?? x.errorCode}
+                              {x.errorDetail && <code> {x.errorDetail}</code>} — {num(x.n)}
                             </li>
                           ))}
                       </ul>

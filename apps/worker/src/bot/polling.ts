@@ -93,6 +93,9 @@ export function startPolling({
           {
             kind: error instanceof TelegramApiError ? error.kind : 'unknown',
             status: error instanceof TelegramApiError ? error.status : null,
+            // The underlying network error code (e.g. ECONNRESET), never its text.
+            code: error instanceof TelegramApiError ? (error.network?.code ?? null) : null,
+            timeout: error instanceof TelegramApiError ? (error.network?.timeout ?? false) : false,
             waitMs: wait,
           },
           'telegram getUpdates failed',

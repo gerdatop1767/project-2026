@@ -47,7 +47,8 @@ const configSchema = z
       .pipe(z.array(z.uuid())),
     // Probed by the worker to notice the site being down (API + database).
     API_HEALTH_URL: z.url().optional(),
-    TELEGRAM_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
+    // Above undici's 10 s connect timeout (see DEFAULT_TIMEOUT_MS in telegram/client.ts).
+    TELEGRAM_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(20_000),
   })
   .refine((c) => c.NODE_ENV !== 'production' || c.DATABASE_URL, {
     message: 'DATABASE_URL is required in production',

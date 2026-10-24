@@ -10,7 +10,13 @@ import {
   type TelegramUpdate,
 } from '../telegram/client.js';
 import { handleUpdate, type BotContext } from './handleUpdate.js';
-import { iosGuideCaption, welcomeCaption } from './messages.js';
+import {
+  iosGuideCaption,
+  mainMenuText,
+  splitCaption,
+  supportText,
+  welcomeCaption,
+} from './messages.js';
 import { BotPhotos } from './photos.js';
 import { loadOffset, startPolling } from './polling.js';
 
@@ -103,32 +109,51 @@ describe('Telegram bot', () => {
         .where(eq(schema.telegramBotChats.chatId, chatId))
     )[0];
 
-  it('greets a new user with the welcome image, text and both buttons', async () => {
+  const KEYBOARD = {
+    keyboard: [[{ text: '📚 Меню' }, { text: '💬 Поддержка' }]],
+    is_persistent: true,
+    resize_keyboard: true,
+  };
+  type Options = {
+    parseMode?: string;
+    replyMarkup?: {
+      keyboard?: unknown;
+      inline_keyboard?: {
+        text: string;
+        web_app?: { url: string };
+        callback_data?: string;
+        url?: string;
+      }[][];
+    };
+  };
+  const messageOptions = (i: number) => telegram.sendMessage.mock.calls[i]![2] as Options;
+
+  it('greets a new user: the photo with the greeting as caption and the bottom keyboard, then the menu', async () => {
     await handleUpdate(ctx, start(1001));
     expect(telegram.sendPhoto).toHaveBeenCalledTimes(1);
     const [chatId, photo, caption, options] = telegram.sendPhoto.mock.calls[0] as unknown as [
       number,
       { filename: string },
       string,
-      {
-        parseMode: string;
-        replyMarkup: {
-          inline_keyboard: { text: string; web_app?: { url: string }; callback_data?: string }[][];
-        };
-      },
+      Options,
     ];
     expect(chatId).toBe(1001);
     expect(photo.filename).toBe('welcome.png');
-    expect(caption).toBe(welcomeCaption);
+    expect(caption).toBe(welcomeCaption); // one block: photo + text
     expect(caption).toMatch(/бесплатно/i);
     expect(options.parseMode).toBe('HTML');
-    const buttons = options.replyMarkup.inline_keyboard.flat();
+    expect(options.replyMarkup).toEqual(KEYBOARD);
+
+    // The main menu, with the buttons the welcome used to carry.
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
+    expect(telegram.sendMessage.mock.calls[0]![1]).toBe(mainMenuText);
+    const buttons = messageOptions(0).replyMarkup!.inline_keyboard!.flat();
     expect(buttons[0]).toEqual({ text: 'Открыть Зубрилку', web_app: { url: SITE } });
     expect(buttons[1]).toEqual({ text: 'Скачать приложение на iOS', callback_data: 'ios_guide' });
     expect(await chatRow(1001)).toMatchObject({ chatId: 1001, startCount: 1, userId: null });
   });
 
-  it('a repeated /start does not register again: one row, a short welcome back', async () => {
+  it('a repeated /start does not register again: one row, a welcome back with the keyboard, the menu', async () => {
     await handleUpdate(ctx, start(1002));
     await handleUpdate(ctx, start(1002));
     await handleUpdate(ctx, start(1002, '/start campaign_x'));
@@ -139,10 +164,53 @@ describe('Telegram bot', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.startCount).toBe(3);
     expect(telegram.sendPhoto).toHaveBeenCalledTimes(1);
-    expect(telegram.sendMessage).toHaveBeenCalledTimes(2);
-    expect(telegram.sendMessage.mock.calls[0]![1]).toContain('С возвращением');
+    // menu (1st start), then welcome back + menu twice
+    expect(telegram.sendMessage.mock.calls.map((c) => c[1])).toEqual([
+      mainMenuText,
+      expect.stringContaining('С возвращением'),
+      mainMenuText,
+      expect.stringContaining('С возвращением'),
+      mainMenuText,
+    ]);
+    expect(messageOptions(1).replyMarkup).toEqual(KEYBOARD);
     // No account is created by the bot.
     expect(await testDb.db.select().from(schema.users)).toHaveLength(0);
+  });
+
+  it('«📚 Меню» (and /menu) sends the same main menu as /start', async () => {
+    await handleUpdate(ctx, start(1020, '📚 Меню'));
+    await handleUpdate(ctx, start(1020, 'меню'));
+    await handleUpdate(ctx, start(1020, '/menu'));
+    expect(telegram.sendMessage.mock.calls.map((c) => c[1])).toEqual([
+      mainMenuText,
+      mainMenuText,
+      mainMenuText,
+    ]);
+    expect(messageOptions(0).replyMarkup!.inline_keyboard![0]![0]!.text).toBe('Открыть Зубрилку');
+    expect(telegram.sendPhoto).not.toHaveBeenCalled();
+    // A button is not a /start: nothing is registered.
+    expect(await chatRow(1020)).toBeUndefined();
+  });
+
+  it('«💬 Поддержка» answers with the placeholder and keeps the keyboard', async () => {
+    await handleUpdate(ctx, start(1021, '💬 Поддержка'));
+    expect(telegram.sendMessage.mock.calls[0]![1]).toBe(supportText);
+    expect(messageOptions(0).replyMarkup).toEqual(KEYBOARD);
+  });
+
+  it('button words inside a sentence or a command are not mistaken for buttons', async () => {
+    await handleUpdate(ctx, start(1022, 'где меню?'));
+    await handleUpdate(ctx, start(1022, '/menu_old'));
+    expect(telegram.sendMessage.mock.calls[0]![1]).toContain('пока не умею отвечать');
+    expect(telegram.sendMessage.mock.calls[1]![1]).toContain('Такой команды я не знаю');
+  });
+
+  it('a too-long greeting keeps the photo and the start of the text together, the rest follows', () => {
+    const long = ['<b>Привет!</b>', 'а'.repeat(900), 'б'.repeat(300)].join('\n\n');
+    const { caption, rest } = splitCaption(long);
+    expect(caption).toBe(['<b>Привет!</b>', 'а'.repeat(900)].join('\n\n'));
+    expect(rest).toBe('б'.repeat(300));
+    expect(splitCaption(welcomeCaption)).toEqual({ caption: welcomeCaption, rest: null });
   });
 
   it('links the chat to an existing account that signed in with this Telegram user', async () => {
@@ -208,6 +276,9 @@ describe('Telegram bot', () => {
     expect(telegram.sendMessage.mock.calls[0]![1]).toContain('Такой команды я не знаю');
     await handleUpdate(ctx, start(1008, 'привет'));
     expect(telegram.sendMessage.mock.calls[1]![1]).toContain('Сообщить об ошибке');
+    // Replies without inline buttons bring the bottom keyboard back.
+    expect(messageOptions(0).replyMarkup).toEqual(KEYBOARD);
+    expect(messageOptions(1).replyMarkup).toEqual(KEYBOARD);
     await handleUpdate(ctx, start(1009, '/start', 'group'));
     expect(telegram.sendMessage).toHaveBeenCalledTimes(2);
     expect(await chatRow(-100)).toBeUndefined();
@@ -215,7 +286,7 @@ describe('Telegram bot', () => {
 
   it('an http site (development) gets a plain link instead of the Mini App button', async () => {
     await handleUpdate({ ...ctx, siteUrl: 'http://localhost:5173' }, start(1010));
-    const options = telegram.sendPhoto.mock.calls[0]![3] as {
+    const options = telegram.sendMessage.mock.calls[0]![2] as {
       replyMarkup: { inline_keyboard: { url?: string; web_app?: unknown }[][] };
     };
     expect(options.replyMarkup.inline_keyboard[0]![0]).toEqual({
@@ -259,6 +330,7 @@ describe('Telegram bot', () => {
       expect(telegram.sendMessage).toHaveBeenCalledWith(
         2002,
         expect.stringContaining('бот Зубрилки'),
+        expect.anything(),
       );
       const all = lines.join('\n');
       expect(all).toContain('telegram update failed');

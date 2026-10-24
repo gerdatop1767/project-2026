@@ -1324,6 +1324,10 @@ export const broadcastDeliveries = pgTable(
     chatId: bigint('chat_id', { mode: 'number' }).notNull(),
     status: text('status', { enum: broadcastDeliveryStatuses }).notNull().default('pending'),
     errorCode: text('error_code'),
+    /** The underlying error code (ECONNRESET, TIMEOUT, HTTP_502…) — never text. */
+    errorDetail: text('error_detail'),
+    /** Send passes made for this chat (a network outage puts it back in the queue). */
+    attempts: integer('attempts').notNull().default(0),
     sentAt: timestamp('sent_at', { withTimezone: true }),
   },
   (table) => [
