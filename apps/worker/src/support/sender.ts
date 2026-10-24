@@ -4,6 +4,7 @@ import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { persistentKeyboard } from '../bot/messages.js';
 import { TelegramApiError, type TelegramClient } from '../telegram/client.js';
+import { errorSummary } from '../errorSummary.js';
 
 export interface SupportSenderOptions {
   db: Database;
@@ -111,7 +112,7 @@ export class SupportSender {
       const now = this.now();
       if (!(error instanceof TelegramApiError)) {
         await finish({ deliveryStatus: 'uncertain', lastError: 'unknown' });
-        this.o.logger.error({ err: error }, 'support reply: unexpected error');
+        this.o.logger.error(errorSummary(error), 'support reply: unexpected error');
         return false;
       }
       const retry = (code: string, delayMs: number) =>

@@ -91,6 +91,9 @@ describe('admin support API', () => {
       ['POST', `/api/v1/admin/support/threads/${threadId}/messages`, { text: 'hi' }],
       ['POST', '/api/v1/admin/support/start', { userId: student, text: 'hi' }],
       ['GET', '/api/v1/admin/support/users?q=Маша'],
+      ['POST', `/api/v1/admin/support/threads/${threadId}/read`, {}],
+      ['POST', `/api/v1/admin/support/threads/${threadId}/status`, { status: 'closed' }],
+      ['GET', `/api/v1/admin/support/messages/${randomUUID()}/files/0`],
     ];
     for (const [method, url, payload] of urls) {
       const guest = await app.inject({ method, url, payload });
