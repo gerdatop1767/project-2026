@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { schema } from '@zybrilka/db';
 import { createTestDb } from '@zybrilka/db/testing';
 import { leaderboardQuerySchema, leaderboardResponseSchema } from '@zybrilka/shared';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { loadConfig } from '../../config.js';
@@ -223,7 +224,7 @@ describe('leaderboard', () => {
       expect(res.statusCode).toBe(401);
     });
 
-    it('returns the validated shape with no ids, emails or photos', async () => {
+    it('returns the validated shape with no ids, emails or provider photo URLs', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/v1/leaderboard?period=all',
@@ -236,7 +237,9 @@ describe('leaderboard', () => {
       for (const id of Object.values(user)) expect(text).not.toContain(id);
       expect(text).not.toContain('Смирнова');
       expect(text).not.toContain('https://x/a.jpg');
-      expect(text).not.toMatch(/userId|email|avatarUrl/);
+      expect(text).not.toMatch(/userId|email/);
+      // Anna's only picture is a provider URL: not handed out, generated instead.
+      expect(body.entries.find((e) => e.name === 'Анна С.')!.avatarUrl).toBeNull();
     });
 
     it('generated avatars: stable per user, varied across users', async () => {
@@ -269,6 +272,98 @@ describe('leaderboard', () => {
         });
         expect(res.statusCode, q).toBe(400);
       }
+    });
+
+    describe('real avatars', () => {
+      const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+      async function storeAvatar(key: string, source: 'user' | 'vk' | 'telegram', sha: string) {
+        const [row] = await testDb.db
+          .insert(schema.userAvatars)
+          .values({
+            userId: user[key]!,
+            source,
+            contentType: 'image/png',
+            width: 1,
+            height: 1,
+            byteSize: png.length,
+            sha256: sha.repeat(64).slice(0, 64),
+            data: png,
+          })
+          .onConflictDoUpdate({
+            target: [schema.userAvatars.userId, schema.userAvatars.source],
+            set: { sha256: sha.repeat(64).slice(0, 64) },
+          })
+          .returning();
+        return row!;
+      }
+      const entries = async (key: string) =>
+        leaderboardResponseSchema.parse(
+          (
+            await app.inject({
+              method: 'GET',
+              url: '/api/v1/leaderboard?period=all',
+              headers: { cookie: await cookieFor(key) },
+            })
+          ).json(),
+        ).entries;
+      const fetchImage = async (url: string, key?: string) =>
+        app.inject({
+          method: 'GET',
+          url,
+          headers: key ? { cookie: await cookieFor(key) } : {},
+        });
+
+      it('others see the picture the profile shows; the URL carries an image id, not the user', async () => {
+        await testDb.db
+          .update(schema.users)
+          .set({ profileSource: 'vk' })
+          .where(eq(schema.users.id, user.vera!));
+        const veraCopy = await storeAvatar('vera', 'vk', 'a');
+        const borisProvider = await storeAvatar('boris', 'vk', 'b');
+        const borisOwn = await storeAvatar('boris', 'user', 'c');
+
+        const list = await entries('anna');
+        const boris = list.find((e) => e.name === 'Боря-математик')!;
+        const vera = list.find((e) => e.name === 'Вера')!;
+        // An uploaded picture wins over the provider copy, like in the profile.
+        expect(boris.avatarUrl).toBe(`/api/v1/leaderboard/avatars/${borisOwn.id}?v=cccccccccccc`);
+        expect(vera.avatarUrl).toBe(`/api/v1/leaderboard/avatars/${veraCopy.id}?v=aaaaaaaaaaaa`);
+        expect(list.find((e) => e.name === 'Участник')!.avatarUrl).toBeNull();
+        for (const id of Object.values(user)) expect(JSON.stringify(list)).not.toContain(id);
+
+        const res = await fetchImage(boris.avatarUrl!, 'vera');
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toBe('image/png');
+        expect(res.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+        expect(res.headers['x-content-type-options']).toBe('nosniff');
+        expect(res.rawPayload.equals(png)).toBe(true);
+
+        // Only signed-in users; only the announced version; only the current picture.
+        expect((await fetchImage(boris.avatarUrl!)).statusCode).toBe(401);
+        const stale = `/api/v1/leaderboard/avatars/${borisOwn.id}?v=000000000000`;
+        expect((await fetchImage(stale, 'vera')).statusCode).toBe(404);
+        const hidden = `/api/v1/leaderboard/avatars/${borisProvider.id}?v=bbbbbbbbbbbb`;
+        expect((await fetchImage(hidden, 'vera')).statusCode).toBe(404);
+        for (const bad of ['not-a-uuid?v=cccccccccccc', `${randomUUID()}?v=cccccccccccc`]) {
+          expect((await fetchImage(`/api/v1/leaderboard/avatars/${bad}`, 'vera')).statusCode).toBe(
+            404,
+          );
+        }
+      });
+
+      it('a removed upload falls back to the provider copy, and the old URL stops working', async () => {
+        const before = (await entries('vera')).find((e) => e.name === 'Боря-математик')!.avatarUrl!;
+        await testDb.db
+          .delete(schema.userAvatars)
+          .where(
+            and(eq(schema.userAvatars.userId, user.boris!), eq(schema.userAvatars.source, 'user')),
+          );
+        expect((await fetchImage(before, 'vera')).statusCode).toBe(404);
+        // Boris's profile comes from no provider: his VK copy is not his profile picture.
+        expect(
+          (await entries('vera')).find((e) => e.name === 'Боря-математик')!.avatarUrl,
+        ).toBeNull();
+      });
     });
   });
 });

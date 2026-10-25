@@ -10,6 +10,8 @@ import {
 } from '@zybrilka/shared';
 import { and, asc, count, eq, gte, inArray, sql, type SQL } from 'drizzle-orm';
 import { moscowDate } from '../admin/period.js';
+import { getAvatarById, listAvatarMeta, listAvatarMetaOf } from '../profile/repo.js';
+import { chooseAvatar } from '../profile/service.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -56,8 +58,38 @@ export function avatarVariant(userId: string): number {
   );
 }
 
+/** URL of a stored avatar image as others may load it. The `v` hash
+ * prefix versions it, so it can be cached for good. */
+export function publicAvatarUrl(avatarId: string, sha256: string): string {
+  return `/api/v1/leaderboard/avatars/${avatarId}?v=${sha256.slice(0, 12)}`;
+}
+
 const percent = (correct: number, total: number) =>
   total === 0 ? null : Math.round((correct / total) * 100);
+
+/**
+ * An avatar image a rating row points to — served only while it is still
+ * the picture that user's profile shows (a replaced or removed one is
+ * gone), and only under the exact `v` it was announced with.
+ */
+export async function readPublicAvatar(db: Database, avatarId: string, version: string) {
+  const image = await getAvatarById(db, avatarId);
+  if (!image || image.sha256.slice(0, 12) !== version) return null;
+  const [person] = await db
+    .select({
+      profileSource: schema.users.profileSource,
+      hasProviderUrl: sql<boolean>`${schema.users.avatarUrl} is not null`,
+    })
+    .from(schema.users)
+    .where(eq(schema.users.id, image.userId));
+  const chosen = chooseAvatar(
+    await listAvatarMeta(db, image.userId),
+    person?.profileSource ?? null,
+    Boolean(person?.hasProviderUrl),
+  );
+  if (!chosen || chosen === 'external' || chosen.id !== avatarId) return null;
+  return { contentType: image.contentType, data: image.data };
+}
 
 /**
  * GET /leaderboard. Points = XP earned in the period (and subject); equal
@@ -134,11 +166,30 @@ export async function getLeaderboard(
         firstName: schema.users.firstName,
         lastName: schema.users.lastName,
         totalXp: schema.userXp.totalXp,
+        profileSource: schema.users.profileSource,
+        hasProviderUrl: sql<boolean>`${schema.users.avatarUrl} is not null`,
       })
       .from(schema.users)
       .leftJoin(schema.userXp, eq(schema.userXp.userId, schema.users.id))
       .where(inArray(schema.users.id, ids)),
   ]);
+  const avatarsOf = new Map<string, Awaited<ReturnType<typeof listAvatarMetaOf>>>();
+  for (const a of await listAvatarMetaOf(
+    db,
+    top.map((r) => r.userId),
+  )) {
+    avatarsOf.set(a.userId, [...(avatarsOf.get(a.userId) ?? []), a]);
+  }
+  /** The same picture as the user's profile — only when it is stored here. */
+  const avatarUrlOf = (id: string) => {
+    const person = personOf.get(id);
+    const chosen = chooseAvatar(
+      avatarsOf.get(id) ?? [],
+      person?.profileSource ?? null,
+      Boolean(person?.hasProviderUrl),
+    );
+    return chosen && chosen !== 'external' ? publicAvatarUrl(chosen.id, chosen.sha256) : null;
+  };
   const statsOf = new Map(stats.map((s) => [s.userId, s]));
   const personOf = new Map(people.map((p) => [p.id, p]));
   const statFields = (id: string) => {
@@ -160,6 +211,7 @@ export async function getLeaderboard(
       isMe: row.userId === userId,
       avatarHue: avatarHue(row.userId),
       avatarVariant: avatarVariant(row.userId),
+      avatarUrl: avatarUrlOf(row.userId),
     };
   });
 

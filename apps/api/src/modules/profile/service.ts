@@ -31,38 +31,54 @@ export function localAvatarUrl(source: repo.AvatarSource, sha256: string): strin
 }
 
 /**
+ * Which picture the profile shows (the single rule, also for what others
+ * see in the rating):
+ * uploaded image  >  our copy of the profile provider's photo  >
+ * provider photo URL (VK / Telegram)  >  image fetched through the
+ * Telegram bot  >  none.
+ * Returns a stored image, `external` for the provider's URL, or null.
+ */
+export function chooseAvatar(
+  avatars: readonly repo.AvatarMeta[],
+  profileSource: repo.ProfileSource | null,
+  hasProviderUrl: boolean,
+): repo.AvatarMeta | 'external' | null {
+  const uploaded = avatars.find((a) => a.source === 'user');
+  if (uploaded) return uploaded;
+  // Our own copy of the photo of the provider the profile comes from.
+  const providerCopy = profileSource ? avatars.find((a) => a.source === profileSource) : undefined;
+  if (providerCopy) return providerCopy;
+  if (hasProviderUrl) return 'external';
+  return avatars.find((a) => a.source === 'telegram') ?? null;
+}
+
+/**
  * The single place that decides what name and picture to show, so the web
  * client never re-implements the priority rules:
  *
  * name:   the user's own name  >  provider first + last name  >  none
- * avatar: uploaded image  >  our copy of the profile provider's photo  >
- *         provider photo URL (VK / Telegram)  >  image fetched through the
- *         Telegram bot  >  none
+ * avatar: `chooseAvatar`
  */
 export async function resolveProfile(db: Database, userId: string): Promise<ResolvedProfile> {
   const [row, avatars] = await Promise.all([
     repo.getProfileRow(db, userId),
     repo.listAvatarMeta(db, userId),
   ]);
-  const uploaded = avatars.find((a) => a.source === 'user');
-  const viaBot = avatars.find((a) => a.source === 'telegram');
-  // Our own copy of the photo of the provider the profile comes from.
-  const providerCopy = row.profileSource
-    ? avatars.find((a) => a.source === row.profileSource)
-    : undefined;
   const providerName = [row.firstName, row.lastName].filter(Boolean).join(' ').trim() || null;
   const customName = row.displayName?.trim() || null;
+  const avatar = chooseAvatar(avatars, row.profileSource, Boolean(row.avatarUrl));
   return {
     firstName: row.firstName,
     lastName: row.lastName,
     customName,
     displayName: customName ?? providerName,
-    avatarUrl: uploaded
-      ? localAvatarUrl('user', uploaded.sha256)
-      : providerCopy
-        ? localAvatarUrl(providerCopy.source, providerCopy.sha256)
-        : (row.avatarUrl ?? (viaBot ? localAvatarUrl('telegram', viaBot.sha256) : null)),
-    hasCustomAvatar: Boolean(uploaded),
+    avatarUrl:
+      avatar === 'external'
+        ? row.avatarUrl
+        : avatar
+          ? localAvatarUrl(avatar.source, avatar.sha256)
+          : null,
+    hasCustomAvatar: avatars.some((a) => a.source === 'user'),
   };
 }
 

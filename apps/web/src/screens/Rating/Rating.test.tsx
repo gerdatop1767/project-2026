@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { LeaderboardEntry, LeaderboardResponse } from '@zybrilka/shared';
 import { RatingDesktop } from './RatingDesktop.js';
@@ -20,6 +20,7 @@ const entry = (rank: number, name: string, over: Partial<LeaderboardEntry> = {})
   isMe: false,
   avatarHue: 200,
   avatarVariant: rank % 24,
+  avatarUrl: null,
   ...over,
 });
 
@@ -203,7 +204,30 @@ describe('Рейтинг', () => {
     );
     expect(variants.length).toBeGreaterThanOrEqual(5);
     expect(new Set(variants).size).toBe(variants.length);
-    // No foreign photo is ever requested.
+    // Nobody here has a stored picture: no image is requested.
     expect(document.querySelector('img[src*="avatar"]')).toBeNull();
+  });
+
+  it('shows the picture a participant set; a broken one falls back to the generated avatar', async () => {
+    const url = '/api/v1/leaderboard/avatars/1f0c6a3e-0000-4000-8000-000000000001?v=abcdefabcdef';
+    vi.mocked(api.getLeaderboard).mockResolvedValue(
+      board({
+        entries: [
+          entry(1, 'Анна С.', { avatarUrl: url }),
+          entry(2, 'Борис'),
+          entry(3, 'Вера'),
+          entry(4, 'Глеб'),
+        ],
+      }),
+    );
+    renderRating();
+    await screen.findByRole('list', { name: 'Тройка лидеров' });
+    const images = [...document.querySelectorAll<HTMLImageElement>(`img[src="${url}"]`)];
+    expect(images.length).toBeGreaterThanOrEqual(1);
+    expect(images[0]).toHaveAttribute('alt', '');
+    // Until it loads (and if it fails) the generated one stays visible.
+    expect(document.querySelectorAll('[data-avatar-variant]').length).toBeGreaterThanOrEqual(4);
+    for (const img of images) fireEvent.error(img);
+    expect(document.querySelector(`img[src="${url}"]`)).toBeNull();
   });
 });

@@ -264,6 +264,7 @@ function Board({ avatarUrl, embedded }: { avatarUrl: string | null; embedded: bo
                         isMe: true,
                         avatarHue: 270,
                         avatarVariant: 0,
+                        avatarUrl: null,
                       }}
                       index={rest.length}
                       avatarUrl={avatarUrl}
@@ -300,15 +301,15 @@ function EntryAvatar({
   const fallback = (
     <GeneratedAvatar hue={entry.avatarHue} variant={entry.avatarVariant} size={size} />
   );
-  // Only the user's own photo is ever shown (their own profile).
-  if (entry.isMe && avatarUrl) {
-    return (
-      <span className={styles.ownAvatar} style={{ width: size, height: size }}>
-        <ProfileAvatar src={avatarUrl} fallback={fallback} />
-      </span>
-    );
-  }
-  return fallback;
+  // The picture each user's profile shows; for the own row the profile's
+  // own (just-changed) one. No picture, or one that fails: generated.
+  const src = (entry.isMe && avatarUrl) || entry.avatarUrl;
+  if (!src) return fallback;
+  return (
+    <span className={styles.ownAvatar} style={{ width: size, height: size }}>
+      <ProfileAvatar src={src} fallback={fallback} />
+    </span>
+  );
 }
 
 function LevelPill({ level }: { level: number }) {
