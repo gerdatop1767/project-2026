@@ -147,6 +147,8 @@ export type OverlayRoute =
    * the actual solving UI — see `lib/learningSessionContext.tsx`.
    */
   | { screen: 'learningSession'; sessionId: string }
+  /** One attempt of a variant — its full result (Statistics → history). */
+  | { screen: 'variantAttempt'; sessionId: string }
   /** Addressable placeholders for training modes not yet built as
    * their own screens — routing needs a real page for each one so
    * refresh/direct-link/Back-Forward work, even though the mode
@@ -208,6 +210,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   learningCenter: 'Учебный центр',
   theory: 'Теория',
   learningSession: 'Тренировка',
+  variantAttempt: 'Результат варианта',
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',
   rating: 'Рейтинг',

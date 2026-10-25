@@ -22,6 +22,7 @@ export function accountFeatureForRoute(route: Route): AccountFeature | null {
   switch (route.screen) {
     case 'statistics':
     case 'achievements':
+    case 'variantAttempt':
       return 'statistics';
     case 'mistakes':
       return 'mistakes';

@@ -324,6 +324,16 @@ docker compose -f infra/docker-compose.yml up -d --build web
   but users can only write to support while polling is on), `web`.
 - **No new environment variables.** Docs: COOKIES.md, REMINDERS.md, SUPPORT.md.
 
+### Release: rating avatars, variant results, mini-games (migrations 0033+)
+
+- **Migration `0033_variant_attempt_links`:** one nullable column
+  `attempts.learning_session_id` (+ foreign key and index). Existing rows
+  stay as they are (null); older variant attempts keep being counted by
+  their time window (docs/VARIANT_RESULTS.md). The foreign key check and
+  the index build scan `attempts` once — quick at today's size; take a
+  `pg_dump` first as for any migration.
+- **No new environment variables.**
+
 ## Caddy
 
 `infra/caddy/Caddyfile` defines both hosts:

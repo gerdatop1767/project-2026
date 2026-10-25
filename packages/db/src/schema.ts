@@ -514,10 +514,22 @@ export const attempts = pgTable(
     answerRaw: text('answer_raw').notNull(),
     isCorrect: boolean('is_correct').notNull(),
     timeSpentMs: integer('time_spent_ms'),
+    /**
+     * The learning session (a variant attempt or a smart training) this
+     * answer was given in — set by the server only when that session is
+     * the answering user's own, still active, and served this task. What
+     * makes per-attempt statistics exact: two attempts of one variant
+     * never share answers. Null for answers outside a session and for
+     * everything recorded before migration 0033.
+     */
+    learningSessionId: uuid('learning_session_id').references(
+      (): AnyPgColumn => learningSessions.id,
+    ),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('attempts_user_task_idx').on(table.userId, table.taskId),
+    index('attempts_learning_session_idx').on(table.learningSessionId),
     index('attempts_task_idx').on(table.taskId),
     // Admin period aggregates (solves per day, DAU) scan by time.
     index('attempts_created_idx').on(table.createdAt),

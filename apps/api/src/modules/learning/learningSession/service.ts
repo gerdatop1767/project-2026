@@ -1,6 +1,13 @@
 import type { Database } from '@zybrilka/db';
 import {
   detectErrorSignatures,
+  parseMultiPartSpec,
+  parseMultiPartUserAnswer,
+  type MultiPartSpec,
+  type VariantAttemptDetail,
+  type VariantAttemptGroup,
+  type VariantAttemptTask,
+  type VariantTaskOutcome,
   type LearningSessionResponse,
   type LearningSessionSummary,
   type VariantProgressItem,
@@ -310,13 +317,17 @@ async function computeSessionSummary(
     };
   }
 
-  const [sessionAttempts, mistakesCreated] = await Promise.all([
-    repo.getSessionAttempts(db, session.userId, taskIds, session.startedAt),
+  const [{ rows }, mistakesCreated] = await Promise.all([
+    repo.getAnswersOfSession(db, session),
     repo.countMistakesCreatedSince(db, session.userId, taskIds, session.startedAt),
   ]);
 
-  const attemptedTaskIds = new Set(sessionAttempts.map((a) => a.taskId));
-  const correctTaskIds = new Set(sessionAttempts.filter((a) => a.isCorrect).map((a) => a.taskId));
+  const attemptedTaskIds = new Set(rows.map((a) => a.taskId));
+  // A variant is an exam: its FIRST answer to a task counts. Smart
+  // training counts a task correct once any answer to it was.
+  const correctTaskIds = session.variantId
+    ? new Set([...firstAnswers(rows).values()].filter((a) => a.isCorrect).map((a) => a.taskId))
+    : new Set(rows.filter((a) => a.isCorrect).map((a) => a.taskId));
   const incorrectTaskIds = [...attemptedTaskIds].filter((id) => !correctTaskIds.has(id));
 
   const attempted = attemptedTaskIds.size;
@@ -352,14 +363,10 @@ async function toVariantProgressItem(
 ): Promise<VariantProgressItem> {
   const summary = await computeSessionSummary(db, session);
 
-  const attemptRows = await repo.getAttemptsForTaskIds(
-    db,
-    session.userId,
-    session.consumedTaskIds,
-    session.startedAt,
-  );
+  const { rows: attemptRows } = await repo.getAnswersOfSession(db, session);
 
-  const timedRows = attemptRows.filter(
+  // Time of each task's first answer — the one that counts.
+  const timedRows = [...firstAnswers(attemptRows).values()].filter(
     (r): r is typeof r & { timeSpentMs: number } => r.timeSpentMs !== null,
   );
   const totalTimeMs =
@@ -394,5 +401,135 @@ async function toVariantProgressItem(
     accuracyPercent: summary.accuracy,
     totalTimeMs,
     keyErrors,
+  };
+}
+
+/** Each task's first answer in the session (rows come oldest first). */
+function firstAnswers<T extends { taskId: string }>(rows: readonly T[]): Map<string, T> {
+  const first = new Map<string, T>();
+  for (const row of rows) if (!first.has(row.taskId)) first.set(row.taskId, row);
+  return first;
+}
+
+/** An answer the way the user typed it; a multi-part one as «а) 3; б) 5». */
+function answerForDisplay(
+  answerRaw: string,
+  answerType: string,
+  spec: MultiPartSpec | null,
+): string {
+  if (answerType !== 'multi_part') return answerRaw;
+  const parsed = parseMultiPartUserAnswer(answerRaw);
+  if (!parsed) return answerRaw;
+  const labelOf = new Map(spec?.parts.map((p) => [p.id, p.label]) ?? []);
+  return Object.entries(parsed)
+    .map(([id, value]) => `${labelOf.get(id) ?? id} ${value}`)
+    .join('; ');
+}
+
+function correctForDisplay(task: repo.PlannedTaskRow, spec: MultiPartSpec | null): string {
+  if (task.correctAnswerDisplay) return task.correctAnswerDisplay;
+  if (task.answerType === 'multi_part' && spec) {
+    return spec.parts.map((p) => `${p.label} ${p.correctAnswer}`).join('; ');
+  }
+  return task.correctAnswer;
+}
+
+function groupBy(
+  tasks: readonly VariantAttemptTask[],
+  keyOf: (t: VariantAttemptTask) => string | null,
+): VariantAttemptGroup[] {
+  const groups = new Map<string, { correct: number; total: number }>();
+  for (const task of tasks) {
+    const key = keyOf(task);
+    if (key === null) continue;
+    const g = groups.get(key) ?? { correct: 0, total: 0 };
+    g.total += 1;
+    if (task.outcome === 'correct') g.correct += 1;
+    groups.set(key, g);
+  }
+  return [...groups.entries()].map(([key, g]) => ({ key, ...g }));
+}
+
+/**
+ * GET /progress/variants/:sessionId — the full result of ONE attempt of a
+ * variant. `null` unless it is this user's own variant session: someone
+ * else's attempt is indistinguishable from a missing one.
+ */
+export async function getVariantAttemptDetail(
+  db: Database,
+  userId: string,
+  sessionId: string,
+): Promise<VariantAttemptDetail | null> {
+  const session = await repo.getSessionById(db, sessionId);
+  if (!session || session.userId !== userId || !session.variantId || !session.plannedTaskIds) {
+    return null;
+  }
+  const [identity, planned, answers] = await Promise.all([
+    repo.getVariantIdentity(db, session.variantId),
+    repo.getPlannedTasks(db, session.plannedTaskIds),
+    repo.getAnswersOfSession(db, session),
+  ]);
+  if (!identity) return null;
+  const taskOf = new Map(planned.map((t) => [t.taskId, t]));
+  const first = firstAnswers(answers.rows);
+  const answerCount = new Map<string, number>();
+  for (const row of answers.rows) answerCount.set(row.taskId, (answerCount.get(row.taskId) ?? 0) + 1);
+  const served = new Set(session.consumedTaskIds);
+
+  const tasks: VariantAttemptTask[] = [];
+  session.plannedTaskIds.forEach((taskId, index) => {
+    const task = taskOf.get(taskId);
+    if (!task) return; // removed from the catalogue since
+    const spec = task.answerType === 'multi_part' ? parseMultiPartSpec(task.correctAnswer) : null;
+    const answer = first.get(taskId);
+    tasks.push({
+      position: index + 1,
+      taskId,
+      taskNumber: task.taskNumber,
+      topic: task.topic,
+      outcome: answer
+        ? answer.isCorrect
+          ? 'correct'
+          : 'incorrect'
+        : served.has(taskId)
+          ? 'skipped'
+          : 'not_reached',
+      userAnswer: answer ? answerForDisplay(answer.answerRaw, task.answerType, spec) : null,
+      correctAnswer: correctForDisplay(task, spec),
+      explanationMd: task.explanationMd,
+      answers: answerCount.get(taskId) ?? 0,
+      timeSpentMs: answer?.timeSpentMs ?? null,
+    });
+  });
+
+  const count = (outcome: VariantTaskOutcome) => tasks.filter((t) => t.outcome === outcome).length;
+  const correctCount = count('correct');
+  const incorrectCount = count('incorrect');
+  const answered = correctCount + incorrectCount;
+  const timed = tasks.filter((t) => t.timeSpentMs !== null);
+  return {
+    sessionId: session.id,
+    variantId: session.variantId,
+    variantNumber: identity.variantNumber,
+    variantTitle: identity.title,
+    subjectId: session.subjectId,
+    status: session.status,
+    startedAt: session.startedAt.toISOString(),
+    completedAt: session.completedAt?.toISOString() ?? null,
+    attribution: answers.attribution,
+    plannedCount: session.plannedTaskIds.length,
+    correctCount,
+    incorrectCount,
+    skippedCount: count('skipped'),
+    notReachedCount: count('not_reached'),
+    accuracyPercent: answered > 0 ? Math.round((correctCount / answered) * 100) : null,
+    totalTimeMs: timed.length > 0 ? timed.reduce((sum, t) => sum + t.timeSpentMs!, 0) : null,
+    timedCount: timed.length,
+    byTaskNumber: groupBy(tasks, (t) => String(t.taskNumber)),
+    byTopic: groupBy(tasks, (t) => t.topic),
+    tasks,
+    toRepeat: tasks
+      .filter((t) => t.outcome === 'incorrect' || t.outcome === 'skipped')
+      .map((t) => ({ taskId: t.taskId, taskNumber: t.taskNumber, topic: t.topic })),
   };
 }

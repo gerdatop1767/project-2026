@@ -131,7 +131,13 @@ export function TaskMobile({
     const neverStarted = timer.status === 'idle';
     const elapsedMs = timer.finish();
     const timeSpentMs = neverStarted ? undefined : elapsedMs;
-    void submitAttempt(task.id, { answer: submittedAnswer, timeSpentMs })
+    void submitAttempt(task.id, {
+      answer: submittedAnswer,
+      timeSpentMs,
+      // Links the answer to this attempt of the variant / training (the
+      // server checks it is really ours and served this task).
+      sessionId: learningSession?.sessionId,
+    })
       .then((result) => {
         clearCanvasState(task.id);
         // Streak system: the attempt the backend just recorded as real

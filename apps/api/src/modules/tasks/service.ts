@@ -230,7 +230,7 @@ export async function submitAttempt(
   // before anything is written.
   if (answerType === 'multi_part') {
     if (typeof input.answer !== 'object') throw new InvalidAnswerShapeError();
-    return submitMultiPartAttempt(db, row, userId, input.answer, input.timeSpentMs);
+    return submitMultiPartAttempt(db, row, userId, input.answer, input.timeSpentMs, input.sessionId);
   }
   if (typeof input.answer !== 'string') throw new InvalidAnswerShapeError();
   const answerRaw = input.answer;
@@ -266,6 +266,7 @@ export async function submitAttempt(
       answerRaw,
       isCorrect: correct,
       timeSpentMs: input.timeSpentMs,
+      sessionId: input.sessionId,
     });
     const mistakeId = await repo.applyAttemptToMistakes(tx, {
       userId,
@@ -322,6 +323,7 @@ async function submitMultiPartAttempt(
   userId: string | null,
   answer: Readonly<Record<string, string>>,
   timeSpentMs: number | undefined,
+  sessionId: string | undefined,
 ): Promise<AttemptResult> {
   const spec = parseMultiPartSpec(row.task.correctAnswer);
   // A malformed spec is a data problem on our side, not the user's —
@@ -352,6 +354,7 @@ async function submitMultiPartAttempt(
       answerRaw: serializeMultiPartUserAnswer(answer),
       isCorrect: grading.status === 'all_correct',
       timeSpentMs,
+      sessionId,
     });
     const mistakeId = await repo.applyAttemptToMistakes(tx, {
       userId,

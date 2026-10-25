@@ -31,6 +31,7 @@ import type {
   TaskPublic,
   TaskWithSolution,
   VariantDetail,
+  VariantAttemptDetail,
   VariantProgressResponse,
   LeaderboardPeriod,
   LeaderboardResponse,
@@ -518,6 +519,11 @@ export function startVariantSession(variantId: string): Promise<LearningSessionR
  */
 export function getVariantProgress(): Promise<VariantProgressResponse> {
   return cachedApiFetch('/progress/variants');
+}
+
+/** One attempt of a variant — its full result (owner only; 404 otherwise). */
+export function getVariantAttempt(sessionId: string): Promise<VariantAttemptDetail> {
+  return rawApiFetch(`/progress/variants/${encodeURIComponent(sessionId)}`);
 }
 
 /** «Войти через Яндекс»: a plain navigation to this API's own server-side

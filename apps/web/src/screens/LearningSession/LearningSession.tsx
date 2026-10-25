@@ -8,6 +8,7 @@ import {
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { SlideUp } from '../../ui/motion/motion.js';
+import { VariantAttempt } from '../VariantAttempt/VariantAttempt.js';
 import styles from './LearningSession.module.css';
 
 export interface LearningSessionProps {
@@ -93,6 +94,26 @@ export function LearningSession({ sessionId }: LearningSessionProps) {
           К тренировкам
         </Button>
       </SlideUp>
+    );
+  }
+
+  // A finished variant: its full result — the same screen Statistics
+  // opens for this attempt.
+  if (primed && primed.status === 'completed' && primed.variant) {
+    return (
+      <div className={styles.page}>
+        <VariantAttempt sessionId={sessionId} embedded />
+        <Button
+          variant="primary"
+          fullWidth
+          onClick={() => {
+            clearSession();
+            navigate({ screen: 'training' });
+          }}
+        >
+          Вернуться к тренировкам
+        </Button>
+      </div>
     );
   }
 
