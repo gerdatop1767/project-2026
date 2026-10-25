@@ -436,6 +436,22 @@ export function Training() {
         </div>
       </div>
 
+      {/* «Мини-игры» — its own section, a separate entry from the modes. */}
+      <button
+        type="button"
+        className={styles.gamesEntry}
+        onClick={() => navigate({ screen: 'miniGames' })}
+      >
+        <span className={styles.gamesIcon} aria-hidden="true">
+          <Icon name="play" size={22} />
+        </span>
+        <span className={styles.modeText}>
+          <span className="text-body">Мини-игры</span>
+          <span className="text-body-sm text-secondary">Ударения и другое — учись играя</span>
+        </span>
+        <Icon name="chevronRight" size={18} />
+      </button>
+
       <ContentSwap key={modeId}>
         {(modeId === 'topic' || modeId === 'variant') && collections.length > 0 && (
           <div>

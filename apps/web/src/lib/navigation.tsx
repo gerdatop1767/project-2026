@@ -149,6 +149,9 @@ export type OverlayRoute =
   | { screen: 'learningSession'; sessionId: string }
   /** One attempt of a variant — its full result (Statistics → history). */
   | { screen: 'variantAttempt'; sessionId: string }
+  /** «Мини-игры» (entry in «Задания») and the games themselves. */
+  | { screen: 'miniGames' }
+  | { screen: 'stressGame' }
   /** Addressable placeholders for training modes not yet built as
    * their own screens — routing needs a real page for each one so
    * refresh/direct-link/Back-Forward work, even though the mode
@@ -211,6 +214,8 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   theory: 'Теория',
   learningSession: 'Тренировка',
   variantAttempt: 'Результат варианта',
+  miniGames: 'Мини-игры',
+  stressGame: 'Ударения',
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',
   rating: 'Рейтинг',

@@ -32,6 +32,12 @@ import type {
   TaskWithSolution,
   VariantDetail,
   VariantAttemptDetail,
+  MiniGamesResponse,
+  StressAnswerRequest,
+  StressAnswerResponse,
+  StressMode,
+  StressProgressResponse,
+  StressRoundResponse,
   VariantProgressResponse,
   LeaderboardPeriod,
   LeaderboardResponse,
@@ -659,4 +665,21 @@ export function confirmTelegramLink(accept: boolean): Promise<TelegramLinkConfir
     method: 'POST',
     body: JSON.stringify({ accept }),
   });
+}
+
+/** Mini-games (docs/MINI_GAMES.md). */
+export function getMiniGames(): Promise<MiniGamesResponse> {
+  return rawApiFetch('/games');
+}
+
+export function getStressRound(mode: StressMode, size = 20): Promise<StressRoundResponse> {
+  return rawApiFetch(`/games/stress/round?mode=${mode}&size=${size}`);
+}
+
+export function answerStress(request: StressAnswerRequest): Promise<StressAnswerResponse> {
+  return apiFetch('/games/stress/answer', { method: 'POST', body: JSON.stringify(request) });
+}
+
+export function getStressProgress(): Promise<StressProgressResponse> {
+  return rawApiFetch('/games/stress/progress');
 }

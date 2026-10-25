@@ -332,6 +332,12 @@ docker compose -f infra/docker-compose.yml up -d --build web
   their time window (docs/VARIANT_RESULTS.md). The foreign key check and
   the index build scan `attempts` once — quick at today's size; take a
   `pg_dump` first as for any migration.
+- **Migration `0034_mini_games`:** new tables only (`stress_sources`,
+  `stress_words`, `mini_game_answers`, `mini_game_item_progress`).
+- **Stress dictionary import** (`dist/stressDictionary/import.js`) is NOT
+  yet in the `sync-content` chain — adding it changes the production
+  compose file and waits for the owner's go-ahead (docs/MINI_GAMES.md).
+  Until then the «Ударения» game has no words in production.
 - **No new environment variables.**
 
 ## Caddy

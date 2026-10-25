@@ -15,7 +15,14 @@ import { SignInRequiredDialog } from '../ui/AccountGate/SignInRequiredDialog.js'
  * learning answer 401 without a session); this only decides what to show.
  */
 export type AccountFeature =
-  'statistics' | 'mistakes' | 'favorites' | 'smartTraining' | 'unseen' | 'essay' | 'level';
+  | 'statistics'
+  | 'mistakes'
+  | 'favorites'
+  | 'smartTraining'
+  | 'unseen'
+  | 'essay'
+  | 'level'
+  | 'gameProgress';
 
 /** Screens that are built from a personal history. */
 export function accountFeatureForRoute(route: Route): AccountFeature | null {

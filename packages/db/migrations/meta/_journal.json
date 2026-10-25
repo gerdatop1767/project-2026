@@ -239,6 +239,13 @@
       "when": 1792923927139,
       "tag": "0033_variant_attempt_links",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792924940650,
+      "tag": "0034_mini_games",
+      "breakpoints": true
     }
   ]
 }

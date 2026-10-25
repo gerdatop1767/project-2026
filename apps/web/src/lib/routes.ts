@@ -55,6 +55,8 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   privacy: '/privacy',
   terms: '/terms',
   notifications: '/notifications',
+  miniGames: '/games',
+  stressGame: '/games/stress',
   onboarding: '/onboarding',
   landing: '/landing',
   telegramReturn: '/telegram-return',

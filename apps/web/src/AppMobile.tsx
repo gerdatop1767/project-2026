@@ -25,6 +25,8 @@ import { Profile } from './screens/Profile/Profile.js';
 import { Training } from './screens/Training/Training.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
 import { VariantAttempt } from './screens/VariantAttempt/VariantAttempt.js';
+import { MiniGames } from './screens/MiniGames/MiniGames.js';
+import { StressGame } from './screens/MiniGames/StressGame.js';
 
 /**
  * Mobile app tree (S1 Block 6, approved design). Screens not yet
@@ -170,6 +172,8 @@ export function AppMobile() {
                 sessionId={contentOverlay.sessionId}
               />
             )}
+            {contentOverlay.screen === 'miniGames' && <MiniGames />}
+            {contentOverlay.screen === 'stressGame' && <StressGame />}
             {contentOverlay.screen === 'variantAttempt' && (
               <VariantAttempt key={contentOverlay.sessionId} sessionId={contentOverlay.sessionId} />
             )}

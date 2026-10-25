@@ -1581,3 +1581,121 @@ export const supportMessages = pgTable(
       .where(sql`${table.direction} = 'user'`),
   ],
 );
+
+// ---------------------------------------------------------------- mini-games
+
+/**
+ * Where a dictionary's data comes from (docs/MINI_GAMES.md). `kind`:
+ * `official` — a FIPI document; `reference` — a normative dictionary used
+ * to check stress; `secondary` — anything else (a teacher's site), only
+ * ever used as a pointer, never as the authority for an answer.
+ * `verification` says honestly how far the data was checked against it.
+ */
+export const stressSourceKinds = ['official', 'reference', 'secondary'] as const;
+export const stressSources = pgTable('stress_sources', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  kind: text('kind', { enum: stressSourceKinds }).notNull(),
+  url: text('url'),
+  verification: text('verification').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const stressListStatuses = [
+  /** In the FIPI orthoepic list as reproduced; not compared with the PDF. */
+  'fipi_unverified',
+  /** Compared line by line with the official FIPI file. */
+  'fipi_verified',
+  /** Reported (secondary source) as dropped from the current year's list. */
+  'reported_removed',
+] as const;
+export const stressCheckStatuses = [
+  /** One stress, the same in the normative dictionaries — playable. */
+  'confirmed',
+  /** Variants allowed or sources disagree — never asked in a game. */
+  'disputed',
+] as const;
+
+/**
+ * One word FORM of the stress dictionary — forms whose stress differs
+ * («зАнял», «занялА», «зАняли») are separate rows, never merged. `key` is
+ * the marked form plus its grammatical note: the stable identity the
+ * importer upserts by, so re-imports keep ids (and users' progress).
+ * Removed entries are deactivated, never deleted.
+ */
+export const stressWords = pgTable(
+  'stress_words',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    key: text('key').notNull(),
+    /** The form as written (lowercase, with ё): «свёкла». */
+    word: text('word').notNull(),
+    /** The stressed vowel as a capital: «свЁкла». */
+    marked: text('marked').notNull(),
+    /** 0-based index of the stressed vowel in `word`. */
+    stressIndex: integer('stress_index').notNull(),
+    partOfSpeech: text('part_of_speech').notNull(),
+    /** Which form it is when the stress depends on it: «прош. вр., ж. р.». */
+    formNote: text('form_note'),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => stressSources.id),
+    listStatus: text('list_status', { enum: stressListStatuses }).notNull(),
+    stressStatus: text('stress_status', { enum: stressCheckStatuses }).notNull(),
+    note: text('note'),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('stress_words_key_idx').on(table.key)],
+);
+
+/**
+ * Every answer in a mini-game, for any game (`gameId`) and item. Written
+ * only for signed-in players; `clientAnswerId` makes a re-sent answer
+ * (double tap, network retry) count once.
+ */
+export const miniGameAnswers = pgTable(
+  'mini_game_answers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    gameId: text('game_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    correct: boolean('correct').notNull(),
+    answer: text('answer').notNull(),
+    clientAnswerId: uuid('client_answer_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('mini_game_answers_client_idx').on(table.userId, table.clientAnswerId),
+    index('mini_game_answers_user_game_idx').on(table.userId, table.gameId, table.createdAt),
+  ],
+);
+
+/**
+ * Per (user, game, item) learning state, updated in the same transaction
+ * as the answer. `streak` = correct answers in a row; an item counts as
+ * learned at `MINI_GAME_LEARNED_STREAK` (packages/shared).
+ */
+export const miniGameItemProgress = pgTable(
+  'mini_game_item_progress',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    gameId: text('game_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    correctCount: integer('correct_count').notNull().default(0),
+    wrongCount: integer('wrong_count').notNull().default(0),
+    streak: integer('streak').notNull().default(0),
+    lastCorrect: boolean('last_correct').notNull(),
+    lastAnsweredAt: timestamp('last_answered_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.gameId, table.itemId] }),
+    index('mini_game_item_progress_user_game_idx').on(table.userId, table.gameId),
+  ],
+);

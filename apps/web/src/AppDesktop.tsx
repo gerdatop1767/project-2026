@@ -21,6 +21,8 @@ import { Training } from './screens/Training/Training.js';
 import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
 import { VariantAttempt } from './screens/VariantAttempt/VariantAttempt.js';
+import { MiniGames } from './screens/MiniGames/MiniGames.js';
+import { StressGame } from './screens/MiniGames/StressGame.js';
 
 /** Screens whose approved desktop composition has no left sidebar. */
 const noSidebarScreens = new Set(['task', 'result', 'onboarding', 'learningSession']);
@@ -79,6 +81,8 @@ export function AppDesktop() {
         {overlay.screen === 'learningSession' && (
           <LearningSession key={overlay.sessionId} sessionId={overlay.sessionId} />
         )}
+        {overlay.screen === 'miniGames' && <MiniGames />}
+        {overlay.screen === 'stressGame' && <StressGame />}
         {overlay.screen === 'variantAttempt' && (
           <VariantAttempt key={overlay.sessionId} sessionId={overlay.sessionId} />
         )}
