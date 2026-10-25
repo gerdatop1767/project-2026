@@ -185,16 +185,14 @@ describe('Ударения', () => {
   });
 
   it('a network error keeps the same answer id for the retry (counted once)', async () => {
-    vi.mocked(api.answerStress)
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce({
-        correct: true,
-        correctIndex: 1,
-        marked: 'тОрты',
-        formNote: null,
-        note: null,
-        recorded: true,
-      });
+    vi.mocked(api.answerStress).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({
+      correct: true,
+      correctIndex: 1,
+      marked: 'тОрты',
+      formNote: null,
+      note: null,
+      recorded: true,
+    });
     const user = userEvent.setup();
     renderWith(<StressGame />, makeAuthUser());
     await user.click(await screen.findByRole('button', { name: /Продолжить тренировку/ }));
