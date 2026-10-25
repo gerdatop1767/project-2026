@@ -313,7 +313,8 @@ function Word({
   const vowels = new Set(question.vowels);
   return (
     <div className={styles.word} role="group" aria-label={`Слово «${question.display}»`}>
-      {[...question.display].map((ch, i) => {
+      {/* Once answered, the real spelling (with «ё») from the marked form. */}
+      {[...(checked ? checked.result.marked.toLowerCase() : question.display)].map((ch, i) => {
         if (!vowels.has(i)) {
           return (
             <span key={i} className={styles.letter} aria-hidden="true">
