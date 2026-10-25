@@ -41,7 +41,7 @@ export const STRESS_SOURCES = [
     kind: 'official',
     url: 'https://doc.fipi.ru/navigator-podgotovki/navigator-ege/2026/ru-1-fonetika.pdf',
     verification:
-      'Файл получить не удалось. Данные из него не импортированы; после получения файла его нужно сверить с этим словарём и перевести совпавшие слова в fipi_verified.',
+      'Файл получить не удалось (doc.fipi.ru и fipi.ru закрыты сетевой политикой среды разработки; ФИПИ, кроме того, доступен только с российских IP). Данные из него не импортированы и словарь с ним не сверен; после получения PDF нужно сверить построчно и перевести совпавшие слова в fipi_verified.',
   },
   {
     id: 'rustutors-2026-removed',
@@ -50,6 +50,14 @@ export const STRESS_SOURCES = [
     url: 'https://rustutors.ru/egeteoriya/2678-orfojepicheskij-slovar-dlja-podgotovki-egje-2023-spisok-slov.html',
     verification:
       'Вторичный источник; использован только для пометки «по сообщениям, нет в списке 2026» (нарОст, пОручни, жилОсь, зАтемно). Не официальный.',
+  },
+  {
+    id: 'doshchinsky-2027-task4',
+    title: 'Задание 4 вариантов ЕГЭ-2027 по русскому языку (Дощинский), импортированных в проект',
+    kind: 'secondary',
+    url: null,
+    verification:
+      'Вспомогательная сверка (audit.ts): 90 вариантов ответа, 73 согласуются со словарём, 9 расходятся, 8 слов в словаре нет. Источник сам себе противоречит (аэропортЫ, сосредоточЕние), часть ответов в нём ошибочна; словарь по нему не меняется. Отчёт: docs/imports/stress-dictionary-audit-2026.md.',
   },
   {
     id: 'reznichenko-orthoepic',
