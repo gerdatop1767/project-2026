@@ -128,7 +128,10 @@ export type LinkClaim =
   | { status: 'invalid' | 'expired' | 'used' };
 
 /** Step 2 (bot, «Да, это мой аккаунт»): records who confirmed. The first
- * Telegram account to confirm keeps it; another one is refused. */
+ * Telegram account to confirm keeps it; another one is refused. The same
+ * one pressing again (or a re-delivered update) changes nothing. All
+ * conditions sit in the one conditional UPDATE, so parallel presses
+ * cannot both win. */
 export async function claimTelegramLinkToken(
   db: Database,
   token: string,
@@ -149,6 +152,7 @@ export async function claimTelegramLinkToken(
       and(
         eq(schema.telegramLinkTokens.tokenHash, live.row.tokenHash),
         isNull(schema.telegramLinkTokens.consumedAt),
+        gt(schema.telegramLinkTokens.expiresAt, now),
         or(
           isNull(schema.telegramLinkTokens.claimedTelegramId),
           eq(schema.telegramLinkTokens.claimedTelegramId, telegramUserId),

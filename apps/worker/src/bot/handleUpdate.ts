@@ -438,7 +438,16 @@ export async function handleUpdate(ctx: BotContext, update: TelegramUpdate): Pro
         const token = query.data.slice(CALLBACK_LINK_PREFIX.length);
         // The button's own user, as Telegram reports them — never a name
         // or id taken from the message text.
-        const name = [query.from.first_name, query.from.last_name].filter(Boolean).join(' ').trim();
+        // Shown to the account owner on the site; the @username (unique,
+        // from Telegram) tells a look-alike display name apart.
+        const name = [
+          query.from.first_name,
+          query.from.last_name,
+          query.from.username ? `(@${query.from.username})` : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
         let text: string;
         try {
           const claim = await measure(timings, 'db', () =>

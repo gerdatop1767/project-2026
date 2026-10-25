@@ -351,6 +351,54 @@ describe('support, linking and reminders through the bot', () => {
       expect(lastText()).toContain('другой Telegram');
       expect(await identityOf(user!.id)).toHaveLength(0);
     });
+
+    it('re-delivered updates and repeated taps change nothing; the name carries the @username', async () => {
+      const [user] = await testDb.db.insert(schema.users).values({}).returning();
+      const { token } = await createTelegramLinkToken(testDb.db, user!.id);
+      const start = msg(7010, { text: `/start link_${token}` });
+      await handleUpdate(ctx, start);
+      await handleUpdate(ctx, { ...start, update_id: updateId++ }); // Telegram re-sends it
+      expect(await pendingTelegramLink(testDb.db, user!.id)).toBeNull();
+      const yes = lastButtons()[0]!.callback_data!;
+
+      const press = (): TelegramUpdate => {
+        const u = tap(7010, yes);
+        u.callback_query!.from = { id: 7010, first_name: 'Ира', username: 'ira_k' };
+        return u;
+      };
+      const first = press();
+      // Two taps at once, then the first one delivered again.
+      await Promise.all([handleUpdate(ctx, first), handleUpdate(ctx, press())]);
+      await handleUpdate(ctx, { ...first, update_id: updateId++ });
+      expect(await pendingTelegramLink(testDb.db, user!.id)).toMatchObject({
+        telegramName: 'Ира (@ira_k)',
+      });
+      expect(await identityOf(user!.id)).toHaveLength(0);
+
+      expect(await confirmTelegramLink(testDb.db, user!.id, true)).toEqual({ status: 'linked' });
+      // A late re-delivery after the owner confirmed: «already used», no change.
+      await handleUpdate(ctx, { ...first, update_id: updateId++ });
+      expect(lastText()).toContain('уже использована');
+      expect((await identityOf(user!.id)).map((i) => i.providerUserId)).toEqual(['7010']);
+    });
+
+    it('a Telegram that already has an account is told so, and nothing is offered', async () => {
+      const [owner] = await testDb.db.insert(schema.users).values({}).returning();
+      await testDb.db
+        .insert(schema.authIdentities)
+        .values({ userId: owner!.id, provider: 'telegram', providerUserId: '7020' });
+      const [other] = await testDb.db.insert(schema.users).values({}).returning();
+      const mine = await createTelegramLinkToken(testDb.db, owner!.id);
+      await handleUpdate(ctx, msg(7020, { text: `/start link_${mine.token}` }));
+      expect(lastText()).toContain('уже привязан к твоему аккаунту');
+      const theirs = await createTelegramLinkToken(testDb.db, other!.id);
+      await handleUpdate(ctx, msg(7020, { text: `/start link_${theirs.token}` }));
+      expect(lastText()).toContain('другому аккаунту');
+      const options = telegram.sendMessage.mock.calls.at(-1)![2] as {
+        replyMarkup?: { inline_keyboard?: unknown };
+      };
+      expect(options.replyMarkup?.inline_keyboard).toBeUndefined();
+    });
   });
 
   describe('daily reminders (ReminderScheduler)', () => {

@@ -181,3 +181,157 @@ describe('Telegram linking through the bot', () => {
     expect(await telegramOf(carol)).toHaveLength(0);
   });
 });
+
+describe('Telegram linking — races, repeats and edge cases', () => {
+  let testDb: Awaited<ReturnType<typeof createTestDb>>;
+  const newUser = async () => (await testDb.db.insert(schema.users).values({}).returning())[0]!.id;
+  const identities = (userId: string) =>
+    testDb.db.select().from(schema.authIdentities).where(eq(schema.authIdentities.userId, userId));
+
+  beforeAll(async () => {
+    testDb = await createTestDb();
+  });
+  afterAll(async () => {
+    await testDb.close();
+  });
+
+  it('two Telegram accounts pressing «Да» at once: exactly one claims', async () => {
+    const owner = await newUser();
+    const { token } = await createTelegramLinkToken(testDb.db, owner);
+    const results = await Promise.all([
+      claimTelegramLinkToken(testDb.db, token, 9001, 'Первый'),
+      claimTelegramLinkToken(testDb.db, token, 9002, 'Второй'),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(['claimed', 'claimed_by_other']);
+    // The same one pressing again (or a re-delivered update) keeps its claim.
+    const winner = results[0]!.status === 'claimed' ? 9001 : 9002;
+    expect(await claimTelegramLinkToken(testDb.db, token, winner, 'Снова')).toEqual({
+      status: 'claimed',
+    });
+    const [row] = await testDb.db
+      .select()
+      .from(schema.telegramLinkTokens)
+      .where(eq(schema.telegramLinkTokens.tokenHash, hashLinkToken(token)));
+    expect(row!.claimedTelegramId).toBe(winner);
+  });
+
+  it('«Подтвердить» pressed twice at once links once; the second finds nothing', async () => {
+    const owner = await newUser();
+    const { token } = await createTelegramLinkToken(testDb.db, owner);
+    await claimTelegramLinkToken(testDb.db, token, 9101, 'Я');
+    const results = await Promise.all([
+      confirmTelegramLink(testDb.db, owner, true),
+      confirmTelegramLink(testDb.db, owner, true),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(['linked', 'nothing_pending']);
+    expect(await identities(owner)).toHaveLength(1);
+  });
+
+  it('«Подтвердить» and «Это не я» at once: one wins, the token is finished once', async () => {
+    const owner = await newUser();
+    const { token } = await createTelegramLinkToken(testDb.db, owner);
+    await claimTelegramLinkToken(testDb.db, token, 9201, 'Я');
+    const [a, b] = await Promise.all([
+      confirmTelegramLink(testDb.db, owner, true),
+      confirmTelegramLink(testDb.db, owner, false),
+    ]);
+    expect([a.status, b.status]).toContain('nothing_pending');
+    const linked = (await identities(owner)).length;
+    expect(linked).toBe([a.status, b.status].includes('linked') ? 1 : 0);
+    // After either outcome, more presses change nothing.
+    expect(await confirmTelegramLink(testDb.db, owner, true)).toEqual({
+      status: 'nothing_pending',
+    });
+    expect(await identities(owner)).toHaveLength(linked);
+  });
+
+  it('«Это не я» twice, then «Подтвердить»: nothing is ever linked', async () => {
+    const owner = await newUser();
+    const { token } = await createTelegramLinkToken(testDb.db, owner);
+    await claimTelegramLinkToken(testDb.db, token, 9301, 'Чужой');
+    expect(await confirmTelegramLink(testDb.db, owner, false)).toEqual({ status: 'rejected' });
+    expect(await confirmTelegramLink(testDb.db, owner, false)).toEqual({
+      status: 'nothing_pending',
+    });
+    expect(await confirmTelegramLink(testDb.db, owner, true)).toEqual({
+      status: 'nothing_pending',
+    });
+    expect(await identities(owner)).toHaveLength(0);
+  });
+
+  it('one Telegram claiming two accounts: only the first confirmed gets it — also in parallel', async () => {
+    const [a, b] = [await newUser(), await newUser()];
+    const ta = await createTelegramLinkToken(testDb.db, a);
+    const tb = await createTelegramLinkToken(testDb.db, b);
+    expect((await claimTelegramLinkToken(testDb.db, ta.token, 9401, 'Я')).status).toBe('claimed');
+    expect((await claimTelegramLinkToken(testDb.db, tb.token, 9401, 'Я')).status).toBe('claimed');
+    expect(await confirmTelegramLink(testDb.db, a, true)).toEqual({ status: 'linked' });
+    expect(await confirmTelegramLink(testDb.db, b, true)).toEqual({ status: 'taken' });
+    expect(await identities(b)).toHaveLength(0);
+
+    const [c, d] = [await newUser(), await newUser()];
+    const tc = await createTelegramLinkToken(testDb.db, c);
+    const td = await createTelegramLinkToken(testDb.db, d);
+    await claimTelegramLinkToken(testDb.db, tc.token, 9402, 'Я');
+    await claimTelegramLinkToken(testDb.db, td.token, 9402, 'Я');
+    const results = await Promise.all([
+      confirmTelegramLink(testDb.db, c, true),
+      confirmTelegramLink(testDb.db, d, true),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(['linked', 'taken']);
+    const owners = await testDb.db
+      .select()
+      .from(schema.authIdentities)
+      .where(eq(schema.authIdentities.providerUserId, '9402'));
+    expect(owners).toHaveLength(1);
+  });
+
+  it('a refused or failed link never touches the sign-in methods the account has', async () => {
+    const owner = await newUser();
+    await testDb.db.insert(schema.authIdentities).values([
+      { userId: owner, provider: 'vk', providerUserId: 'vk-1' },
+      { userId: owner, provider: 'telegram', providerUserId: '9501' },
+    ]);
+    const before = await identities(owner);
+    const t1 = await createTelegramLinkToken(testDb.db, owner);
+    await claimTelegramLinkToken(testDb.db, t1.token, 9502, 'Другой');
+    expect(await confirmTelegramLink(testDb.db, owner, true)).toEqual({
+      status: 'provider_already_used',
+    });
+    const t2 = await createTelegramLinkToken(testDb.db, owner);
+    await claimTelegramLinkToken(testDb.db, t2.token, 9503, 'Чужой');
+    expect(await confirmTelegramLink(testDb.db, owner, false)).toEqual({ status: 'rejected' });
+    expect(await identities(owner)).toEqual(before);
+  });
+
+  it('the 15-minute limit is exact, and a new link revokes an older claimed one', async () => {
+    const owner = await newUser();
+    const issued = new Date('2026-10-25T10:00:00Z');
+    const { token, expiresAt } = await createTelegramLinkToken(testDb.db, owner, issued);
+    expect(expiresAt.getTime() - issued.getTime()).toBe(TELEGRAM_LINK_TTL_MS);
+    const justBefore = new Date(expiresAt.getTime() - 1);
+    expect(await previewTelegramLink(testDb.db, token, 9601, justBefore)).toMatchObject({
+      status: 'ok',
+    });
+    expect(await claimTelegramLinkToken(testDb.db, token, 9601, 'x', expiresAt)).toEqual({
+      status: 'expired',
+    });
+    expect((await claimTelegramLinkToken(testDb.db, token, 9601, 'x', justBefore)).status).toBe(
+      'claimed',
+    );
+    expect(await confirmTelegramLink(testDb.db, owner, true, expiresAt)).toEqual({
+      status: 'nothing_pending',
+    });
+
+    // Claimed but not confirmed, then a fresh link: the old claim is gone.
+    const again = new Date(expiresAt.getTime() - 60_000);
+    const old = await createTelegramLinkToken(testDb.db, owner, again);
+    await claimTelegramLinkToken(testDb.db, old.token, 9602, 'Старый', again);
+    await createTelegramLinkToken(testDb.db, owner, again);
+    expect(await pendingTelegramLink(testDb.db, owner, again)).toBeNull();
+    expect(await confirmTelegramLink(testDb.db, owner, true, again)).toEqual({
+      status: 'nothing_pending',
+    });
+    expect(await identities(owner)).toHaveLength(0);
+  });
+});
