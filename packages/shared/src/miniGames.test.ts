@@ -9,55 +9,57 @@ import {
 
 describe('stress dictionary lines', () => {
   it('parses a marked form with its part of speech and form note', () => {
-    expect(parseStressEntry('занялА | гл. | прош. вр., ж. р.')).toEqual({
+    expect(parseStressEntry('занялА | гл. | прош. вр., ж. р. | с. 3')).toEqual({
       key: 'занялА (прош. вр., ж. р.)',
       marked: 'занялА',
       word: 'заняла',
       stressIndex: 5,
       partOfSpeech: 'гл.',
       formNote: 'прош. вр., ж. р.',
-      removed2026: false,
+      pages: [3],
     });
-    expect(parseStressEntry('нарОст | сущ. | | removed2026')).toMatchObject({
-      key: 'нарОст',
-      removed2026: true,
+    expect(parseStressEntry('красИвее | прил. | сравн. ст. | с. 2, с. 5')).toMatchObject({
+      key: 'красИвее (сравн. ст.)',
+      pages: [2, 5],
     });
   });
 
   it('rejects ambiguous or malformed lines', () => {
     for (const bad of [
-      'торты | сущ.', // no stress
-      'тОртЫ | сущ.', // two stresses
-      'тоРты | сущ.', // stress on a consonant
-      'кот | сущ.', // nothing to choose — but no capital either
-      'кОт | сущ.', // one vowel
-      'свЕклА | сущ.',
-      'свеклА | сущ. | | ', // fine shape, checked below for ё separately
-      'свёклА | сущ.', // ё without the stress
-      'tOrty | сущ.',
-      'тОрты | сущ-ое',
-      'тОрты | сущ. | | newflag',
-      'тОрты | сущ. | a | b | c',
+      'торты | сущ. | | с. 2', // no stress
+      'тОртЫ | сущ. | | с. 2', // two stresses
+      'тоРты | сущ. | | с. 2', // stress on a consonant
+      'кОт | сущ. | | с. 2', // one vowel
+      'свЕклА | сущ. | | с. 2',
+      'свёклА | сущ. | | с. 2', // ё without the stress
+      'tOrty | сущ. | | с. 2',
+      'тОрты | сущ-ое | | с. 2',
+      'тОрты | сущ.', // no source page
+      'тОрты | сущ. | | стр 2',
+      'тОрты | сущ. | a | с. 2 | c',
     ]) {
-      const result = parseStressEntry(bad);
-      if (bad === 'свеклА | сущ. | | ') expect(typeof result).toBe('object');
-      else expect(typeof result, bad).toBe('string');
+      expect(typeof parseStressEntry(bad), bad).toBe('string');
     }
+    // «е» in place of «ё» is a valid spelling (FIPI allows it in task 4).
+    expect(typeof parseStressEntry('свеклА | сущ. | | с. 2')).toBe('object');
   });
 
   it('keeps forms with different stress apart; refuses real duplicates', () => {
     const { entries, problems } = validateStressEntries([
-      'зАнял | гл. | прош. вр., м. р.',
-      'занялА | гл. | прош. вр., ж. р.',
-      'зАняли | гл. | прош. вр., мн. ч.',
+      'зАнял | гл. | прош. вр., м. р. | с. 3',
+      'занялА | гл. | прош. вр., ж. р. | с. 3',
+      'зАняли | гл. | прош. вр., мн. ч. | с. 3',
+      'Отзыв | сущ. | о книге | с. 2',
+      'отзЫв | сущ. | посла | с. 2',
     ]);
     expect(problems).toEqual([]);
-    expect(entries).toHaveLength(3);
-    expect(validateStressEntries(['тОрты | сущ.', 'тОрты | сущ.']).problems[0]).toMatch(
-      /duplicate/,
-    );
+    expect(entries).toHaveLength(5);
     expect(
-      validateStressEntries(['тОрты | сущ.', 'тОрты | сущ. | И. п. мн. ч.']).problems[0],
+      validateStressEntries(['тОрты | сущ. | | с. 2', 'тОрты | сущ. | | с. 2']).problems[0],
+    ).toMatch(/duplicate/);
+    expect(
+      validateStressEntries(['тОрты | сущ. | | с. 2', 'тОрты | сущ. | И. п. мн. ч. | с. 2'])
+        .problems[0],
     ).toMatch(/same stressed form/);
   });
 

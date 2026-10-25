@@ -5,8 +5,6 @@ import { isMainModule } from '../isMainModule.js';
 import * as schema from '../schema.js';
 import { STRESS_ENTRIES, STRESS_SOURCES, STRESS_WORDS_SOURCE } from './data.js';
 
-const REMOVED_NOTE = 'По сообщениям вторичного источника, нет в «Орфоэпическом списке – 2026».';
-
 export interface StressImportResult {
   readonly words: number;
   readonly deactivated: number;
@@ -52,9 +50,10 @@ export async function importStressDictionary(
         partOfSpeech: e.partOfSpeech,
         formNote: e.formNote,
         sourceId: STRESS_WORDS_SOURCE,
-        listStatus: e.removed2026 ? ('reported_removed' as const) : ('fipi_unverified' as const),
+        // Every line is compared one to one with the official list (data.ts).
+        listStatus: 'fipi_verified' as const,
         stressStatus: 'confirmed' as const,
-        note: e.removed2026 ? REMOVED_NOTE : null,
+        note: null,
         active: true,
       };
       await tx

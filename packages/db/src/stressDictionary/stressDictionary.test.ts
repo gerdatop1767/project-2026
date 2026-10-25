@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { validateStressEntries, vowelIndices } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -6,77 +8,105 @@ import { createTestDb } from '../testing.js';
 import { STRESS_ENTRIES, STRESS_SOURCES, STRESS_WORDS_SOURCE } from './data.js';
 import { importStressDictionary } from './import.js';
 
+const officialPath = fileURLToPath(
+  new URL('../../../../docs/sources/fipi-orthoepic-2026.json', import.meta.url),
+);
+const official = JSON.parse(readFileSync(officialPath, 'utf-8')) as {
+  pdf: { sha256: string };
+  excludedFrom2026: { forms: string[] };
+  forms: { marked: string; page: number; section: string }[];
+};
+
 describe('stress dictionary — the data', () => {
   const { entries, problems } = validateStressEntries(STRESS_ENTRIES);
   const byMarked = new Map(entries.map((e) => [e.marked, e]));
 
-  it('every line is valid: one stressed vowel, ≥2 vowels, «ё» stressed, no duplicates', () => {
+  it('every line is valid: one stressed vowel, ≥2 vowels, «ё» stressed, no duplicates, a page', () => {
     expect(problems).toEqual([]);
     expect(entries.length).toBe(STRESS_ENTRIES.length);
-    for (const e of entries) expect(vowelIndices(e.word)).toContain(e.stressIndex);
+    for (const e of entries) {
+      expect(vowelIndices(e.word)).toContain(e.stressIndex);
+      expect(e.pages.length).toBeGreaterThan(0);
+    }
   });
 
-  it('covers every part of speech of the task-4 list', () => {
-    const count = (pos: string) => entries.filter((e) => e.partOfSpeech === pos).length;
-    expect(count('сущ.')).toBeGreaterThanOrEqual(50);
-    expect(count('прил.')).toBeGreaterThanOrEqual(8);
-    expect(count('гл.')).toBeGreaterThanOrEqual(80);
-    expect(count('прич.')).toBeGreaterThanOrEqual(20);
-    expect(count('деепр.')).toBeGreaterThanOrEqual(5);
-    expect(count('нар.')).toBeGreaterThanOrEqual(8);
+  it('is the official «Орфоэпический список – 2026» one to one — forms, stress and pages', () => {
+    const officialForms = [...new Set(official.forms.map((f) => f.marked))];
+    expect(officialForms).toHaveLength(219);
+    expect(entries.map((e) => e.marked)).toEqual(officialForms);
+    for (const e of entries) {
+      const pages = [
+        ...new Set(official.forms.filter((f) => f.marked === e.marked).map((f) => f.page)),
+      ];
+      expect(e.pages, e.marked).toEqual(pages);
+    }
   });
 
-  // An independent table of the exam's classic traps: where the stress
-  // must fall (index of the vowel), checked against the data.
+  it('none of the forms FIPI excluded from the 2026 campaign', () => {
+    const words = new Set(entries.map((e) => e.word.replace(/ё/g, 'е')));
+    expect(official.excludedFrom2026.forms).toHaveLength(10);
+    for (const form of official.excludedFrom2026.forms) {
+      expect(words.has(form.toLowerCase()), form).toBe(false);
+    }
+  });
+
+  it('the part of speech follows the list section', () => {
+    const pos: Record<string, string> = {
+      'Имена существительные': 'сущ.',
+      'Имена прилагательные': 'прил.',
+      Глаголы: 'гл.',
+      'Причастия и отглагольные прилагательные': 'прич.',
+      Деепричастия: 'деепр.',
+      Наречия: 'нар.',
+    };
+    for (const e of entries) {
+      const sections = official.forms
+        .filter((f) => f.marked === e.marked)
+        .map((f) => pos[f.section]);
+      expect(sections, e.marked).toContain(e.partOfSpeech);
+    }
+  });
+
+  // The exam's classic traps, as the 2026 list marks them.
   it.each([
     ['тОрты', 1],
     ['звонИт', 4],
     ['свЁкла', 2],
-    ['кухОнный', 3],
+    ['кУхонный', 1],
+    ['нЕнависть', 1],
+    ['аэропОрты', 5],
     ['каталОг', 5],
     ['договорЁнность', 7],
     ['жалюзИ', 5],
-    ['бАнты', 1],
-    ['крАны', 2],
-    ['щавЕль', 3],
-    ['цЕнтнер', 1],
-    ['дефИс', 3],
-    ['вероисповЕдание', 9],
-    ['оптОвый', 3],
-    ['красИвее', 4],
-    ['облегчИть', 6],
-    ['углубИть', 5],
-    ['вклЮчит', -1], // the wrong one must NOT be there
-    ['включИт', 5],
-    ['начАв', 3],
-    ['прИнятый', 2],
+    ['досУг', 3],
+    ['еретИк', 4],
     ['вОвремя', 1],
-    ['дОсуха', 1],
+    ['начАвшись', 3],
   ])('%s', (marked, index) => {
-    const entry = byMarked.get(marked);
-    if (index === -1) expect(entry).toBeUndefined();
-    else expect(entry?.stressIndex).toBe(index);
+    expect(byMarked.get(marked)?.stressIndex).toBe(index);
   });
 
-  it('forms whose stress differs stay separate entries', () => {
-    for (const form of ['зАнял', 'занялА', 'зАняли', 'нАчал', 'началА', 'нАчали']) {
+  it('forms and meanings whose stress differs stay separate entries', () => {
+    for (const form of [
+      'зАнял',
+      'занялА',
+      'зАняли',
+      'нАчал',
+      'началА',
+      'нАчали',
+      'лОктя',
+      'локтЕй',
+    ]) {
       expect(byMarked.has(form), form).toBe(true);
     }
-    expect(byMarked.get('кремЕнь')!.formNote).toBe('И. п. ед. ч.');
-    expect(byMarked.get('кремнЯ')!.formNote).toBe('Р. п. ед. ч.');
+    expect(byMarked.get('Отзыв')!.formNote).toMatch(/о книге/);
+    expect(byMarked.get('отзЫв')!.formNote).toMatch(/посла/);
   });
 
-  it('is honest about its provenance', () => {
+  it('records where it comes from', () => {
     const source = STRESS_SOURCES.find((s) => s.id === STRESS_WORDS_SOURCE)!;
     expect(source.kind).toBe('official');
-    expect(source.verification).toMatch(/не сверен/);
-    // Only the four words a secondary source reports as dropped in 2026.
-    expect(
-      entries
-        .filter((e) => e.removed2026)
-        .map((e) => e.marked)
-        .sort(),
-    ).toEqual(['жилОсь', 'зАтемно', 'нарОст', 'пОручни'].sort());
+    expect(source.verification).toContain(official.pdf.sha256);
   });
 });
 
@@ -98,9 +128,13 @@ describe('stress dictionary — import', () => {
     const again = await words();
     expect(again).toHaveLength(STRESS_ENTRIES.length);
     for (const w of again) expect(ids.get(w.key)).toBe(w.id);
-    const removed = again.find((w) => w.marked === 'нарОст')!;
-    expect(removed).toMatchObject({ listStatus: 'reported_removed', stressStatus: 'confirmed' });
-    expect(removed.note).toMatch(/2026/);
+    for (const w of again) {
+      expect(w).toMatchObject({
+        listStatus: 'fipi_verified',
+        stressStatus: 'confirmed',
+        active: true,
+      });
+    }
     expect(await testDb.db.select().from(schema.stressSources)).toHaveLength(STRESS_SOURCES.length);
   });
 
@@ -126,7 +160,11 @@ describe('stress dictionary — import', () => {
   it('invalid data writes nothing', async () => {
     const before = await words();
     await expect(
-      importStressDictionary(testDb.db, [...STRESS_ENTRIES, 'тортЫ | сущ.', 'кОт | сущ.']),
+      importStressDictionary(testDb.db, [
+        ...STRESS_ENTRIES,
+        'тортЫ | сущ. | | с. 2',
+        'кОт | сущ. | | с. 2',
+      ]),
     ).rejects.toThrow(/invalid/);
     expect(await words()).toEqual(before);
   });

@@ -528,7 +528,8 @@ $C run --rm --no-deps migrate ls node_modules/@zybrilka/db/dist/stressDictionary
 ```bash
 $C run --rm migrate                                                             # 0033, 0034
 $C run --rm migrate node node_modules/@zybrilka/db/dist/stressDictionary/import.js
-# ожидается: «Stress dictionary: 222 words, 0 deactivated», код выхода 0
+# ожидается: «Stress dictionary: 219 words, 0 deactivated» на пустой таблице
+# (если раньше импортировали старый словарь из 222 форм — «219 words, 20 deactivated»), код выхода 0
 ```
 
 Повторный запуск безопасен: upsert по ключу, прогресс игроков не трогается, удалённое из данных деактивируется. Ненулевой код выхода — словарь не записан, разберитесь до `up -d api web`.

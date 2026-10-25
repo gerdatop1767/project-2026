@@ -23,7 +23,7 @@ export const MINI_GAMES: readonly MiniGameInfo[] = [
     title: 'Ударения',
     subjectId: 'russian',
     subjectName: 'Русский язык',
-    description: 'Ставь ударение в словах из орфоэпического словника — задание 4 ЕГЭ.',
+    description: 'Ставь ударение в словах из «Орфоэпического списка – 2026» ФИПИ — задание 4 ЕГЭ.',
     egeTask: 'Задание 4',
   },
 ];
@@ -63,7 +63,6 @@ export const unstressedDisplay = (word: string): string => word.replace(/ё/g, '
 
 export const STRESS_PARTS_OF_SPEECH = ['сущ.', 'прил.', 'гл.', 'прич.', 'деепр.', 'нар.'] as const;
 export type StressPartOfSpeech = (typeof STRESS_PARTS_OF_SPEECH)[number];
-const STRESS_FLAGS = ['removed2026'] as const;
 
 export interface ParsedStressEntry {
   /** Identity for upserts: the marked form + its form note. */
@@ -74,18 +73,20 @@ export interface ParsedStressEntry {
   readonly stressIndex: number;
   readonly partOfSpeech: StressPartOfSpeech;
   readonly formNote: string | null;
-  readonly removed2026: boolean;
+  /** Pages of the source document the form is printed on. */
+  readonly pages: readonly number[];
 }
 
 /**
- * Parses one dictionary line `marked | part of speech | form note | flags`
+ * Parses one dictionary line `marked | part of speech | form note | pages`
+ * (pages: «с. 2» or «с. 2, с. 5» — where the source prints the form)
  * and checks it: exactly one capital letter, and it is a vowel; the rest
  * are lowercase Cyrillic letters (or a hyphen); at least two vowels (one
  * vowel leaves nothing to choose); a word with «ё» is stressed on it.
  * Returns the problem as a string instead of throwing.
  */
 export function parseStressEntry(line: string): ParsedStressEntry | string {
-  const [rawMarked = '', rawPos = '', rawNote = '', rawFlags = '', ...extra] = line
+  const [rawMarked = '', rawPos = '', rawNote = '', rawPages = '', ...extra] = line
     .split('|')
     .map((s) => s.trim());
   if (extra.length > 0) return `${line}: too many fields`;
@@ -104,9 +105,10 @@ export function parseStressEntry(line: string): ParsedStressEntry | string {
   if (!(STRESS_PARTS_OF_SPEECH as readonly string[]).includes(rawPos)) {
     return `${line}: unknown part of speech «${rawPos}»`;
   }
-  const flags = rawFlags ? rawFlags.split(',').map((f) => f.trim()) : [];
-  const unknown = flags.find((f) => !(STRESS_FLAGS as readonly string[]).includes(f));
-  if (unknown) return `${line}: unknown flag «${unknown}»`;
+  if (!/^с\. \d+(, с\. \d+)*$/.test(rawPages)) {
+    return `${line}: source pages expected as «с. N» or «с. N, с. M»`;
+  }
+  const pages = [...rawPages.matchAll(/\d+/g)].map((m) => Number(m[0]));
   const formNote = rawNote || null;
   return {
     key: formNote ? `${marked} (${formNote})` : marked,
@@ -115,7 +117,7 @@ export function parseStressEntry(line: string): ParsedStressEntry | string {
     stressIndex,
     partOfSpeech: rawPos as StressPartOfSpeech,
     formNote,
-    removed2026: flags.includes('removed2026'),
+    pages,
   };
 }
 

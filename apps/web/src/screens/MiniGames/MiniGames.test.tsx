@@ -232,6 +232,8 @@ describe('Ударения', () => {
 
   it('says honestly where the words come from', () => {
     renderWith(<StressGame />, null);
-    expect(screen.getByText(/не полный официальный перечень на 2026 год/)).toBeInTheDocument();
+    const sources = screen.getByText('Откуда слова').closest('details')!;
+    expect(sources).toHaveTextContent('«Орфоэпического списка – 2026» ФИПИ');
+    expect(sources).toHaveTextContent('исключил из экзамена 2026 года');
   });
 });

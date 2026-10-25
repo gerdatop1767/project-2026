@@ -4,12 +4,11 @@ import { validateStressEntries } from '@zybrilka/shared';
 import { STRESS_ENTRIES } from './data.js';
 
 /**
- * Cross-check of the stress dictionary against an AUXILIARY source: task 4
- * of the EGE Russian 2027 variants (Дощинский) imported into this project
- * (docs/imports/stress-dictionary-audit-2026.md). Not an official source —
- * it can confirm that independent exam material agrees with a stress, or
- * reveal a disagreement for a human to resolve; it never changes the
- * dictionary by itself.
+ * Quality check of the project's own exam content: task 4 of the EGE
+ * Russian 2027 variants (Дощинский) imported into this project, against
+ * the stress dictionary — which is FIPI's official 2026 list
+ * (docs/imports/stress-dictionary-audit-2026.md). A conflict points at a
+ * variant task to review; it never changes the dictionary.
  *
  * Each task-4 option is a marked word («аэропортЫ»); the task's answer
  * says whether that marking is right. An option agrees with the
@@ -26,7 +25,10 @@ export interface Task4Option {
   readonly markedRight: boolean;
 }
 
-export type AuditVerdict = 'agrees' | 'conflict' | 'not_in_dictionary';
+/** `homograph`: the dictionary has the word with more than one stress,
+ * by meaning («Отзыв» о книге / «отзЫв» посла) — the variant's context
+ * decides, so a person checks it. */
+export type AuditVerdict = 'agrees' | 'conflict' | 'not_in_dictionary' | 'homograph';
 
 export interface AuditRow extends Task4Option {
   readonly verdict: AuditVerdict;
@@ -78,6 +80,7 @@ export function auditDictionary(options: readonly Task4Option[] = readTask4Optio
   return options.map((o) => {
     const dictionary = byWord.get(flat(o.marked.toLowerCase())) ?? [];
     if (dictionary.length === 0) return { ...o, verdict: 'not_in_dictionary', dictionary };
+    if (new Set(dictionary).size > 1) return { ...o, verdict: 'homograph', dictionary };
     const same = dictionary.includes(flat(o.marked));
     const agrees = o.markedRight ? same : !same;
     return { ...o, verdict: agrees ? 'agrees' : 'conflict', dictionary };
