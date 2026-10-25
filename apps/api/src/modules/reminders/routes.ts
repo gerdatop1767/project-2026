@@ -16,7 +16,7 @@ import {
   type ReminderSettingsResponse,
 } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 export interface ReminderRoutesOptions {
   db: Database;
@@ -30,6 +30,11 @@ export interface ReminderRoutesOptions {
  */
 export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (app, { db }) => {
   const userId = (request: { sessionUserId: string | null }) => request.sessionUserId!;
+  // Throttled per account, not per IP: a whole school behind one address
+  // must not use up each other's limit.
+  const perAccount = (max: number, timeWindow: string) => ({
+    rateLimit: { max, timeWindow, keyGenerator: (request: FastifyRequest) => userId(request) },
+  });
 
   async function load(id: string): Promise<ReminderSettingsResponse> {
     const [row] = await db
@@ -56,43 +61,39 @@ export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (
     return load(userId(request));
   });
 
-  app.put(
-    '/me/reminders',
-    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      const body = reminderSettingsRequestSchema.safeParse(request.body);
-      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-      const minuteOfDay = minutesOfTime(body.data.time)!;
-      const now = new Date();
-      await db
-        .insert(schema.reminderSettings)
-        .values({
-          userId: userId(request),
+  app.put('/me/reminders', { config: perAccount(30, '1 minute') }, async (request, reply) => {
+    const body = reminderSettingsRequestSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    const minuteOfDay = minutesOfTime(body.data.time)!;
+    const now = new Date();
+    await db
+      .insert(schema.reminderSettings)
+      .values({
+        userId: userId(request),
+        enabled: body.data.enabled,
+        minuteOfDay,
+        timezone: body.data.timezone,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: schema.reminderSettings.userId,
+        set: {
           enabled: body.data.enabled,
           minuteOfDay,
           timezone: body.data.timezone,
           updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: schema.reminderSettings.userId,
-          set: {
-            enabled: body.data.enabled,
-            minuteOfDay,
-            timezone: body.data.timezone,
-            updatedAt: now,
-          },
-        });
-      reply.header('cache-control', 'no-store');
-      return load(userId(request));
-    },
-  );
+        },
+      });
+    reply.header('cache-control', 'no-store');
+    return load(userId(request));
+  });
 
   // A one-time link for the bot: `t.me/<bot>?start=link_<token>`. Opening it
   // in Telegram and confirming there only CLAIMS the link; nothing is
   // attached until this account confirms below (docs/REMINDERS.md).
   app.post(
     '/me/telegram/link',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    { config: perAccount(10, '10 minutes') },
     async (request, reply) => {
       const { token, expiresAt } = await createTelegramLinkToken(db, userId(request));
       reply.header('cache-control', 'no-store');
@@ -104,7 +105,7 @@ export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (
   // that claimed this account's link. Acts on the session's account only.
   app.post(
     '/me/telegram/link/confirm',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    { config: perAccount(10, '10 minutes') },
     async (request, reply) => {
       const body = telegramLinkConfirmRequestSchema.safeParse(request.body);
       if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
