@@ -171,10 +171,7 @@ export function AppMobile() {
               />
             )}
             {contentOverlay.screen === 'variantAttempt' && (
-              <VariantAttempt
-                key={contentOverlay.sessionId}
-                sessionId={contentOverlay.sessionId}
-              />
+              <VariantAttempt key={contentOverlay.sessionId} sessionId={contentOverlay.sessionId} />
             )}
             {contentOverlay.screen === 'trainingTopic' && (
               <WipPlaceholder

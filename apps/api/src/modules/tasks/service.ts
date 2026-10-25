@@ -230,7 +230,14 @@ export async function submitAttempt(
   // before anything is written.
   if (answerType === 'multi_part') {
     if (typeof input.answer !== 'object') throw new InvalidAnswerShapeError();
-    return submitMultiPartAttempt(db, row, userId, input.answer, input.timeSpentMs, input.sessionId);
+    return submitMultiPartAttempt(
+      db,
+      row,
+      userId,
+      input.answer,
+      input.timeSpentMs,
+      input.sessionId,
+    );
   }
   if (typeof input.answer !== 'string') throw new InvalidAnswerShapeError();
   const answerRaw = input.answer;

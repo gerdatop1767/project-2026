@@ -473,7 +473,8 @@ export async function getVariantAttemptDetail(
   const taskOf = new Map(planned.map((t) => [t.taskId, t]));
   const first = firstAnswers(answers.rows);
   const answerCount = new Map<string, number>();
-  for (const row of answers.rows) answerCount.set(row.taskId, (answerCount.get(row.taskId) ?? 0) + 1);
+  for (const row of answers.rows)
+    answerCount.set(row.taskId, (answerCount.get(row.taskId) ?? 0) + 1);
   const served = new Set(session.consumedTaskIds);
 
   const tasks: VariantAttemptTask[] = [];
