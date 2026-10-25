@@ -60,8 +60,52 @@ describe('product analytics, campaign links, attribution, complaints', () => {
 
   const events = (type: string) =>
     testDb.db.select().from(schema.analyticsEvents).where(eq(schema.analyticsEvents.type, type));
+  /** The banner's «Принять» (docs/COOKIES.md). */
+  const CONSENT = 'zc=a1';
   const visitorCookie = (res: { cookies: { name: string; value: string; httpOnly?: boolean }[] }) =>
     res.cookies.find((c) => c.name === 'zv');
+
+  describe('cookie consent (zc)', () => {
+    it('without consent nothing is recorded and no visitor cookie is set', async () => {
+      const id = randomUUID();
+      for (const cookie of [undefined, 'zc=a0']) {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/v1/events',
+          payload: { events: [{ id: randomUUID(), type: 'subject_selected', subjectId: 'math' }] },
+          headers: cookie ? { cookie } : {},
+        });
+        expect(res.statusCode).toBe(204);
+        expect(visitorCookie(res)).toBeUndefined();
+      }
+      expect((await events('subject_selected')).some((e) => e.id === id)).toBe(false);
+    });
+
+    it('a campaign click without consent is counted anonymously, with no cookie', async () => {
+      const before = (await events('campaign_click')).filter((e) => e.visitorId === null).length;
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/go/spring-tg-01',
+        headers: { 'user-agent': 'Mozilla/5.0' },
+      });
+      expect(res.statusCode).toBe(302);
+      expect(visitorCookie(res)).toBeUndefined();
+      const after = (await events('campaign_click')).filter((e) => e.visitorId === null).length;
+      expect(after).toBe(before + 1);
+    });
+
+    it('a declined visitor cookie is ignored and can be cleared', async () => {
+      const zv = randomUUID();
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/events/visitor',
+        headers: { cookie: `zc=a0; zv=${zv}` },
+      });
+      expect(res.statusCode).toBe(204);
+      const cleared = visitorCookie(res)!;
+      expect(cleared.value).toBe('');
+    });
+  });
 
   describe('POST /api/v1/events', () => {
     it('creates a visitor (httpOnly cookie) and records events idempotently', async () => {
@@ -72,7 +116,12 @@ describe('product analytics, campaign links, attribution, complaints', () => {
           { id: randomUUID(), type: 'subject_selected', subjectId: 'math' },
         ],
       };
-      const first = await app.inject({ method: 'POST', url: '/api/v1/events', payload: batch });
+      const first = await app.inject({
+        method: 'POST',
+        url: '/api/v1/events',
+        payload: batch,
+        headers: { cookie: CONSENT },
+      });
       expect(first.statusCode).toBe(204);
       const cookie = visitorCookie(first)!;
       expect(cookie.httpOnly).toBe(true);
@@ -81,7 +130,7 @@ describe('product analytics, campaign links, attribution, complaints', () => {
         method: 'POST',
         url: '/api/v1/events',
         payload: batch,
-        headers: { cookie: `zv=${cookie.value}` },
+        headers: { cookie: `${CONSENT}; zv=${cookie.value}` },
       });
       expect(retry.statusCode).toBe(204);
       expect(visitorCookie(retry)).toBeUndefined(); // known visitor, no new cookie
@@ -98,7 +147,7 @@ describe('product analytics, campaign links, attribution, complaints', () => {
         method: 'POST',
         url: '/api/v1/events',
         payload: { events: [{ id: randomUUID(), type: 'visit' }] },
-        headers: { cookie: `zv=${forged}` },
+        headers: { cookie: `${CONSENT}; zv=${forged}` },
       });
       expect(res.statusCode).toBe(204);
       expect(visitorCookie(res)!.value).not.toBe(forged);
@@ -122,13 +171,14 @@ describe('product analytics, campaign links, attribution, complaints', () => {
         method: 'POST',
         url: '/api/v1/events',
         payload: { events: [{ id: randomUUID(), type: 'visit' }] },
+        headers: { cookie: CONSENT },
       });
       const zv = visitorCookie(visit)!.value;
       const res = await app.inject({
         method: 'POST',
         url: `/api/v1/tasks/${task.id}/attempt`,
         payload: { answer: 'definitely-wrong-123' },
-        headers: { cookie: `zv=${zv}` },
+        headers: { cookie: `${CONSENT}; zv=${zv}` },
       });
       expect(res.statusCode).toBe(200);
       const rows = (await events('answer_checked')).filter((e) => e.visitorId === zv);
@@ -144,7 +194,7 @@ describe('product analytics, campaign links, attribution, complaints', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/v1/go/spring-tg-01',
-        headers: { 'user-agent': 'Mozilla/5.0 (iPhone)' },
+        headers: { 'user-agent': 'Mozilla/5.0 (iPhone)', cookie: CONSENT },
       });
       expect(res.statusCode).toBe(302);
       expect(res.headers.location).toBe(`${WEB}/training`);
@@ -210,7 +260,7 @@ describe('product analytics, campaign links, attribution, complaints', () => {
         method: 'POST',
         url: '/api/v1/auth/telegram',
         payload: { initData: telegramLaunch(BOT_TOKEN, { id, first_name: 'Тест' }) },
-        headers: zv ? { cookie: `zv=${zv}` } : {},
+        headers: zv ? { cookie: `${CONSENT}; zv=${zv}` } : {},
       });
     }
 
@@ -218,7 +268,7 @@ describe('product analytics, campaign links, attribution, complaints', () => {
       const click = await app.inject({
         method: 'GET',
         url: '/api/v1/go/spring-tg-01',
-        headers: { 'user-agent': 'Mozilla/5.0' },
+        headers: { 'user-agent': 'Mozilla/5.0', cookie: CONSENT },
       });
       const zv = visitorCookie(click)!.value;
       const res = await telegramSignIn(5550001, zv);

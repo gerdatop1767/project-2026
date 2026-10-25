@@ -236,7 +236,7 @@ function AccountProfile() {
             </span>
             <span className={styles.settingsLabel}>
               Уведомления
-              <span className={styles.settingsSublabel}>Напоминания, серия, обновления</span>
+              <span className={styles.settingsSublabel}>Ежедневные напоминания в Telegram</span>
             </span>
             <Icon name="chevronRight" size={16} className={styles.subjectChevron} />
           </button>

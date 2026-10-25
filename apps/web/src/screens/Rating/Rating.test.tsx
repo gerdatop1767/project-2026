@@ -19,6 +19,7 @@ const entry = (rank: number, name: string, over: Partial<LeaderboardEntry> = {})
   accuracyPercent: 80,
   isMe: false,
   avatarHue: 200,
+  avatarVariant: rank % 24,
   ...over,
 });
 
@@ -191,5 +192,18 @@ describe('Рейтинг', () => {
     expect(screen.getByText('Рейтинг виден после входа')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
     expect(api.getLeaderboard).not.toHaveBeenCalled();
+  });
+
+  it('every participant gets a generated avatar picked by the server — different people differ', async () => {
+    vi.mocked(api.getLeaderboard).mockResolvedValue(board());
+    renderRating();
+    await screen.findByRole('list', { name: 'Тройка лидеров' });
+    const variants = [...document.querySelectorAll('[data-avatar-variant]')].map((el) =>
+      el.getAttribute('data-avatar-variant'),
+    );
+    expect(variants.length).toBeGreaterThanOrEqual(5);
+    expect(new Set(variants).size).toBe(variants.length);
+    // No foreign photo is ever requested.
+    expect(document.querySelector('img[src*="avatar"]')).toBeNull();
   });
 });

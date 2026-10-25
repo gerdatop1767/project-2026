@@ -152,6 +152,7 @@ describe('owner notifications (API side: queued, never blocking)', () => {
         registrations: true,
         siteErrors: true,
         complaints: true,
+        support: true,
       });
       expect(get.json().delivery).toEqual({ botConfigured: true, owners: 1, withTelegram: 0 });
       // No worker has reported yet in this test, and nothing was delivered.
@@ -174,6 +175,7 @@ describe('owner notifications (API side: queued, never blocking)', () => {
         registrations: false,
         siteErrors: true,
         complaints: false,
+        support: true,
       });
       const audit = await testDb.db
         .select()

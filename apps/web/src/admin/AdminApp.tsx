@@ -36,6 +36,8 @@ const ManagePage = page(() => import('./pages/Manage.js'), 'ManagePage');
 const NotificationsPage = page(() => import('./pages/Notifications.js'), 'NotificationsPage');
 const BroadcastsPage = page(() => import('./pages/Broadcasts.js'), 'BroadcastsPage');
 const BroadcastPage = page(() => import('./pages/Broadcasts.js'), 'BroadcastPage');
+const SupportPage = page(() => import('./pages/Support.js'), 'SupportPage');
+const SupportThreadPage = page(() => import('./pages/Support.js'), 'SupportThreadPage');
 
 const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin', OverviewPage],
@@ -55,6 +57,8 @@ const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin/health', HealthPage],
   ['/admin/broadcasts', BroadcastsPage],
   ['/admin/broadcasts/:id', BroadcastPage],
+  ['/admin/support', SupportPage],
+  ['/admin/support/:id', SupportThreadPage],
   ['/admin/notifications', NotificationsPage],
   ['/admin/manage', ManagePage],
 ];

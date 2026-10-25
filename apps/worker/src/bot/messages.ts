@@ -45,8 +45,83 @@ export function keyboardButtonOf(text: string): 'menu' | 'support' | null {
 export const mainMenuText =
   '<b>Главное меню</b> 📚\n\nОткрывай Зубрилку и решай задания — прогресс и ошибки сохраняются там же.';
 
-export const supportText =
-  'Поддержка скоро появится. Если возникла проблема, попробуй немного позже.';
+export { CALLBACK_SUPPORT_CLOSE } from './support.js';
+export const CALLBACK_REMINDERS_OFF = 'reminders_off';
+
+/** Under the support acknowledgement: ends the conversation. */
+export const supportCloseKeyboard: InlineKeyboard = {
+  inline_keyboard: [[{ text: 'Завершить обращение', callback_data: 'support_close' }]],
+};
+
+export const supportAlreadyOpenText =
+  'Обращение уже открыто — просто напиши сюда, сообщение попадёт в него.';
+
+/** Under every daily reminder (docs/REMINDERS.md). */
+export function reminderKeyboard(siteUrl: string): InlineKeyboard {
+  const training = new URL('/training', siteUrl).toString();
+  return {
+    inline_keyboard: [
+      [
+        siteUrl.startsWith('https://')
+          ? { text: 'Начать тренировку', web_app: { url: training } }
+          : { text: 'Начать тренировку', url: training },
+      ],
+      [{ text: 'Отключить напоминания', callback_data: CALLBACK_REMINDERS_OFF }],
+    ],
+  };
+}
+
+export const remindersOffText =
+  'Напоминания отключены. Включить их снова можно на сайте: Профиль → Уведомления.';
+export const remindersNoAccountText =
+  'Этот Telegram не привязан к аккаунту Зубрилки, поэтому напоминаний для него нет.';
+
+/** The answer to `/start link_<token>` (the site's «Привязать Telegram»). */
+/** «Да, это мой аккаунт» under the link question: `lk:<token>`. A token
+ * from a `start` payload is at most 59 characters, so this stays within
+ * the 64 bytes Telegram allows for callback data. */
+export const CALLBACK_LINK_PREFIX = 'lk:';
+export const CALLBACK_LINK_NO = 'link_no';
+
+export function linkQuestionText(accountLabel: string): string {
+  return `Привязать этот Telegram к аккаунту Зубрилки «${accountLabel}»?\n\nЕсли ссылку тебе прислал кто-то другой — нажми «Нет».`;
+}
+
+export function linkQuestionKeyboard(token: string): InlineKeyboard {
+  return {
+    inline_keyboard: [
+      [{ text: 'Да, это мой аккаунт', callback_data: `${CALLBACK_LINK_PREFIX}${token}` }],
+      [{ text: 'Нет', callback_data: CALLBACK_LINK_NO }],
+    ],
+  };
+}
+
+export const linkClaimedText =
+  'Почти готово! Вернись на сайт и подтверди привязку на странице «Уведомления» — без этого Telegram не привяжется.';
+export const linkDeclinedText = 'Хорошо, ничего не привязано.';
+export const linkFailedText = 'Не получилось привязать Telegram — попробуй ещё раз через минуту.';
+
+export function linkResultText(
+  status: 'already_linked' | 'taken' | 'claimed_by_other' | 'invalid' | 'expired' | 'used',
+): string {
+  switch (status) {
+    case 'already_linked':
+      return 'Этот Telegram уже привязан к твоему аккаунту ✅';
+    case 'taken':
+      return 'Этот Telegram уже привязан к другому аккаунту Зубрилки. Войди в тот аккаунт или отвяжи Telegram в его профиле.';
+    case 'claimed_by_other':
+      return 'Эту ссылку уже подтвердил другой Telegram. Открой «Привязать Telegram» на сайте ещё раз.';
+    case 'expired':
+      return 'Ссылка устарела. Открой на сайте «Привязать Telegram» ещё раз — ссылка действует 15 минут.';
+    case 'used':
+      return 'Эта ссылка уже использована. Если нужно привязать заново — открой «Привязать Telegram» на сайте ещё раз.';
+    case 'invalid':
+      return 'Ссылка для привязки не подошла. Открой «Привязать Telegram» на сайте ещё раз.';
+  }
+}
+
+export const supportSaveFailedText =
+  'Не получилось сохранить сообщение 😔 Попробуй отправить его ещё раз через минуту.';
 
 /**
  * Splits a photo caption that Telegram would reject (over 1024 visible
@@ -131,6 +206,8 @@ const commandList = [
   '/start — открыть Зубрилку',
   '/menu — главное меню',
   '/ios — как установить Зубрилку на iPhone и iPad',
+  '/support — написать в поддержку',
+  '/reminders_off — отключить ежедневные напоминания',
 ];
 
 export const helpText = commandList.join('\n');
@@ -138,7 +215,8 @@ export const helpText = commandList.join('\n');
 export const unknownCommandText = ['Такой команды я не знаю 🤔', '', ...commandList].join('\n');
 
 export const plainTextReply = [
-  'Я бот Зубрилки и пока не умею отвечать на сообщения.',
+  'Я бот Зубрилки и сам на сообщения не отвечаю.',
   '',
+  'Нужна помощь? Нажми «💬 Поддержка» внизу и напиши — ответит человек.',
   'Нашёл ошибку в задании? Нажми «Сообщить об ошибке» прямо в задании — так мы быстрее её исправим.',
 ].join('\n');

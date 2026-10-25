@@ -239,6 +239,26 @@ describe('leaderboard', () => {
       expect(text).not.toMatch(/userId|email|avatarUrl/);
     });
 
+    it('generated avatars: stable per user, varied across users', async () => {
+      const ask = async () =>
+        leaderboardResponseSchema.parse(
+          (
+            await app.inject({
+              method: 'GET',
+              url: '/api/v1/leaderboard?period=all',
+              headers: { cookie: await cookieFor('anna') },
+            })
+          ).json(),
+        );
+      const first = await ask();
+      const second = await ask();
+      const pick = (b: typeof first) =>
+        b.entries.map((e) => [e.name, e.avatarHue, e.avatarVariant]);
+      expect(pick(second)).toEqual(pick(first));
+      const looks = new Set(first.entries.map((e) => `${e.avatarHue}:${e.avatarVariant}`));
+      expect(looks.size).toBe(first.entries.length);
+    });
+
     it('rejects a bad period, subject or limit', async () => {
       const cookie = await cookieFor('anna');
       for (const q of ['period=month', 'subject=../x', 'limit=500', 'limit=-1']) {

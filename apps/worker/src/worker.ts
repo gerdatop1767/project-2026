@@ -5,6 +5,8 @@ import { handleUpdate } from './bot/handleUpdate.js';
 import { BotPhotos } from './bot/photos.js';
 import { startPolling } from './bot/polling.js';
 import { BroadcastSender } from './broadcasts/sender.js';
+import { ReminderScheduler } from './reminders/scheduler.js';
+import { SupportSender } from './support/sender.js';
 import { AdminNotifier } from './notifications/adminNotifier.js';
 import { HealthMonitor, httpHealthProbe } from './notifications/healthMonitor.js';
 import type { TelegramClient } from './telegram/client.js';
@@ -125,6 +127,18 @@ export async function startWorker({
       sender.stop();
       await stopBroadcasts();
     });
+
+    // Support replies queued in the admin panel (docs/SUPPORT.md).
+    const support = new SupportSender({ db, telegram, logger });
+    await support.recoverInterrupted();
+    stops.push(every(3_000, () => support.process(), logger, 'support replies'));
+
+    // Daily reminders (docs/REMINDERS.md): checked every minute; each
+    // account gets at most one a day, at its own local time.
+    const reminders = new ReminderScheduler({ db, telegram, logger, siteUrl });
+    await reminders.recoverInterrupted();
+    stops.push(every(60_000, () => reminders.run(), logger, 'daily reminders'));
+    logger.info('support replies and daily reminders on');
   }
 
   // Tells the admin panel what this worker does (no secrets, booleans only),

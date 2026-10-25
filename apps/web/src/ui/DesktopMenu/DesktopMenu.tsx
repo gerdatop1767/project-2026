@@ -180,7 +180,7 @@ export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
               </span>
               <span className={styles.rowText}>
                 <span className={styles.rowLabel}>Уведомления</span>
-                <span className={styles.rowCaption}>Напоминания и новости — скоро</span>
+                <span className={styles.rowCaption}>Ежедневные напоминания в Telegram</span>
               </span>
               <Icon name="chevronRight" size={18} className={styles.rowChevron} />
             </button>

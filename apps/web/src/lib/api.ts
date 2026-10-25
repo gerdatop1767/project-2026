@@ -1,4 +1,8 @@
 import type {
+  ReminderSettingsRequest,
+  ReminderSettingsResponse,
+  TelegramLinkConfirmResponse,
+  TelegramLinkResponse,
   AttemptRequest,
   AttemptResult,
   CollectionListItem,
@@ -625,4 +629,28 @@ export function vkLinkUrl(): string {
 /** Signs in (or registers) with the signed Telegram Mini App launch data. */
 export function loginWithTelegram(initData: string): Promise<{ user: AuthUser; created: boolean }> {
   return apiFetch('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) });
+}
+
+/** Daily Telegram reminders (docs/REMINDERS.md) — the account's own settings. */
+export function getReminders(): Promise<ReminderSettingsResponse> {
+  return rawApiFetch('/me/reminders');
+}
+
+export function saveReminders(
+  settings: ReminderSettingsRequest,
+): Promise<ReminderSettingsResponse> {
+  return apiFetch('/me/reminders', { method: 'PUT', body: JSON.stringify(settings) });
+}
+
+/** A one-time token for `t.me/<bot>?start=link_<token>` (15 minutes). */
+export function createTelegramLink(): Promise<TelegramLinkResponse> {
+  return apiFetch('/me/telegram/link', { method: 'POST' });
+}
+
+/** The account owner's answer to the Telegram that claimed the link. */
+export function confirmTelegramLink(accept: boolean): Promise<TelegramLinkConfirmResponse> {
+  return apiFetch('/me/telegram/link/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ accept }),
+  });
 }

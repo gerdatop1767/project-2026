@@ -1,4 +1,5 @@
-import { schema } from '@zybrilka/db';
+import { claimTelegramLinkToken, previewTelegramLink, schema } from '@zybrilka/db';
+import { supportTexts } from '@zybrilka/shared';
 import type { Database } from '@zybrilka/db';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
@@ -10,6 +11,21 @@ import {
 } from '../telegram/client.js';
 import {
   CALLBACK_IOS_GUIDE,
+  CALLBACK_LINK_NO,
+  CALLBACK_LINK_PREFIX,
+  CALLBACK_REMINDERS_OFF,
+  CALLBACK_SUPPORT_CLOSE,
+  linkClaimedText,
+  linkDeclinedText,
+  linkFailedText,
+  linkQuestionKeyboard,
+  linkQuestionText,
+  linkResultText,
+  remindersNoAccountText,
+  remindersOffText,
+  supportAlreadyOpenText,
+  supportCloseKeyboard,
+  supportSaveFailedText,
   helpText,
   iosGuideCaption,
   iosGuideKeyboard,
@@ -19,12 +35,20 @@ import {
   persistentKeyboard,
   plainTextReply,
   splitCaption,
-  supportText,
   unknownCommandText,
   welcomeBackText,
   welcomeCaption,
 } from './messages.js';
+import { errorSummary } from '../errorSummary.js';
 import type { BotPhotos } from './photos.js';
+import {
+  closeSupportByUser,
+  disableRemindersFor,
+  openThreadOf,
+  receiveSupportMessage,
+  requestSupport,
+  supportContentOf,
+} from './support.js';
 
 export interface BotContext {
   db: Database;
@@ -114,6 +138,12 @@ export async function recordStart(db: Database, chatId: number, telegramUserId: 
 function commandOf(text: string): string | null {
   const match = /^\/([a-z0-9_]+)(?:@\w+)?(?:\s|$)/i.exec(text.trim());
   return match ? match[1]!.toLowerCase() : null;
+}
+
+/** `/start link_<token>` → the token (the site's «Привязать Telegram»). */
+function linkTokenOf(text: string): string | null {
+  const match = /^\/start(?:@\w+)?\s+link_([A-Za-z0-9_-]{16,64})\s*$/i.exec(text.trim());
+  return match ? match[1]! : null;
 }
 
 /**
@@ -221,7 +251,17 @@ async function sendIosGuide(ctx: BotContext, chatId: number) {
 }
 
 type Action =
-  'start' | 'menu' | 'support' | 'ios' | 'help' | 'unknown_command' | 'text' | 'ignored';
+  | 'start'
+  | 'link'
+  | 'menu'
+  | 'support'
+  | 'support_message'
+  | 'reminders_off'
+  | 'ios'
+  | 'help'
+  | 'unknown_command'
+  | 'text'
+  | 'ignored';
 
 async function handleMessage(
   ctx: BotContext,
@@ -237,6 +277,34 @@ async function handleMessage(
   const reply = (text: string, options: Parameters<TelegramClient['sendMessage']>[2]) =>
     measure(timings, 'text', () => ctx.telegram.sendMessage(chatId, text, options));
 
+  const linkToken = command === 'start' && message.text ? linkTokenOf(message.text) : null;
+  if (linkToken) {
+    try {
+      await measure(timings, 'db', () =>
+        withTimeout(recordStart(ctx.db, chatId, message.from!.id), DB_TIMEOUT_MS, 'recordStart'),
+      );
+      // Nothing changes yet: the bot only asks whether this is their account.
+      const preview = await measure(timings, 'db', () =>
+        withTimeout(
+          previewTelegramLink(ctx.db, linkToken, message.from!.id),
+          DB_TIMEOUT_MS,
+          'link',
+        ),
+      );
+      ctx.logger.info({ link: preview.status }, 'telegram link');
+      if (preview.status === 'ok') {
+        await reply(linkQuestionText(preview.accountLabel), {
+          replyMarkup: linkQuestionKeyboard(linkToken),
+        });
+      } else {
+        await reply(linkResultText(preview.status), { replyMarkup: persistentKeyboard });
+      }
+    } catch (error) {
+      ctx.logger.error(errorSummary(error), 'telegram link failed');
+      await reply(linkFailedText, { replyMarkup: persistentKeyboard });
+    }
+    return 'link';
+  }
   if (command === 'start') {
     // Whether this is the first /start decides the reply. If the database
     // is slow or down, answer anyway (with the full welcome) — the user is
@@ -265,13 +333,65 @@ async function handleMessage(
     return 'menu';
   }
   if (command === 'support' || button === 'support') {
-    await reply(supportText, { replyMarkup: persistentKeyboard });
+    const { open } = await measure(timings, 'db', () =>
+      withTimeout(requestSupport(ctx.db, chatId), DB_TIMEOUT_MS, 'requestSupport'),
+    );
+    if (open) {
+      await reply(supportAlreadyOpenText, { replyMarkup: supportCloseKeyboard });
+    } else {
+      await reply(supportTexts.prompt, { replyMarkup: persistentKeyboard });
+    }
     return 'support';
+  }
+  if (command === 'reminders_off') {
+    const done = await measure(timings, 'db', () =>
+      withTimeout(disableRemindersFor(ctx.db, message.from!.id), DB_TIMEOUT_MS, 'reminders'),
+    );
+    await reply(done ? remindersOffText : remindersNoAccountText, {
+      replyMarkup: persistentKeyboard,
+    });
+    return 'reminders_off';
   }
   if (command) {
     await reply(unknownCommandText, { replyMarkup: persistentKeyboard });
     return 'unknown_command';
   }
+  // Not a command or a button: maybe a support message.
+  const content = supportContentOf(message);
+  if (content === null) {
+    // A voice note, sticker, video…: say so if support is in progress.
+    const inSupport = await measure(timings, 'db', () =>
+      withTimeout(openThreadOf(ctx.db, chatId), DB_TIMEOUT_MS, 'openThread'),
+    ).catch(() => null);
+    await reply(inSupport ? supportTexts.unsupported : plainTextReply, {
+      replyMarkup: persistentKeyboard,
+    });
+    return inSupport ? 'support_message' : 'text';
+  }
+  let received: Awaited<ReturnType<typeof receiveSupportMessage>>;
+  try {
+    received = await measure(timings, 'db', () =>
+      withTimeout(
+        receiveSupportMessage(ctx.db, chatId, message.from!.id, message, content),
+        DB_TIMEOUT_MS,
+        'supportMessage',
+      ),
+    );
+  } catch (error) {
+    // Never pretend it was received: the user is asked to send it again.
+    ctx.logger.error(errorSummary(error), 'support message not stored');
+    await reply(supportSaveFailedText, { replyMarkup: persistentKeyboard });
+    return 'support_message';
+  }
+  if (received.outcome === 'opened') {
+    await reply(supportTexts.received, { replyMarkup: supportCloseKeyboard });
+    return 'support_message';
+  }
+  if (received.outcome === 'appended') {
+    await reply(supportTexts.appended, { replyMarkup: persistentKeyboard });
+    return 'support_message';
+  }
+  if (received.outcome === 'duplicate') return 'support_message';
   // Replies without inline buttons carry the bottom keyboard, so a chat
   // started before it existed gets it without an extra message.
   await reply(plainTextReply, { replyMarkup: persistentKeyboard });
@@ -286,7 +406,7 @@ async function handleMessage(
 export async function handleUpdate(ctx: BotContext, update: TelegramUpdate): Promise<void> {
   const started = performance.now();
   const timings: Timings = {};
-  let action: Action | 'ios_button' | 'callback' = 'ignored';
+  let action: Action | 'ios_button' | 'support_close' | 'link_claim' | 'callback' = 'ignored';
   let outcome: 'ok' | 'failed' = 'failed';
   try {
     if (update.message) {
@@ -297,9 +417,73 @@ export async function handleUpdate(ctx: BotContext, update: TelegramUpdate): Pro
       await measure(timings, 'answer', () =>
         ctx.telegram.answerCallbackQuery(query.id).catch(() => undefined),
       );
-      if (query.data === CALLBACK_IOS_GUIDE && query.message?.chat.type === 'private') {
+      const privateChat = query.message?.chat.type === 'private' ? query.message.chat.id : null;
+      if (query.data === CALLBACK_IOS_GUIDE && privateChat !== null) {
         action = 'ios_button';
-        await measure(timings, 'photo', () => sendIosGuide(ctx, query.message!.chat.id));
+        await measure(timings, 'photo', () => sendIosGuide(ctx, privateChat));
+      } else if (query.data === CALLBACK_SUPPORT_CLOSE && privateChat !== null) {
+        action = 'support_close';
+        const closed = await measure(timings, 'db', () =>
+          withTimeout(closeSupportByUser(ctx.db, privateChat), DB_TIMEOUT_MS, 'closeSupport'),
+        );
+        await measure(timings, 'text', () =>
+          ctx.telegram.sendMessage(
+            privateChat,
+            closed ? supportTexts.closedByUser : 'Открытых обращений нет.',
+            { replyMarkup: persistentKeyboard },
+          ),
+        );
+      } else if (query.data?.startsWith(CALLBACK_LINK_PREFIX) && privateChat !== null) {
+        action = 'link_claim';
+        const token = query.data.slice(CALLBACK_LINK_PREFIX.length);
+        // The button's own user, as Telegram reports them — never a name
+        // or id taken from the message text.
+        // Shown to the account owner on the site; the @username (unique,
+        // from Telegram) tells a look-alike display name apart.
+        const name = [
+          query.from.first_name,
+          query.from.last_name,
+          query.from.username ? `(@${query.from.username})` : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        let text: string;
+        try {
+          const claim = await measure(timings, 'db', () =>
+            withTimeout(
+              claimTelegramLinkToken(ctx.db, token, query.from.id, name),
+              DB_TIMEOUT_MS,
+              'link',
+            ),
+          );
+          ctx.logger.info({ link: claim.status }, 'telegram link claim');
+          text = claim.status === 'claimed' ? linkClaimedText : linkResultText(claim.status);
+        } catch (error) {
+          ctx.logger.error(errorSummary(error), 'telegram link claim failed');
+          text = linkFailedText;
+        }
+        await measure(timings, 'text', () =>
+          ctx.telegram.sendMessage(privateChat, text, { replyMarkup: persistentKeyboard }),
+        );
+      } else if (query.data === CALLBACK_LINK_NO && privateChat !== null) {
+        action = 'link_claim';
+        await measure(timings, 'text', () =>
+          ctx.telegram.sendMessage(privateChat, linkDeclinedText, {
+            replyMarkup: persistentKeyboard,
+          }),
+        );
+      } else if (query.data === CALLBACK_REMINDERS_OFF && privateChat !== null) {
+        action = 'reminders_off';
+        // The button's own user — not whoever the message was sent to.
+        const done = await measure(timings, 'db', () =>
+          withTimeout(disableRemindersFor(ctx.db, query.from.id), DB_TIMEOUT_MS, 'reminders'),
+        );
+        await measure(timings, 'text', () =>
+          ctx.telegram.sendMessage(privateChat, done ? remindersOffText : remindersNoAccountText, {
+            replyMarkup: persistentKeyboard,
+          }),
+        );
       } else {
         action = 'callback';
       }

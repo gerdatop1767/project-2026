@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
   bigint,
@@ -1195,6 +1196,9 @@ export const telegramBotChats = pgTable(
     firstStartedAt: timestamp('first_started_at', { withTimezone: true }).notNull().defaultNow(),
     lastStartedAt: timestamp('last_started_at', { withTimezone: true }).notNull().defaultNow(),
     blockedAt: timestamp('blocked_at', { withTimezone: true }),
+    /** «💬 Поддержка» was pressed: the next plain message (within a day)
+     * opens a support thread instead of getting the default reply. */
+    supportRequestedAt: timestamp('support_requested_at', { withTimezone: true }),
   },
   (table) => [index('telegram_bot_chats_user_idx').on(table.userId)],
 );
@@ -1394,4 +1398,174 @@ export const userXp = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('user_xp_total_idx').on(table.totalXp)],
+);
+
+/**
+ * Daily Telegram reminders (docs/REMINDERS.md). One row per account that
+ * ever opened the settings; `enabled` is the switch. The time is local to
+ * `timezone` (IANA), stored as minutes after midnight.
+ */
+export const reminderSettings = pgTable(
+  'reminder_settings',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    enabled: boolean('enabled').notNull().default(false),
+    minuteOfDay: integer('minute_of_day').notNull().default(1140),
+    timezone: text('timezone').notNull().default('Europe/Moscow'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('reminder_settings_enabled_idx').on(table.enabled)],
+);
+
+export const reminderDeliveryStatuses = [
+  'sending',
+  'sent',
+  'retry',
+  'failed',
+  'unreachable',
+  'uncertain',
+] as const;
+
+/**
+ * At most one reminder per account per local day: the worker claims the
+ * (user, local date) row BEFORE sending — a second worker, a restart or a
+ * repeated run finds the row and sends nothing. `uncertain` = Telegram may
+ * have shown it (timeout after sending): never sent again.
+ */
+export const reminderDeliveries = pgTable(
+  'reminder_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    localDate: date('local_date', { mode: 'string' }).notNull(),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    status: text('status', { enum: reminderDeliveryStatuses }).notNull().default('sending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    /** Short failure code (`network`, `rate_limited`…) — never message text. */
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('reminder_deliveries_user_date_idx').on(table.userId, table.localDate),
+    index('reminder_deliveries_status_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
+/**
+ * One-time links that attach a Telegram account to a site account through
+ * the bot (`t.me/<bot>?start=link_<token>`). Only the SHA-256 of the token
+ * is stored; a token lives a few minutes and is finished (`consumedAt`) by
+ * a confirmation, a refusal or a newer link. Linking needs BOTH sides: the
+ * Telegram user confirms in the bot (that records `claimed*`), then the
+ * account owner confirms on the site — a leaked link alone links nothing.
+ */
+export const telegramLinkTokens = pgTable(
+  'telegram_link_tokens',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    /** The Telegram user who confirmed in the bot (step 1 of 2). */
+    claimedTelegramId: bigint('claimed_telegram_id', { mode: 'number' }),
+    /** Their Telegram name, shown to the account owner for step 2. */
+    claimedName: text('claimed_name'),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('telegram_link_tokens_user_idx').on(table.userId)],
+);
+
+export const supportThreadStatuses = ['open', 'closed'] as const;
+
+/**
+ * Support conversations through the bot (docs/SUPPORT.md): one per Telegram
+ * private chat at a time (`open`); a closed one stays as history and a new
+ * message opens a new thread. `adminReadAt` older than `lastUserMessageAt`
+ * = unread for the admin panel.
+ */
+export const supportThreads = pgTable(
+  'support_threads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    userId: uuid('user_id').references(() => users.id),
+    status: text('status', { enum: supportThreadStatuses }).notNull().default('open'),
+    openedBy: text('opened_by', { enum: ['user', 'admin'] })
+      .notNull()
+      .default('user'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastMessageAt: timestamp('last_message_at', { withTimezone: true }).notNull().defaultNow(),
+    lastUserMessageAt: timestamp('last_user_message_at', { withTimezone: true }),
+    adminReadAt: timestamp('admin_read_at', { withTimezone: true }),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('support_threads_open_chat_idx')
+      .on(table.chatId)
+      .where(sql`${table.status} = 'open'`),
+    index('support_threads_status_last_idx').on(table.status, table.lastMessageAt),
+    index('support_threads_user_idx').on(table.userId),
+  ],
+);
+
+export interface SupportAttachment {
+  kind: 'photo' | 'document';
+  /** Telegram file_id — the file itself stays on Telegram's servers. */
+  fileId: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+}
+
+export const supportDeliveryStatuses = [
+  'pending',
+  'sending',
+  'sent',
+  'failed',
+  'uncertain',
+] as const;
+
+/**
+ * Messages of a support thread. A user's message is stored as received
+ * (deduplicated by its Telegram message id). An admin's reply is queued
+ * (`pending`) and sent by the worker with retries, so a Telegram outage
+ * never loses it; `uncertain` = may have been shown, never re-sent.
+ */
+export const supportMessages = pgTable(
+  'support_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => supportThreads.id),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    direction: text('direction', { enum: ['user', 'admin'] }).notNull(),
+    text: text('text').notNull().default(''),
+    attachments: jsonb('attachments').$type<SupportAttachment[]>().notNull().default([]),
+    authorUserId: uuid('author_user_id').references(() => users.id),
+    telegramMessageId: bigint('telegram_message_id', { mode: 'number' }),
+    deliveryStatus: text('delivery_status', { enum: supportDeliveryStatuses }),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('support_messages_thread_idx').on(table.threadId, table.createdAt),
+    index('support_messages_delivery_idx').on(table.deliveryStatus, table.nextAttemptAt),
+    uniqueIndex('support_messages_incoming_idx')
+      .on(table.chatId, table.telegramMessageId)
+      .where(sql`${table.direction} = 'user'`),
+  ],
 );

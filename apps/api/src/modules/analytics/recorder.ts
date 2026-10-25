@@ -46,8 +46,23 @@ export interface EventInput {
   occurredAt?: Date;
 }
 
-/** The visitor id from the cookie, if it is at least a well-formed uuid. */
+/**
+ * The visitor's cookie choice (docs/COOKIES.md), set by the site's banner:
+ * `zc=a1` — optional analytics accepted, `zc=a0` — declined. Readable by
+ * the page (not httpOnly) on purpose: the banner writes it. Until it says
+ * `a1`, nothing here creates or reads the `zv` visitor cookie.
+ */
+export const CONSENT_COOKIE = 'zc';
+
+export function analyticsConsented(request: FastifyRequest): boolean {
+  return request.cookies?.[CONSENT_COOKIE] === 'a1';
+}
+
+/** The visitor id from the cookie, if it is at least a well-formed uuid —
+ * and only with analytics consent (a cookie left from before a «decline»
+ * is not used). */
 export function readVisitorId(request: FastifyRequest): string | null {
+  if (!analyticsConsented(request)) return null;
   const raw = request.cookies?.[VISITOR_COOKIE];
   return raw && UUID_RE.test(raw) ? raw.toLowerCase() : null;
 }

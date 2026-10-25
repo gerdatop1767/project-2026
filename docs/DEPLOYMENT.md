@@ -309,6 +309,21 @@ To redeploy only one service (e.g. a web-only content fix):
 docker compose -f infra/docker-compose.yml up -d --build web
 ```
 
+### Release: cookies, reminders, support (migration 0032)
+
+- **Migration needed:** `0032_support_reminders` — only adds tables
+  (`reminder_settings`, `reminder_deliveries`, `telegram_link_tokens`,
+  `support_threads`, `support_messages`) and one nullable column
+  (`telegram_bot_chats.support_requested_at`). No existing row changes; the
+  `migrate` service applies it on `up -d --build`. Take a backup first
+  (`pg_dump`) as for any migration.
+- **Rebuild:** `api` (reminders, link token, support inbox, consent-aware
+  analytics), `worker` (bot support/linking, reminder and reply jobs — it
+  sends to Telegram, so it needs the same `TELEGRAM_BOT_TOKEN` as now;
+  reminders and replies are sent even with `TELEGRAM_BOT_POLLING=false`,
+  but users can only write to support while polling is on), `web`.
+- **No new environment variables.** Docs: COOKIES.md, REMINDERS.md, SUPPORT.md.
+
 ## Caddy
 
 `infra/caddy/Caddyfile` defines both hosts:

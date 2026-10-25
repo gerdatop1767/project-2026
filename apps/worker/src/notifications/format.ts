@@ -5,6 +5,7 @@ import {
   type OutboxPayload,
   type RegistrationNotification,
   type SiteErrorNotification,
+  type SupportNotification,
 } from '@zybrilka/shared';
 import type { InlineKeyboard } from '../telegram/client.js';
 
@@ -91,8 +92,27 @@ function siteError(d: SiteErrorNotification, siteUrl: string): Rendered {
   };
 }
 
+function support(d: SupportNotification, siteUrl: string): Rendered {
+  const files = d.attachments > 0 ? ` · вложений: ${d.attachments}` : '';
+  return {
+    text: [
+      `💬 <b>Новое сообщение в поддержку</b>`,
+      `От: ${escapeHtml(d.name ?? 'пользователь Telegram')}${files}`,
+      ...(d.preview ? [`«${escapeHtml(d.preview)}»`] : []),
+      `Когда: ${mskTime(d.at)}`,
+    ].join('\n'),
+    keyboard: {
+      inline_keyboard: [
+        [{ text: 'Открыть переписку', url: link(siteUrl, `/admin/support/${d.threadId}`) }],
+      ],
+    },
+  };
+}
+
 export function renderNotification(payload: OutboxPayload, siteUrl: string): Rendered {
   switch (payload.kind) {
+    case 'support':
+      return support(payload.data, siteUrl);
     case 'registration':
       return registration(payload.data, siteUrl);
     case 'complaint':

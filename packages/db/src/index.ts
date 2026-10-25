@@ -11,3 +11,23 @@ export { importRussianVariant1 } from './importRussianDoshchinsky2027Variant1.js
 export { canonicalSubjects } from './canonicalSubjects.js';
 export { adminTelegramChats, adminTelegramReadiness } from './telegram.js';
 export { syncSubjects } from './syncSubjects.js';
+export {
+  addIdentity,
+  addIdentityIn,
+  type AddIdentityOutcome,
+  type IdentityProvider,
+} from './identities.js';
+export {
+  claimTelegramLinkToken,
+  confirmTelegramLink,
+  createTelegramLinkToken,
+  hashLinkToken,
+  pendingTelegramLink,
+  previewTelegramLink,
+  telegramReachability,
+  TELEGRAM_LINK_TTL_MS,
+  type LinkClaim,
+  type LinkPreview,
+  type LinkTokenOutcome,
+  type TelegramReachability,
+} from './telegramLink.js';

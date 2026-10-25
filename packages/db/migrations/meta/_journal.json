@@ -225,6 +225,13 @@
       "when": 1792835227050,
       "tag": "0031_broadcast_delivery_retries",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792862556265,
+      "tag": "0032_support_reminders",
+      "breakpoints": true
     }
   ]
 }

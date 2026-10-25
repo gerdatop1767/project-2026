@@ -10,7 +10,7 @@ import { registerPrivateCacheReset } from '../../lib/privateCaches.js';
 import { useStreakContext } from '../../lib/streakContext.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { Avatar } from '../../ui/Leaderboard/Avatar.js';
+import { GeneratedAvatar } from '../../ui/Leaderboard/GeneratedAvatar.js';
 import { LevelEmblem } from '../../ui/LevelEmblem/LevelEmblem.js';
 import { ProfileAvatar } from '../../ui/ProfileAvatar/ProfileAvatar.js';
 import { Select } from '../../ui/Select/Select.js';
@@ -263,6 +263,7 @@ function Board({ avatarUrl, embedded }: { avatarUrl: string | null; embedded: bo
                         accuracyPercent: board.me.accuracyPercent,
                         isMe: true,
                         avatarHue: 270,
+                        avatarVariant: 0,
                       }}
                       index={rest.length}
                       avatarUrl={avatarUrl}
@@ -297,7 +298,7 @@ function EntryAvatar({
   size: number;
 }) {
   const fallback = (
-    <Avatar username={entry.name} color={`hsl(${entry.avatarHue} 65% 55%)`} size={size} />
+    <GeneratedAvatar hue={entry.avatarHue} variant={entry.avatarVariant} size={size} />
   );
   // Only the user's own photo is ever shown (their own profile).
   if (entry.isMe && avatarUrl) {
