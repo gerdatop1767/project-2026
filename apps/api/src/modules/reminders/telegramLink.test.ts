@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { claimTelegramLinkToken, schema } from '@zybrilka/db';
+import { claimTelegramLinkToken, previewTelegramLink, schema } from '@zybrilka/db';
 import { createTestDb } from '@zybrilka/db/testing';
 import { telegramLinkResponseSchema } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
@@ -163,5 +163,112 @@ describe('Telegram link confirmation — server-side rules', () => {
     // No second account appeared, and the VK sign-in is still there.
     expect((await identities(a.id)).map((i) => i.provider).sort()).toEqual(['telegram', 'vk']);
     expect(await stillSignedIn(a.cookie)).toBe(true);
+  });
+  describe('from the profile («Способы входа», e.g. Safari on iPhone)', () => {
+    const listIdentities = (cookie: string) =>
+      app.inject({ method: 'GET', url: '/api/v1/me/identities', headers: { cookie } });
+    const cancel = (cookie: string, headers: Record<string, string> = {}) =>
+      app.inject({
+        method: 'DELETE',
+        url: '/api/v1/me/telegram/link',
+        headers: { cookie, ...headers },
+      });
+    const userCount = async () => (await testDb.db.select().from(schema.users)).length;
+
+    it('shows the pending link on the profile, links to the SAME account, no new user', async () => {
+      const a = await vkAccount();
+      expect((await listIdentities(a.cookie)).json().telegramPendingLink).toBeNull();
+      const telegramId = ++tg;
+      const token = await issueAndClaim(a.cookie, telegramId);
+      const pending = (await listIdentities(a.cookie)).json();
+      expect(pending.telegramPendingLink).toEqual({ name: 'Кто-то' });
+      // The token never comes back to the page once issued.
+      expect(JSON.stringify(pending)).not.toContain(token);
+      const users = await userCount();
+      const res = await confirm(a.cookie, true);
+      expect(res.json().status).toBe('linked');
+      expect(JSON.stringify(res.json())).not.toContain(token);
+      expect(await userCount()).toBe(users);
+      const after = (await listIdentities(a.cookie)).json();
+      expect(after.telegramPendingLink).toBeNull();
+      expect(after.identities.map((i: { provider: string }) => i.provider).sort()).toEqual([
+        'telegram',
+        'vk',
+      ]);
+      // The used token is finished for good.
+      expect(await claimTelegramLinkToken(testDb.db, token, telegramId, 'Я')).toEqual({
+        status: 'used',
+      });
+    });
+
+    it('«Отмена» kills the link: the bot can no longer claim it, a claimed one cannot be confirmed', async () => {
+      const a = await vkAccount();
+      const issued = await app.inject({
+        method: 'POST',
+        url: '/api/v1/me/telegram/link',
+        headers: { cookie: a.cookie },
+      });
+      const { token } = telegramLinkResponseSchema.parse(issued.json());
+      expect((await cancel(a.cookie)).statusCode).toBe(204);
+      expect(await claimTelegramLinkToken(testDb.db, token, ++tg, 'Я')).toEqual({
+        status: 'used',
+      });
+
+      await issueAndClaim(a.cookie, ++tg);
+      expect((await cancel(a.cookie)).statusCode).toBe(204);
+      expect((await confirm(a.cookie, true)).json().status).toBe('nothing_pending');
+      expect(await identities(a.id)).toHaveLength(1);
+    });
+
+    it('another account cancelling touches only its own links; a cross-site cancel is refused', async () => {
+      const [a, b] = [await vkAccount(), await vkAccount()];
+      await issueAndClaim(a.cookie, ++tg);
+      expect((await cancel(b.cookie)).statusCode).toBe(204);
+      expect((await cancel(a.cookie, { 'sec-fetch-site': 'cross-site' })).statusCode).toBe(403);
+      expect((await confirm(a.cookie, true)).json().status).toBe('linked');
+    });
+
+    it('one Telegram cannot be linked to two accounts', async () => {
+      const [a, b] = [await vkAccount(), await vkAccount()];
+      const telegramId = ++tg;
+      await issueAndClaim(a.cookie, telegramId);
+      expect((await confirm(a.cookie, true)).json().status).toBe('linked');
+      // The bot refuses up front…
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/me/telegram/link',
+        headers: { cookie: b.cookie },
+      });
+      const { token } = telegramLinkResponseSchema.parse(res.json());
+      expect(await previewTelegramLink(testDb.db, token, telegramId)).toEqual({ status: 'taken' });
+      // …and even a claim that got through is never attached.
+      await claimTelegramLinkToken(testDb.db, token, telegramId, 'Я');
+      expect((await confirm(b.cookie, true)).json().status).toBe('taken');
+      expect((await identities(b.id)).map((i) => i.provider)).toEqual(['vk']);
+    });
+
+    it('an expired link is refused by the bot and shown to nobody', async () => {
+      const a = await vkAccount();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/me/telegram/link',
+        headers: { cookie: a.cookie },
+      });
+      const { token } = telegramLinkResponseSchema.parse(res.json());
+      const later = new Date(Date.now() + 16 * 60 * 1000);
+      expect(await claimTelegramLinkToken(testDb.db, token, ++tg, 'Я', later)).toEqual({
+        status: 'expired',
+      });
+      expect((await listIdentities(a.cookie)).json().telegramPendingLink).toBeNull();
+    });
+
+    it('needs a session', async () => {
+      expect(
+        (await app.inject({ method: 'DELETE', url: '/api/v1/me/telegram/link' })).statusCode,
+      ).toBe(401);
+      expect((await app.inject({ method: 'GET', url: '/api/v1/me/identities' })).statusCode).toBe(
+        401,
+      );
+    });
   });
 });

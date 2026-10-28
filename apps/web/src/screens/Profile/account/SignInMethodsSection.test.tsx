@@ -13,6 +13,9 @@ vi.mock('../../../lib/api.js', async (importOriginal) => ({
   getIdentities: vi.fn(),
   unlinkIdentity: vi.fn(),
   linkTelegram: vi.fn(),
+  createTelegramLink: vi.fn(),
+  cancelTelegramLink: vi.fn(),
+  confirmTelegramLink: vi.fn(),
 }));
 vi.mock('../../../lib/telegramMiniApp.js', () => ({
   getTelegramInitData: vi.fn(() => null),
@@ -62,7 +65,8 @@ describe('SignInMethodsSection', () => {
     expect(screen.getByText('Яндекс ID')).toBeInTheDocument();
     // E-mail is not a sign-in method any more: not listed.
     expect(screen.queryByText('Почта и пароль')).not.toBeInTheDocument();
-    expect(screen.getByText('Откройте Зубрилку в Telegram, чтобы подключить')).toBeInTheDocument();
+    // Outside Telegram (Safari): linked through the bot, right here.
+    expect(screen.getByRole('button', { name: 'Привязать Telegram' })).toBeInTheDocument();
     // Single method: nothing can be disconnected.
     expect(screen.queryByRole('button', { name: /Отключить/ })).not.toBeInTheDocument();
   });
@@ -246,5 +250,97 @@ describe('SignInMethodsSection', () => {
       await user.click(row.querySelector('button')!);
       expect(await screen.findByRole('alert')).toHaveTextContent('устарели');
     });
+  });
+});
+
+describe('SignInMethodsSection — linking Telegram through the bot (Safari, any browser)', () => {
+  const TOKEN = 'tok_abcdefghijklmnopqrstuvwxyz012345';
+
+  it('makes a one-time bot link opened by the student’s own tap, never put in the page address', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['vk']));
+    vi.mocked(api.createTelegramLink).mockResolvedValue({
+      token: TOKEN,
+      expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    });
+    const log = vi.spyOn(console, 'log');
+    renderSection();
+    await user.click(await screen.findByRole('button', { name: 'Привязать Telegram' }));
+    const link = await screen.findByRole('link', { name: 'Открыть @zybrilka_bot' });
+    expect(link).toHaveAttribute('href', `https://t.me/zybrilka_bot?start=link_${TOKEN}`);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+    expect(window.location.href).not.toContain(TOKEN);
+    expect(log.mock.calls.flat().join(' ')).not.toContain(TOKEN);
+  });
+
+  it('«Отмена» kills the link on the server and goes back to the start', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['vk']));
+    vi.mocked(api.createTelegramLink).mockResolvedValue({
+      token: TOKEN,
+      expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    });
+    vi.mocked(api.cancelTelegramLink).mockResolvedValue(undefined);
+    renderSection();
+    await user.click(await screen.findByRole('button', { name: 'Привязать Telegram' }));
+    await user.click(await screen.findByRole('button', { name: 'Отмена' }));
+    expect(api.cancelTelegramLink).toHaveBeenCalled();
+    expect(await screen.findByText(/ссылка больше не работает/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Открыть @zybrilka_bot' })).not.toBeInTheDocument();
+  });
+
+  it('an expired link offers a new one instead of a dead button', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['vk']));
+    vi.mocked(api.createTelegramLink).mockResolvedValue({
+      token: TOKEN,
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    renderSection();
+    await user.click(await screen.findByRole('button', { name: 'Привязать Telegram' }));
+    expect(await screen.findByText(/Ссылка устарела/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Получить новую ссылку' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Открыть @zybrilka_bot' })).not.toBeInTheDocument();
+  });
+
+  it('shows WHICH Telegram confirmed in the bot; «Подтвердить» links it to this account', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getIdentities)
+      .mockResolvedValueOnce(identities(['vk'], { telegramPendingLink: { name: 'Вера (@vera)' } }))
+      .mockResolvedValue(identities(['vk', 'telegram']));
+    vi.mocked(api.confirmTelegramLink).mockResolvedValue({ status: 'linked' } as never);
+    const { refresh } = renderSection();
+    expect(await screen.findByText('Вера (@vera)')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    expect(api.confirmTelegramLink).toHaveBeenCalledWith(true);
+    expect(await screen.findByText(/Telegram подключён/)).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getAllByText(/Подключено/).length).toBe(2));
+  });
+
+  it('«Это не я» refuses it; a Telegram owned by another account is reported, not moved', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getIdentities).mockResolvedValue(
+      identities(['vk'], { telegramPendingLink: { name: 'Чужой' } }),
+    );
+    vi.mocked(api.confirmTelegramLink).mockResolvedValueOnce({ status: 'rejected' } as never);
+    renderSection();
+    await user.click(await screen.findByRole('button', { name: 'Это не я' }));
+    expect(api.confirmTelegramLink).toHaveBeenCalledWith(false);
+    expect(await screen.findByText(/Запрос отклонён/)).toBeInTheDocument();
+
+    vi.mocked(api.confirmTelegramLink).mockResolvedValueOnce({ status: 'taken' } as never);
+    await user.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    expect(await screen.findByText(/уже связан с другим профилем/)).toBeInTheDocument();
+  });
+
+  it('inside the Mini App the signed launch data is still used, not the bot link', async () => {
+    vi.mocked(miniApp.getTelegramInitData).mockReturnValue('query_id=1&hash=x');
+    vi.mocked(api.getIdentities).mockResolvedValue(identities(['vk']));
+    renderSection();
+    // VK is linked: Яндекс and Telegram (by launch data) offer «Подключить».
+    expect(await screen.findAllByRole('button', { name: 'Подключить' })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Привязать Telegram' })).not.toBeInTheDocument();
   });
 });

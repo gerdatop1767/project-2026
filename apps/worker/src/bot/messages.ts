@@ -97,7 +97,18 @@ export function linkQuestionKeyboard(token: string): InlineKeyboard {
 }
 
 export const linkClaimedText =
-  'Почти готово! Вернись на сайт и подтверди привязку на странице «Уведомления» — без этого Telegram не привяжется.';
+  'Почти готово! Вернись на сайт и подтверди привязку — в профиле («Способы входа») или в «Уведомлениях». Без этого Telegram не привяжется.';
+
+/** Under «Почти готово»: back to the profile, where the link is confirmed.
+ * Only for a real https site — Telegram refuses other URL buttons. */
+export function linkClaimedKeyboard(siteUrl: string): InlineKeyboard | null {
+  if (!siteUrl.startsWith('https://')) return null;
+  return {
+    inline_keyboard: [
+      [{ text: 'Вернуться на сайт', url: `${siteUrl.replace(/\/+$/, '')}/profile` }],
+    ],
+  };
+}
 export const linkDeclinedText = 'Хорошо, ничего не привязано.';
 export const linkFailedText = 'Не получилось привязать Telegram — попробуй ещё раз через минуту.';
 

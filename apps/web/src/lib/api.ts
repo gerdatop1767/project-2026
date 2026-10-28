@@ -677,6 +677,11 @@ export function createTelegramLink(): Promise<TelegramLinkResponse> {
   return apiFetch('/me/telegram/link', { method: 'POST' });
 }
 
+/** «Отмена»: the account's unfinished Telegram links stop working. */
+export function cancelTelegramLink(): Promise<void> {
+  return apiFetch('/me/telegram/link', { method: 'DELETE' });
+}
+
 /** The account owner's answer to the Telegram that claimed the link. */
 export function confirmTelegramLink(accept: boolean): Promise<TelegramLinkConfirmResponse> {
   return apiFetch('/me/telegram/link/confirm', {

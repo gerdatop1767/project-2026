@@ -18,6 +18,7 @@ export {
   type IdentityProvider,
 } from './identities.js';
 export {
+  cancelTelegramLink,
   claimTelegramLinkToken,
   confirmTelegramLink,
   createTelegramLinkToken,

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Database } from '@zybrilka/db';
+import { pendingTelegramLink, type Database } from '@zybrilka/db';
 import {
   AVATAR_MAX_BYTES,
   displayNameProblem,
@@ -148,6 +148,9 @@ export async function listIdentities(
   userId: string,
 ): Promise<IdentitiesResponse> {
   const rows = await repo.listIdentities(db, userId);
+  const pending = rows.some((row) => row.provider === 'telegram')
+    ? null
+    : await pendingTelegramLink(db, userId);
   return {
     identities: rows.map((row) => ({
       provider: row.provider,
@@ -159,5 +162,6 @@ export async function listIdentities(
       yandex: isYandexConfigured(config),
     },
     canUnlink: rows.filter((row) => isWorkingSignInMethod(row.provider)).length > 1,
+    telegramPendingLink: pending ? { name: pending.telegramName } : null,
   };
 }

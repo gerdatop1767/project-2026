@@ -1,4 +1,5 @@
 import {
+  cancelTelegramLink,
   confirmTelegramLink,
   createTelegramLinkToken,
   pendingTelegramLink,
@@ -98,6 +99,17 @@ export const reminderRoutes: FastifyPluginAsync<ReminderRoutesOptions> = async (
       const { token, expiresAt } = await createTelegramLinkToken(db, userId(request));
       reply.header('cache-control', 'no-store');
       return { token, expiresAt: expiresAt.toISOString() };
+    },
+  );
+
+  // «Отмена»: the account's unfinished links stop working at once.
+  app.delete(
+    '/me/telegram/link',
+    { config: perAccount(20, '10 minutes') },
+    async (request, reply) => {
+      await cancelTelegramLink(db, userId(request));
+      reply.header('cache-control', 'no-store');
+      return reply.code(204).send();
     },
   );
 

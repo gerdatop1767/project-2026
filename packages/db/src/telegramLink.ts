@@ -185,6 +185,26 @@ export async function pendingTelegramLink(
   return row ? { telegramName: row.claimedName ?? 'без имени', claimedAt: row.claimedAt! } : null;
 }
 
+/** «Отмена» on the site: every unfinished link of this account stops
+ * working — a link already sent somewhere links nothing any more. */
+export async function cancelTelegramLink(
+  db: Database,
+  userId: string,
+  now = new Date(),
+): Promise<number> {
+  const cancelled = await db
+    .update(schema.telegramLinkTokens)
+    .set({ consumedAt: now })
+    .where(
+      and(
+        eq(schema.telegramLinkTokens.userId, userId),
+        isNull(schema.telegramLinkTokens.consumedAt),
+      ),
+    )
+    .returning({ tokenHash: schema.telegramLinkTokens.tokenHash });
+  return cancelled.length;
+}
+
 export type LinkTokenOutcome =
   | { status: 'linked' | 'already_linked' | 'taken' | 'provider_already_used' }
   | { status: 'nothing_pending' | 'rejected' };

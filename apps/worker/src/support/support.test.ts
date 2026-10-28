@@ -318,6 +318,8 @@ describe('support, linking and reminders through the bot', () => {
       tapYes.callback_query!.from = { id: 7001, first_name: 'Вера', last_name: 'П' };
       await handleUpdate(ctx, tapYes);
       expect(lastText()).toContain('подтверди привязку');
+      // A way back to the profile, where the owner confirms.
+      expect(lastButtons()).toEqual([{ text: 'Вернуться на сайт', url: `${SITE}/profile` }]);
       // Nothing is linked from the bot alone.
       expect(await identityOf(user!.id)).toHaveLength(0);
       expect(await pendingTelegramLink(testDb.db, user!.id)).toMatchObject({
