@@ -152,17 +152,21 @@ export async function advanceLearningSession(
     return buildCompletedResponse(db, session);
   }
 
-  if (session.consumedTaskIds.length >= session.total) {
+  // A variant's tasks can all be opened before the last one is reached —
+  // it ends after its last planned task instead (below).
+  if (!session.plannedTaskIds && session.consumedTaskIds.length >= session.total) {
     const completed = await repo.markCompleted(db, session.id);
     return buildCompletedResponse(db, completed);
   }
 
   // VARIANT session — the next task is the variant's own fixed real
-  // order (`plannedTaskIds[position]`), never a fresh `getLearningPath`
-  // scoring: there is nothing to recommend, the exam's order already
-  // is the order.
+  // order, never a fresh `getLearningPath` scoring: the one after the
+  // current task in the plan. Tasks may be opened in any order (see
+  // `openVariantTask`), so "next" follows the plan from where the student
+  // is, not from how many tasks were served; after the last one the
+  // variant is finished.
   if (session.plannedTaskIds) {
-    const nextTaskId = session.plannedTaskIds[session.consumedTaskIds.length];
+    const nextTaskId = nextPlannedTask(session);
     if (!nextTaskId) {
       const completed = await repo.markCompleted(db, session.id);
       return buildCompletedResponse(db, completed);
@@ -174,17 +178,9 @@ export async function advanceLearningSession(
       const completed = await repo.markCompleted(db, session.id);
       return buildCompletedResponse(db, completed);
     }
-    const updated = await repo.appendConsumedTask(db, session.id, nextTaskId);
-    const variant = await variantInfoFor(db, session);
-    return {
-      sessionId: updated.id,
-      subject: updated.subjectId,
-      status: 'active',
-      position: updated.consumedTaskIds.length,
-      total: updated.total,
-      task: toPublicTask(row),
-      variant,
-    };
+    const updated = await repo.focusVariantTask(db, session.id, userId, nextTaskId);
+    if (!updated) return null;
+    return activeVariantResponse(db, updated, row);
   }
 
   const path = await getLearningPath(db, userId, {
@@ -251,7 +247,7 @@ export async function getLearningSessionSnapshot(
   const row = await tasksRepo.getTaskById(db, currentTaskId);
   if (!row) return null;
 
-  const variant = await variantInfoFor(db, session);
+  if (session.plannedTaskIds) return activeVariantResponse(db, session, row);
 
   return {
     sessionId: session.id,
@@ -260,8 +256,71 @@ export async function getLearningSessionSnapshot(
     position: session.consumedTaskIds.length,
     total: session.total,
     task: toPublicTask(row),
-    variant,
   };
+}
+
+/** The planned task after the current (last served) one, or null after
+ * the last. */
+function nextPlannedTask(session: repo.LearningSessionRow): string | null {
+  const planned = session.plannedTaskIds ?? [];
+  const current = session.consumedTaskIds[session.consumedTaskIds.length - 1];
+  const index = current === undefined ? -1 : planned.indexOf(current);
+  return planned[index + 1] ?? null;
+}
+
+/** A variant's position is the current task's place in the plan (1-based)
+ * — the same number the sequential flow always reported. */
+async function activeVariantResponse(
+  db: Database,
+  session: repo.LearningSessionRow,
+  row: NonNullable<Awaited<ReturnType<typeof tasksRepo.getTaskById>>>,
+): Promise<LearningSessionResponse> {
+  const index = (session.plannedTaskIds ?? []).indexOf(row.task.id);
+  return {
+    sessionId: session.id,
+    subject: session.subjectId,
+    status: 'active',
+    position: index >= 0 ? index + 1 : session.consumedTaskIds.length,
+    total: session.total,
+    task: toPublicTask(row),
+    variant: await variantInfoFor(db, session),
+  };
+}
+
+/**
+ * A VARIANT session: open any of its planned tasks, in any order (the
+ * number panel). Opening only serves the task — nothing is answered or
+ * counted by it, and opening it again changes nothing but which task is
+ * current. `null`: not this user's active variant session, or a task the
+ * variant does not contain (both a 404 outside).
+ */
+export async function openVariantTask(
+  db: Database,
+  userId: string,
+  sessionId: string,
+  taskId: string,
+): Promise<LearningSessionResponse> {
+  const row = await tasksRepo.getTaskById(db, taskId);
+  if (!row) return null;
+  const updated = await repo.focusVariantTask(db, sessionId, userId, taskId);
+  if (!updated) return null;
+  return activeVariantResponse(db, updated, row);
+}
+
+/**
+ * «Завершить вариант»: finishes a variant session now, whatever order its
+ * tasks were solved in and however many are left (they count as not
+ * answered). Idempotent: a finished one just returns its summary again.
+ */
+export async function finishVariantSession(
+  db: Database,
+  userId: string,
+  sessionId: string,
+): Promise<LearningSessionResponse> {
+  const session = await repo.getSessionById(db, sessionId);
+  if (!session || session.userId !== userId || !session.plannedTaskIds) return null;
+  if (session.status === 'completed') return buildCompletedResponse(db, session);
+  return buildCompletedResponse(db, await repo.markCompleted(db, session.id));
 }
 
 async function variantInfoFor(

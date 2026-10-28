@@ -155,6 +155,39 @@ export async function appendConsumedTask(
   return toRow(row!);
 }
 
+/**
+ * A VARIANT session: makes `taskId` the current task — served (so answers
+ * to it are linked to the session) and last in `consumedTaskIds`, which is
+ * what the snapshot reports as current. Opening it again only moves it to
+ * the end, never adds it twice. One conditional UPDATE: a session that is
+ * not this user's, not active, or never planned this task is left alone
+ * (null).
+ */
+export async function focusVariantTask(
+  db: Database,
+  sessionId: string,
+  userId: string,
+  taskId: string,
+): Promise<LearningSessionRow | null> {
+  const item = JSON.stringify([taskId]);
+  const [row] = await db
+    .update(schema.learningSessions)
+    .set({
+      consumedTaskIds: sql`(${schema.learningSessions.consumedTaskIds} - ${taskId}::text) || ${item}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(schema.learningSessions.id, sessionId),
+        eq(schema.learningSessions.userId, userId),
+        eq(schema.learningSessions.status, 'active'),
+        sql`${schema.learningSessions.plannedTaskIds} @> ${item}::jsonb`,
+      ),
+    )
+    .returning();
+  return row ? toRow(row) : null;
+}
+
 export async function markCompleted(db: Database, sessionId: string): Promise<LearningSessionRow> {
   const [row] = await db
     .update(schema.learningSessions)

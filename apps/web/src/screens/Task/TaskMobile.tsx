@@ -1,4 +1,5 @@
 import { useEffect, useState, type ElementType } from 'react';
+import { useTaskExit } from '../../ui/LearningSession/useTaskExit.js';
 import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
 import { serializeMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber, submitAttempt } from '../../lib/api.js';
@@ -15,6 +16,7 @@ import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
 import { CanvasWorkspaceMobile } from '../../ui/CanvasWorkspace/CanvasWorkspaceMobile.js';
 import { clearCanvasState } from '../../lib/canvasSessionStore.js';
+import { useAnswerDraft } from '../../lib/useAnswerDraft.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { BottomSheet } from '../../ui/BottomSheet/BottomSheet.js';
 import { RuleButton } from '../../ui/Theory/RuleButton.js';
@@ -62,7 +64,7 @@ export function TaskMobile({
   customOrderedTasks,
   returnTo,
 }: TaskMobileProps) {
-  const { navigate, back } = useNavigation();
+  const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const taskNav = useTaskNavigation({
     subjectId,
@@ -75,7 +77,7 @@ export function TaskMobile({
   // The task/result has no address of its own, so the current history
   // entry IS the page underneath it: replace it with the exact place to
   // return to instead of pushing a duplicate stop onto the Back stack.
-  const goBack = returnTo ? () => navigate(returnTo, { replace: true }) : back;
+  const { goBack, exitSheet } = useTaskExit(taskId, returnTo);
   const learningSession = useActiveLearningSessionForTask(taskId);
   const { refreshStreak } = useStreakContext();
   const timer = useSolvingTimer();
@@ -86,8 +88,8 @@ export function TaskMobile({
   // effect needed.
   const [task, setTask] = useState<ReturnType<typeof toSampleTask> | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [answer, setAnswer] = useState('');
-  const [partAnswers, setPartAnswers] = useState<Record<string, string>>({});
+  // Typed but unchecked answers survive moving to another number and back.
+  const { answer, setAnswer, partAnswers, setPartAnswers, discardDraft } = useAnswerDraft(taskId);
   const [checking, setChecking] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -140,6 +142,7 @@ export function TaskMobile({
     })
       .then((result) => {
         clearCanvasState(task.id);
+        discardDraft();
         // Streak system: the attempt the backend just recorded as real
         // daily activity — refetch the server-computed state so the
         // header's "Серия" chip reflects it without a full reload.
@@ -206,6 +209,7 @@ export function TaskMobile({
         <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
+        {exitSheet}
       </SlideUp>
     );
   }
@@ -213,7 +217,7 @@ export function TaskMobile({
   // The chrome — header, number strip, progress — needs only what the route
   // already says (task id and number), so it switches the moment a number is
   // picked; only the task's own content waits for the network.
-  const sessionProgress = buildSessionProgress(taskId, taskNav.orderedTasks);
+  const sessionProgress = buildSessionProgress(taskId, taskNav.orderedTasks, taskNav.marks);
   const chrome = (
     <TaskChrome
       subject={subject}
@@ -222,6 +226,7 @@ export function TaskMobile({
       onBack={goBack}
       numberStripRange={taskNav.orderedTasks}
       onSelectNumber={taskNav.goTo}
+      marks={taskNav.marks}
       previous={taskNav.previous}
       next={taskNav.next}
       onGoTo={taskNav.goTo}
@@ -238,6 +243,7 @@ export function TaskMobile({
     return (
       <Stack className={styles.stack}>
         {chrome}
+        {exitSheet}
         <SkeletonTask />
       </Stack>
     );
@@ -246,6 +252,7 @@ export function TaskMobile({
   return (
     <Stack className={styles.stack}>
       {chrome}
+      {exitSheet}
 
       <ContentSwap>
         <div className={styles.timerRow}>

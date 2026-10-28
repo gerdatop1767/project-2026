@@ -3,7 +3,15 @@ import { schema } from '@zybrilka/db';
 import { createImportedTestDb } from '@zybrilka/db/testing';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { advanceLearningSession, getVariantProgress, startVariantSession } from './service.js';
+import {
+  advanceLearningSession,
+  finishVariantSession,
+  getLearningSessionSnapshot,
+  getVariantAttemptDetail,
+  getVariantProgress,
+  openVariantTask,
+  startVariantSession,
+} from './service.js';
 import { submitAttempt } from '../../tasks/service.js';
 import * as tasksRepo from '../../tasks/repo.js';
 
@@ -140,5 +148,101 @@ describe('variant sessions', () => {
     const tasks = await tasksRepo.getTaskById(testDb.db, orderedTaskIds[0]!);
     expect(tasks).toBeDefined();
     expect(orderedTaskIds.length).toBeGreaterThan(0);
+  });
+  describe('free navigation by number', () => {
+    async function start() {
+      const userId = await freshUserId();
+      const started = await startVariantSession(testDb.db, userId, variantId);
+      if (!started || started.status !== 'active') throw new Error('unreachable');
+      return { userId, sessionId: started.sessionId };
+    }
+    const at = (i: number) => orderedTaskIds[i]!;
+
+    it('opens tasks in any order: 1 → 7 → 3 → 1, each becoming current with its plan position', async () => {
+      const { userId, sessionId } = await start();
+      for (const i of [6, 2, 0]) {
+        const opened = await openVariantTask(testDb.db, userId, sessionId, at(i));
+        if (!opened || opened.status !== 'active') throw new Error('unreachable');
+        expect(opened.task.id).toBe(at(i));
+        expect(opened.position).toBe(i + 1);
+        const snapshot = await getLearningSessionSnapshot(testDb.db, userId, sessionId);
+        if (!snapshot || snapshot.status !== 'active') throw new Error('unreachable');
+        expect(snapshot.task.id).toBe(at(i));
+      }
+      const [row] = await testDb.db
+        .select()
+        .from(schema.learningSessions)
+        .where(eq(schema.learningSessions.id, sessionId));
+      // Each task served once — reopening only moves it to «current».
+      expect(row!.consumedTaskIds).toEqual([at(6), at(2), at(0)]);
+    });
+
+    it('opening is not answering: an opened task is «skipped», an unopened one «not reached»', async () => {
+      const { userId, sessionId } = await start();
+      await openVariantTask(testDb.db, userId, sessionId, at(4));
+      const d = (await getVariantAttemptDetail(testDb.db, userId, sessionId))!;
+      expect(d.correctCount + d.incorrectCount).toBe(0);
+      expect(d.tasks[4]!.outcome).toBe('skipped');
+      expect(d.tasks[5]!.outcome).toBe('not_reached');
+    });
+
+    it('answers given out of order are linked to the session, once per submit', async () => {
+      const { userId, sessionId } = await start();
+      await openVariantTask(testDb.db, userId, sessionId, at(5));
+      await submitAttempt(testDb.db, at(5), userId, { answer: 'заведомо неверно', sessionId });
+      await openVariantTask(testDb.db, userId, sessionId, at(1));
+      await openVariantTask(testDb.db, userId, sessionId, at(5));
+      const d = (await getVariantAttemptDetail(testDb.db, userId, sessionId))!;
+      expect(d.tasks[5]!.outcome).toBe('incorrect');
+      expect(d.tasks[5]!.answers).toBe(1);
+    });
+
+    it('next follows the plan from the current task; after the last one it finishes', async () => {
+      const { userId, sessionId } = await start();
+      await openVariantTask(testDb.db, userId, sessionId, at(2));
+      const next = await advanceLearningSession(testDb.db, userId, sessionId);
+      if (!next || next.status !== 'active') throw new Error('unreachable');
+      expect(next.task.id).toBe(at(3));
+      await openVariantTask(testDb.db, userId, sessionId, at(orderedTaskIds.length - 1));
+      const done = await advanceLearningSession(testDb.db, userId, sessionId);
+      expect(done?.status).toBe('completed');
+    });
+
+    it('opening every task does not finish the variant early', async () => {
+      const { userId, sessionId } = await start();
+      for (let i = orderedTaskIds.length - 1; i >= 0; i--) {
+        await openVariantTask(testDb.db, userId, sessionId, at(i));
+      }
+      const next = await advanceLearningSession(testDb.db, userId, sessionId);
+      if (!next || next.status !== 'active') throw new Error('unreachable');
+      expect(next.task.id).toBe(at(1));
+    });
+
+    it("refuses a task outside the variant, someone else's session and a finished one", async () => {
+      const { userId, sessionId } = await start();
+      const outside = (await testDb.db.select({ id: schema.tasks.id }).from(schema.tasks)).find(
+        (t) => !orderedTaskIds.includes(t.id),
+      )!;
+      expect(await openVariantTask(testDb.db, userId, sessionId, outside.id)).toBeNull();
+      expect(await openVariantTask(testDb.db, await freshUserId(), sessionId, at(1))).toBeNull();
+      expect(await finishVariantSession(testDb.db, await freshUserId(), sessionId)).toBeNull();
+      const finished = await finishVariantSession(testDb.db, userId, sessionId);
+      expect(finished?.status).toBe('completed');
+      expect(await openVariantTask(testDb.db, userId, sessionId, at(1))).toBeNull();
+      // Finishing again is harmless.
+      expect((await finishVariantSession(testDb.db, userId, sessionId))?.status).toBe('completed');
+    });
+
+    it('finishing early keeps the answers and counts the rest as not answered', async () => {
+      const { userId, sessionId } = await start();
+      await openVariantTask(testDb.db, userId, sessionId, at(3));
+      await submitAttempt(testDb.db, at(3), userId, { answer: 'заведомо неверно', sessionId });
+      const finished = await finishVariantSession(testDb.db, userId, sessionId);
+      if (!finished || finished.status !== 'completed') throw new Error('unreachable');
+      expect(finished.summary.attempted).toBe(1);
+      const d = (await getVariantAttemptDetail(testDb.db, userId, sessionId))!;
+      expect(d.status).toBe('completed');
+      expect(d.incorrectCount).toBe(1);
+    });
   });
 });

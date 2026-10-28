@@ -12,6 +12,7 @@ import {
 import type { Subject } from '../../data/subjects.js';
 import { useFavorite } from '../../lib/useFavorite.js';
 import { clsx } from '../../lib/clsx.js';
+import type { TaskMark } from '../../lib/useVariantTaskMarks.js';
 import styles from './TaskChrome.module.css';
 
 export interface TaskChromeProps {
@@ -39,6 +40,8 @@ export interface TaskChromeProps {
   /** Where «Сообщить об ошибке» is sent from (stored with the report). */
   reportScreen?: 'task' | 'result';
   variantId?: string;
+  /** Inside a variant attempt: each task's real state (number panel). */
+  marks?: Readonly<Record<string, TaskMark>>;
 }
 
 /**
@@ -64,6 +67,7 @@ export function TaskChrome({
   totalInSession,
   reportScreen = 'task',
   variantId,
+  marks,
 }: TaskChromeProps) {
   const progressPercent = (indexInSession / totalInSession) * 100;
   const favorite = useFavorite(taskId);
@@ -126,7 +130,12 @@ export function TaskChrome({
         >
           <Icon name="chevronLeft" size={20} />
         </button>
-        <TaskNumberStrip activeTaskId={taskId} range={numberStripRange} onSelect={onSelectNumber} />
+        <TaskNumberStrip
+          activeTaskId={taskId}
+          range={numberStripRange}
+          onSelect={onSelectNumber}
+          marks={marks}
+        />
         <button
           type="button"
           className={styles.iconButton}

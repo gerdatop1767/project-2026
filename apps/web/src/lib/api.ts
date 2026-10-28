@@ -518,6 +518,24 @@ export function startVariantSession(variantId: string): Promise<LearningSessionR
   });
 }
 
+/** A variant's number panel: open any of its tasks, in any order. Only
+ * serves the task — nothing is answered or counted by opening it. */
+export function openLearningSessionTask(
+  sessionId: string,
+  taskId: string,
+): Promise<LearningSessionResponse> {
+  return apiFetch(`/me/learning/sessions/${sessionId}/open`, {
+    method: 'POST',
+    body: JSON.stringify({ taskId }),
+  });
+}
+
+/** «Завершить вариант» — finishes a variant session now; the answers
+ * already given stay, the rest count as not answered. */
+export function finishLearningSession(sessionId: string): Promise<LearningSessionResponse> {
+  return apiFetch(`/me/learning/sessions/${sessionId}/finish`, { method: 'POST' });
+}
+
 /**
  * Statistics' "Статистика вариантов" — every real variant session the
  * current user has ever started (any status, newest first). See

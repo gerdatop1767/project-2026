@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Icon } from '../Icon/Icon.js';
 import { clsx } from '../../lib/clsx.js';
+import type { TaskMark } from '../../lib/useVariantTaskMarks.js';
 import styles from './TaskNumberStrip.module.css';
 
 export interface TaskNumberStripEntry {
@@ -21,7 +22,16 @@ export interface TaskNumberStripProps {
    * siblings, rather than inventing a fake 11-19 range. */
   range: readonly TaskNumberStripEntry[];
   onSelect: (entry: TaskNumberStripEntry) => void;
+  /** Inside a variant attempt: each task's real state, by task id. */
+  marks?: Readonly<Record<string, TaskMark>>;
 }
+
+const MARK_LABEL: Record<TaskMark, string> = {
+  correct: 'верно',
+  incorrect: 'неверно',
+  draft: 'есть ответ, не проверен',
+  opened: 'открыто, без ответа',
+};
 
 /**
  * Mobile's EGE task-number strip (S1 Block 6 — Training screenshots):
@@ -40,7 +50,7 @@ export interface TaskNumberStripProps {
  * stays the exam number shown in the header ("Задание №13"), never the
  * list position.
  */
-export function TaskNumberStrip({ activeTaskId, range, onSelect }: TaskNumberStripProps) {
+export function TaskNumberStrip({ activeTaskId, range, onSelect, marks }: TaskNumberStripProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const activeButtonRef = useRef<HTMLButtonElement>(null);
   const sameNumberSession =
@@ -76,16 +86,23 @@ export function TaskNumberStrip({ activeTaskId, range, onSelect }: TaskNumberStr
       <div className={styles.scroller} ref={scrollerRef}>
         {range.map((entry, i) => {
           const isActive = entry.taskId === activeTaskId;
+          const mark = marks?.[entry.taskId];
+          const label = sameNumberSession ? i + 1 : entry.taskNumber;
           return (
             <button
               key={entry.taskId}
               ref={isActive ? activeButtonRef : undefined}
               type="button"
-              className={clsx(styles.number, isActive && styles.numberActive)}
+              className={clsx(
+                styles.number,
+                mark && styles[`mark_${mark}`],
+                isActive && styles.numberActive,
+              )}
               aria-current={isActive ? 'true' : undefined}
+              aria-label={mark ? `Задание ${label} — ${MARK_LABEL[mark]}` : undefined}
               onClick={() => onSelect(entry)}
             >
-              {sameNumberSession ? i + 1 : entry.taskNumber}
+              {label}
             </button>
           );
         })}

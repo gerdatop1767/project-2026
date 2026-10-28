@@ -49,3 +49,24 @@
   color: #fff;
   box-shadow: var(--shadow-glow-accent);
 }
+
+/* A variant attempt's real task states (see useVariantTaskMarks). A ring,
+ * not a fill, so the active number keeps its own look on top. */
+.mark_correct {
+  box-shadow: inset 0 0 0 2px var(--color-success);
+  color: var(--color-success);
+}
+
+.mark_incorrect {
+  box-shadow: inset 0 0 0 2px var(--color-error);
+  color: var(--color-error);
+}
+
+.mark_draft {
+  box-shadow: inset 0 0 0 2px var(--color-accent-primary);
+  color: var(--color-text-primary);
+}
+
+.mark_opened {
+  box-shadow: inset 0 0 0 1px var(--color-text-disabled);
+}

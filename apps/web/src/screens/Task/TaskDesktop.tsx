@@ -1,4 +1,5 @@
 import { useEffect, useState, type ElementType } from 'react';
+import { useTaskExit } from '../../ui/LearningSession/useTaskExit.js';
 import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
 import { serializeMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber, submitAttempt } from '../../lib/api.js';
@@ -16,6 +17,7 @@ import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
 import { CanvasWorkspaceDesktop } from '../../ui/CanvasWorkspace/CanvasWorkspaceDesktop.js';
 import { clearCanvasState } from '../../lib/canvasSessionStore.js';
+import { useAnswerDraft } from '../../lib/useAnswerDraft.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Modal } from '../../ui/Modal/Modal.js';
 import { RuleButton } from '../../ui/Theory/RuleButton.js';
@@ -70,7 +72,7 @@ export function TaskDesktop({
   customOrderedTasks,
   returnTo,
 }: TaskDesktopProps) {
-  const { navigate, back } = useNavigation();
+  const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const taskNav = useTaskNavigation({
     subjectId,
@@ -83,7 +85,7 @@ export function TaskDesktop({
   // The task/result has no address of its own, so the current history
   // entry IS the page underneath it: replace it with the exact place to
   // return to instead of pushing a duplicate stop onto the Back stack.
-  const goBack = returnTo ? () => navigate(returnTo, { replace: true }) : back;
+  const { goBack, exitSheet } = useTaskExit(taskId, returnTo);
   const favorite = useFavorite(taskId);
   const learningSession = useActiveLearningSessionForTask(taskId);
   const { refreshStreak } = useStreakContext();
@@ -95,8 +97,8 @@ export function TaskDesktop({
   // effect needed.
   const [task, setTask] = useState<ReturnType<typeof toSampleTask> | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [answer, setAnswer] = useState('');
-  const [partAnswers, setPartAnswers] = useState<Record<string, string>>({});
+  // Typed but unchecked answers survive moving to another number and back.
+  const { answer, setAnswer, partAnswers, setPartAnswers, discardDraft } = useAnswerDraft(taskId);
   const [checking, setChecking] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
@@ -167,7 +169,7 @@ export function TaskDesktop({
   // / variant / collection — same list the top TaskNumberStrip/prev-next
   // already use), never `task.indexInSession`/`task.totalInSession`
   // (just a safe single-item default — see taskAdapter.ts).
-  const sessionProgress = buildSessionProgress(taskId, taskNav.orderedTasks);
+  const sessionProgress = buildSessionProgress(taskId, taskNav.orderedTasks, taskNav.marks);
   const progressPercent = (sessionProgress.indexInSession / sessionProgress.totalInSession) * 100;
 
   function handleCheck() {
@@ -191,6 +193,7 @@ export function TaskDesktop({
     })
       .then((result) => {
         clearCanvasState(task.id);
+        discardDraft();
         // Streak system: the attempt the backend just recorded as real
         // daily activity — refetch the server-computed state so the
         // header's "Серия" chip reflects it without a full reload.
@@ -234,6 +237,7 @@ export function TaskDesktop({
         <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
+        {exitSheet}
       </FadeIn>
     );
   }
@@ -496,6 +500,7 @@ export function TaskDesktop({
           </Modal>
         </>
       )}
+      {exitSheet}
     </Page>
   );
 }

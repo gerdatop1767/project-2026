@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
-import { getVariant, getVariantForTask } from './api.js';
+import { getVariant, getVariantForTask, openLearningSessionTask } from './api.js';
+import {
+  applyLearningSessionResponse,
+  useActiveLearningSessionForTask,
+  useLearningSessionContext,
+} from './learningSessionContext.js';
 import { useNavigation, type Route } from './navigation.js';
 import { registerPrivateCacheReset } from './privateCaches.js';
+import { useVariantTaskMarks, type TaskMark } from './useVariantTaskMarks.js';
 
 export interface TaskNavigationEntry {
   taskId: string;
@@ -31,6 +37,9 @@ export interface TaskNavigationContext {
   /** Navigates to a specific entry from `orderedTasks`, preserving the
    * current subject/collection/resolved-variant context. */
   goTo: (entry: TaskNavigationEntry) => void;
+  /** Inside a variant attempt: what really happened to each task (by task
+   * id) — see `useVariantTaskMarks`. Empty outside one. */
+  marks: Readonly<Record<string, TaskMark>>;
 }
 
 /**
@@ -97,8 +106,15 @@ export function useTaskNavigation(params: {
    * resetting on every step. */
   returnTo?: Route;
 }): TaskNavigationContext {
-  const { subjectId, taskId, collectionSlug, variantId, customOrderedTasks, returnTo } = params;
+  const { subjectId, taskId, collectionSlug, customOrderedTasks, returnTo } = params;
   const { navigate } = useNavigation();
+  // Inside a variant attempt the route carries no variant id: the session
+  // knows it, and every number is opened THROUGH the session (so answers
+  // to it count in this attempt).
+  const variantSession = useActiveLearningSessionForTask(params.taskId);
+  const { setSession } = useLearningSessionContext();
+  const sessionVariant = variantSession?.variant ? variantSession : null;
+  const variantId = params.variantId ?? sessionVariant?.variant?.variantId;
   const hasCustomList = Boolean(customOrderedTasks && customOrderedTasks.length > 0);
   const hasContext = !hasCustomList && Boolean(collectionSlug || variantId);
   // Identifies "which request this is for" — resolution depends on all
@@ -161,7 +177,22 @@ export function useTaskNavigation(params: {
       ? (orderedTasks[currentIndex + 1] ?? null)
       : null;
 
+  const marks = useVariantTaskMarks(
+    sessionVariant?.sessionId ?? null,
+    taskId,
+    orderedTasks.map((t) => t.taskId),
+  );
+
   function goTo(entry: TaskNavigationEntry) {
+    if (sessionVariant) {
+      if (entry.taskId === taskId) return;
+      void openLearningSessionTask(sessionVariant.sessionId, entry.taskId)
+        .then((response) => applyLearningSessionResponse(response, setSession, navigate))
+        .catch(() => {
+          // Stays on the current task; the number can be tapped again.
+        });
+      return;
+    }
     navigate({
       screen: 'task',
       subjectId,
@@ -181,5 +212,6 @@ export function useTaskNavigation(params: {
     next,
     variantId: resolvedVariantId,
     goTo,
+    marks,
   };
 }
