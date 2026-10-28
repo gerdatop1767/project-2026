@@ -15,6 +15,7 @@ import { SlideUp } from '../../ui/motion/motion.js';
 import { ProfileIdentityCard } from './account/ProfileIdentityCard.js';
 import { useIdentities } from './account/useIdentities.js';
 import { SignInMethodsSection } from './account/SignInMethodsSection.js';
+import { ProfileMore } from './ProfileMore.js';
 import styles from './Profile.module.css';
 
 function findSubject(subjectId: string) {
@@ -38,31 +39,19 @@ export function Profile() {
   return user === null ? <GuestProfile /> : <AccountProfile />;
 }
 
-/** Guest mode: the header and its menu stay; no personal data is loaded. */
+/** Guest mode: no personal data is loaded; «Ещё» still offers the rest. */
 function GuestProfile() {
-  const { navigate, overlay } = useNavigation();
   return (
     <SlideUp className={styles.stack}>
-      <div className={styles.headerRow}>
-        <h1 className="text-h1">Профиль</h1>
-        <button
-          type="button"
-          className={styles.iconButton}
-          aria-label="Меню"
-          onClick={() =>
-            navigate({ screen: 'menu', from: overlay?.screen === 'profile' ? overlay : undefined })
-          }
-        >
-          <Icon name="settings" size={20} />
-        </button>
-      </div>
+      <h1 className="text-h1">Профиль</h1>
       <GuestProfileCard />
+      <ProfileMore guest />
     </SlideUp>
   );
 }
 
 function AccountProfile() {
-  const { navigate, overlay } = useNavigation();
+  const { navigate } = useNavigation();
   const identities = useIdentities();
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [learningProfile, setLearningProfile] = useState<LearningProfileResponse | null>(null);
@@ -93,19 +82,7 @@ function AccountProfile() {
 
   return (
     <SlideUp className={styles.stack}>
-      <div className={styles.headerRow}>
-        <h1 className="text-h1">Профиль</h1>
-        <button
-          type="button"
-          className={styles.iconButton}
-          aria-label="Меню"
-          onClick={() =>
-            navigate({ screen: 'menu', from: overlay?.screen === 'profile' ? overlay : undefined })
-          }
-        >
-          <Icon name="settings" size={20} />
-        </button>
-      </div>
+      <h1 className="text-h1">Профиль</h1>
 
       <ProfileIdentityCard identities={identities} />
 
@@ -269,6 +246,8 @@ function AccountProfile() {
           </div>
         </Card>
       </div>
+
+      <ProfileMore />
     </SlideUp>
   );
 }

@@ -115,13 +115,12 @@ describe('App — mobile', () => {
     expect(screen.getByRole('button', { name: 'Профиль' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it("opens the Menu drawer from Профиль's header button", async () => {
+  it('Профиль on mobile has no gear / menu drawer any more', async () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: /Профиль/ }));
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    expect(screen.getByRole('dialog', { name: 'Меню' })).toBeInTheDocument();
-    expect(screen.getByText('Зубрилка')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Меню' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
   });
 
   it('hides the tab bar on an overlay screen', async () => {
@@ -542,11 +541,11 @@ describe('App — sign out', () => {
     restore();
   });
 
-  it('mobile menu "Выйти из аккаунта" calls the real logout', async () => {
+  it('mobile Профиль → «Выйти из аккаунта» calls the real logout', async () => {
     const logout = vi.fn(async () => {});
     const user = userEvent.setup();
     renderApp(makeAuthUser(), logout);
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
+    await user.click(screen.getByRole('button', { name: /Профиль/ }));
     await user.click(screen.getByRole('button', { name: 'Выйти из аккаунта' }));
     expect(logout).toHaveBeenCalledTimes(1);
   });

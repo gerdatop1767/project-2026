@@ -4,26 +4,6 @@
   gap: var(--space-4);
 }
 
-.headerRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.iconButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-surface);
-  color: var(--color-text-primary);
-  flex-shrink: 0;
-}
-
 .statsRow {
   display: flex;
   gap: var(--space-4);
@@ -202,4 +182,46 @@ button.achievementBadge:active {
   gap: var(--space-3);
   padding: var(--space-3) 0;
   color: var(--color-text-secondary);
+}
+
+/* «Ещё» (ProfileMore): the theme switch, as the old menu drawer had it. */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.toggleOn {
+  background: var(--gradient-primary);
+  border-color: transparent;
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--duration-base) var(--easing-standard);
+}
+
+.toggleOn .toggleKnob {
+  transform: translateX(18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggleKnob {
+    transition-duration: 1ms;
+  }
+}
+
+/* The owner's «Админ-панель» is a real link (it leaves the trainer). */
+.adminRow {
+  text-decoration: none;
 }

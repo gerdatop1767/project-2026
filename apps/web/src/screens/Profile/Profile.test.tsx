@@ -5,6 +5,7 @@ import { Profile } from './Profile.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { ToastProvider } from '../../ui/Toast/ToastProvider.js';
 import * as api from '../../lib/api.js';
+import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
   getProgressSummary: vi.fn(),
@@ -207,10 +208,29 @@ describe('Profile', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('notifications');
   });
 
-  it('opens the Menu drawer (Рейтинг/Настройки/Помощь…) via the header gear button', async () => {
+  it('has no gear / menu drawer any more: «Ещё» reaches theory, help and sign-out', async () => {
     const user = userEvent.setup();
     renderProfile();
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('menu');
+    expect(screen.queryByRole('button', { name: 'Меню' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Помощь' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('help');
+    expect(screen.getByRole('button', { name: 'Выйти из аккаунта' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Тёмная тема' })).toBeInTheDocument();
+  });
+
+  it('shows «Админ-панель» to nobody but the owner (the server checks /admin anyway)', () => {
+    const { unmount } = renderProfile();
+    expect(screen.queryByRole('link', { name: 'Админ-панель' })).not.toBeInTheDocument();
+    unmount();
+    render(
+      <TestAuthProvider user={makeAuthUser()} isOwner>
+        <NavigationProvider>
+          <ToastProvider>
+            <Profile />
+          </ToastProvider>
+        </NavigationProvider>
+      </TestAuthProvider>,
+    );
+    expect(screen.getByRole('link', { name: 'Админ-панель' })).toHaveAttribute('href', '/admin');
   });
 });
