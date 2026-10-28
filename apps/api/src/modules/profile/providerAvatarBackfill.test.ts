@@ -5,6 +5,7 @@ import {
   backfillProviderAvatars,
   resetProviderAvatarBackfillForTests,
 } from './providerAvatarBackfill.js';
+import type { cacheProviderAvatar } from './providerAvatar.js';
 import { chooseAvatar } from './service.js';
 import type { AvatarMeta } from './repo.js';
 
@@ -49,7 +50,7 @@ describe('rating avatars: which photo, and copying provider photos', () => {
       ])
       .returning();
     const ids = rows.map((r) => r.id);
-    const cache = vi.fn(async () => 'stored' as const);
+    const cache = vi.fn<typeof cacheProviderAvatar>(async () => 'stored');
     await backfillProviderAvatars(testDb.db, ids, { now: 1000, cache });
     expect(cache.mock.calls.map((c) => [c[2], c[3]]).sort()).toEqual(
       [
@@ -73,7 +74,7 @@ describe('rating avatars: which photo, and copying provider photos', () => {
         })),
       )
       .returning();
-    const cache2 = vi.fn(async () => 'stored' as const);
+    const cache2 = vi.fn<typeof cacheProviderAvatar>(async () => 'stored');
     await backfillProviderAvatars(
       testDb.db,
       many.map((r) => r.id),
