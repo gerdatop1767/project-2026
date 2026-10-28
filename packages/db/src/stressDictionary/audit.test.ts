@@ -18,22 +18,19 @@ describe('stress dictionary × task 4 of the Дощинский 2027 variants', 
   });
 
   it('agreements', () => {
-    expect(list('agrees')).toHaveLength(79);
+    expect(list('agrees')).toHaveLength(84);
   });
 
-  // Each one is a variant task whose answer disagrees with the official
-  // list (page of the list in brackets) — a task to review, not a word.
+  // Each one is a variant task whose key the official list contradicts
+  // (page of the list in brackets). The five confirmed key errors (V1, V2,
+  // V7, V14, V18) are fixed; these three are `needs_review` with their keys
+  // kept until the scan is checked (docs/imports/task-4-audit-2027.md).
   it('every conflict is a reviewed one', () => {
     expect(list('conflict')).toEqual([
-      'V1.1 аэропортЫ', // list: аэропОрты (p. 1); the variant accepts аэропортЫ
-      'V2.1 шАрфы', // list: шАрфы (p. 2); the variant rejects it
-      'V7.5 сосредоточЕние', // list: сосредотОчение (p. 2)
       'V10.5 воссоздАла', // list: воссоздалА (p. 3)
-      'V14.5 дешевизнА', // list: дешевИзна (p. 1)
       'V15.5 красивЕе', // list: красИвее (pp. 2, 5)
       'V16.2 пломбИровать', // list: пломбировАть (p. 4)
       'V16.3 начАли', // list: нАчали (p. 3)
-      'V18.5 освЕдомится', // list: освЕдомится (p. 4); the variant rejects it
     ]);
   });
 

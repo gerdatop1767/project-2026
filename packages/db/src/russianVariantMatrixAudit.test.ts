@@ -57,8 +57,11 @@ const EXPECTED_NEEDS_REVIEW: ReadonlyArray<{ variant: number; taskNumber: number
   { variant: 2, taskNumber: 8 },
   { variant: 5, taskNumber: 8 },
   { variant: 7, taskNumber: 21 },
+  { variant: 10, taskNumber: 4 },
+  { variant: 15, taskNumber: 4 },
   { variant: 15, taskNumber: 6 },
   { variant: 15, taskNumber: 8 },
+  { variant: 16, taskNumber: 4 },
   { variant: 17, taskNumber: 8 },
 ];
 
@@ -76,9 +79,9 @@ const EXPECTED_NEEDS_REVIEW: ReadonlyArray<{ variant: number; taskNumber: number
  * — see `deploySyncContent.test.ts` for the compose-file side of that
  * fix.
  *
- * Deliberately does NOT assert "0 needs_review" — six tasks across the
- * matrix (v2:8, v5:8, v7:21, v15:6, v15:8, v17:8) are genuinely
- * unconfirmed after repeated independent audits, each with a documented
+ * Deliberately does NOT assert "0 needs_review" — nine tasks across the
+ * matrix (v2:8, v5:8, v7:21, v10:4, v15:4, v15:6, v15:8, v16:4, v17:8) are
+ * genuinely unconfirmed after repeated independent audits, each with a documented
  * reason in its own file's explanationMd; this test checks the real
  * published/needs_review split from the actual import pipeline, not an
  * idealized "everything published" count.
@@ -169,7 +172,7 @@ describe('EGE Russian 2027 V1-V18 integration audit — full 18×27 matrix', () 
     }
   });
 
-  it('matches the real, documented needs_review set — exactly 6 of 486, each previously independently audited', async () => {
+  it('matches the real, documented needs_review set — exactly 9 of 486, each previously independently audited', async () => {
     const { db } = testDb;
     const rows = await db
       .select({ sourceVariant: schema.tasks.sourceVariant, taskNumber: schema.tasks.taskNumber })
@@ -190,7 +193,7 @@ describe('EGE Russian 2027 V1-V18 integration audit — full 18×27 matrix', () 
     expect(actual).toEqual(expected);
   });
 
-  it('480 of 486 tasks are published — the matrix is not silently under- or over-publishing', async () => {
+  it('477 of 486 tasks are published — the matrix is not silently under- or over-publishing', async () => {
     const { db } = testDb;
     const rows = await db
       .select({ status: schema.tasks.status })
@@ -198,8 +201,8 @@ describe('EGE Russian 2027 V1-V18 integration audit — full 18×27 matrix', () 
       .where(and(eq(schema.tasks.subjectId, 'russian'), eq(schema.tasks.source, SOURCE)));
     const published = rows.filter((r) => r.status === 'published').length;
     const needsReview = rows.filter((r) => r.status === 'needs_review').length;
-    expect(published).toBe(480);
-    expect(needsReview).toBe(6);
+    expect(published).toBe(477);
+    expect(needsReview).toBe(9);
     expect(published + needsReview).toBe(486);
   });
 
