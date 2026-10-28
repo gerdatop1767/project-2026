@@ -31,6 +31,7 @@ describe('provider avatar copy', () => {
       'https://t.me/i/userpic/320/abc.jpg',
       'https://sun9-12.userapi.com/s/v1/ig2/x.jpg?size=200x200',
       'https://cdn4.telesco.pe/file/x.jpg',
+      'https://avatars.yandex.net/get-yapic/12345/islands-200',
     ]) {
       expect(isAllowedProviderAvatarUrl(ok), ok).toBe(true);
     }
@@ -38,6 +39,8 @@ describe('provider avatar copy', () => {
       'http://t.me/i/userpic/1.jpg',
       'https://evil.example/t.me.jpg',
       'https://t.me.evil.example/x.jpg',
+      'https://avatars.yandex.net.evil.example/x.jpg',
+      'https://evil.yandex.net/x.jpg',
       'https://user:pw@t.me/x.jpg',
       'https://127.0.0.1/x.jpg',
       'https://t.me:8443/x.jpg',

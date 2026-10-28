@@ -12,6 +12,7 @@ import { and, asc, count, eq, gte, inArray, sql, type SQL } from 'drizzle-orm';
 import { moscowDate } from '../admin/period.js';
 import { getAvatarById, listAvatarMeta, listAvatarMetaOf } from '../profile/repo.js';
 import { chooseAvatar } from '../profile/service.js';
+import { backfillProviderAvatars } from '../profile/providerAvatarBackfill.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -86,6 +87,7 @@ export async function readPublicAvatar(db: Database, avatarId: string, version: 
     await listAvatarMeta(db, image.userId),
     person?.profileSource ?? null,
     Boolean(person?.hasProviderUrl),
+    { storedOnly: true },
   );
   if (!chosen || chosen === 'external' || chosen.id !== avatarId) return null;
   return { contentType: image.contentType, data: image.data };
@@ -101,6 +103,9 @@ export async function getLeaderboard(
   userId: string,
   query: LeaderboardQuery,
   now: Date = new Date(),
+  /** Copies missing provider photos in the background (see
+   * providerAvatarBackfill.ts); never awaited by the response. */
+  backfill: (db: Database, userIds: readonly string[]) => unknown = backfillProviderAvatars,
 ): Promise<LeaderboardResponse> {
   const since = periodStart(query.period, now);
   const subject = query.subject ?? null;
@@ -180,14 +185,19 @@ export async function getLeaderboard(
   )) {
     avatarsOf.set(a.userId, [...(avatarsOf.get(a.userId) ?? []), a]);
   }
-  /** The same picture as the user's profile — only when it is stored here. */
+  /** Users whose provider photo exists only as a URL — copied later. */
+  const toCopy: string[] = [];
+  /** Their own photo, else a connected provider's (our stored copy), else
+   * null — the generated avatar. Never a third-party URL. */
   const avatarUrlOf = (id: string) => {
     const person = personOf.get(id);
     const chosen = chooseAvatar(
       avatarsOf.get(id) ?? [],
       person?.profileSource ?? null,
       Boolean(person?.hasProviderUrl),
+      { storedOnly: true },
     );
+    if (!chosen && person?.hasProviderUrl) toCopy.push(id);
     return chosen && chosen !== 'external' ? publicAvatarUrl(chosen.id, chosen.sha256) : null;
   };
   const statsOf = new Map(stats.map((s) => [s.userId, s]));
@@ -214,6 +224,8 @@ export async function getLeaderboard(
       avatarUrl: avatarUrlOf(row.userId),
     };
   });
+
+  if (toCopy.length > 0) void backfill(db, toCopy);
 
   return {
     period: query.period,

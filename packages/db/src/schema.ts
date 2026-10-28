@@ -98,13 +98,14 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 });
 
 /** Where a locally stored avatar image came from. */
-export const avatarSources = ['user', 'telegram', 'vk'] as const;
+export const avatarSources = ['user', 'telegram', 'vk', 'yandex'] as const;
 
 /**
  * Locally stored avatar images — at most one per (user, source): an image
  * the user uploaded themselves (`user`, always wins), and local copies of
  * the provider photo: `telegram` (from the Mini App photo URL, or through
- * the bot when the launch data carried none) and `vk` — copied at sign-in
+ * the bot when the launch data carried none), `vk` and `yandex` — copied at sign-in (or,
+ * for an account that has only the provider URL, when the rating needs it)
  * so the picture is served from our own domain instead of the provider's
  * CDN on every view (apps/api profile/providerAvatar.ts). Bytes live in Postgres on purpose: avatars are
  * small (the API caps uploads at 1 MiB), the stack has no object storage,

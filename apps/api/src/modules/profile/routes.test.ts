@@ -315,6 +315,31 @@ describe('profile API: name, avatar, isolation', () => {
         .map((row) => row.provider)
         .sort();
 
+    it('unlinking a provider removes its photo copy, nothing else', async () => {
+      const { userId, cookie } = await signedInUser();
+      await addIdentity(userId, 'vk');
+      await addIdentity(userId, 'telegram');
+      const png = Buffer.from('89504e470d0a1a0a', 'hex');
+      for (const source of ['vk', 'telegram', 'user'] as const) {
+        await testDb.db.insert(schema.userAvatars).values({
+          userId,
+          source,
+          contentType: 'image/png',
+          width: 1,
+          height: 1,
+          byteSize: png.length,
+          sha256: 'a'.repeat(64),
+          data: png,
+        });
+      }
+      expect((await unlink(cookie, 'vk')).statusCode).toBe(200);
+      const left = await testDb.db
+        .select({ source: schema.userAvatars.source })
+        .from(schema.userAvatars)
+        .where(eq(schema.userAvatars.userId, userId));
+      expect(left.map((r) => r.source).sort()).toEqual(['telegram', 'user']);
+    });
+
     it('email + Yandex: Yandex cannot be unlinked (it is the only way in)', async () => {
       const { userId, cookie } = await signedInUser();
       await addIdentity(userId, 'yandex');

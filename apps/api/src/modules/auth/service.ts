@@ -123,6 +123,8 @@ async function adoptYandexProfile(db: Database, userId: string, ya: YandexUser):
     lastName: ya.lastName,
     avatarUrl: ya.avatarUrl,
   });
+  // In the background, like VK: our own copy of the Yandex photo.
+  void cacheProviderAvatar(db, userId, 'yandex', ya.avatarUrl);
 }
 
 /**

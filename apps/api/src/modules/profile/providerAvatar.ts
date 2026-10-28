@@ -3,7 +3,7 @@ import { AVATAR_MAX_BYTES } from '@zybrilka/shared';
 import { storeAvatar } from './service.js';
 
 /**
- * A local copy of the photo VK / Telegram gave us at sign-in.
+ * A local copy of the photo VK / Telegram / Yandex gave us at sign-in.
  *
  * Why: the profile picture used to be the provider's own URL, loaded by
  * every browser from the provider's CDN on every view. For Telegram that is
@@ -28,6 +28,8 @@ const ALLOWED_HOSTS: readonly RegExp[] = [
   /(^|\.)telegram\.org$/,
   /(^|\.)telesco\.pe$/,
   /(^|\.)cdn-telegram\.org$/,
+  /^avatars\.yandex\.net$/,
+  /^avatars\.mds\.yandex\.net$/,
 ];
 const FETCH_TIMEOUT_MS = 4000;
 
@@ -51,7 +53,7 @@ export type CacheOutcome = 'stored' | 'skipped' | 'failed';
 export async function cacheProviderAvatar(
   db: Database,
   userId: string,
-  source: 'vk' | 'telegram',
+  source: 'vk' | 'telegram' | 'yandex',
   url: string | null | undefined,
   log?: Logger,
 ): Promise<CacheOutcome> {
