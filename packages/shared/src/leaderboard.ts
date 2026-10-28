@@ -53,6 +53,11 @@ export const leaderboardEntrySchema = z.object({
     .int()
     .min(0)
     .max(LEADERBOARD_AVATAR_VARIANTS - 1),
+  /** The picture the user's own profile shows, served from our domain
+   * (`/api/v1/leaderboard/avatars/<image id>?v=<hash>` — an image id, never
+   * the user's). null = none stored here (or only a provider URL, which is
+   * not handed out): the generated avatar is shown instead. */
+  avatarUrl: z.string().nullable(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 

@@ -1,0 +1,1348 @@
+{
+  "document": "Навигатор самостоятельной подготовки к ЕГЭ 2026. Русский язык. Фонетика и орфоэпия (ФИПИ)",
+  "url": "https://doc.fipi.ru/navigator-podgotovki/navigator-ege/2026/ru-1-fonetika.pdf",
+  "pdf": {
+    "pages": 7,
+    "created": "2026-02-02",
+    "sha256": "6e1b6dcaf835f6b7294c9426de406dea3614bb81d9d28e25fc423c9c8036f389"
+  },
+  "list": "«Орфоэпический список – 2026», с. 1–5 (формы набраны жирным)",
+  "extraction": "pdftohtml -xml (жирное начертание) и pdftotext (правила); результаты совпали",
+  "excludedFrom2026": {
+    "pages": "5–6",
+    "forms": [
+      "нарОст",
+      "пОручни",
+      "жилОсь",
+      "навралА",
+      "совралА",
+      "сорИт",
+      "кормЯщий",
+      "поднЯв",
+      "донЕльзя",
+      "зАтемно"
+    ]
+  },
+  "forms": [
+    {
+      "marked": "аэропОрты",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. аэропОрт"
+    },
+    {
+      "marked": "бАнты",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. бант"
+    },
+    {
+      "marked": "бОроду",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "вин. п. ед. ч. сущ. бородА"
+    },
+    {
+      "marked": "бухгАлтеров",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "род. п. мн. ч. сущ. бухгАлтер"
+    },
+    {
+      "marked": "вероисповЕдание",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "1"
+    },
+    {
+      "marked": "водопровОд",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "газопровОд",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "граждАнство",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "дефИс",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "дешевИзна",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "диспансЕр",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "договорЁнность",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "докумЕнт",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "досУг",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "еретИк",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "жалюзИ",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "знАчимость",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "Иксы",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. икс"
+    },
+    {
+      "marked": "каталОг",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "квартАл",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "(во всех значениях)"
+    },
+    {
+      "marked": "киломЕтр",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "кОнусов",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": "род. п. мн. ч. сущ. кОнус"
+    },
+    {
+      "marked": "корЫсть",
+      "page": 1,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "крАны",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. кран"
+    },
+    {
+      "marked": "кремЕнь",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "кремнЯ",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. ед. ч."
+    },
+    {
+      "marked": "лЕкторов",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. мн. ч. сущ. лЕктор"
+    },
+    {
+      "marked": "лОктя",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. ед. ч. сущ. лОкоть"
+    },
+    {
+      "marked": "локтЕй",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. мн. ч."
+    },
+    {
+      "marked": "лыжнЯ",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "мЕстностей",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. мн. ч. сущ. мЕстность"
+    },
+    {
+      "marked": "намЕрение",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "нЕдруг",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "недУг",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "некролОг",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "нЕнависть",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "нефтепровОд",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "новостЕй",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. мн. ч. сущ. нОвость"
+    },
+    {
+      "marked": "нОгтя",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. ед. ч. сущ. нОготь"
+    },
+    {
+      "marked": "ногтЕй",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "род. п. мн. ч."
+    },
+    {
+      "marked": "Отзыв",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "(о книге), «отклик, мнение, рецензия»"
+    },
+    {
+      "marked": "отзЫв",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "(посла из страны), действие по глаг. отозвАть – «потребовать возвращения назад»"
+    },
+    {
+      "marked": "Отрочество",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "партЕр",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "портфЕль",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "придАное",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "призЫв",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "свЁкла",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "сирОты",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. сиротА"
+    },
+    {
+      "marked": "созЫв",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "сосредотОчение",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "срЕдства",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. срЕдство"
+    },
+    {
+      "marked": "стАтуя",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "столЯр",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "тамОжня",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "тОрты",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. торт"
+    },
+    {
+      "marked": "тУфля",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "цемЕнт",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "цЕнтнер",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "цепОчка",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "шАрфы",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": "им. п. мн. ч. сущ. шарф"
+    },
+    {
+      "marked": "шофЁр",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "экспЕрт",
+      "page": 2,
+      "section": "Имена существительные",
+      "printedNote": ""
+    },
+    {
+      "marked": "вернА",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": "кр. ф. ж. р. прил. вЕрный"
+    },
+    {
+      "marked": "знАчимый",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "красИвее",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": "сравн. ст. прил. красИвый"
+    },
+    {
+      "marked": "красИвейший",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": "превосх. ст."
+    },
+    {
+      "marked": "кУхонный",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "ловкА",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": "кр. ф. ж. р. прил. лОвкий"
+    },
+    {
+      "marked": "мозаИчный",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "оптОвый",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "прозорлИвый",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "прозорлИва",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": "кр. ф. ж. р."
+    },
+    {
+      "marked": "слИвовый",
+      "page": 2,
+      "section": "Имена прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "бралА",
+      "page": 2,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. брАть"
+    },
+    {
+      "marked": "бралАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. брАться"
+    },
+    {
+      "marked": "взялА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. взЯть"
+    },
+    {
+      "marked": "взялАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. взЯться"
+    },
+    {
+      "marked": "влилАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. влИться"
+    },
+    {
+      "marked": "ворвалАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. ворвАться"
+    },
+    {
+      "marked": "воспринЯть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "воспринялА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р."
+    },
+    {
+      "marked": "воссоздалА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. воссоздАть"
+    },
+    {
+      "marked": "вручИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. 2 глаг. вручИть"
+    },
+    {
+      "marked": "гналА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. гнАть"
+    },
+    {
+      "marked": "гналАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. гнАться"
+    },
+    {
+      "marked": "добралА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. добрАть"
+    },
+    {
+      "marked": "добралАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. добрАться"
+    },
+    {
+      "marked": "дождалАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. дождАться"
+    },
+    {
+      "marked": "дозвонИтся",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. дозвонИться"
+    },
+    {
+      "marked": "дозИровать",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "ждалА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. ждАть"
+    },
+    {
+      "marked": "закУпорить",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "занЯть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "зАнял",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "занялА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "зАняли",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр."
+    },
+    {
+      "marked": "заперлА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. заперЕть"
+    },
+    {
+      "marked": "запломбировАть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "защемИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. защемИть"
+    },
+    {
+      "marked": "звалА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. звАть"
+    },
+    {
+      "marked": "звонИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. звонИть"
+    },
+    {
+      "marked": "кАшлянуть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "клАла",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. клАсть"
+    },
+    {
+      "marked": "клЕить",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "крАлась",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. крАсться"
+    },
+    {
+      "marked": "кровоточИть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "лгалА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. лгАть"
+    },
+    {
+      "marked": "лилА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. лИть"
+    },
+    {
+      "marked": "лилАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. лИться"
+    },
+    {
+      "marked": "наделИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. наделИть"
+    },
+    {
+      "marked": "надорвалАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. надорвАться"
+    },
+    {
+      "marked": "назвалАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. назвАться"
+    },
+    {
+      "marked": "накренИтся",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. накренИться"
+    },
+    {
+      "marked": "налилА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. налИть"
+    },
+    {
+      "marked": "нарвалА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. нарвАть"
+    },
+    {
+      "marked": "начАть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "нАчал",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "началА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "нАчали",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр."
+    },
+    {
+      "marked": "обзвонИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. обзвонИть"
+    },
+    {
+      "marked": "облегчИть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "облегчИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч."
+    },
+    {
+      "marked": "облилАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. облИться"
+    },
+    {
+      "marked": "обнялАсь",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. обнЯться"
+    },
+    {
+      "marked": "обогналА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. обогнАть"
+    },
+    {
+      "marked": "ободралА",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. ободрАть"
+    },
+    {
+      "marked": "ободрИть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "ободрИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч."
+    },
+    {
+      "marked": "ободрИться",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "ободрИтся",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч."
+    },
+    {
+      "marked": "обострИть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "одолжИть",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "одолжИт",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч."
+    },
+    {
+      "marked": "озлОбить",
+      "page": 3,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "оклЕить",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "окружИт",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. окружИть"
+    },
+    {
+      "marked": "опОшлить",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "освЕдомиться",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "освЕдомится",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч."
+    },
+    {
+      "marked": "отбылА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. отбЫть"
+    },
+    {
+      "marked": "отдалА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. отдАть"
+    },
+    {
+      "marked": "откУпорить",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "отозвалА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. отозвАть"
+    },
+    {
+      "marked": "отозвалАсь",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. отозвАться"
+    },
+    {
+      "marked": "перезвонИт",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. перезвонИть"
+    },
+    {
+      "marked": "перелилА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. перелИть"
+    },
+    {
+      "marked": "плодоносИть",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "пломбировАть",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "повторИт",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. повторИть"
+    },
+    {
+      "marked": "позвалА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. позвАть"
+    },
+    {
+      "marked": "позвонИт",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. позвонИть"
+    },
+    {
+      "marked": "полилА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. полИть"
+    },
+    {
+      "marked": "положИть",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "положИл",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. м. р."
+    },
+    {
+      "marked": "понЯть",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "понялА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р."
+    },
+    {
+      "marked": "послАла",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. послАть"
+    },
+    {
+      "marked": "прибЫть",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "прИбыл",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "прибылА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "прИбыли",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр."
+    },
+    {
+      "marked": "принЯть",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "прИнял",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "принялА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "прИняли",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр."
+    },
+    {
+      "marked": "рвалА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. рвАть"
+    },
+    {
+      "marked": "сверлИт",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. сверлИть"
+    },
+    {
+      "marked": "снялА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. снЯть"
+    },
+    {
+      "marked": "создалА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. создАть"
+    },
+    {
+      "marked": "сорвалА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. сорвАть"
+    },
+    {
+      "marked": "убралА",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "прош. вр. ж. р. глаг. убрАть"
+    },
+    {
+      "marked": "углубИть",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "укрепИт",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. укрепИть"
+    },
+    {
+      "marked": "чЕрпать",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "щемИт",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": "3- е л. ед. ч. глаг. щемИть"
+    },
+    {
+      "marked": "щЁлкать",
+      "page": 4,
+      "section": "Глаголы",
+      "printedNote": ""
+    },
+    {
+      "marked": "довезЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "зАгнутый",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "зАнятый",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "занятА",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": "кр. ф. ж. р."
+    },
+    {
+      "marked": "зАпертый",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "заселЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "заселенА",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": "кр. ф. ж. р."
+    },
+    {
+      "marked": "кровоточАщий",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "нажИвший",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "налИвший",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "нанЯвшийся",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "начАвший",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "нАчатый",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "низведЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "облегчЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "ободрЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "обострЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "отключЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "повторЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "поделЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "понЯвший",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "прИнятый",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "принятА",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": "кр. ф. ж. р."
+    },
+    {
+      "marked": "приручЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "прожИвший",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "снятА",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": "кр. ф. ж. р. прич. снЯтый"
+    },
+    {
+      "marked": "сОгнутый",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "углублЁнный",
+      "page": 5,
+      "section": "Причастия и отглагольные прилагательные",
+      "printedNote": ""
+    },
+    {
+      "marked": "закУпорив",
+      "page": 5,
+      "section": "Деепричастия",
+      "printedNote": ""
+    },
+    {
+      "marked": "начАв",
+      "page": 5,
+      "section": "Деепричастия",
+      "printedNote": ""
+    },
+    {
+      "marked": "начАвшись",
+      "page": 5,
+      "section": "Деепричастия",
+      "printedNote": ""
+    },
+    {
+      "marked": "отдАв",
+      "page": 5,
+      "section": "Деепричастия",
+      "printedNote": ""
+    },
+    {
+      "marked": "понЯв",
+      "page": 5,
+      "section": "Деепричастия",
+      "printedNote": ""
+    },
+    {
+      "marked": "прибЫв",
+      "page": 5,
+      "section": "Деепричастия",
+      "printedNote": ""
+    },
+    {
+      "marked": "создАв",
+      "page": 5,
+      "section": "Деепричастия",
+      "printedNote": ""
+    },
+    {
+      "marked": "вОвремя",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": ""
+    },
+    {
+      "marked": "дОверху",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": ""
+    },
+    {
+      "marked": "дОнизу",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": ""
+    },
+    {
+      "marked": "дОсуха",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": ""
+    },
+    {
+      "marked": "зАсветло",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": ""
+    },
+    {
+      "marked": "красИвее",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": "сравн. ст. нар. красИво"
+    },
+    {
+      "marked": "надОлго",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": ""
+    },
+    {
+      "marked": "ненадОлго",
+      "page": 5,
+      "section": "Наречия",
+      "printedNote": ""
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   advanceLearningSession,
   getLearningSessionSnapshot,
+  getVariantAttemptDetail,
   getVariantProgress,
   startLearningSession,
   startVariantSession,
@@ -85,6 +86,19 @@ export const learningSessionRoutes: FastifyPluginAsync<LearningSessionRoutesOpti
   app.get('/progress/variants', async (request, reply) => {
     if (!request.userId) return reply.code(400).send({ error: 'missing_anon_id' });
     return getVariantProgress(db, request.userId);
+  });
+
+  // One attempt's full result (Statistics → a variant in the history,
+  // and the variant results screen). Owner only: another user's attempt
+  // answers exactly like a missing one (404).
+  app.get('/progress/variants/:sessionId', async (request, reply) => {
+    if (!request.userId) return reply.code(400).send({ error: 'missing_anon_id' });
+    const params = sessionParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.code(404).send({ error: 'not_found' });
+    const detail = await getVariantAttemptDetail(db, request.userId, params.data.sessionId);
+    if (!detail) return reply.code(404).send({ error: 'not_found' });
+    reply.header('cache-control', 'no-store');
+    return detail;
   });
 
   app.get('/me/learning/sessions/:sessionId/next', async (request, reply) => {

@@ -131,6 +131,13 @@ services:
   # test files (see `russianVariantMatrixAudit.test.ts` for the full
   # 18×27 cross-variant audit), they were still not in this chain — the
   # same class of gap, now fixed for all 18.
+  #
+  # Last in the chain: the «Ударения» mini-game's stress dictionary
+  # (packages/db/src/stressDictionary, docs/MINI_GAMES.md). Same rules as
+  # the variant importers: upsert by a stable key (word ids — and players'
+  # progress on them — survive every run), a word dropped from the data is
+  # deactivated, never deleted, and an invalid dictionary makes it exit
+  # non-zero before writing anything, which stops `api`/`worker`.
   sync-content:
     build:
       context: ..
@@ -175,7 +182,8 @@ services:
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant15.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant16.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant17.js &&
-        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant18.js
+        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant18.js &&
+        node node_modules/@zybrilka/db/dist/stressDictionary/import.js
     restart: 'no'
 
   api:

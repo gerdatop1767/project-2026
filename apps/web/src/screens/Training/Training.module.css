@@ -184,3 +184,48 @@
     max-width: 26rem;
   }
 }
+
+.gamesEntry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-subject-russian) 14%, var(--color-bg-surface)),
+    var(--color-bg-surface) 70%
+  );
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.gamesEntry:hover {
+  border-color: var(--color-subject-russian);
+}
+
+.gamesEntry:active {
+  transform: scale(0.99);
+}
+
+.gamesIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: var(--color-subject-russian);
+  background: color-mix(in srgb, var(--color-subject-russian) 18%, var(--color-bg-elevated));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gamesEntry {
+    transition: none;
+  }
+}

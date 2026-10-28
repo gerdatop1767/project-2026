@@ -143,4 +143,12 @@ describe('По номерам — a mode of the subject page', () => {
       initialMode: 'byNumber',
     });
   });
+
+  it('a variant attempt has its own address, and only a real id opens it', () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const route = { screen: 'variantAttempt' as const, sessionId: id };
+    expect(pathForRoute(route)).toBe(`/statistics/variants/${id}`);
+    expect(routeFromPath(`/statistics/variants/${id}`)).toEqual(route);
+    expect(routeFromPath('/statistics/variants/../../x')).toEqual({ screen: 'home' });
+  });
 });

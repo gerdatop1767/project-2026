@@ -128,3 +128,74 @@ export interface VariantProgressItem {
 export interface VariantProgressResponse {
   readonly items: readonly VariantProgressItem[];
 }
+
+/** How one planned task of a variant attempt ended up. */
+export type VariantTaskOutcome = 'correct' | 'incorrect' | 'skipped' | 'not_reached';
+
+/**
+ * One task of a variant attempt, in exam order. The attempt's FIRST
+ * answer to it decides `outcome` (an exam has no second try); later
+ * re-tries are only counted in `answers`.
+ */
+export interface VariantAttemptTask {
+  readonly position: number;
+  readonly taskId: string;
+  readonly taskNumber: number;
+  readonly topic: string | null;
+  /** `skipped`: served but never answered; `not_reached`: never served. */
+  readonly outcome: VariantTaskOutcome;
+  /** The first answer as the user gave it (multi-part: «а) 3; б) 5»). */
+  readonly userAnswer: string | null;
+  readonly correctAnswer: string;
+  readonly explanationMd: string;
+  /** All answers given to this task in this attempt. */
+  readonly answers: number;
+  /** Time of the first answer, only when the client measured it. */
+  readonly timeSpentMs: number | null;
+}
+
+export interface VariantAttemptGroup {
+  /** Task number (as a string) or topic name. */
+  readonly key: string;
+  readonly correct: number;
+  /** Planned tasks in the group. */
+  readonly total: number;
+}
+
+/**
+ * GET /progress/variants/:sessionId — one attempt of one variant, only
+ * for its owner. Only what is actually recorded is reported.
+ */
+export interface VariantAttemptDetail {
+  readonly sessionId: string;
+  readonly variantId: string;
+  readonly variantNumber: number;
+  readonly variantTitle: string;
+  readonly subjectId: string;
+  readonly status: LearningSessionStatus;
+  readonly startedAt: string;
+  readonly completedAt: string | null;
+  /**
+   * `exact`: answers are linked to this attempt (since migration 0033).
+   * `time_window`: an older attempt — answers to its tasks between its
+   * start and finish, which another context may have shared.
+   */
+  readonly attribution: 'exact' | 'time_window';
+  readonly plannedCount: number;
+  readonly correctCount: number;
+  readonly incorrectCount: number;
+  readonly skippedCount: number;
+  readonly notReachedCount: number;
+  /** correct / answered, 0..100; null with no answers. */
+  readonly accuracyPercent: number | null;
+  /** Sum over answered tasks whose time was measured; null if none was. */
+  readonly totalTimeMs: number | null;
+  /** How many answered tasks the time covers. */
+  readonly timedCount: number;
+  readonly byTaskNumber: readonly VariantAttemptGroup[];
+  /** Only tasks that have a topic. */
+  readonly byTopic: readonly VariantAttemptGroup[];
+  readonly tasks: readonly VariantAttemptTask[];
+  /** Wrong or skipped tasks, in exam order — what to go over again. */
+  readonly toRepeat: readonly { taskId: string; taskNumber: number; topic: string | null }[];
+}

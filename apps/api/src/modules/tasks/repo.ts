@@ -244,10 +244,45 @@ export async function createAttempt(
     answerRaw: string;
     isCorrect: boolean;
     timeSpentMs?: number;
+    /** Claimed by the client — linked only if `sessionForAttempt` agrees. */
+    sessionId?: string;
   },
 ) {
-  const [attempt] = await db.insert(schema.attempts).values(input).returning();
+  const { sessionId, ...values } = input;
+  const learningSessionId = sessionId
+    ? await sessionForAttempt(db, sessionId, input.userId, input.taskId)
+    : null;
+  const [attempt] = await db
+    .insert(schema.attempts)
+    .values({ ...values, learningSessionId })
+    .returning();
   return attempt!;
+}
+
+/**
+ * The session an answer belongs to — only the answering user's own,
+ * still active session that has served this task. Anything else (someone
+ * else's session, a finished one, a task it never served) links nothing:
+ * the answer is still recorded, just not counted in any session.
+ */
+export async function sessionForAttempt(
+  db: Database,
+  sessionId: string,
+  userId: string,
+  taskId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: schema.learningSessions.id })
+    .from(schema.learningSessions)
+    .where(
+      and(
+        eq(schema.learningSessions.id, sessionId),
+        eq(schema.learningSessions.userId, userId),
+        eq(schema.learningSessions.status, 'active'),
+        sql`${schema.learningSessions.consumedTaskIds} @> ${JSON.stringify([taskId])}::jsonb`,
+      ),
+    );
+  return row?.id ?? null;
 }
 
 /**

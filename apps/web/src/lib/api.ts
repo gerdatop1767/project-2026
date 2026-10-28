@@ -31,6 +31,13 @@ import type {
   TaskPublic,
   TaskWithSolution,
   VariantDetail,
+  VariantAttemptDetail,
+  MiniGamesResponse,
+  StressAnswerRequest,
+  StressAnswerResponse,
+  StressMode,
+  StressProgressResponse,
+  StressRoundResponse,
   VariantProgressResponse,
   LeaderboardPeriod,
   LeaderboardResponse,
@@ -520,6 +527,11 @@ export function getVariantProgress(): Promise<VariantProgressResponse> {
   return cachedApiFetch('/progress/variants');
 }
 
+/** One attempt of a variant — its full result (owner only; 404 otherwise). */
+export function getVariantAttempt(sessionId: string): Promise<VariantAttemptDetail> {
+  return rawApiFetch(`/progress/variants/${encodeURIComponent(sessionId)}`);
+}
+
 /** «Войти через Яндекс»: a plain navigation to this API's own server-side
  * OAuth start (state + PKCE live in an httpOnly cookie there). When Yandex
  * ID isn't configured it lands back on /login?yandex=not_configured. */
@@ -653,4 +665,21 @@ export function confirmTelegramLink(accept: boolean): Promise<TelegramLinkConfir
     method: 'POST',
     body: JSON.stringify({ accept }),
   });
+}
+
+/** Mini-games (docs/MINI_GAMES.md). */
+export function getMiniGames(): Promise<MiniGamesResponse> {
+  return rawApiFetch('/games');
+}
+
+export function getStressRound(mode: StressMode, size = 20): Promise<StressRoundResponse> {
+  return rawApiFetch(`/games/stress/round?mode=${mode}&size=${size}`);
+}
+
+export function answerStress(request: StressAnswerRequest): Promise<StressAnswerResponse> {
+  return apiFetch('/games/stress/answer', { method: 'POST', body: JSON.stringify(request) });
+}
+
+export function getStressProgress(): Promise<StressProgressResponse> {
+  return rawApiFetch('/games/stress/progress');
 }

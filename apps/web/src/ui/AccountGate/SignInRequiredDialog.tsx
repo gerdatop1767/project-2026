@@ -34,6 +34,10 @@ const copy: Record<AccountFeature, { title: string; text: string }> = {
     title: 'Уровень — после входа',
     text: 'Опыт начисляется за верно решённые задания и хранится в аккаунте.',
   },
+  gameProgress: {
+    title: 'Прогресс в игре — после входа',
+    text: 'Играть можно и без аккаунта. Чтобы запомнить выученные слова и ошибки, нужен вход.',
+  },
 };
 
 export interface SignInRequiredDialogProps {

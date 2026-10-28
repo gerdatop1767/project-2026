@@ -209,6 +209,10 @@ export type AttemptAnswer = z.infer<typeof attemptAnswerSchema>;
 export const attemptRequestSchema = z.object({
   answer: attemptAnswerSchema,
   timeSpentMs: z.number().int().nonnegative().optional(),
+  /** The learning session (variant attempt / smart training) the task was
+   * served in. The server links the answer to it only when that session
+   * is the user's own, still active, and served this task. */
+  sessionId: z.uuid().optional(),
 });
 export type AttemptRequest = z.infer<typeof attemptRequestSchema>;
 

@@ -31,3 +31,5 @@ export {
   type LinkTokenOutcome,
   type TelegramReachability,
 } from './telegramLink.js';
+export { importStressDictionary } from './stressDictionary/import.js';
+export { STRESS_ENTRIES, STRESS_SOURCES } from './stressDictionary/data.js';

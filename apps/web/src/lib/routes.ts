@@ -55,6 +55,8 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   privacy: '/privacy',
   terms: '/terms',
   notifications: '/notifications',
+  miniGames: '/games',
+  stressGame: '/games/stress',
   onboarding: '/onboarding',
   landing: '/landing',
   telegramReturn: '/telegram-return',
@@ -76,6 +78,7 @@ function isUnaddressable(route: Route): boolean {
  * `learningSession` route for why this one (unlike `task`/`result`)
  * must be addressable and refresh-safe. */
 const learningSessionPathPrefix = '/learning/session/';
+const variantAttemptPathPrefix = '/statistics/variants/';
 
 export function pathForRoute(route: Route): string | null {
   if (isUnaddressable(route)) return null;
@@ -107,6 +110,10 @@ export function pathForRoute(route: Route): string | null {
 
   if (route.screen === 'learningSession') {
     return `${learningSessionPathPrefix}${route.sessionId}`;
+  }
+
+  if (route.screen === 'variantAttempt') {
+    return `${variantAttemptPathPrefix}${route.sessionId}`;
   }
 
   if (route.screen === 'friendProfile') {
@@ -203,6 +210,9 @@ export function routeFromPath(pathname: string): Route {
     if (sessionId) return { screen: 'learningSession', sessionId };
   }
 
+  const attemptMatch = path.match(/^\/statistics\/variants\/([0-9a-f-]{36})$/);
+  if (attemptMatch) return { screen: 'variantAttempt', sessionId: attemptMatch[1]! };
+
   const friendMatch = path.match(/^\/friends\/([a-zA-Z0-9_-]+)$/);
   if (friendMatch) {
     return { screen: 'friendProfile', friendId: friendMatch[1]! };
@@ -222,6 +232,7 @@ export function isAddressableScreen(screen: string): boolean {
     screen === 'profile' ||
     screen === 'friendProfile' ||
     screen === 'learningSession' ||
+    screen === 'variantAttempt' ||
     simpleOverlayScreens.has(screen)
   );
 }

@@ -324,6 +324,22 @@ docker compose -f infra/docker-compose.yml up -d --build web
   but users can only write to support while polling is on), `web`.
 - **No new environment variables.** Docs: COOKIES.md, REMINDERS.md, SUPPORT.md.
 
+### Release: rating avatars, variant results, mini-games (migrations 0033+)
+
+- **Migration `0033_variant_attempt_links`:** one nullable column
+  `attempts.learning_session_id` (+ foreign key and index). Existing rows
+  stay as they are (null); older variant attempts keep being counted by
+  their time window (docs/VARIANT_RESULTS.md). The foreign key check and
+  the index build scan `attempts` once — quick at today's size; take a
+  `pg_dump` first as for any migration.
+- **Migration `0034_mini_games`:** new tables only (`stress_sources`,
+  `stress_words`, `mini_game_answers`, `mini_game_item_progress`).
+- **Stress dictionary import** (`dist/stressDictionary/import.js`) is the
+  last step of `sync-content` in `infra/docker-compose.yml`. The VPS uses
+  its own compose file — see «Словарь ударений на VPS» below; until it
+  runs there, the «Ударения» game has no words in production.
+- **No new environment variables.**
+
 ## Caddy
 
 `infra/caddy/Caddyfile` defines both hosts:
@@ -484,3 +500,53 @@ curl -fsS https://zybrilka.ru/health
 ```
 
 Перед миграциями или рискованными изменениями базы создавайте резервную копию и проверяйте её доступность. Не удаляйте неизвестные файлы и резервные копии в `/opt/Zybrilka`.
+
+## Словарь ударений на VPS (мини-игра «Ударения»)
+
+Импорт словаря нужно выполнить после миграций 0033–0034 и до того, как игрой начнут пользоваться. Импортёр уже есть в образе API (`node_modules/@zybrilka/db/dist/stressDictionary/import.js`, проверено на бандле `pnpm deploy --prod`), отдельный механизм не нужен.
+
+Ниже `C` — сокращение для общей части команды. Путь — `/opt/Zybrilka-release-next`; если деплой идёт из `/opt/Zybrilka-release`, подставьте его.
+
+```bash
+C="docker compose -p infra --project-directory /opt/Zybrilka-release-next --env-file /opt/Zybrilka/infra/.env -f /opt/Zybrilka-release-next/infra/docker-compose.deploy.yml"
+```
+
+**0. Резервная копия базы** (`pg_dump`), как перед любой миграцией.
+
+**1. Сначала посмотреть, как устроен локальный файл** (ничего не меняет, секреты не выводит):
+
+```bash
+$C config --services                          # есть ли sync-content
+$C config | sed -n '/^  migrate:/,/^  [a-z]/p' | grep -E 'image:|DATABASE_URL' | sed 's/:\/\/.*@/:\/\/***@/'
+$C run --rm --no-deps migrate ls node_modules/@zybrilka/db/dist/stressDictionary/
+```
+
+В выводе должны быть `import.js` (значит, образ собран из этой ветки) и `DATABASE_URL` у `migrate`.
+
+**2. Первичное заполнение — без изменения файлов.** Разовый запуск того же образа, что у `migrate`:
+
+```bash
+$C run --rm migrate                                                             # 0033, 0034
+$C run --rm migrate node node_modules/@zybrilka/db/dist/stressDictionary/import.js
+# ожидается: «Stress dictionary: 219 words, 0 deactivated» на пустой таблице
+# (если раньше импортировали старый словарь из 222 форм — «219 words, 20 deactivated»), код выхода 0
+```
+
+Повторный запуск безопасен: upsert по ключу, прогресс игроков не трогается, удалённое из данных деактивируется. Ненулевой код выхода — словарь не записан, разберитесь до `up -d api web`.
+
+**3. Чтобы словарь обновлялся при каждом деплое** — минимальный diff локального `docker-compose.deploy.yml`, только после просмотра шага 1:
+- Если в нём есть `sync-content` с цепочкой `&&` (как в `infra/docker-compose.yml`), то вариант А.
+- Если `sync-content` нет, файл не трогать: добавить команду из шага 2 в процедуру деплоя сразу после `run --rm migrate` (вариант Б).
+
+Вариант А — diff:
+
+```diff
+-        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant18.js
++        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant18.js &&
++        node node_modules/@zybrilka/db/dist/stressDictionary/import.js
+```
+
+(бывшая последняя строка цепочки получает `&&`, новая — без него). Затем проверить: `$C config --quiet` и `$C config | grep -c stressDictionary` → `1`.
+
+Не заменяйте локальный файл файлом из репозитория и не удаляйте из него другие настройки.
+

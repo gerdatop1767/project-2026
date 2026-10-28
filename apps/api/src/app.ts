@@ -33,6 +33,7 @@ import { enqueueNotification } from './modules/notifications/outbox.js';
 import { errorKind, SiteErrorNotifier } from './modules/notifications/siteErrors.js';
 import { progressRoutes, publicTopicsRoutes } from './modules/progress/routes.js';
 import { leaderboardRoutes } from './modules/leaderboard/routes.js';
+import { miniGamesRoutes } from './modules/games/routes.js';
 import { tasksRoutes } from './modules/tasks/routes.js';
 import { variantsRoutes } from './modules/variants/routes.js';
 
@@ -176,6 +177,13 @@ export function buildApp({
         scope.register(reminderRoutes, { db, prefix: '/api/v1' });
       });
       app.register(async (scope) => {
+        // Mini-games: open to guests (answers checked, not recorded);
+        // progress needs an account — the routes check it themselves.
+        await scope.register(rateLimit, { global: false });
+        scope.addHook('onRequest', rejectCrossSiteWrites);
+        scope.register(miniGamesRoutes, { db, prefix: '/api/v1' });
+      });
+      app.register(async (scope) => {
         // Task complaints: an account is required, throttled per account.
         await scope.register(rateLimit, { global: false });
         scope.addHook('onRequest', requireSession);
@@ -193,6 +201,7 @@ export function buildApp({
     } else {
       app.register(contentRoutes(false));
       app.register(privateRoutes);
+      app.register(miniGamesRoutes, { db, prefix: '/api/v1' });
     }
   }
 
