@@ -26,6 +26,9 @@ import {
   EGE_2027_V7_T9_TANGENT,
   EGE_2027_V7_T9_WAYPOINTS,
   ege2027V7T12,
+  EGE_2027_V8_T9_TANGENT,
+  EGE_2027_V8_T9_WAYPOINTS,
+  ege2027V8T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -59,6 +62,9 @@ describe('illustration registry', () => {
         'ege-2027-variant-7:2',
         'ege-2027-variant-7:9',
         'ege-2027-variant-7:12',
+        'ege-2027-variant-8:2',
+        'ege-2027-variant-8:9',
+        'ege-2027-variant-8:12',
       ].sort(),
     );
   });
@@ -277,6 +283,9 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [7, 2],
     [7, 9],
     [7, 12],
+    [8, 2],
+    [8, 9],
+    [8, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -411,5 +420,32 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     expect(ege2027V7T12(2)).toBeCloseTo(-2, 12);
     expect(ege2027V7T12(-3)).toBeCloseTo(4, 12);
     expect(ege2027V7T12(-5)).toBeCloseTo(12, 12);
+  });
+
+  it('В8 №2: a = (−8; 10), b = (5; 4), 0,5a·b = 0', () => {
+    const [a, b] = [vec(8, 0), vec(8, 1)];
+    expect([a, b]).toEqual([
+      [-8, 10],
+      [5, 4],
+    ]);
+    expect(0.5 * a[0] * b[0] + 0.5 * a[1] * b[1]).toBe(0);
+  });
+
+  it('В8 №9: the tangent through (−6; 3) and (−1; −4) has slope −1,4 and touches the curve at x₀', () => {
+    const { x0, through } = EGE_2027_V8_T9_TANGENT;
+    const [[x1, y1], [x2, y2]] = through;
+    const k = (y2 - y1) / (x2 - x1);
+    expect(k).toBeCloseTo(-1.4, 12);
+    const line = (x: number) => y1 + k * (x - x1);
+    const w = EGE_2027_V8_T9_WAYPOINTS;
+    expect(curveY(w, x0)).toBeCloseTo(line(x0), 2);
+    for (const [x, y] of w)
+      if (Math.abs(x - x0) <= 1.5 && x !== x0) expect(y).toBeGreaterThan(line(x));
+  });
+
+  it('В8 №12: through (0; −2) and (4; −2), f(−10) = −30', () => {
+    expect(ege2027V8T12(0)).toBeCloseTo(-2, 12);
+    expect(ege2027V8T12(4)).toBeCloseTo(-2, 12);
+    expect(ege2027V8T12(-10)).toBeCloseTo(-30, 12);
   });
 });

@@ -234,6 +234,11 @@ export const EGE_2027_VECTORS = {
     { fromX: 5, fromY: 5, x: -1, y: 2, label: 'a', labelAt: { x: 2.55, y: 4.5 }, color: A },
     { fromX: -6, fromY: -4, x: -1, y: 4, label: 'b', labelAt: { x: -3.75, y: 1.5 }, color: B },
   ],
+  /** В8 №2 (скан 2–15, стр. 25): grid x −6…6, y −5…6. */
+  8: [
+    { fromX: 5, fromY: -4, x: -3, y: 6, label: 'a', labelAt: { x: 3.55, y: -1.6 }, color: A },
+    { fromX: -4, fromY: -1, x: 1, y: 3, label: 'b', labelAt: { x: -3.15, y: 0.6 }, color: B },
+  ],
   /** В4 №2 (скан 2–15, стр. 9): grid x −6…6, y −5…6. */
   4: [
     { fromX: 5, fromY: 6, x: -6, y: -1, label: 'a', labelAt: { x: -1.5, y: 2.8 }, color: A },
@@ -689,21 +694,47 @@ export const EGE_2027_V7_T9_TANGENT = {
   ],
 } as const;
 
-export function Ege2027V7Task9() {
-  const [[x1, y1], [x2, y2]] = EGE_2027_V7_T9_TANGENT.through;
+/**
+ * A printed curve y = f(x) with its tangent at x₀: the tangent through
+ * two marked grid nodes, a dot at the point of tangency, a dashed line
+ * down to x₀ on the axis, and the «y = f(x)» caption where the book has it.
+ */
+function TangentFigure({
+  waypoints,
+  tangent,
+  xMin,
+  xMax,
+  yMin,
+  yMax,
+  caption,
+  ariaLabel,
+}: {
+  waypoints: readonly (readonly [number, number])[];
+  tangent: { x0: number; through: readonly (readonly [number, number])[] };
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  caption: { x: number; y: number };
+  ariaLabel: string;
+}) {
+  const [[x1, y1], [x2, y2]] = tangent.through as [
+    readonly [number, number],
+    readonly [number, number],
+  ];
   const k = (y2 - y1) / (x2 - x1);
   const line = (x: number) => y1 + k * (x - x1);
-  const { x0 } = EGE_2027_V7_T9_TANGENT;
+  const { x0 } = tangent;
   return (
     <CoordinatePlaneBase
-      xMin={-7}
-      xMax={4}
-      yMin={-4}
-      yMax={3}
+      xMin={xMin}
+      xMax={xMax}
+      yMin={yMin}
+      yMax={yMax}
       tickLabels={{ x: [1], y: [1] }}
       squareCells
       maxWidth={420}
-      ariaLabel="График функции y = f(x) и касательная к нему в точке с абсциссой x₀ (вариант 7, задание 9)"
+      ariaLabel={ariaLabel}
     >
       {({ toSvgX, toSvgY, clipPathUrl }) => (
         <>
@@ -718,7 +749,7 @@ export function Ege2027V7Task9() {
           />
           <text
             x={toSvgX(x0)}
-            y={toSvgY(0) - 7}
+            y={line(x0) < 0 ? toSvgY(0) - 7 : toSvgY(0) + 16}
             fontSize={14}
             fontStyle="italic"
             textAnchor="middle"
@@ -727,24 +758,22 @@ export function Ege2027V7Task9() {
             x₀
           </text>
           <line
-            x1={toSvgX(-7)}
-            y1={toSvgY(line(-7))}
-            x2={toSvgX(2)}
-            y2={toSvgY(line(2))}
+            x1={toSvgX(xMin)}
+            y1={toSvgY(line(xMin))}
+            x2={toSvgX(xMax)}
+            y2={toSvgY(line(xMax))}
             stroke={LINE}
             strokeWidth={2}
             clipPath={clipPathUrl}
           />
           <path
-            d={splinePath(
-              EGE_2027_V7_T9_WAYPOINTS.map(([x, y]) => [toSvgX(x), toSvgY(y)] as const),
-            )}
+            d={splinePath(waypoints.map(([x, y]) => [toSvgX(x), toSvgY(y)] as const))}
             fill="none"
             stroke={LINE}
             strokeWidth={2.25}
             clipPath={clipPathUrl}
           />
-          {[...EGE_2027_V7_T9_TANGENT.through, [x0, line(x0)] as const].map(([x, y]) => (
+          {[...tangent.through, [x0, line(x0)] as const].map(([x, y]) => (
             <circle
               key={x}
               cx={toSvgX(x)}
@@ -754,8 +783,8 @@ export function Ege2027V7Task9() {
             />
           ))}
           <text
-            x={toSvgX(-2.4)}
-            y={toSvgY(2.2) + 5}
+            x={toSvgX(caption.x)}
+            y={toSvgY(caption.y) + 5}
             fontSize={14}
             fontStyle="italic"
             fill={LINE}
@@ -768,6 +797,21 @@ export function Ege2027V7Task9() {
         </>
       )}
     </CoordinatePlaneBase>
+  );
+}
+
+export function Ege2027V7Task9() {
+  return (
+    <TangentFigure
+      waypoints={EGE_2027_V7_T9_WAYPOINTS}
+      tangent={EGE_2027_V7_T9_TANGENT}
+      xMin={-7}
+      xMax={4}
+      yMin={-4}
+      yMax={3}
+      caption={{ x: -2.4, y: 2.2 }}
+      ariaLabel="График функции y = f(x) и касательная к нему в точке с абсциссой x₀ (вариант 7, задание 9)"
+    />
   );
 }
 
@@ -790,6 +834,120 @@ export function Ege2027V7Task12() {
         { x: 2, y: -2 },
       ]}
       ariaLabel="График функции f(x) = ax² − 0,8x + c с отмеченными точками (вариант 7, задание 12)"
+    />
+  );
+}
+
+/**
+ * В8 №9 (скан 2–15, стр. 26): the printed curve y = f(x), traced every
+ * 0.2 (30.7 px per cell), and its tangent at x₀ ≈ −4.9 through the
+ * marked nodes (−6; 3) and (−1; −4), slope −1.4. Near x₀ the trace is
+ * replaced by line + c·(x − x₀)² so the curve touches the line there.
+ */
+export const EGE_2027_V8_T9_WAYPOINTS: readonly (readonly [number, number])[] = [
+  [-5.4, 3.23],
+  [-5.2, 2.14],
+  [-5, 1.63],
+  [-4.9, 1.46],
+  [-4.8, 1.35],
+  [-4.6, 1.2],
+  [-4.4, 1.09],
+  [-4.2, 1.08],
+  [-4, 1.07],
+  [-3.8, 1.09],
+  [-3.6, 1.14],
+  [-3.4, 1.22],
+  [-3.2, 1.32],
+  [-3, 1.44],
+  [-2.8, 1.57],
+  [-2.6, 1.69],
+  [-2.4, 1.81],
+  [-2.2, 1.92],
+  [-2, 2.04],
+  [-1.8, 2.15],
+  [-1.6, 2.24],
+  [-1.4, 2.31],
+  [-1.2, 2.37],
+  [-1, 2.43],
+  [-0.8, 2.47],
+  [-0.6, 2.49],
+  [-0.4, 2.51],
+  [-0.2, 2.52],
+  [0, 2.53],
+  [0.2, 2.51],
+  [0.4, 2.47],
+  [0.6, 2.39],
+  [0.8, 2.28],
+  [1, 2.12],
+  [1.2, 1.9],
+  [1.4, 1.61],
+  [1.6, 1.25],
+  [1.8, 0.82],
+  [2, 0.29],
+  [2.2, -0.32],
+  [2.4, -0.96],
+  [2.6, -1.65],
+  [2.8, -2.32],
+  [3, -2.89],
+];
+export const EGE_2027_V8_T9_TANGENT = {
+  x0: -4.9,
+  through: [
+    [-6, 3],
+    [-1, -4],
+  ],
+} as const;
+
+export function Ege2027V8Task9() {
+  return (
+    <TangentFigure
+      waypoints={EGE_2027_V8_T9_WAYPOINTS}
+      tangent={EGE_2027_V8_T9_TANGENT}
+      xMin={-7}
+      xMax={4}
+      yMin={-5}
+      yMax={4}
+      caption={{ x: -4.3, y: 3 }}
+      ariaLabel="График функции y = f(x) и касательная к нему в точке с абсциссой x₀ (вариант 8, задание 9)"
+    />
+  );
+}
+
+export function Ege2027V8Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-5}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[8]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 8, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/** В8 №12 (скан 2–15, стр. 27): f(x)=ax²+0,8x+c through (0;−2), (4;−2) ⇒ a=−0,2, c=−2. */
+export const ege2027V8T12 = (x: number) => -0.2 * x * x + 0.8 * x - 2;
+
+export function Ege2027V8Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V8T12}
+      xMin={-3}
+      xMax={7}
+      yMin={-8}
+      yMax={2}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={340}
+      points={[
+        { x: 0, y: -2 },
+        { x: 4, y: -2 },
+      ]}
+      ariaLabel="График функции f(x) = ax² + 0,8x + c с отмеченными точками (вариант 8, задание 12)"
     />
   );
 }
