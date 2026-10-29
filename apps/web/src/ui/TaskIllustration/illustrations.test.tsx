@@ -13,6 +13,7 @@ import {
   ege2026V7T11,
   ege2026V9T11,
 } from './Ege2026Figures.js';
+import { EGE_2027_V2_T9_WAYPOINTS, ege2027V2T12 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
 const V1 = ['ege-2026-variant-1'];
@@ -32,6 +33,8 @@ describe('illustration registry', () => {
         'ege-2026-variant-7:11',
         'ege-2026-variant-9:11',
         'ege-2026-variant-10:11',
+        'ege-2027-variant-2:9',
+        'ege-2027-variant-2:12',
       ].sort(),
     );
   });
@@ -185,5 +188,48 @@ describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the
     expect(s[4]!).toBeGreaterThan(1); // rising
     expect(s[1]!).toBeLessThan(-1.5); // steep fall
     expect(Math.min(...Object.values(s))).toBe(s[1]);
+  });
+});
+
+describe('ЕГЭ 2027 Ященко, Вариант 2 — figures drawn from the scan', () => {
+  const V2 = ['ege-2027-variant-2'];
+
+  it('only В2 №9 and №12 get an SVG; В1, other numbers and 2026 never get it', () => {
+    for (const n of [9, 12]) {
+      const { container } = render(<>{getCustomIllustration(V2, n)}</>);
+      const svg = container.querySelector('svg');
+      expect(svg).toHaveAttribute('role', 'img');
+      expect(svg?.getAttribute('aria-label')).toContain(`вариант 2, задание ${n})`);
+      expect(container.querySelector('img')).toBeNull();
+      expect(illustrationReconstructsOriginal(V2, n)).toBe(true);
+      expect(getCustomIllustration(['ege-2027-variant-1'], n)).toBeNull();
+    }
+    for (const n of [1, 3]) expect(getCustomIllustration(V2, n)).toBeNull();
+    expect(getCustomIllustration(['ege-2026-variant-2'], 9)).toBeNull();
+  });
+
+  it('№9: f′ changes sign − → + on [−5; 3] only at −2 (the recorded answer), + → − at 2', () => {
+    const w = EGE_2027_V2_T9_WAYPOINTS;
+    expect(w[0]![0]).toBe(-7);
+    expect(w[w.length - 1]![0]).toBe(7);
+    const zeros: { x: number; rising: boolean }[] = [];
+    for (let i = 0; i < w.length - 1; i += 1) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 * y1 < 0) zeros.push({ x: x0 - (y0 * (x1 - x0)) / (y1 - y0), rising: y1 > y0 });
+    }
+    expect(zeros.map((z) => Math.round(z.x))).toEqual([-6, -2, 2]);
+    for (const z of zeros) expect(Math.abs(z.x - Math.round(z.x))).toBeLessThan(0.1);
+    const minima = zeros.filter((z) => z.rising && z.x >= -5 && z.x <= 3);
+    expect(minima.map((z) => Math.round(z.x))).toEqual([-2]);
+    expect(curveY(w, -1)).toBeCloseTo(3, 1); // the printed peak sits on the grid node
+  });
+
+  it('№12: through (1;0), (3;2), (9;4), and f(x) = 6 at x = 27', () => {
+    expect(ege2027V2T12(1)).toBeCloseTo(0, 12);
+    expect(ege2027V2T12(3)).toBeCloseTo(2, 12);
+    expect(ege2027V2T12(9)).toBeCloseTo(4, 12);
+    expect(ege2027V2T12(27)).toBeCloseTo(6, 12);
+    expect(Number.isNaN(ege2027V2T12(0))).toBe(true);
   });
 });

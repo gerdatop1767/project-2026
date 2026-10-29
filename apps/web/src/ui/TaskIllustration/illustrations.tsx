@@ -17,6 +17,7 @@ import {
   Ege2026V9Task11,
   Ege2026V9Task2,
 } from './Ege2026Figures.js';
+import { Ege2027V2Task12, Ege2027V2Task9 } from './Ege2027Figures.js';
 
 /** Matches the renderer families a new illustration can be built from — see CoordinatePlaneBase/FunctionGraphSVG/CoordinatePlaneSVG and the *SVG task components for the actual drawing code. Kept mainly for tests/documentation, not for any runtime branching. */
 export type IllustrationKind =
@@ -49,7 +50,9 @@ interface IllustrationEntry {
  * ЕГЭ 2026 Ященко Вариант 1 (pages 1-4): the source prints a real diagram
  * for tasks 1, 3, 8 and 11 — 2, 14 and 17 are text-only, their SVG is a
  * solving aid. Варианты 3–10: drawn from «ЕГЭ 2026 Ященко, первые 20
- * вариантов» (docs/imports/ege-2026-v2-v10-figures-audit.md).
+ * вариантов» (docs/imports/ege-2026-v2-v10-figures-audit.md). ЕГЭ 2027
+ * Ященко Вариант 2 №9 and №12: drawn from the book's scan
+ * (docs/imports/ege-2027-yashchenko-v1-v2-report.md).
  */
 const CUSTOM_ILLUSTRATIONS: Record<string, IllustrationEntry> = {
   'ege-2026-variant-1:1': {
@@ -131,6 +134,16 @@ const CUSTOM_ILLUSTRATIONS: Record<string, IllustrationEntry> = {
     kind: 'function_graph',
     reconstructsOriginal: true,
     render: () => <Ege2026V10Task11 />,
+  },
+  'ege-2027-variant-2:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V2Task9 />,
+  },
+  'ege-2027-variant-2:12': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V2Task12 />,
   },
 };
 

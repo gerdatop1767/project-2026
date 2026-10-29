@@ -80,15 +80,34 @@ describe('figures are bound to the task, not just to its number', () => {
       <TaskExamIllustration
         subjectId="math"
         tags={['ege-2027-variant-2']}
-        taskNumber={9}
-        imageUrl="/tasks/imports/ege-2027-variant-2/task-09-derivative-graph.png"
+        taskNumber={1}
+        imageUrl="/tasks/imports/ege-2027-variant-2/task-01-triangle.png"
       />,
     );
-    const img = screen.getByRole('img', { name: 'Рисунок к заданию 9' });
-    expect(img).toHaveAttribute(
-      'src',
-      '/tasks/imports/ege-2027-variant-2/task-09-derivative-graph.png',
-    );
+    const img = screen.getByRole('img', { name: 'Рисунок к заданию 1' });
+    expect(img).toHaveAttribute('src', '/tasks/imports/ege-2027-variant-2/task-01-triangle.png');
+  });
+
+  it('ЕГЭ 2027 В2 №9 and №12 show their own SVG, not the scan crop kept in imageUrl', () => {
+    for (const [n, file] of [
+      [9, 'task-09-derivative-graph.png'],
+      [12, 'task-12-log-graph.png'],
+    ] as const) {
+      const r = render(
+        <TaskExamIllustration
+          subjectId="math"
+          tags={['ege-2027-variant-2']}
+          taskNumber={n}
+          imageUrl={`/tasks/imports/ege-2027-variant-2/${file}`}
+          conditionMd="На рисунке изображён график"
+        />,
+      );
+      expect(
+        r.container.querySelector(`svg[aria-label*="вариант 2, задание ${n})"]`),
+      ).not.toBeNull();
+      expect(r.container.querySelector('img')).toBeNull();
+      r.unmount();
+    }
   });
 });
 
