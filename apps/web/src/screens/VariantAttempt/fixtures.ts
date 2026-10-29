@@ -1,4 +1,8 @@
-import type { VariantAttemptDetail, VariantAttemptTask } from '@zybrilka/shared';
+import type {
+  VariantAttemptDetail,
+  VariantAttemptScoring,
+  VariantAttemptTask,
+} from '@zybrilka/shared';
 
 export const attemptTask = (
   position: number,
@@ -52,5 +56,67 @@ export const attemptDetail = (over: Partial<VariantAttemptDetail> = {}): Variant
     { taskId: 'task-3', taskNumber: 3, topic: 'Логарифмы' },
     { taskId: 'task-4', taskNumber: 4, topic: null },
   ],
+  scoring: null,
+  ...over,
+});
+
+/** A 2027 attempt's points: №17 under review, Part 2 by answer, no scale yet. */
+export const attemptScoring = (
+  over: Partial<VariantAttemptScoring> = {},
+): VariantAttemptScoring => ({
+  rulesId: 'ege-math-profile-2027@project-2026-08',
+  rulesStatus: 'project',
+  format: 'ege-math-profile-2027',
+  primary: 9,
+  maxAvailable: 31,
+  examMaxTotal: 33,
+  partOne: { awarded: 1, max: 13 },
+  partTwo: { awarded: 8, max: 18 },
+  unavailableTaskNumbers: [17],
+  tasks: [
+    {
+      taskId: 'task-1',
+      taskNumber: 1,
+      max: 1,
+      awarded: 1,
+      status: 'full',
+      estimated: false,
+      note: null,
+    },
+    {
+      taskId: 'task-2',
+      taskNumber: 2,
+      max: 1,
+      awarded: 0,
+      status: 'zero',
+      estimated: false,
+      note: null,
+    },
+    {
+      taskId: 'task-3',
+      taskNumber: 3,
+      max: 1,
+      awarded: 0,
+      status: 'unanswered',
+      estimated: false,
+      note: null,
+    },
+    {
+      taskId: 'task-20',
+      taskNumber: 20,
+      max: 4,
+      awarded: 2,
+      status: 'partial',
+      estimated: true,
+      note: null,
+    },
+  ],
+  conversion: {
+    available: false,
+    reason:
+      'Официальная шкала перевода ЕГЭ-2027 ещё не опубликована — её утверждают после экзамена. Показаны только первичные баллы.',
+  },
+  preliminary: false,
+  rulesSource: 'snapshot',
   ...over,
 });

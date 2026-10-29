@@ -1,6 +1,6 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
-import type { LearningSessionStatus } from '@zybrilka/shared';
+import type { LearningSessionStatus, VariantScoringSnapshot } from '@zybrilka/shared';
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 
 export interface LearningSessionRow {
@@ -15,6 +15,8 @@ export interface LearningSessionRow {
    * comment. `plannedTaskIds` is also non-null exactly when this is. */
   readonly variantId: string | null;
   readonly plannedTaskIds: readonly string[] | null;
+  /** A variant's scoring rules frozen at its start; null before 0035. */
+  readonly scoring: VariantScoringSnapshot | null;
   readonly status: LearningSessionStatus;
   readonly startedAt: Date;
   readonly completedAt: Date | null;
@@ -31,6 +33,7 @@ function toRow(row: typeof schema.learningSessions.$inferSelect): LearningSessio
     randomizeTopTier: row.randomizeTopTier,
     variantId: row.variantId,
     plannedTaskIds: row.plannedTaskIds ?? null,
+    scoring: row.scoring ?? null,
     status: row.status as LearningSessionStatus,
     startedAt: row.startedAt,
     completedAt: row.completedAt,
@@ -51,6 +54,8 @@ export async function createSession(
     randomizeTopTier?: boolean;
     variantId?: string;
     plannedTaskIds?: readonly string[];
+    /** A variant's scoring rules, frozen for this attempt. */
+    scoring?: VariantScoringSnapshot | null;
   },
 ): Promise<LearningSessionRow> {
   const [row] = await db
@@ -64,6 +69,7 @@ export async function createSession(
       randomizeTopTier: input.randomizeTopTier ?? false,
       variantId: input.variantId,
       plannedTaskIds: input.plannedTaskIds,
+      scoring: input.scoring ?? null,
     })
     .returning();
   return toRow(row!);
@@ -76,10 +82,15 @@ export async function createSession(
 export async function getVariantIdentity(
   db: Database,
   variantId: string,
-): Promise<{ variantNumber: number; title: string } | undefined> {
+): Promise<{ variantNumber: number; title: string; examFormat: string | null } | undefined> {
   const [row] = await db
-    .select({ variantNumber: schema.variants.variantNumber, title: schema.variants.title })
+    .select({
+      variantNumber: schema.variants.variantNumber,
+      title: schema.variants.title,
+      examFormat: schema.collections.examFormat,
+    })
     .from(schema.variants)
+    .innerJoin(schema.collections, eq(schema.collections.id, schema.variants.collectionId))
     .where(eq(schema.variants.id, variantId));
   return row;
 }

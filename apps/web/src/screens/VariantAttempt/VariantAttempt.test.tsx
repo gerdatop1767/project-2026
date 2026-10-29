@@ -6,7 +6,7 @@ import * as api from '../../lib/api.js';
 import { ApiError } from '../../lib/api.js';
 import { VariantHistoryCard } from '../../ui/Statistics/VariantHistoryCard.js';
 import { VariantAttempt } from './VariantAttempt.js';
-import { attemptDetail } from './fixtures.js';
+import { attemptDetail, attemptScoring } from './fixtures.js';
 
 vi.mock('../../lib/api.js', async (importOriginal) => ({
   ApiError: (await importOriginal<typeof api>()).ApiError,
@@ -135,5 +135,91 @@ describe('VariantAttempt — one attempt’s full result', () => {
     expect(screen.getByTestId('where')).toHaveTextContent(
       'variantAttempt:aaaaaaaa-0000-4000-8000-000000000002',
     );
+  });
+});
+
+describe('VariantAttempt — «Баллы ЕГЭ»', () => {
+  it('shows primary points, the part split and the per-task breakdown; no test score without a scale', async () => {
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({ scoring: attemptScoring() }),
+    );
+    renderAttempt();
+    const card = (await screen.findByRole('heading', { name: 'Баллы ЕГЭ' })).closest(
+      'div',
+    )!.parentElement!;
+    expect(within(card).getByText('9')).toBeInTheDocument();
+    expect(within(card).getByText('из 33')).toBeInTheDocument();
+    expect(within(card).getByText('1 / 13')).toBeInTheDocument();
+    expect(within(card).getByText('8 / 18')).toBeInTheDocument();
+    expect(
+      within(card).getByText(/шкала перевода ЕГЭ-2027 ещё не опубликована/),
+    ).toBeInTheDocument();
+    expect(within(card).getByText(/№17 сейчас на проверке/)).toBeInTheDocument();
+    expect(within(card).getByText(/Часть 2 оценена только по ответу/)).toBeInTheDocument();
+    expect(within(card).getByText(/по проекту КИМ ЕГЭ 2027/)).toBeInTheDocument();
+    expect(within(card).queryByText('Предварительно')).not.toBeInTheDocument();
+    const table = within(card).getByRole('table', { name: 'Баллы по заданиям' });
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(5);
+    expect(within(rows[4]!).getByText('Частично')).toBeInTheDocument();
+    expect(within(rows[4]!).getByText('2 из 4')).toBeInTheDocument();
+    expect(within(rows[3]!).getByText('Нет ответа')).toBeInTheDocument();
+  });
+
+  it('marks an unfinished attempt as preliminary', async () => {
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({ status: 'active', scoring: attemptScoring({ preliminary: true }) }),
+    );
+    renderAttempt();
+    expect(await screen.findByText('Предварительно')).toBeInTheDocument();
+    expect(screen.getByText('Вариант не завершён — баллы могут измениться.')).toBeInTheDocument();
+  });
+
+  it('shows a confirmed approximate scale as an estimate, with its source', async () => {
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({
+        scoring: attemptScoring({
+          conversion: {
+            available: true,
+            testScore: 50,
+            scaleId: 's',
+            status: 'approximate',
+            source: 'тестовая шкала',
+            updatedAt: '2027-07-01',
+          },
+        }),
+      }),
+    );
+    renderAttempt();
+    expect(await screen.findByText('≈ 50')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Оценка приблизительная, официальная шкала может отличаться/),
+    ).toBeInTheDocument();
+  });
+
+  it('«Разобрать ошибки» opens the first wrong task’s explanation in place', async () => {
+    const user = userEvent.setup();
+    Element.prototype.scrollIntoView = vi.fn();
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({ scoring: attemptScoring() }),
+    );
+    renderAttempt();
+    await user.click(await screen.findByRole('button', { name: /Разобрать ошибки/ }));
+    const tasks = screen.getByRole('heading', { name: 'Задания и ответы' }).closest('section')!;
+    expect(within(tasks).getByRole('button', { name: /№3/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(within(tasks).getByRole('button', { name: /№4/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('shows no points block for a source without exam rules', async () => {
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(attemptDetail());
+    renderAttempt();
+    await screen.findByRole('heading', { name: 'Вариант 1' });
+    expect(screen.queryByRole('heading', { name: 'Баллы ЕГЭ' })).not.toBeInTheDocument();
   });
 });
