@@ -76,6 +76,50 @@ export function taskIdsForCollectionOrVariant(
 }
 
 /**
+ * Task ids of sources outside «Все источники» (`collections.inAllSources
+ * = false` — e.g. the ЕГЭ 2027 edition, whose task numbers mean other
+ * tasks than the current exam's). Such a task is reachable only through
+ * its own collection/variant, never through the subject's default pool.
+ */
+export function taskIdsOutsideAllSources(db: Database) {
+  return db
+    .select({ id: schema.variantTasks.taskId })
+    .from(schema.variantTasks)
+    .innerJoin(schema.variants, eq(schema.variantTasks.variantId, schema.variants.id))
+    .innerJoin(schema.collections, eq(schema.variants.collectionId, schema.collections.id))
+    .where(eq(schema.collections.inAllSources, false));
+}
+
+/** The task is in its subject's default pool («Все источники»). */
+export function inAllSourcesPool(db: Database) {
+  return notInArray(schema.tasks.id, taskIdsOutsideAllSources(db));
+}
+
+/**
+ * The source condition every task picker uses: the chosen collection or
+ * variant, else the default pool («Все источники»), so a source outside
+ * it can never leak into a «все источники» pick.
+ */
+export function sourceScope(db: Database, filters: { collection?: string; variant?: string }) {
+  const scoped = taskIdsForCollectionOrVariant(db, filters);
+  return scoped ? inArray(schema.tasks.id, scoped) : inAllSourcesPool(db);
+}
+
+/**
+ * For «Похожие задания»: the collections outside «Все источники» that
+ * `taskId` belongs to — their slugs, or [] for a default-pool task.
+ */
+export async function outsideSourcesOf(db: Database, taskId: string): Promise<string[]> {
+  const rows = await db
+    .select({ slug: schema.collections.slug })
+    .from(schema.variantTasks)
+    .innerJoin(schema.variants, eq(schema.variantTasks.variantId, schema.variants.id))
+    .innerJoin(schema.collections, eq(schema.variants.collectionId, schema.collections.id))
+    .where(and(eq(schema.variantTasks.taskId, taskId), eq(schema.collections.inAllSources, false)));
+  return [...new Set(rows.map((r) => r.slug))];
+}
+
+/**
  * Real published-task counts, one query for every subject at once —
  * the Home "Математика — N заданий" cards need exactly this, and
  * fetching it once here beats a separate `/tasks?subject=X` round trip
@@ -87,7 +131,7 @@ export async function getCountsBySubject(
   return db
     .select({ subjectId: schema.tasks.subjectId, count: count() })
     .from(schema.tasks)
-    .where(eq(schema.tasks.status, 'published'))
+    .where(and(eq(schema.tasks.status, 'published'), inAllSourcesPool(db)))
     .groupBy(schema.tasks.subjectId);
 }
 
@@ -104,8 +148,12 @@ export async function listTasks(
   if (filters.taskNumber) conditions.push(eq(schema.tasks.taskNumber, filters.taskNumber));
   if (filters.topic) conditions.push(eq(schema.tasks.topicId, filters.topic));
   if (filters.difficulty) conditions.push(eq(schema.tasks.difficulty, filters.difficulty));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  let scope: { collection?: string; variant?: string } = filters;
+  if (!filters.collection && !filters.variant && filters.sameSourceAs) {
+    const own = await outsideSourcesOf(db, filters.sameSourceAs);
+    if (own.length > 0) scope = { collection: own[0] };
+  }
+  conditions.push(sourceScope(db, scope));
   if (filters.unsolved && userId) {
     conditions.push(
       notInArray(
@@ -167,8 +215,7 @@ export async function getRandomTask(
   if (filters.subject) conditions.push(eq(schema.tasks.subjectId, filters.subject));
   if (filters.taskNumber) conditions.push(eq(schema.tasks.taskNumber, filters.taskNumber));
   if (filters.topic) conditions.push(eq(schema.tasks.topicId, filters.topic));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  conditions.push(sourceScope(db, filters));
   if (filters.unseen && userId) {
     conditions.push(
       notInArray(

@@ -22,6 +22,8 @@ function toCollectionPublic(row: repo.VariantWithCollection['collection']): Coll
     publisher: row.publisher,
     year: row.year,
     description: row.description,
+    inAllSources: row.inAllSources,
+    examFormat: row.examFormat,
   };
 }
 

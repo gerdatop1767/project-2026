@@ -13,7 +13,7 @@ import {
   isNotNull,
   sql,
 } from 'drizzle-orm';
-import { taskIdsForCollectionOrVariant } from '../tasks/repo.js';
+import { inAllSourcesPool, sourceScope } from '../tasks/repo.js';
 
 export async function getTotals(db: Database, userId: string) {
   const [row] = await db
@@ -65,17 +65,21 @@ export async function getUniqueSolvedBySubject(db: Database, userId: string) {
 }
 
 export async function getByTaskNumber(db: Database, userId: string) {
-  return db
-    .select({
-      subjectId: schema.tasks.subjectId,
-      taskNumber: schema.tasks.taskNumber,
-      solved: count(),
-      correct: count(sql`case when ${schema.attempts.isCorrect} then 1 end`),
-    })
-    .from(schema.attempts)
-    .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
-    .where(eq(schema.attempts.userId, userId))
-    .groupBy(schema.tasks.subjectId, schema.tasks.taskNumber);
+  return (
+    db
+      .select({
+        subjectId: schema.tasks.subjectId,
+        taskNumber: schema.tasks.taskNumber,
+        solved: count(),
+        correct: count(sql`case when ${schema.attempts.isCorrect} then 1 end`),
+      })
+      .from(schema.attempts)
+      .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
+      // «№N» means the current exam's N: an edition with its own numbering
+      // (outside «Все источники») is not mixed into these buckets.
+      .where(and(eq(schema.attempts.userId, userId), inAllSourcesPool(db)))
+      .groupBy(schema.tasks.subjectId, schema.tasks.taskNumber)
+  );
 }
 
 export async function getByTopic(db: Database, userId: string) {
@@ -111,8 +115,7 @@ export async function getByTaskNumberWithTotals(
 ) {
   const conditions = [eq(schema.tasks.status, 'published' as const)];
   if (filters.subject) conditions.push(eq(schema.tasks.subjectId, filters.subject));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  conditions.push(sourceScope(db, filters));
   const where = and(...conditions);
 
   const totals = await db
@@ -199,8 +202,7 @@ export async function getByTopicWithTotals(
     isNotNull(schema.tasks.topicId),
   ];
   if (filters.subject) conditions.push(eq(schema.tasks.subjectId, filters.subject));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  conditions.push(sourceScope(db, filters));
   const where = and(...conditions);
 
   const totals = await db
@@ -354,6 +356,7 @@ export async function getAttemptsForTaskNumberDetail(
         eq(schema.attempts.userId, userId),
         eq(schema.tasks.subjectId, subjectId),
         eq(schema.tasks.taskNumber, taskNumber),
+        inAllSourcesPool(db),
       ),
     )
     .orderBy(asc(schema.attempts.createdAt));
@@ -399,7 +402,13 @@ export async function getSkillRowsForTaskNumber(
         eq(schema.userSkillStatistics.userId, userId),
       ),
     )
-    .where(and(eq(schema.tasks.subjectId, subjectId), eq(schema.tasks.taskNumber, taskNumber)));
+    .where(
+      and(
+        eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.taskNumber, taskNumber),
+        inAllSourcesPool(db),
+      ),
+    );
 }
 
 /**
@@ -466,7 +475,13 @@ export async function getTaskStatisticsForTaskNumber(
     })
     .from(schema.taskStatistics)
     .innerJoin(schema.tasks, eq(schema.taskStatistics.taskId, schema.tasks.id))
-    .where(and(eq(schema.tasks.subjectId, subjectId), eq(schema.tasks.taskNumber, taskNumber)));
+    .where(
+      and(
+        eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.taskNumber, taskNumber),
+        inAllSourcesPool(db),
+      ),
+    );
 }
 
 /**
@@ -494,6 +509,7 @@ export async function getDominantTopicNameForTaskNumber(
         eq(schema.tasks.subjectId, subjectId),
         eq(schema.tasks.taskNumber, taskNumber),
         eq(schema.tasks.status, 'published' as const),
+        inAllSourcesPool(db),
       ),
     )
     .groupBy(schema.topics.name)

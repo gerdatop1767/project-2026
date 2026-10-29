@@ -28,6 +28,8 @@ const IMPORT_TAG = 'ege-2026-variant-4';
 const COLLECTION_SLUG = 'ege-2026-yashchenko';
 const COLLECTION_TITLE = 'ЕГЭ 2026 Ященко';
 const COLLECTION_PUBLISHER = 'Ященко';
+/** Scoring rules of this edition (`@zybrilka/shared` examScoring). */
+const EXAM_FORMAT = 'ege-math-profile-2026';
 const VARIANT_TITLE = 'ЕГЭ 2026 — Ященко — Вариант 4';
 const SOURCE_FILE = 'ЕГЭ_2026_Ященко_варианты_2-5.pdf';
 const SOURCE_PAGE_START = 9;
@@ -733,10 +735,16 @@ export async function importVariant4(db: Database) {
       publisher: COLLECTION_PUBLISHER,
       year: SOURCE_YEAR,
       status: 'published',
+      examFormat: EXAM_FORMAT,
     })
     .onConflictDoUpdate({
       target: schema.collections.slug,
-      set: { title: COLLECTION_TITLE, publisher: COLLECTION_PUBLISHER, year: SOURCE_YEAR },
+      set: {
+        title: COLLECTION_TITLE,
+        publisher: COLLECTION_PUBLISHER,
+        year: SOURCE_YEAR,
+        examFormat: EXAM_FORMAT,
+      },
     })
     .returning();
 

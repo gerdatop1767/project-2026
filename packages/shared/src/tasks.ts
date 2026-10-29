@@ -145,6 +145,13 @@ export const taskListQuerySchema = z.object({
   collection: z.string().optional(),
   /** A specific variant's id — only that variant's own tasks. */
   variant: z.uuid().optional(),
+  /**
+   * «Похожие задания» of this task: when it belongs to a source outside
+   * «Все источники» (another edition's numbering, e.g. ЕГЭ 2027), the
+   * list stays inside that source — a 2027 «№13» never lists 2026 «№13»
+   * tasks. Ignored when `collection`/`variant` is given.
+   */
+  sameSourceAs: z.uuid().optional(),
   // 'needs_review' is deliberately excluded here — it must never be
   // reachable through the public list endpoint, even by an explicit
   // query param, unlike the other statuses this endpoint already allows.
