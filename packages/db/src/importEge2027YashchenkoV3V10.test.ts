@@ -19,12 +19,13 @@ import {
 import { variant1 } from './importEge2027YashchenkoVariant1.js';
 import { variant2 } from './importEge2027YashchenkoVariant2.js';
 import { variant3 } from './importEge2027YashchenkoVariant3.js';
+import { variant4 } from './importEge2027YashchenkoVariant4.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
 
 /** Варианты 3–10 of the scan of Варианты 2–15: Вариант N on its pages 4N−7…4N−4. */
-const LATER: readonly VariantData[] = [variant3];
+const LATER: readonly VariantData[] = [variant3, variant4];
 
 type Task = VariantData['tasks'][number];
 
@@ -111,6 +112,16 @@ describe('ЕГЭ 2027 Ященко — Варианты 3–10 (скан вар�
     expect(accepts(v3(19), '(-2/3; -0,4]')).toBe(false);
     expect(accepts(v3(20), { a: 'да', b: 'нет', c: '33' })).toBe(true);
     expect(accepts(v3(20), { a: 'да', b: 'нет', c: '32' })).toBe(false);
+    const v4 = (n: number) => variant4.tasks[n - 1]!;
+    expect(accepts(v4(14), '-0,5; -2,5')).toBe(true);
+    expect(accepts(v4(14), '-2,5')).toBe(false);
+    expect(accepts(v4(15), '97/99')).toBe(true);
+    expect(accepts(v4(16), '[-√7,96;-√7,8]∪[-√3;√3]∪[√7,8;√7,96]')).toBe(true);
+    expect(accepts(v4(16), '[-√3;√3]')).toBe(false);
+    expect(accepts(v4(18), '5 : 9')).toBe(true);
+    expect(accepts(v4(19), '(-∞;-1,25) ∪ {-(5+9√5)/40} ∪ (1;+∞)')).toBe(true);
+    expect(accepts(v4(19), '(-∞;-1,25] ∪ {-(5+9√5)/40} ∪ (1;+∞)')).toBe(false);
+    expect(accepts(v4(20), { a: 'да', b: 'нет', c: '30' })).toBe(true);
   });
 
   describe('import', () => {

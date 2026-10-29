@@ -170,6 +170,7 @@ services:
         node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant1.js &&
         node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant2.js &&
         node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant3.js &&
+        node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant4.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant1.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant2.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant3.js &&

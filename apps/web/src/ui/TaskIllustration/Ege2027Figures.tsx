@@ -185,6 +185,11 @@ export const EGE_2027_VECTORS = {
     { fromX: -6, fromY: 5, x: 1, y: 1, label: 'a', labelAt: { x: -2.45, y: 3.75 }, color: A },
     { fromX: 5, fromY: -1, x: 4, y: -5, label: 'b', labelAt: { x: 3.55, y: -3.6 }, color: B },
   ],
+  /** В4 №2 (скан 2–15, стр. 9): grid x −6…6, y −5…6. */
+  4: [
+    { fromX: 5, fromY: 6, x: -6, y: -1, label: 'a', labelAt: { x: -1.5, y: 2.8 }, color: A },
+    { fromX: 1, fromY: 5, x: 5, y: -5, label: 'b', labelAt: { x: 3.6, y: -3.65 }, color: B },
+  ],
 } as const satisfies Record<number, readonly PlaneVector[]>;
 
 export function Ege2027V3Task2() {
@@ -227,6 +232,50 @@ export function Ege2027V3Task12() {
         { x: 1, y: -4, label: 'A', labelOffset: { dx: 7, dy: -7 } },
       ]}
       ariaLabel="Графики функций f(x) = k/x и g(x) = ax + b, пересекающиеся в точке A(1; −4) и в точке B (вариант 3, задание 12)"
+    />
+  );
+}
+
+export function Ege2027V4Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-5}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[4]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 4, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/** В4 №12 (скан 2–15, стр. 11): f(x)=k/x through A(1;2) and (−2;−1) ⇒ k=2; g through (−4;3) and A. */
+export const ege2027V4T12 = {
+  f: (x: number) => (x === 0 ? Number.NaN : 2 / x),
+  g: (x: number) => -0.2 * x + 2.2,
+};
+
+export function Ege2027V4Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V4T12.f}
+      extraCurves={[ege2027V4T12.g]}
+      xMin={-5}
+      xMax={5}
+      yMin={-5}
+      yMax={5}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      points={[
+        { x: -4, y: 3 },
+        { x: 1, y: 2, label: 'A', labelOffset: { dx: 7, dy: -9 } },
+        { x: -2, y: -1 },
+      ]}
+      ariaLabel="Графики функций f(x) = k/x и g(x) = ax + b, пересекающиеся в точке A(1; 2) и в точке B (вариант 4, задание 12)"
     />
   );
 }

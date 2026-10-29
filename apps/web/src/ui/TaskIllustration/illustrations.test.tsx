@@ -18,6 +18,7 @@ import {
   EGE_2027_VECTORS,
   ege2027V2T12,
   ege2027V3T12,
+  ege2027V4T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -42,6 +43,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-2:12',
         'ege-2027-variant-3:2',
         'ege-2027-variant-3:12',
+        'ege-2027-variant-4:2',
+        'ege-2027-variant-4:12',
       ].sort(),
     );
   });
@@ -251,6 +254,8 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
   it.each([
     [3, 2],
     [3, 12],
+    [4, 2],
+    [4, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -261,8 +266,12 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     // The 2026 task with the same variant and number is a different figure.
     const other = render(<>{getCustomIllustration([`ege-2026-variant-${v}`], n)}</>);
     expect(other.container.innerHTML).not.toBe(container.innerHTML);
-    // Never on another 2027 variant with the same number.
-    expect(getCustomIllustration(tag(v === 3 ? 4 : 3), n)).toBeNull();
+    // Another 2027 variant with the same number never shows this figure.
+    for (const w of [3, 4, 5, 6, 7, 8, 9, 10].filter((w) => w !== v)) {
+      const r = render(<>{getCustomIllustration(tag(w), n)}</>);
+      expect(r.container.innerHTML).not.toBe(container.innerHTML);
+      r.unmount();
+    }
   });
 
   it('every vector lies on grid nodes', () => {
@@ -287,5 +296,23 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     expect(g(-4)).toBeCloseTo(-2, 12);
     expect(g(1)).toBeCloseTo(-4, 12);
     expect(f(-10)).toBeCloseTo(g(-10), 12);
+  });
+
+  it('В4 №2: a = (−11; −7), b = (4; −10), |a + 0,5b| = 15', () => {
+    const [a, b] = [vec(4, 0), vec(4, 1)];
+    expect([a, b]).toEqual([
+      [-11, -7],
+      [4, -10],
+    ]);
+    expect(Math.hypot(a[0] + 0.5 * b[0], a[1] + 0.5 * b[1])).toBe(15);
+  });
+
+  it('В4 №12: both graphs pass the marked points and meet again at x = 10', () => {
+    const { f, g } = ege2027V4T12;
+    expect(f(1)).toBe(2);
+    expect(f(-2)).toBe(-1);
+    expect(g(-4)).toBeCloseTo(3, 12);
+    expect(g(1)).toBeCloseTo(2, 12);
+    expect(f(10)).toBeCloseTo(g(10), 12);
   });
 });
