@@ -1,5 +1,9 @@
 import { useMemo } from 'react';
-import { CoordinatePlaneBase, type CoordinateTransform } from './CoordinatePlaneBase.js';
+import {
+  CoordinatePlaneBase,
+  type CoordinatePlaneBaseProps,
+  type CoordinateTransform,
+} from './CoordinatePlaneBase.js';
 
 export interface FunctionGraphMarkedPoint {
   x: number;
@@ -20,7 +24,11 @@ export interface FunctionGraphSVGProps {
   /** Grid line spacing on each axis (default 1). */
   gridStep?: number;
   /** 'unitOnly' matches a source graph that only labels 0 and the unit tick. */
-  tickLabels?: 'all' | 'unitOnly';
+  tickLabels?: CoordinatePlaneBaseProps['tickLabels'];
+  /** Further functions drawn on the same axes (e.g. the line next to a parabola). */
+  extraCurves?: readonly ((x: number) => number)[];
+  squareCells?: boolean;
+  maxWidth?: number;
   /** Points to mark on the curve/axes (roots, intercepts, ...) with a filled dot + optional label. */
   points?: readonly FunctionGraphMarkedPoint[];
   ariaLabel: string;
@@ -41,6 +49,9 @@ export function FunctionGraphSVG({
   yMax,
   gridStep = 1,
   tickLabels = 'all',
+  extraCurves = [],
+  squareCells,
+  maxWidth,
   points = [],
   ariaLabel,
 }: FunctionGraphSVGProps) {
@@ -52,19 +63,38 @@ export function FunctionGraphSVG({
       yMax={yMax}
       gridStep={gridStep}
       tickLabels={tickLabels}
+      squareCells={squareCells}
+      maxWidth={maxWidth}
       ariaLabel={ariaLabel}
     >
-      {({ toSvgX, toSvgY }: CoordinateTransform) => (
-        <Curve
-          fn={fn}
-          xMin={xMin}
-          xMax={xMax}
-          yMin={yMin}
-          yMax={yMax}
-          toSvgX={toSvgX}
-          toSvgY={toSvgY}
-          points={points}
-        />
+      {({ toSvgX, toSvgY, clipPathUrl }: CoordinateTransform) => (
+        <>
+          {extraCurves.map((extra, i) => (
+            <Curve
+              key={i}
+              fn={extra}
+              xMin={xMin}
+              xMax={xMax}
+              yMin={yMin}
+              yMax={yMax}
+              toSvgX={toSvgX}
+              toSvgY={toSvgY}
+              clipPathUrl={clipPathUrl}
+              points={[]}
+            />
+          ))}
+          <Curve
+            fn={fn}
+            xMin={xMin}
+            xMax={xMax}
+            yMin={yMin}
+            yMax={yMax}
+            toSvgX={toSvgX}
+            toSvgY={toSvgY}
+            clipPathUrl={clipPathUrl}
+            points={points}
+          />
+        </>
       )}
     </CoordinatePlaneBase>
   );
@@ -78,6 +108,7 @@ function Curve({
   yMax,
   toSvgX,
   toSvgY,
+  clipPathUrl,
   points,
 }: {
   fn: (x: number) => number;
@@ -87,16 +118,27 @@ function Curve({
   yMax: number;
   toSvgX: (x: number) => number;
   toSvgY: (y: number) => number;
+  clipPathUrl: string;
   points: readonly FunctionGraphMarkedPoint[];
 }) {
   const curvePath = useMemo(() => {
-    const steps = 200;
+    const steps = 400;
     const segments: string[] = [];
+    // A point outside the drawn band (or where fn is undefined) breaks
+    // the line: the next point starts a new segment, never a stray "L".
+    let penDown = false;
     for (let i = 0; i <= steps; i += 1) {
       const x = xMin + (i / steps) * (xMax - xMin);
       const y = fn(x);
-      if (y >= yMin - (yMax - yMin) * 0.2 && y <= yMax + (yMax - yMin) * 0.2) {
-        segments.push(`${i === 0 ? 'M' : 'L'} ${toSvgX(x).toFixed(2)} ${toSvgY(y).toFixed(2)}`);
+      if (
+        Number.isFinite(y) &&
+        y >= yMin - (yMax - yMin) * 0.2 &&
+        y <= yMax + (yMax - yMin) * 0.2
+      ) {
+        segments.push(`${penDown ? 'L' : 'M'} ${toSvgX(x).toFixed(2)} ${toSvgY(y).toFixed(2)}`);
+        penDown = true;
+      } else {
+        penDown = false;
       }
     }
     return segments.join(' ');
@@ -105,7 +147,13 @@ function Curve({
 
   return (
     <>
-      <path d={curvePath} fill="none" stroke="var(--color-text-primary)" strokeWidth={2.5} />
+      <path
+        d={curvePath}
+        fill="none"
+        stroke="var(--color-text-primary)"
+        strokeWidth={2.5}
+        clipPath={clipPathUrl}
+      />
       {points.map((p, i) => (
         <g key={i}>
           <circle cx={toSvgX(p.x)} cy={toSvgY(p.y)} r={3.5} fill="var(--color-accent-secondary)" />

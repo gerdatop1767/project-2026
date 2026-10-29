@@ -97,7 +97,7 @@ describe('a condition that refers to a figure we do not have', () => {
     render(
       <TaskExamIllustration
         subjectId="math"
-        tags={['ege-2026-variant-7']}
+        tags={['ege-2026-variant-8']}
         taskNumber={8}
         conditionMd="На рисунке изображён график функции $y=f(x)$."
       />,
@@ -160,23 +160,21 @@ describe('ЕГЭ 2026: the 11 tasks from the figures audit', () => {
     [10, 11, 'task-11-graph.png'],
   ];
   it.each(RESTORED)(
-    'В%i №%i shows its own original figure (%s) — no Вариант 1 SVG, no «missing» note',
+    'В%i №%i shows its own SVG drawn from the original — not the PDF crop, not Вариант 1’s, no note',
     (v, n, file) => {
-      const src = `/tasks/imports/ege-2026-variant-${v}/${file}`;
       const { container } = render(
         <TaskExamIllustration
           subjectId="math"
           tags={[`ege-2026-variant-${v}`]}
           taskNumber={n}
-          imageUrl={src}
+          imageUrl={`/tasks/imports/ege-2026-variant-${v}/${file}`}
           conditionMd="На рисунке изображён график"
         />,
       );
-      expect(screen.getByRole('img', { name: `Рисунок к заданию ${n}` })).toHaveAttribute(
-        'src',
-        src,
-      );
-      expect(container.querySelector('svg')).toBeNull();
+      const svg = container.querySelector('svg[role="img"]');
+      expect(svg).not.toBeNull();
+      expect(svg!.getAttribute('aria-label')).toContain(`вариант ${v}, задание ${n}`);
+      expect(container.querySelector('img')).toBeNull();
       expect(screen.queryByRole('note')).not.toBeInTheDocument();
       const aid = render(
         <TaskSolutionIllustration

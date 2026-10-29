@@ -1,15 +1,6 @@
 import { getCustomIllustration, illustrationReconstructsOriginal } from './illustrations.js';
 import styles from './TaskIllustration.module.css';
 
-/**
- * The custom SVGs in illustrations.tsx were drawn from ЕГЭ 2026 Ященко
- * Вариант 1 — keyed by task number, so on their own they would also
- * land on every other task with that number (another 2026 variant, the
- * 2027 book, a demo task) and show the wrong figure there. They are
- * used only for tasks carrying this import tag.
- */
-export const SVG_ILLUSTRATIONS_TAG = 'ege-2026-variant-1';
-
 interface TaskFigureSource {
   subjectId: string;
   taskNumber: number;
@@ -18,11 +9,13 @@ interface TaskFigureSource {
   className?: string;
 }
 
+/**
+ * The custom SVGs (illustrations.tsx) are keyed by import tag and task
+ * number, so a figure lands only on the task it was drawn from — never
+ * on another variant's or book's task with the same number.
+ */
 function hasOwnSvg({ subjectId, taskNumber, tags }: TaskFigureSource): boolean {
-  return (
-    (tags ?? []).includes(SVG_ILLUSTRATIONS_TAG) &&
-    getCustomIllustration(subjectId, taskNumber) !== null
-  );
+  return subjectId === 'math' && getCustomIllustration(tags, taskNumber) !== null;
 }
 
 export interface TaskExamIllustrationProps extends TaskFigureSource {
@@ -39,11 +32,11 @@ export function conditionRefersToFigure(conditionMd: string | undefined): boolea
 
 /**
  * The figure printed with the task's condition, rendered inside
- * «Условие». For ЕГЭ 2026 Вариант 1 it is our verified vector
- * reconstruction (tasks 1, 3, 8, 11 — see illustrations.tsx). For any
- * other task it is that task's own `imageUrl`: an exact, unretouched
- * fragment of the source page, shown on a white "paper" ground in both
- * themes. A task with neither renders nothing — never another task's
+ * «Условие». When the task has its own SVG drawn from the original
+ * (illustrations.tsx — 2026 Вариант 1, and варианты 3–10 №2/8/11) that
+ * SVG is shown; the task's `imageUrl` (an exact crop of the source page,
+ * kept as the reference the SVG was checked against) is shown only for
+ * a task with no SVG, on a white "paper" ground in both themes. A task with neither renders nothing — never another task's
  * figure — or, when its condition refers to a figure, a short note that
  * the figure is missing.
  */
@@ -56,8 +49,8 @@ export function TaskExamIllustration({
   className,
 }: TaskExamIllustrationProps) {
   if (hasOwnSvg({ subjectId, taskNumber, tags })) {
-    if (!illustrationReconstructsOriginal(subjectId, taskNumber)) return null;
-    return <div className={className}>{getCustomIllustration(subjectId, taskNumber)}</div>;
+    if (!illustrationReconstructsOriginal(tags, taskNumber)) return null;
+    return <div className={className}>{getCustomIllustration(tags, taskNumber)}</div>;
   }
   if (!imageUrl) {
     // Never another task's figure — but say plainly that this one is missing.
@@ -104,11 +97,11 @@ export function TaskSolutionIllustration({
   className,
 }: TaskSolutionIllustrationProps) {
   if (!hasOwnSvg({ subjectId, taskNumber, tags })) return null;
-  if (illustrationReconstructsOriginal(subjectId, taskNumber)) return null;
+  if (illustrationReconstructsOriginal(tags, taskNumber)) return null;
   return (
     <div className={styles.solutionIllustration}>
       <p className={styles.solutionIllustrationLabel}>Иллюстрация к решению</p>
-      <div className={className}>{getCustomIllustration(subjectId, taskNumber)}</div>
+      <div className={className}>{getCustomIllustration(tags, taskNumber)}</div>
     </div>
   );
 }

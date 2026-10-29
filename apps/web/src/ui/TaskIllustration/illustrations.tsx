@@ -6,6 +6,17 @@ import { Task8DerivativeGraphSVG } from './Task8DerivativeGraphSVG.js';
 import { Task11ParabolaSVG } from './Task11ParabolaSVG.js';
 import { Task14PyramidSVG } from './Task14PyramidSVG.js';
 import { Task17TrapezoidSVG } from './Task17TrapezoidSVG.js';
+import {
+  Ege2026V10Task11,
+  Ege2026V10Task2,
+  Ege2026V3Task2,
+  Ege2026V4Task2,
+  Ege2026V6Task2,
+  Ege2026V7Task11,
+  Ege2026V7Task8,
+  Ege2026V9Task11,
+  Ege2026V9Task2,
+} from './Ege2026Figures.js';
 
 /** Matches the renderer families a new illustration can be built from — see CoordinatePlaneBase/FunctionGraphSVG/CoordinatePlaneSVG and the *SVG task components for the actual drawing code. Kept mainly for tests/documentation, not for any runtime branching. */
 export type IllustrationKind =
@@ -28,74 +39,136 @@ interface IllustrationEntry {
 }
 
 /**
- * Custom SVG illustrations for tasks whose diagram can be reproduced
- * exactly (not approximated) from the task's own given data — keyed by
- * (subjectId, taskNumber) rather than by task id, since Variant 1's
- * task ids are regenerated on every re-import but its task numbers are
- * stable. To add a new one: build a `TaskNVsomethingSVG` component (see
- * the existing ones for the house style — #111827 lines, #2563eb/
- * #16a34a accents for a secondary measurement/bisector, 12–14px
- * labels), then add one line here.
+ * Custom SVG illustrations, keyed by the task's import tag and number
+ * (`ege-2026-variant-3:2`) — never by the number alone: the same number
+ * in another variant or book is a different figure. To add one: draw it
+ * from the original (CoordinatePlaneSVG / FunctionGraphSVG /
+ * TracedGraphSVG, house style: #111827-like primary lines, accent
+ * colours for vectors, 12–14px labels), then add one line here.
  *
- * Per-task PDF check (EGE Fidelity audit, ЕГЭ 2026 Ященко Вариант 1,
- * pages 1-4): the source prints a real diagram only for tasks 1, 3, 8
- * and 11 — 2, 14 and 17 are text-only proofs with no picture at all.
+ * ЕГЭ 2026 Ященко Вариант 1 (pages 1-4): the source prints a real diagram
+ * for tasks 1, 3, 8 and 11 — 2, 14 and 17 are text-only, their SVG is a
+ * solving aid. Варианты 3–10: drawn from «ЕГЭ 2026 Ященко, первые 20
+ * вариантов» (docs/imports/ege-2026-v2-v10-figures-audit.md).
  */
 const CUSTOM_ILLUSTRATIONS: Record<string, IllustrationEntry> = {
-  'math:1': { kind: 'geometry_2d', reconstructsOriginal: true, render: () => <Task1TriangleSVG /> },
-  'math:2': {
+  'ege-2026-variant-1:1': {
+    kind: 'geometry_2d',
+    reconstructsOriginal: true,
+    render: () => <Task1TriangleSVG />,
+  },
+  'ege-2026-variant-1:2': {
     kind: 'coordinate_plane',
     reconstructsOriginal: false,
     render: () => <Task2VectorsSVG />,
   },
-  'math:3': {
+  'ege-2026-variant-1:3': {
     kind: 'geometry_3d',
     reconstructsOriginal: true,
     render: () => <Task3CylindersSVG />,
   },
-  'math:8': {
+  'ege-2026-variant-1:8': {
     kind: 'function_graph',
     reconstructsOriginal: true,
     render: () => <Task8DerivativeGraphSVG />,
   },
-  'math:11': {
+  'ege-2026-variant-1:11': {
     kind: 'function_graph',
     reconstructsOriginal: true,
     render: () => <Task11ParabolaSVG />,
   },
-  'math:14': {
+  'ege-2026-variant-1:14': {
     kind: 'geometry_3d',
     reconstructsOriginal: false,
     render: () => <Task14PyramidSVG />,
   },
-  'math:17': {
+  'ege-2026-variant-1:17': {
     kind: 'geometry_2d',
     reconstructsOriginal: false,
     render: () => <Task17TrapezoidSVG />,
   },
+  'ege-2026-variant-3:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V3Task2 />,
+  },
+  'ege-2026-variant-4:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V4Task2 />,
+  },
+  'ege-2026-variant-6:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V6Task2 />,
+  },
+  'ege-2026-variant-9:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V9Task2 />,
+  },
+  'ege-2026-variant-10:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V10Task2 />,
+  },
+  'ege-2026-variant-7:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V7Task8 />,
+  },
+  'ege-2026-variant-7:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V7Task11 />,
+  },
+  'ege-2026-variant-9:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V9Task11 />,
+  },
+  'ege-2026-variant-10:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V10Task11 />,
+  },
 };
 
-export function getCustomIllustration(subjectId: string, taskNumber: number): ReactNode | null {
-  const entry = CUSTOM_ILLUSTRATIONS[`${subjectId}:${taskNumber}`];
-  return entry ? entry.render() : null;
+/** The illustration drawn for this very task (one of its tags + its number), or null. */
+function findEntry(tags: readonly string[] | undefined, taskNumber: number) {
+  for (const tag of tags ?? []) {
+    const entry = CUSTOM_ILLUSTRATIONS[`${tag}:${taskNumber}`];
+    if (entry) return entry;
+  }
+  return null;
+}
+
+export function getCustomIllustration(
+  tags: readonly string[] | undefined,
+  taskNumber: number,
+): ReactNode | null {
+  return findEntry(tags, taskNumber)?.render() ?? null;
 }
 
 export function getIllustrationKind(
-  subjectId: string,
+  tags: readonly string[] | undefined,
   taskNumber: number,
 ): IllustrationKind | null {
-  return CUSTOM_ILLUSTRATIONS[`${subjectId}:${taskNumber}`]?.kind ?? null;
+  return findEntry(tags, taskNumber)?.kind ?? null;
 }
 
 /** True when this task's SVG reconstructs a diagram the source
  * material really prints (see `IllustrationEntry.reconstructsOriginal`
  * above) — false both when there's no custom illustration at all and
  * when it's a solving aid for a no-diagram problem. */
-export function illustrationReconstructsOriginal(subjectId: string, taskNumber: number): boolean {
-  return CUSTOM_ILLUSTRATIONS[`${subjectId}:${taskNumber}`]?.reconstructsOriginal ?? false;
+export function illustrationReconstructsOriginal(
+  tags: readonly string[] | undefined,
+  taskNumber: number,
+): boolean {
+  return findEntry(tags, taskNumber)?.reconstructsOriginal ?? false;
 }
 
-/** For tests/reports — every (subjectId, taskNumber) with a custom illustration. */
+/** For tests/reports — every `tag:taskNumber` with a custom illustration. */
 export function listIllustratedTasks(): readonly string[] {
   return Object.keys(CUSTOM_ILLUSTRATIONS);
 }
