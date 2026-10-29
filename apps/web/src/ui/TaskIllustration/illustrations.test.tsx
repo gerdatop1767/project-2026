@@ -130,6 +130,30 @@ describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the
     }
   });
 
+  it('vector names sit clear of both vectors and of the axes, as in the original', () => {
+    // Distance from a point to a segment, in grid cells.
+    const toSegment = (
+      [px, py]: readonly [number, number],
+      v: { fromX: number; fromY: number; x: number; y: number },
+    ) => {
+      const [dx, dy] = [v.x - v.fromX, v.y - v.fromY];
+      const t = Math.max(
+        0,
+        Math.min(1, ((px - v.fromX) * dx + (py - v.fromY) * dy) / (dx * dx + dy * dy)),
+      );
+      return Math.hypot(px - v.fromX - t * dx, py - v.fromY - t * dy);
+    };
+    for (const vectors of Object.values(EGE_2026_VECTORS)) {
+      for (const { labelAt } of vectors) {
+        const p = [labelAt.x, labelAt.y] as const;
+        // The letter is ~0.5 cell tall with its arrow drawn above it.
+        for (const v of vectors) expect(toSegment(p, v)).toBeGreaterThanOrEqual(0.35);
+        expect(Math.abs(labelAt.x)).toBeGreaterThanOrEqual(0.45);
+        expect(Math.abs(labelAt.y)).toBeGreaterThanOrEqual(0.45);
+      }
+    }
+  });
+
   it('В7 №11: parabola through (−4;0), (−2;4), (0;0), line through (2;5); they meet again at −6,5', () => {
     const { f, g } = ege2026V7T11;
     for (const [x, y] of [

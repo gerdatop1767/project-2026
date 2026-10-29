@@ -43,20 +43,20 @@ export const EGE_2026_VECTORS = {
     { fromX: 1, fromY: -3, x: 6, y: 3, label: 'b', labelAt: { x: 3.4, y: 1.4 }, color: B },
   ],
   4: [
-    { fromX: -4, fromY: 1, x: 2, y: 5, label: 'a', labelAt: { x: -3.2, y: 2.7 }, color: A },
-    { fromX: -1, fromY: 4, x: 5, y: -3, label: 'b', labelAt: { x: 1.7, y: 1.7 }, color: B },
+    { fromX: -4, fromY: 1, x: 2, y: 5, label: 'a', labelAt: { x: -2.6, y: 2.45 }, color: A },
+    { fromX: -1, fromY: 4, x: 5, y: -3, label: 'b', labelAt: { x: 2.45, y: 1.45 }, color: B },
   ],
   6: [
     { fromX: -5, fromY: -4, x: -2, y: 2, label: 'a', labelAt: { x: -4.6, y: -1.3 }, color: A },
-    { fromX: -6, fromY: 4, x: 5, y: 2, label: 'b', labelAt: { x: 1, y: 3.6 }, color: B },
+    { fromX: -6, fromY: 4, x: 5, y: 2, label: 'b', labelAt: { x: 1.55, y: 3.4 }, color: B },
   ],
   9: [
-    { fromX: 3, fromY: 1, x: 2, y: -2, label: 'a', labelAt: { x: 3.1, y: -0.3 }, color: A },
-    { fromX: -1, fromY: -1, x: -5, y: 5, label: 'b', labelAt: { x: -2.6, y: 2.6 }, color: B },
+    { fromX: 3, fromY: 1, x: 2, y: -2, label: 'a', labelAt: { x: 3.35, y: -0.6 }, color: A },
+    { fromX: -1, fromY: -1, x: -5, y: 5, label: 'b', labelAt: { x: -2.45, y: 2.4 }, color: B },
   ],
   10: [
-    { fromX: -1, fromY: 6, x: 3, y: -5, label: 'a', labelAt: { x: 2.45, y: -2.1 }, color: A },
-    { fromX: 1, fromY: -2, x: 4, y: 5, label: 'b', labelAt: { x: 3.1, y: 2.8 }, color: B },
+    { fromX: -1, fromY: 6, x: 3, y: -5, label: 'a', labelAt: { x: 2.5, y: -2.45 }, color: A },
+    { fromX: 1, fromY: -2, x: 4, y: 5, label: 'b', labelAt: { x: 3.5, y: 2.45 }, color: B },
   ],
 } as const satisfies Record<number, readonly PlaneVector[]>;
 
