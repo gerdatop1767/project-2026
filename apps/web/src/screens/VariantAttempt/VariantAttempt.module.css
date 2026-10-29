@@ -369,7 +369,7 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.breakdownPoints {
+.breakdown .breakdownPoints {
   text-align: right;
   white-space: nowrap;
 }
