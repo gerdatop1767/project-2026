@@ -3,9 +3,11 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import {
   advanceLearningSession,
+  finishVariantSession,
   getLearningSessionSnapshot,
   getVariantAttemptDetail,
   getVariantProgress,
+  openVariantTask,
   startLearningSession,
   startVariantSession,
 } from './service.js';
@@ -31,6 +33,8 @@ const startSessionBodySchema = z.object({
 const sessionParamsSchema = z.object({ sessionId: z.uuid() });
 
 const startVariantSessionBodySchema = z.object({ variantId: z.uuid() });
+
+const openTaskBodySchema = z.object({ taskId: z.uuid() });
 
 /**
  * ZUBRILKA LEARNING INTELLIGENCE, Phase 9/10. Three endpoints: start,
@@ -108,6 +112,34 @@ export const learningSessionRoutes: FastifyPluginAsync<LearningSessionRoutesOpti
     if (!params.success) return reply.code(400).send({ error: 'invalid_id' });
 
     const result = await advanceLearningSession(db, request.userId, params.data.sessionId);
+    if (!result) return reply.code(404).send({ error: 'session_not_found' });
+    return result;
+  });
+
+  // A variant's number panel: open any of its tasks, in any order. Only
+  // serves it — answers still go through POST /tasks/:id/attempts.
+  app.post('/me/learning/sessions/:sessionId/open', async (request, reply) => {
+    if (!request.userId) return reply.code(400).send({ error: 'missing_anon_id' });
+    const params = sessionParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: 'invalid_id' });
+    const body = openTaskBodySchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    const result = await openVariantTask(
+      db,
+      request.userId,
+      params.data.sessionId,
+      body.data.taskId,
+    );
+    if (!result) return reply.code(404).send({ error: 'session_not_found' });
+    return result;
+  });
+
+  // «Завершить вариант» — at any point, in any order of solving.
+  app.post('/me/learning/sessions/:sessionId/finish', async (request, reply) => {
+    if (!request.userId) return reply.code(400).send({ error: 'missing_anon_id' });
+    const params = sessionParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: 'invalid_id' });
+    const result = await finishVariantSession(db, request.userId, params.data.sessionId);
     if (!result) return reply.code(404).send({ error: 'session_not_found' });
     return result;
   });

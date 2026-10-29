@@ -276,7 +276,11 @@ describe('leaderboard', () => {
 
     describe('real avatars', () => {
       const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
-      async function storeAvatar(key: string, source: 'user' | 'vk' | 'telegram', sha: string) {
+      async function storeAvatar(
+        key: string,
+        source: 'user' | 'vk' | 'telegram' | 'yandex',
+        sha: string,
+      ) {
         const [row] = await testDb.db
           .insert(schema.userAvatars)
           .values({
@@ -351,7 +355,13 @@ describe('leaderboard', () => {
         }
       });
 
-      it('a removed upload falls back to the provider copy, and the old URL stops working', async () => {
+      it('a removed upload falls back to a connected provider copy, and the old URL stops working', async () => {
+        const [borisVk] = await testDb.db
+          .select()
+          .from(schema.userAvatars)
+          .where(
+            and(eq(schema.userAvatars.userId, user.boris!), eq(schema.userAvatars.source, 'vk')),
+          );
         const before = (await entries('vera')).find((e) => e.name === 'Боря-математик')!.avatarUrl!;
         await testDb.db
           .delete(schema.userAvatars)
@@ -359,10 +369,54 @@ describe('leaderboard', () => {
             and(eq(schema.userAvatars.userId, user.boris!), eq(schema.userAvatars.source, 'user')),
           );
         expect((await fetchImage(before, 'vera')).statusCode).toBe(404);
-        // Boris's profile comes from no provider: his VK copy is not his profile picture.
-        expect(
-          (await entries('vera')).find((e) => e.name === 'Боря-математик')!.avatarUrl,
-        ).toBeNull();
+        // No own photo: the photo of his connected VK (our stored copy).
+        expect((await entries('vera')).find((e) => e.name === 'Боря-математик')!.avatarUrl).toBe(
+          `/api/v1/leaderboard/avatars/${borisVk!.id}?v=bbbbbbbbbbbb`,
+        );
+      });
+
+      it('no stored photo of the profile provider: another connected provider copy (Telegram, Yandex)', async () => {
+        await addUser('gleb', {
+          firstName: 'Глеб',
+          profileSource: 'vk',
+          avatarUrl: 'https://sun9-1.userapi.com/gleb.jpg',
+        });
+        await answer('gleb', 'm2', true, hoursAgo(1), 30);
+        await addUser('dina', { firstName: 'Дина', profileSource: 'yandex' });
+        await answer('dina', 'm3', true, hoursAgo(1), 30);
+        const glebTg = await storeAvatar('gleb', 'telegram', 'd');
+        const dinaYa = await storeAvatar('dina', 'yandex', 'e');
+        const list = await entries('anna');
+        const gleb = list.find((e) => e.name === 'Глеб')!;
+        // Never the VK URL itself — our copy of his Telegram photo instead.
+        expect(gleb.avatarUrl).toBe(`/api/v1/leaderboard/avatars/${glebTg.id}?v=dddddddddddd`);
+        expect(JSON.stringify(list)).not.toContain('userapi.com');
+        expect(list.find((e) => e.name === 'Дина')!.avatarUrl).toBe(
+          `/api/v1/leaderboard/avatars/${dinaYa.id}?v=eeeeeeeeeeee`,
+        );
+        // The image route agrees with the list.
+        expect((await fetchImage(gleb.avatarUrl!, 'vera')).statusCode).toBe(200);
+      });
+
+      it('a provider photo known only as a URL: generated avatar now, copied in the background', async () => {
+        await addUser('zoya', {
+          firstName: 'Зоя',
+          profileSource: 'vk',
+          avatarUrl: 'https://sun9-2.userapi.com/zoya.jpg',
+        });
+        await answer('zoya', 'm1', true, hoursAgo(1), 30);
+        const asked: string[][] = [];
+        const r = await getLeaderboard(
+          testDb.db,
+          user.anna!,
+          leaderboardQuerySchema.parse({ period: 'all' }),
+          NOW,
+          (_db, ids) => asked.push([...ids]),
+        );
+        expect(r.entries.find((e) => e.name === 'Зоя')!.avatarUrl).toBeNull();
+        expect(asked.flat()).toContain(user.zoya);
+        // Users with nothing to copy are not queued.
+        expect(asked.flat()).not.toContain(user.vera);
       });
     });
   });

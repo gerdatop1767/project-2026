@@ -20,7 +20,8 @@ export interface TaskVariant {
   preview: string;
 }
 
-export type SessionTaskStatus = 'correct' | 'incorrect' | 'current' | 'pending';
+export type SessionTaskStatus =
+  'correct' | 'incorrect' | 'draft' | 'opened' | 'current' | 'pending';
 
 export interface SessionTask {
   index: number;

@@ -263,12 +263,9 @@ describe('AppMobile — Subject → Задания по номерам → task 
 
     renderApp();
     await user.click(screen.getByRole('button', { name: 'Главная' }));
-    // Open Subject via a direct navigate through Menu isn't exercised
-    // here — Subject itself is unit-tested for the tab; this covers the
-    // real screen-swap + Back chain starting from inside По номерам.
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Все задания' }));
+    // Subject itself is unit-tested for the tab; this covers the real
+    // screen-swap + Back chain starting from inside По номерам.
+    await user.click(await screen.findByRole('button', { name: /Все предметы/ }));
     await user.click(await screen.findByText('Математика'));
     await user.click(await screen.findByRole('button', { name: 'По номерам' }));
 
@@ -295,8 +292,8 @@ describe('AppMobile — Subject → Задания по номерам → task 
     await user.click(screen.getByRole('button', { name: 'Профиль' }));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Все задания' }));
+    await user.click(screen.getByRole('button', { name: 'Главная' }));
+    await user.click(await screen.findByRole('button', { name: /Все предметы/ }));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
     await user.click(await screen.findByText('Математика'));
@@ -312,33 +309,21 @@ describe('AppMobile — Subject → Задания по номерам → task 
   });
 });
 
-describe("AppMobile — menu (opened from Профиль's header button)", () => {
-  it('opens the real Training setup screen from the menu, not a WIP placeholder', async () => {
-    const user = userEvent.setup();
-    vi.mocked(api.listCollections).mockResolvedValue([]);
-    renderApp();
-
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Тренировка' }));
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Начать тренировку/ })).toBeInTheDocument();
-    });
-  });
-
-  it('keeps Профиль under the open menu, and closing the menu returns to Профиль', async () => {
+describe('AppMobile — no gear menu: Профиль reaches the rest', () => {
+  it('Профиль has no gear button and no menu drawer', async () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: 'Профиль' }));
     expect(await screen.findByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    // Still mounted underneath the drawer — never swapped for Home.
-    expect(screen.getByRole('heading', { name: 'Профиль', hidden: true })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Закрыть меню' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument(),
-    );
-    expect(screen.getByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/profile');
+    expect(screen.queryByRole('button', { name: 'Меню' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
+  });
+
+  it('«Помощь» and «Теория» open from Профиль → «Ещё»', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(await screen.findByRole('button', { name: 'Помощь' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/help'));
   });
 });

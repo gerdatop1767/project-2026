@@ -1,4 +1,5 @@
 import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
+import { useTaskExit } from '../../ui/LearningSession/useTaskExit.js';
 import { useEffect, useState } from 'react';
 import {
   trainingByNumberRouteFor,
@@ -87,7 +88,7 @@ export function ResultMobile({
   timeSpentMs,
   revealed,
 }: ResultMobileProps) {
-  const { navigate, back } = useNavigation();
+  const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const taskNav = useTaskNavigation({
     subjectId,
@@ -100,7 +101,7 @@ export function ResultMobile({
   // The task/result has no address of its own, so the current history
   // entry IS the page underneath it: replace it with the exact place to
   // return to instead of pushing a duplicate stop onto the Back stack.
-  const goBack = returnTo ? () => navigate(returnTo, { replace: true }) : back;
+  const { goBack, exitSheet } = useTaskExit(taskId, returnTo);
   const learningSession = useActiveLearningSessionForTask(taskId);
   // The router remounts this component (key={taskId}) whenever the task
   // or its correctness changes, so state starts fresh here.
@@ -154,6 +155,7 @@ export function ResultMobile({
         <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
+        {exitSheet}
       </SlideUp>
     );
   }
@@ -210,7 +212,7 @@ export function ResultMobile({
     navigate(trainingByNumberRouteFor(task.subjectId, task.number));
   }
 
-  const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks);
+  const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks, taskNav.marks);
 
   return (
     <SlideUp key={`${taskId}-${correct}`} className={styles.stack}>
@@ -221,6 +223,7 @@ export function ResultMobile({
         onBack={goBack}
         numberStripRange={taskNav.orderedTasks}
         onSelectNumber={taskNav.goTo}
+        marks={taskNav.marks}
         previous={taskNav.previous}
         next={taskNav.next}
         onGoTo={taskNav.goTo}
@@ -431,6 +434,7 @@ export function ResultMobile({
         taskId={task.id}
         task={task}
       />
+      {exitSheet}
     </SlideUp>
   );
 }

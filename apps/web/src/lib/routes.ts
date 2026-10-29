@@ -10,10 +10,9 @@ const subjectModeIds: readonly SubjectModeId[] = ['topics', 'byNumber', 'variant
  * links, and Back/Forward all resolve to the same screen `navigate()`
  * would have produced.
  *
- * Not every `Route` is addressable: `menu` is a transient drawer (no
- * approved screenshot treats it as its own page — see DesktopMenu/
- * MobileMenu), and `task`/`result` need a real `taskId` this demo data
- * model can't restore from a bare URL, so those three keep the
+ * Not every `Route` is addressable: `task`/`result` need a real
+ * `taskId` this demo data model can't restore from a bare URL, so those
+ * two keep the
  * pre-routing behavior (no history entry, no path) rather than
  * pretending to deep-link into content that doesn't exist yet.
  */
@@ -71,7 +70,7 @@ const tabPaths: Record<string, string> = {
 
 /** Routes that never get a URL/history entry (see file header). */
 function isUnaddressable(route: Route): boolean {
-  return route.screen === 'menu' || route.screen === 'task' || route.screen === 'result';
+  return route.screen === 'task' || route.screen === 'result';
 }
 
 /** `/learning/session/:sessionId` prefix — see navigation.tsx's

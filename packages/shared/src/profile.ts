@@ -53,6 +53,10 @@ export const identitiesResponseSchema = z.object({
   identities: z.array(identityInfoSchema),
   available: z.object({ vk: z.boolean(), telegram: z.boolean(), yandex: z.boolean() }),
   canUnlink: z.boolean(),
+  /** No Telegram linked yet, and a Telegram account confirmed this
+   * account's link in the bot: shown so the owner can accept or refuse it
+   * (docs/REMINDERS.md). Only the name Telegram itself reported. */
+  telegramPendingLink: z.object({ name: z.string() }).nullable().optional(),
 });
 export type IdentitiesResponse = z.infer<typeof identitiesResponseSchema>;
 

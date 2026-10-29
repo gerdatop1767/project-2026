@@ -33,8 +33,7 @@ describe('pathForRoute', () => {
     expect(pathForRoute({ screen: 'mistakes' })).toBe('/training/mistakes');
   });
 
-  it('returns null for routes with no URL (menu/task/result)', () => {
-    expect(pathForRoute({ screen: 'menu' })).toBeNull();
+  it('returns null for routes with no URL (task/result)', () => {
     expect(
       pathForRoute({ screen: 'task', subjectId: 'math', taskNumber: 1, taskId: 't1' }),
     ).toBeNull();

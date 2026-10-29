@@ -437,6 +437,102 @@ describe('learning session routes (ZUBRILKA LEARNING INTELLIGENCE Phase 9)', () 
     });
   });
 
+  describe('POST /me/learning/sessions/:id/open and /finish (variant number panel)', () => {
+    async function startAs(anonId: string) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/me/learning/sessions/variant',
+        headers: { 'x-anon-id': anonId },
+        payload: { variantId },
+      });
+      return res.json() as { sessionId: string; task: { id: string } };
+    }
+    async function plannedTaskIds() {
+      const rows = await testDb.db
+        .select()
+        .from(schema.variantTasks)
+        .where(eq(schema.variantTasks.variantId, variantId))
+        .orderBy(schema.variantTasks.position);
+      return rows.map((r) => r.taskId);
+    }
+
+    it('opens any planned task of the own session, with its plan position, no answer shown', async () => {
+      const anonId = randomUUID();
+      const started = await startAs(anonId);
+      const planned = await plannedTaskIds();
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/v1/me/learning/sessions/${started.sessionId}/open`,
+        headers: { 'x-anon-id': anonId },
+        payload: { taskId: planned[4] },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.task.id).toBe(planned[4]);
+      expect(body.position).toBe(5);
+      expect('correctAnswer' in body.task).toBe(false);
+    });
+
+    it('someone else cannot open or finish the session (404, nothing changes)', async () => {
+      const owner = randomUUID();
+      const started = await startAs(owner);
+      const planned = await plannedTaskIds();
+      const intruder = randomUUID();
+      const open = await app.inject({
+        method: 'POST',
+        url: `/api/v1/me/learning/sessions/${started.sessionId}/open`,
+        headers: { 'x-anon-id': intruder },
+        payload: { taskId: planned[2] },
+      });
+      expect(open.statusCode).toBe(404);
+      const finish = await app.inject({
+        method: 'POST',
+        url: `/api/v1/me/learning/sessions/${started.sessionId}/finish`,
+        headers: { 'x-anon-id': intruder },
+      });
+      expect(finish.statusCode).toBe(404);
+      const snapshot = await app.inject({
+        method: 'GET',
+        url: `/api/v1/me/learning/sessions/${started.sessionId}`,
+        headers: { 'x-anon-id': owner },
+      });
+      expect(snapshot.json()).toMatchObject({ status: 'active', task: { id: started.task.id } });
+    });
+
+    it('rejects a malformed task id (400) and a task outside the variant (404)', async () => {
+      const anonId = randomUUID();
+      const started = await startAs(anonId);
+      const bad = await app.inject({
+        method: 'POST',
+        url: `/api/v1/me/learning/sessions/${started.sessionId}/open`,
+        headers: { 'x-anon-id': anonId },
+        payload: { taskId: 'nope' },
+      });
+      expect(bad.statusCode).toBe(400);
+      const outside = await app.inject({
+        method: 'POST',
+        url: `/api/v1/me/learning/sessions/${started.sessionId}/open`,
+        headers: { 'x-anon-id': anonId },
+        payload: { taskId: randomUUID() },
+      });
+      expect(outside.statusCode).toBe(404);
+    });
+
+    it('finish completes the own variant session and is idempotent', async () => {
+      const anonId = randomUUID();
+      const started = await startAs(anonId);
+      for (let i = 0; i < 2; i++) {
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/v1/me/learning/sessions/${started.sessionId}/finish`,
+          headers: { 'x-anon-id': anonId },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toMatchObject({ status: 'completed', variant: { variantId } });
+      }
+    });
+  });
+
   describe('GET /progress/variants', () => {
     it('requires an x-anon-id header', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/v1/progress/variants' });

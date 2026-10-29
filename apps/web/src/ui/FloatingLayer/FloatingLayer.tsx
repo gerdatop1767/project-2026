@@ -5,12 +5,11 @@ import { CookieBanner } from '../CookieBanner/CookieBanner.js';
 import { TelegramPromo } from '../TelegramPromo/TelegramPromo.js';
 
 /** Screens whose bottom area is working space (answer, check button, sign
- * in, the menu): the Telegram button stays away from them. */
+ * in): the Telegram button stays away from them. */
 const promoFreeScreens: ReadonlySet<OverlayRoute['screen']> = new Set([
   'task',
   'result',
   'learningSession',
-  'menu',
   'login',
   'onboarding',
   'telegramReturn',

@@ -217,7 +217,8 @@ export type RemoveIdentityOutcome = 'removed' | 'not_linked' | 'last_identity';
  * `email` row is not a way in any more (email sign-in was removed), so it
  * does not count, and it is never removed here — its data stays as it was.
  * The user row is locked first so two concurrent unlinks can't each see
- * "two left" and remove both.
+ * "two left" and remove both. The provider's stored photo copy is removed
+ * with it.
  */
 export async function removeIdentity(
   db: Database,
@@ -240,6 +241,12 @@ export async function removeIdentity(
       return 'last_identity';
     }
     await tx.delete(schema.authIdentities).where(eq(schema.authIdentities.id, target.id));
+    // Its photo goes with it: others must not keep seeing a picture from
+    // an account that is no longer connected (chooseAvatar falls back to
+    // the copies of connected providers).
+    await tx
+      .delete(schema.userAvatars)
+      .where(and(eq(schema.userAvatars.userId, userId), eq(schema.userAvatars.source, provider)));
     return 'removed';
   });
 }

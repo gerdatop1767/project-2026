@@ -51,6 +51,17 @@ function StatusIcon({ status }: { status: SessionTask['status'] }) {
       </span>
     );
   }
+  if (status === 'draft') {
+    return (
+      <span
+        className={clsx(styles.statusDot, styles.statusDraft)}
+        aria-label="есть ответ, не проверен"
+      />
+    );
+  }
+  if (status === 'opened') {
+    return <span className={clsx(styles.statusDot, styles.statusOpened)} aria-label="открыто" />;
+  }
   if (status === 'current') {
     return <span className={clsx(styles.statusDot, styles.statusCurrent)} />;
   }

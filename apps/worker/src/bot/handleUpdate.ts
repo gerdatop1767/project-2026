@@ -15,6 +15,7 @@ import {
   CALLBACK_LINK_PREFIX,
   CALLBACK_REMINDERS_OFF,
   CALLBACK_SUPPORT_CLOSE,
+  linkClaimedKeyboard,
   linkClaimedText,
   linkDeclinedText,
   linkFailedText,
@@ -449,6 +450,7 @@ export async function handleUpdate(ctx: BotContext, update: TelegramUpdate): Pro
           .join(' ')
           .trim();
         let text: string;
+        let claimed = false;
         try {
           const claim = await measure(timings, 'db', () =>
             withTimeout(
@@ -458,13 +460,17 @@ export async function handleUpdate(ctx: BotContext, update: TelegramUpdate): Pro
             ),
           );
           ctx.logger.info({ link: claim.status }, 'telegram link claim');
+          claimed = claim.status === 'claimed';
           text = claim.status === 'claimed' ? linkClaimedText : linkResultText(claim.status);
         } catch (error) {
           ctx.logger.error(errorSummary(error), 'telegram link claim failed');
           text = linkFailedText;
         }
+        const backToSite = claimed ? linkClaimedKeyboard(ctx.siteUrl) : null;
         await measure(timings, 'text', () =>
-          ctx.telegram.sendMessage(privateChat, text, { replyMarkup: persistentKeyboard }),
+          ctx.telegram.sendMessage(privateChat, text, {
+            replyMarkup: backToSite ?? persistentKeyboard,
+          }),
         );
       } else if (query.data === CALLBACK_LINK_NO && privateChat !== null) {
         action = 'link_claim';

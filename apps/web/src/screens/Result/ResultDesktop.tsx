@@ -1,4 +1,5 @@
 import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
+import { useTaskExit } from '../../ui/LearningSession/useTaskExit.js';
 import { useEffect, useState } from 'react';
 import {
   trainingByNumberRouteFor,
@@ -87,7 +88,7 @@ export function ResultDesktop({
   timeSpentMs,
   revealed,
 }: ResultDesktopProps) {
-  const { navigate, back } = useNavigation();
+  const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const taskNav = useTaskNavigation({
     subjectId,
@@ -100,7 +101,7 @@ export function ResultDesktop({
   // The task/result has no address of its own, so the current history
   // entry IS the page underneath it: replace it with the exact place to
   // return to instead of pushing a duplicate stop onto the Back stack.
-  const goBack = returnTo ? () => navigate(returnTo, { replace: true }) : back;
+  const { goBack, exitSheet } = useTaskExit(taskId, returnTo);
   const learningSession = useActiveLearningSessionForTask(taskId);
   function retryTask() {
     navigate({
@@ -149,6 +150,7 @@ export function ResultDesktop({
         <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
+        {exitSheet}
       </FadeIn>
     );
   }
@@ -165,7 +167,11 @@ export function ResultDesktop({
   // list the top TaskNumberStrip/prev-next already use, never
   // `task.indexInSession`/`task.totalInSession` (a safe single-item
   // default — see taskAdapter.ts).
-  const progress = buildSessionProgress(task.id, taskNav.orderedTasks);
+  const progress = buildSessionProgress(task.id, taskNav.orderedTasks, taskNav.marks);
+  function selectFromList(index: number) {
+    const entry = taskNav.orderedTasks[index - 1];
+    if (entry) taskNav.goTo(entry);
+  }
   const progressPercent = (progress.indexInSession / progress.totalInSession) * 100;
   const displayedAnswer = userAnswer || '—';
 
@@ -487,14 +493,14 @@ export function ResultDesktop({
             <SessionTaskListCard
               title="Задания в теме"
               sessionTasks={progress.sessionTasks}
-              onSelect={() => undefined}
+              onSelect={selectFromList}
             />
           ) : (
             <>
               <SessionTaskListCard
                 title="Задания"
                 sessionTasks={progress.sessionTasks}
-                onSelect={() => undefined}
+                onSelect={selectFromList}
               />
               <DesktopToolsCard
                 onSelectHint={() => undefined}
@@ -524,6 +530,7 @@ export function ResultDesktop({
         taskId={task.id}
         task={task}
       />
+      {exitSheet}
     </FadeIn>
   );
 }

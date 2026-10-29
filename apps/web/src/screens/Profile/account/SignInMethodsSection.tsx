@@ -14,6 +14,7 @@ import { Icon } from '../../../ui/Icon/Icon.js';
 import { VkIcon } from '../../../ui/VkIcon/VkIcon.js';
 import { YandexIcon } from '../../../ui/YandexIcon/YandexIcon.js';
 import { SignInMethodWarning } from '../../../ui/SignInMethodWarning/SignInMethodWarning.js';
+import { TelegramBotLink } from './TelegramBotLink.js';
 import type { IdentitiesState } from './useIdentities.js';
 import styles from './Account.module.css';
 
@@ -104,8 +105,9 @@ function formatDate(iso: string): string {
 /**
  * «Способы входа»: which sign-in methods are attached to THIS account, with
  * connect / disconnect. Connecting is always done from the signed-in
- * account and proven by the provider (VK OAuth redirect, or Telegram's signed
- * launch data inside the Mini App); the server never merges two accounts and
+ * account and proven by the provider (VK OAuth redirect; Telegram's signed
+ * launch data inside the Mini App, or the bot's confirmation in any other
+ * browser — see TelegramBotLink); the server never merges two accounts and
  * never lets the last method be removed.
  */
 export function SignInMethodsSection({
@@ -205,8 +207,8 @@ export function SignInMethodsSection({
           <span className="text-body-sm text-secondary">
             {linked
               ? `Подключено${formatDate(linked.linkedAt) ? ` · ${formatDate(linked.linkedAt)}` : ''}`
-              : provider === 'telegram' && !insideTelegram
-                ? 'Откройте Зубрилку в Telegram, чтобы подключить'
+              : provider === 'telegram' && !insideTelegram && data!.telegramPendingLink
+                ? 'Ждёт вашего подтверждения'
                 : 'Не подключено'}
           </span>
         </span>
@@ -250,6 +252,16 @@ export function SignInMethodsSection({
             </Button>
           )}
         </span>
+        {!linked && provider === 'telegram' && !insideTelegram && (
+          <TelegramBotLink
+            pendingName={data!.telegramPendingLink?.name ?? null}
+            reload={load}
+            onLinked={(text) => {
+              setNotice({ kind: 'success', text });
+              void refresh();
+            }}
+          />
+        )}
         {confirming === provider && (
           <div className={styles.confirm} role="alertdialog" aria-label="Подтверждение">
             <p className="text-body-sm">

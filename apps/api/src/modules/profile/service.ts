@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Database } from '@zybrilka/db';
+import { pendingTelegramLink, type Database } from '@zybrilka/db';
 import {
   AVATAR_MAX_BYTES,
   displayNameProblem,
@@ -30,26 +30,41 @@ export function localAvatarUrl(source: repo.AvatarSource, sha256: string): strin
   return `/api/v1/me/avatars/${source}?v=${sha256.slice(0, 12)}`;
 }
 
+/** Stored copies of provider photos, in the order they stand in for a
+ * missing one of the profile's own provider. */
+const PROVIDER_COPIES = ['vk', 'telegram', 'yandex'] as const;
+
 /**
  * Which picture the profile shows (the single rule, also for what others
  * see in the rating):
- * uploaded image  >  our copy of the profile provider's photo  >
- * provider photo URL (VK / Telegram)  >  image fetched through the
- * Telegram bot  >  none.
+ * 1. the image the user uploaded;
+ * 2. the photo of a connected provider — our copy of the profile
+ *    provider's photo, else that provider's own URL (the profile only),
+ *    else our copy of another connected provider's photo (VK, Telegram,
+ *    Yandex);
+ * 3. none (the generated avatar).
+ * `storedOnly` (the rating — what OTHER people load): never the
+ * provider's URL — those images are only shown to others from our own
+ * copy (no third-party requests from their browsers, no arbitrary URLs).
  * Returns a stored image, `external` for the provider's URL, or null.
  */
 export function chooseAvatar(
   avatars: readonly repo.AvatarMeta[],
   profileSource: repo.ProfileSource | null,
   hasProviderUrl: boolean,
+  { storedOnly = false }: { storedOnly?: boolean } = {},
 ): repo.AvatarMeta | 'external' | null {
   const uploaded = avatars.find((a) => a.source === 'user');
   if (uploaded) return uploaded;
   // Our own copy of the photo of the provider the profile comes from.
   const providerCopy = profileSource ? avatars.find((a) => a.source === profileSource) : undefined;
   if (providerCopy) return providerCopy;
-  if (hasProviderUrl) return 'external';
-  return avatars.find((a) => a.source === 'telegram') ?? null;
+  if (hasProviderUrl && !storedOnly) return 'external';
+  for (const source of PROVIDER_COPIES) {
+    const copy = avatars.find((a) => a.source === source);
+    if (copy) return copy;
+  }
+  return null;
 }
 
 /**
@@ -148,6 +163,9 @@ export async function listIdentities(
   userId: string,
 ): Promise<IdentitiesResponse> {
   const rows = await repo.listIdentities(db, userId);
+  const pending = rows.some((row) => row.provider === 'telegram')
+    ? null
+    : await pendingTelegramLink(db, userId);
   return {
     identities: rows.map((row) => ({
       provider: row.provider,
@@ -159,5 +177,6 @@ export async function listIdentities(
       yandex: isYandexConfigured(config),
     },
     canUnlink: rows.filter((row) => isWorkingSignInMethod(row.provider)).length > 1,
+    telegramPendingLink: pending ? { name: pending.telegramName } : null,
   };
 }

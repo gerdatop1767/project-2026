@@ -2,7 +2,6 @@ import { MobileShell } from './ui/MobileShell/MobileShell.js';
 import { BottomNav } from './ui/BottomNav/BottomNav.js';
 import { defaultBottomNavItems } from './ui/BottomNav/defaultItems.js';
 import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
-import { MobileMenu } from './ui/MobileMenu/MobileMenu.js';
 import { TaskMobile } from './screens/Task/TaskMobile.js';
 import { ResultMobile } from './screens/Result/ResultMobile.js';
 import { useAccountGate } from './lib/accountGate.js';
@@ -35,15 +34,13 @@ import { StressGame } from './screens/MiniGames/StressGame.js';
  * screens, which visually contradict the new design — see the
  * project report for which screens are still pending.
  *
- * Menu is not a full-screen overlay swap like Task/Result/Mistakes —
- * the approved screenshot shows it as a drawer over whatever screen
- * is currently showing, so it renders as a portal on top of the
- * normal tab/overlay content instead (see `isMenuOpen` below).
+ * There is no menu drawer on mobile: the bottom nav and Профиль reach
+ * every section (the gear and its drawer were removed).
  *
  * Exactly one `<MobileShell>` in exactly one place in the returned
- * tree: this used to be three separate `return` statements with
- * `{menu}` placed inconsistently relative to `<MobileShell>` across
- * them. That inconsistency was investigated as a possible cause of
+ * tree: this used to be three separate `return` statements with the
+ * old menu drawer placed inconsistently relative to `<MobileShell>`
+ * across them. That inconsistency was investigated as a possible cause of
  * the mobile-only visual flash (a hypothesis that the differing root
  * element shape forced React to unmount/remount the shell on certain
  * transitions), but a mount-counter instrumentation test proved the
@@ -53,16 +50,8 @@ import { StressGame } from './screens/MiniGames/StressGame.js';
  * vary), not as the flash fix. The real cause is tracked separately.
  */
 export function AppMobile() {
-  const { tab, overlay, navigate, back } = useNavigation();
-  const menuRoute = overlay?.screen === 'menu' ? overlay : null;
-  const isMenuOpen = menuRoute !== null;
-  // The screen the menu was opened from stays mounted under the drawer —
-  // swapping it for the tab screen behind the backdrop re-mounted and
-  // re-fetched a different screen, flashed it through the dim layer, and
-  // closing the menu then landed there instead of where the visitor was.
-  const contentOverlay = menuRoute ? (menuRoute.from ?? null) : overlay;
-  const underMenu = menuRoute?.from;
-  const closeMenu = underMenu ? () => navigate(underMenu, { replace: true }) : back;
+  const { tab, overlay, navigate } = useNavigation();
+  const contentOverlay = overlay;
 
   const { isGuest, requireAccount } = useAccountGate();
   const navItems = isGuest
@@ -89,8 +78,6 @@ export function AppMobile() {
     }
     navigate({ screen: id as MainTabId });
   }
-
-  const menu = <MobileMenu open={isMenuOpen} onClose={closeMenu} activeTab={tab} />;
 
   // Профиль and Мои ошибки are the two overlays that keep the bottom
   // nav visible (with their own slot highlighted) — every other
@@ -228,7 +215,6 @@ export function AppMobile() {
           </>
         )}
       </MobileShell>
-      {menu}
     </>
   );
 }
