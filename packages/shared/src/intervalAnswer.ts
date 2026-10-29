@@ -99,6 +99,20 @@ function parseUnsignedExpression(token: string): number | null {
     return value / denominator;
   }
 
+  // A bracketed sum or difference of two such terms over an optional
+  // divisor — "(18+4√69)/65", "(3-√5)/2". Same fixed grammar per term.
+  const grouped = /^\(([^()]+)\)(?:\/(\d+(?:\.\d+)?))?$/.exec(token);
+  if (grouped) {
+    const inner = grouped[1]!;
+    const at = inner.slice(1).search(/[+-]/) + 1;
+    if (at <= 0) return null;
+    const first = parseSignedExpression(inner.slice(0, at));
+    const second = parseUnsignedExpression(inner.slice(at + 1));
+    const divisor = grouped[2] === undefined ? 1 : Number(grouped[2]);
+    if (first === null || second === null || divisor === 0) return null;
+    return (inner[at] === '+' ? first + second : first - second) / divisor;
+  }
+
   // log_b(x) or log_b x, base and argument each a plain positive number
   const logMatch = /^log_?(\d+(?:\.\d+)?)\(?(\d+(?:\.\d+)?)\)?$/.exec(token);
   if (logMatch) {

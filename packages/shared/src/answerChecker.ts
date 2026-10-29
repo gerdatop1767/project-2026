@@ -65,6 +65,19 @@ function expressionTokensEqual(
     );
 }
 
+const RATIO_KEY = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/;
+
+/**
+ * Only for keys written as a ratio "2:3": the student's "2 : 3", "4:6" or
+ * "2/3" is the same ratio. The order is the key's, as the task asks for it.
+ */
+function ratioEquals(normalizedUser: string, normalizedCorrect: string): boolean {
+  const key = RATIO_KEY.exec(normalizedCorrect);
+  const user = /^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/.exec(normalizedUser);
+  if (!key || !user || Number(key[2]) === 0 || Number(user[2]) === 0) return false;
+  return Math.abs(Number(user[1]) / Number(user[2]) - Number(key[1]) / Number(key[2])) < 1e-9;
+}
+
 /** True when every character of `normalized` is an ASCII digit 0-9 (and non-empty). */
 function isDigitString(normalized: string): boolean {
   return normalized.length > 0 && /^[0-9]+$/.test(normalized);
@@ -121,6 +134,7 @@ export function checkAnswer(
   }
 
   if (expressionTokensEqual(userTokens, correctTokens, normalizedCorrect)) return true;
+  if (ratioEquals(normalizedUser, normalizedCorrect)) return true;
 
   if (
     options?.digitSetOrderInsensitive &&

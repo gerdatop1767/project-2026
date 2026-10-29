@@ -170,3 +170,26 @@ describe('interval sets with isolated points and radical bounds (EGE-2027 №19,
     expect(parseIntervalSet('x ∈')).toBeNull();
   });
 });
+
+describe('bracketed sums over a divisor (EGE-2027 №14, №19 boundary values)', () => {
+  it('reads (p ± q√r)/d and its negation', () => {
+    expect(parseBound('(3-√5)/2')).toBeCloseTo((3 - Math.sqrt(5)) / 2, 12);
+    expect(parseBound('-(18+4√69)/65')).toBeCloseTo(-(18 + 4 * Math.sqrt(69)) / 65, 12);
+    expect(parseBound('(1+√2)')).toBeCloseTo(1 + Math.SQRT2, 12);
+    expect(parseBound('(-1+3)/2')).toBe(1);
+  });
+
+  it('rejects anything outside that grammar', () => {
+    expect(parseBound('(3-)/2')).toBeNull();
+    expect(parseBound('(3)/2')).toBeNull();
+    expect(parseBound('(1+2+3)/2')).toBeNull();
+    expect(parseBound('((1+2))/2')).toBeNull();
+  });
+
+  it('works as an isolated point next to an interval', () => {
+    const key = '{-(18+4√69)/65} ∪ (-2/3;-0.4]';
+    expect(checkIntervalAnswer('(-2/3; -0,4] ∪ {-(18+4√69)/65}', key)).toBe(true);
+    expect(checkIntervalAnswer('(-2/3;-0,4]', key)).toBe(false);
+    expect(checkIntervalAnswer('{-0,788} ∪ (-2/3;-0,4]', key)).toBe(false);
+  });
+});

@@ -113,7 +113,7 @@ services:
   # content-migration fix).
   #
   # Runs math V1 -> V2 -> ... -> V10, then the separate math source
-  # «ЕГЭ 2027 Ященко» V1 -> V2 (importEge2027YashchenkoVariantN.ts — its
+  # «ЕГЭ 2027 Ященко» V1 -> V2 -> ... (importEge2027YashchenkoVariantN.ts — its
   # own collection, kept out of «Все источники»), then Russian V1 -> V2
   # -> ... -> V18, strictly in that order (`&&`, not `;` — a failing importer
   # stops the chain immediately rather than letting later ones, or
@@ -169,6 +169,7 @@ services:
         node node_modules/@zybrilka/db/dist/importEge2026Variant10.js &&
         node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant1.js &&
         node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant2.js &&
+        node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant3.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant1.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant2.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant3.js &&

@@ -27,8 +27,10 @@ const COLLECTION_PUBLISHER = 'Ященко';
 const COLLECTION_DESCRIPTION =
   'ЕГЭ 2027. Математика. Профильный уровень. Типовые экзаменационные варианты: 36 вариантов (под ред. И. В. Ященко). Нумерация заданий — по формату 2027 года (20 заданий).';
 export const EXAM_FORMAT = 'ege-math-profile-2027';
-/** The book's own scan the variants were read from (pages are relative to it). */
+/** The book's own scan Варианты 1–2 were read from (pages are relative to it). */
 const SOURCE_FILE = 'ege2027-yashchenko-v1-v2.pdf';
+/** The later scan of book Варианты 2–15 (4 pages each; Вариант N on pages 4N−7…4N−4). */
+export const SOURCE_FILE_V2_V15 = 'ege2027-yashchenko-v2-v15.pdf';
 
 /** Every explanation here was written by the Зубрилка editors, not taken from the book. */
 const AUTHORSHIP_NOTE =
@@ -46,7 +48,7 @@ export interface ImportTask {
   taskNumber: number;
   topicSlug: string;
   topicName: string;
-  /** Page of SOURCE_FILE (1-based). */
+  /** Page of the variant's source file (1-based). */
   sourcePage: number;
   rawStatement: string;
   conditionMd: string;
@@ -63,7 +65,9 @@ export interface ImportTask {
 
 export interface VariantData {
   variant: number;
-  /** Pages of SOURCE_FILE holding this variant, and the book's own page numbers. */
+  /** The scan this variant was read from; Варианты 1–2 default to the first scan. */
+  sourceFile?: string;
+  /** Pages of the source file holding this variant. */
   sourcePageStart: number;
   sourcePageEnd: number;
   tasks: readonly ImportTask[];
@@ -153,7 +157,7 @@ export async function importYashchenko2027Variant(db: Database, data: VariantDat
       title: variantTitle,
       year: SOURCE_YEAR,
       status: 'published',
-      sourceFile: SOURCE_FILE,
+      sourceFile: data.sourceFile ?? SOURCE_FILE,
       sourcePageStart: data.sourcePageStart,
       sourcePageEnd: data.sourcePageEnd,
     })
@@ -161,7 +165,7 @@ export async function importYashchenko2027Variant(db: Database, data: VariantDat
       target: [schema.variants.collectionId, schema.variants.variantNumber],
       set: {
         title: variantTitle,
-        sourceFile: SOURCE_FILE,
+        sourceFile: data.sourceFile ?? SOURCE_FILE,
         sourcePageStart: data.sourcePageStart,
         sourcePageEnd: data.sourcePageEnd,
         updatedAt: new Date(),

@@ -13,7 +13,12 @@ import {
   ege2026V7T11,
   ege2026V9T11,
 } from './Ege2026Figures.js';
-import { EGE_2027_V2_T9_WAYPOINTS, ege2027V2T12 } from './Ege2027Figures.js';
+import {
+  EGE_2027_V2_T9_WAYPOINTS,
+  EGE_2027_VECTORS,
+  ege2027V2T12,
+  ege2027V3T12,
+} from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
 const V1 = ['ege-2026-variant-1'];
@@ -35,6 +40,8 @@ describe('illustration registry', () => {
         'ege-2026-variant-10:11',
         'ege-2027-variant-2:9',
         'ege-2027-variant-2:12',
+        'ege-2027-variant-3:2',
+        'ege-2027-variant-3:12',
       ].sort(),
     );
   });
@@ -231,5 +238,54 @@ describe('ЕГЭ 2027 Ященко, Вариант 2 — figures drawn from the 
     expect(ege2027V2T12(9)).toBeCloseTo(4, 12);
     expect(ege2027V2T12(27)).toBeCloseTo(6, 12);
     expect(Number.isNaN(ege2027V2T12(0))).toBe(true);
+  });
+});
+
+describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn from the scan', () => {
+  const tag = (v: number) => [`ege-2027-variant-${v}`];
+  const vec = (v: keyof typeof EGE_2027_VECTORS, i: 0 | 1) => {
+    const p = EGE_2027_VECTORS[v][i];
+    return [p.x - p.fromX, p.y - p.fromY] as const;
+  };
+
+  it.each([
+    [3, 2],
+    [3, 12],
+  ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
+    const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
+    const svg = container.querySelector('svg');
+    expect(svg).toHaveAttribute('role', 'img');
+    expect(svg?.getAttribute('aria-label')).toContain(`вариант ${v}, задание ${n})`);
+    expect(container.querySelector('img')).toBeNull();
+    expect(illustrationReconstructsOriginal(tag(v), n)).toBe(true);
+    // The 2026 task with the same variant and number is a different figure.
+    const other = render(<>{getCustomIllustration([`ege-2026-variant-${v}`], n)}</>);
+    expect(other.container.innerHTML).not.toBe(container.innerHTML);
+    // Never on another 2027 variant with the same number.
+    expect(getCustomIllustration(tag(v === 3 ? 4 : 3), n)).toBeNull();
+  });
+
+  it('every vector lies on grid nodes', () => {
+    for (const vectors of Object.values(EGE_2027_VECTORS))
+      for (const v of vectors)
+        for (const c of [v.x, v.y, v.fromX, v.fromY]) expect(Number.isInteger(c)).toBe(true);
+  });
+
+  it('В3 №2: a = (7; −4), b = (−1; −4), |a + 2b| = 13', () => {
+    const [a, b] = [vec(3, 0), vec(3, 1)];
+    expect([a, b]).toEqual([
+      [7, -4],
+      [-1, -4],
+    ]);
+    expect(Math.hypot(a[0] + 2 * b[0], a[1] + 2 * b[1])).toBe(13);
+  });
+
+  it('В3 №12: both graphs pass the marked points and meet again at x = −10', () => {
+    const { f, g } = ege2027V3T12;
+    expect(f(-2)).toBe(2);
+    expect(f(1)).toBe(-4);
+    expect(g(-4)).toBeCloseTo(-2, 12);
+    expect(g(1)).toBeCloseTo(-4, 12);
+    expect(f(-10)).toBeCloseTo(g(-10), 12);
   });
 });

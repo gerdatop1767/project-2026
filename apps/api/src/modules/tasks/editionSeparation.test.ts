@@ -9,7 +9,8 @@ const SOURCE_2027 = 'Ященко ЕГЭ 2027. Типовые экзаменац
 /**
  * «ЕГЭ 2027 Ященко» is its own source (collection `inAllSources: false`):
  * the 2027 numbering (20 tasks) must never mix with the 2026 one (19).
- * Real imported data: 2026 Вариант 1 + 2027 Вариант 1-2.
+ * Real imported data: 2026 Вариант 1 + every imported 2027 variant.
+ * Counts come from the database, so adding a 2027 variant needs no edit.
  */
 describe('ЕГЭ 2027 kept apart from «Все источники»', () => {
   let testDb: Awaited<ReturnType<typeof createImported2027TestDb>>;
@@ -24,6 +25,15 @@ describe('ЕГЭ 2027 kept apart from «Все источники»', () => {
     await app.close();
     await testDb.close();
   });
+
+  /** Published 2027 tasks, overall and with a given number. */
+  const published2027 = async (taskNumber?: number) =>
+    (
+      await testDb.db
+        .select({ n: schema.tasks.taskNumber })
+        .from(schema.tasks)
+        .where(and(eq(schema.tasks.source, SOURCE_2027), eq(schema.tasks.status, 'published')))
+    ).filter((t) => taskNumber === undefined || t.n === taskNumber).length;
 
   const list = async (query: string) => {
     const res = await app.inject({ method: 'GET', url: `/api/v1/tasks?${query}` });
@@ -45,16 +55,15 @@ describe('ЕГЭ 2027 kept apart from «Все источники»', () => {
   });
 
   it('the 2027 filter lists only 2027 tasks, numbered as in the 2027 book', async () => {
-    const items = await list('collection=ege-2027-yashchenko&limit=100');
-    expect(items).toHaveLength(38); // 2 × 20, minus №17 held for review
-    expect(items.every((t) => t.source === SOURCE_2027 && t.sourceYear === 2027)).toBe(true);
-    expect(new Set(items.map((t) => t.taskNumber))).toEqual(
-      new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20]),
-    );
-    // №14 in 2027 is the trigonometric equation, not 2026's №14 (stereometry).
-    const n14 = await list('collection=ege-2027-yashchenko&taskNumber=14');
-    expect(n14).toHaveLength(2);
-    expect(n14.every((t) => t.source === SOURCE_2027)).toBe(true);
+    for (let n = 1; n <= 20; n++) {
+      const items = await list(`collection=ege-2027-yashchenko&taskNumber=${n}&limit=100`);
+      // Every published 2027 task with that number (held ones never), and nothing else.
+      expect(items).toHaveLength(await published2027(n));
+      expect(items.every((t) => t.source === SOURCE_2027 && t.sourceYear === 2027)).toBe(true);
+      expect(items.every((t) => t.taskNumber === n)).toBe(true);
+    }
+    // 2027 has a №20; 2026 has no such number.
+    expect(await published2027(20)).toBeGreaterThan(0);
   });
 
   it('the 2026 filter is unchanged: 19 tasks, no 2027', async () => {
@@ -71,7 +80,8 @@ describe('ЕГЭ 2027 kept apart from «Все источники»', () => {
       .from(schema.tasks)
       .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.status, 'published')));
     const outside = allPublishedMath.filter((t) => t.source === SOURCE_2027).length;
-    expect(outside).toBe(38);
+    expect(outside).toBe(await published2027());
+    expect(outside).toBeGreaterThanOrEqual(38);
     expect(counts.find((c) => c.subjectId === 'math')!.count).toBe(
       allPublishedMath.length - outside,
     );
@@ -93,7 +103,8 @@ describe('ЕГЭ 2027 kept apart from «Все источники»', () => {
   it('“same number” lists opened from a 2027 task stay inside 2027 (sameSourceAs)', async () => {
     const [task] = await list('collection=ege-2027-yashchenko&taskNumber=3&limit=1');
     const items = await list(`subject=math&taskNumber=3&sameSourceAs=${task!.id}&limit=100`);
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(await published2027(3));
+    expect(items.length).toBeGreaterThanOrEqual(2);
     expect(items.every((t) => t.source === SOURCE_2027)).toBe(true);
     // From a 2026 task the list is the ordinary «Все источники» one.
     const [old] = await list('collection=ege-2026-yashchenko&taskNumber=3&limit=1');

@@ -139,4 +139,20 @@ describe('checkAnswer — exact-expression keys (EGE-2027 part two)', () => {
     expect(checkAnswer('1/8', '0.125')).toBe(false);
     expect(checkAnswer('0,125', '0.125')).toBe(true);
   });
+
+  it('compares a ratio key as a ratio, in the order the key gives', () => {
+    expect(checkAnswer('2:3', '2:3')).toBe(true);
+    expect(checkAnswer('2 : 3', '2:3')).toBe(true);
+    expect(checkAnswer('4:6', '2:3')).toBe(true);
+    expect(checkAnswer('2/3', '2:3')).toBe(true);
+    expect(checkAnswer('3:2', '2:3')).toBe(false);
+    expect(checkAnswer('0,67', '2:3')).toBe(false);
+    // Non-ratio keys never read a user's "a:b".
+    expect(checkAnswer('4:6', '0.6666')).toBe(false);
+  });
+
+  it('reads (p ± q√r)/d roots in an expression key', () => {
+    expect(checkAnswer('(3+√5)/2; 1', '1; (3+√5)/2')).toBe(true);
+    expect(checkAnswer('2,618; 1', '1; (3+√5)/2')).toBe(false);
+  });
 });

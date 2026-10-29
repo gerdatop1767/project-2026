@@ -1,11 +1,12 @@
 import { CoordinatePlaneBase } from './CoordinatePlaneBase.js';
+import { CoordinatePlaneSVG, type PlaneVector } from './CoordinatePlaneSVG.js';
 import { FunctionGraphSVG } from './FunctionGraphSVG.js';
 import { splinePath } from './TracedGraphSVG.js';
 
 /**
- * Figures of ЕГЭ 2027 Ященко, Вариант 2, drawn from the book's own scan
- * (the 8-page scan of book pages 11–18; see
- * docs/imports/ege-2027-yashchenko-v1-v2-report.md). Grids were found
+ * Figures of ЕГЭ 2027 Ященко, drawn from the book's own scans (Вариант 2:
+ * docs/imports/ege-2027-yashchenko-v1-v2-report.md; Варианты 3–10:
+ * docs/imports/ege-2027-yashchenko-v3-v10-report.md). Grids were found
  * on the scan by pixel projections; every point was read off that grid
  * and the figure re-derives the task's recorded answer in tests.
  */
@@ -170,6 +171,62 @@ export function Ege2027V2Task12() {
         { x: 9, y: 4 },
       ]}
       ariaLabel="График функции f(x) = k·logₐx с отмеченными точками (вариант 2, задание 12)"
+    />
+  );
+}
+
+const A = 'var(--color-accent-secondary)';
+const B = 'var(--color-gold)';
+
+/** Vector data of the 2027 №2 figures — exported for the tests. */
+export const EGE_2027_VECTORS = {
+  /** В3 №2 (скан 2–15, стр. 5): grid x −6…6, y −5…6. */
+  3: [
+    { fromX: -6, fromY: 5, x: 1, y: 1, label: 'a', labelAt: { x: -2.45, y: 3.75 }, color: A },
+    { fromX: 5, fromY: -1, x: 4, y: -5, label: 'b', labelAt: { x: 3.55, y: -3.6 }, color: B },
+  ],
+} as const satisfies Record<number, readonly PlaneVector[]>;
+
+export function Ege2027V3Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-5}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[3]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 3, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/** В3 №12 (скан 2–15, стр. 7): f(x)=k/x through (−2;2) and A(1;−4) ⇒ k=−4; g through (−4;−2) and A. */
+export const ege2027V3T12 = {
+  f: (x: number) => (x === 0 ? Number.NaN : -4 / x),
+  g: (x: number) => -0.4 * x - 3.6,
+};
+
+export function Ege2027V3Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V3T12.f}
+      extraCurves={[ege2027V3T12.g]}
+      xMin={-5}
+      xMax={5}
+      yMin={-5}
+      yMax={5}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      points={[
+        { x: -2, y: 2 },
+        { x: -4, y: -2 },
+        { x: 1, y: -4, label: 'A', labelOffset: { dx: 7, dy: -7 } },
+      ]}
+      ariaLabel="Графики функций f(x) = k/x и g(x) = ax + b, пересекающиеся в точке A(1; −4) и в точке B (вариант 3, задание 12)"
     />
   );
 }

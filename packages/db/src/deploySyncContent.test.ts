@@ -35,7 +35,10 @@ import { describe, expect, it } from 'vitest';
  * `digit_set_order_insensitive`, both required by every Russian
  * importer) still runs before `sync-content` starts.
  */
-describe('infra/docker-compose.yml — sync-content runs all 30 EGE variant imports (10 math 2026 + 2 math 2027 + 18 Russian)', () => {
+/** «ЕГЭ 2027 Ященко» math variants imported so far (Вариант 1…N). */
+const MATH_2027_VARIANTS = 3;
+
+describe(`infra/docker-compose.yml — sync-content runs every EGE variant import (10 math 2026 + ${MATH_2027_VARIANTS} math 2027 + 18 Russian)`, () => {
   const composePath = fileURLToPath(new URL('../../../infra/docker-compose.yml', import.meta.url));
   const compose = readFileSync(composePath, 'utf-8');
 
@@ -61,16 +64,22 @@ describe('infra/docker-compose.yml — sync-content runs all 30 EGE variant impo
     }
   });
 
-  it('runs the separate «ЕГЭ 2027 Ященко» math source (V1, V2) after the 2026 math variants and before Russian', () => {
-    const v1 = serviceBlock.indexOf(
-      'node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant1.js &&',
+  it('runs the separate «ЕГЭ 2027 Ященко» math source (V1…VN, in order) after the 2026 math variants and before Russian', () => {
+    const positions = Array.from({ length: MATH_2027_VARIANTS }, (_, i) =>
+      serviceBlock.indexOf(
+        `node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant${i + 1}.js &&`,
+      ),
     );
-    const v2 = serviceBlock.indexOf(
-      'node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant2.js &&',
+    expect(positions[0]).toBeGreaterThan(serviceBlock.indexOf('importEge2026Variant10.js'));
+    for (let i = 1; i < positions.length; i++)
+      expect(positions[i]).toBeGreaterThan(positions[i - 1]!);
+    expect(serviceBlock.indexOf('importRussianDoshchinsky2027Variant1.js')).toBeGreaterThan(
+      positions[positions.length - 1]!,
     );
-    expect(v1).toBeGreaterThan(serviceBlock.indexOf('importEge2026Variant10.js'));
-    expect(v2).toBeGreaterThan(v1);
-    expect(serviceBlock.indexOf('importRussianDoshchinsky2027Variant1.js')).toBeGreaterThan(v2);
+    // Exactly these 2027 importers — none skipped, none extra.
+    expect(serviceBlock.match(/importEge2027YashchenkoVariant\d+\.js/g)).toHaveLength(
+      MATH_2027_VARIANTS,
+    );
   });
 
   it('runs them strictly in order: math V1 -> V10, then Russian V1 -> V18', () => {
@@ -91,12 +100,13 @@ describe('infra/docker-compose.yml — sync-content runs all 30 EGE variant impo
     expect(russianPositions[0]).toBeGreaterThan(mathPositions[mathPositions.length - 1]!);
   });
 
-  it('chains all 31 imports with && so a failing importer stops the sequence with a non-zero exit', () => {
-    // 31 invocations (10 math 2026 + 2 math 2027 + 18 Russian + the stress
-    // dictionary) joined by && means exactly 30 "&&" tokens — not ";" (which would silently
-    // continue past a failure) and not "||" (which would swallow one).
+  it('chains every import with && so a failing importer stops the sequence with a non-zero exit', () => {
+    // 10 math 2026 + N math 2027 + 18 Russian + the stress dictionary,
+    // joined by && — one "&&" fewer than invocations. Not ";" (which would
+    // silently continue past a failure) and not "||" (which would swallow one).
+    const invocations = 10 + MATH_2027_VARIANTS + 18 + 1;
     const andCount = (serviceBlock.match(/&&/g) ?? []).length;
-    expect(andCount).toBe(30);
+    expect(andCount).toBe(invocations - 1);
     expect(serviceBlock).not.toMatch(/importEge2026Variant\d{1,2}\.js\s*;/);
     expect(serviceBlock).not.toMatch(/importRussianDoshchinsky2027Variant\d{1,2}\.js\s*;/);
     expect(serviceBlock).not.toContain('||');
