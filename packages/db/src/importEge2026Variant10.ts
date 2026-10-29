@@ -21,6 +21,7 @@ const SOURCE_DOCUMENT = 'ЕГЭ 2026 Ященко варианты 6-10';
 const SOURCE_YEAR = 2026;
 const VARIANT = 10;
 const IMPORT_TAG = 'ege-2026-variant-10';
+const IMAGE_BASE = '/tasks/imports/ege-2026-variant-10';
 
 const COLLECTION_SLUG = 'ege-2026-yashchenko';
 const COLLECTION_TITLE = 'ЕГЭ 2026 Ященко';
@@ -90,7 +91,9 @@ const importTasks: readonly ImportTask[] = [
       'На координатной плоскости изображены векторы a и b, координаты у которых — целые числа. Найдите длину вектора b-3a. [график: вектор a из точки (-1;6) в точку (3;-5); вектор b из точки (1;-2) в точку (4;5), координаты считаны попиксельно по сетке и подтверждены через crosshair-оверлей]',
     conditionMd:
       'На координатной плоскости изображены векторы $\\vec a$ и $\\vec b$, координаты у которых — целые числа. Найдите длину вектора $\\vec b-3\\vec a$.',
-    imageUrl: null,
+    // Exact crop of the original figure: «ЕГЭ 2026 Ященко, первые 20
+    // вариантов» PDF, page 38 (docs/imports/ege-2026-v2-v10-figures-audit.md).
+    imageUrl: `${IMAGE_BASE}/task-02-vectors.png`,
     correctAnswer: '41',
     explanationMd:
       'Что дано: по рисунку (координаты считаны попиксельно по сетке и подтверждены crosshair-оверлеем на чистом 300dpi рендере PDF) вектор a⃗ идёт из точки (−1;6) в точку (3;−5), то есть a⃗=(3−(−1);−5−6)=(4;−11). Вектор b⃗ идёт из точки (1;−2) в точку (4;5), то есть b⃗=(4−1;5−(−2))=(3;7).\n\nШаг 1. 3a⃗=3·(4;−11)=(12;−33).\n\nШаг 2. b⃗−3a⃗=(3−12;7−(−33))=(−9;40).\n\nШаг 3. |b⃗−3a⃗|=√(81+1600)=√1681=41.\n\nОтвет: 41.',
@@ -317,7 +320,9 @@ const importTasks: readonly ImportTask[] = [
     rawStatement:
       'На рисунке изображён график функции f(x)=log_a(x+b). Найдите f(29). [график: отмеченные точки (-2;0) и (1;4), координаты подтверждены пиксельным анализом и crosshair-оверлеем]',
     conditionMd: 'На рисунке изображён график функции $f(x)=\\log_a(x+b)$. Найдите $f(29)$.',
-    imageUrl: null,
+    // Exact crop of the original figure: «ЕГЭ 2026 Ященко, первые 20
+    // вариантов» PDF, page 40 (docs/imports/ege-2026-v2-v10-figures-audit.md).
+    imageUrl: `${IMAGE_BASE}/task-11-graph.png`,
     correctAnswer: '10',
     explanationMd:
       'Что дано: по рисунку (точки считаны попиксельно и подтверждены crosshair-оверлеем) график проходит через (−2;0) и (1;4).\n\nШаг 1. f(−2)=log_a(b−2)=0 → b−2=1 → b=3.\n\nШаг 2. f(1)=log_a(1+3)=log_a(4)=4 → a⁴=4 → a=√2 (основание положительно).\n\nШаг 3. f(29)=log_a(29+3)=log_√2(32)=log_√2(2⁵)=5/0.5=10.\n\nОтвет: 10.',

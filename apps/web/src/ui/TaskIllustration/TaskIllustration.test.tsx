@@ -147,39 +147,63 @@ describe('a condition that refers to a figure we do not have', () => {
   });
 });
 
-describe('ЕГЭ 2026: the 11 tasks without their own figure (figures audit)', () => {
-  const MISSING: [number, number][] = [
-    [3, 2],
-    [4, 2],
-    [6, 2],
-    [9, 2],
-    [10, 2],
-    [7, 8],
-    [8, 8],
-    [7, 11],
-    [8, 11],
-    [9, 11],
-    [10, 11],
+describe('ЕГЭ 2026: the 11 tasks from the figures audit', () => {
+  const RESTORED: [number, number, string][] = [
+    [3, 2, 'task-02-vectors.png'],
+    [4, 2, 'task-02-vectors.png'],
+    [6, 2, 'task-02-vectors.png'],
+    [9, 2, 'task-02-vectors.png'],
+    [10, 2, 'task-02-vectors.png'],
+    [7, 8, 'task-08-graph.png'],
+    [7, 11, 'task-11-graph.png'],
+    [9, 11, 'task-11-graph.png'],
+    [10, 11, 'task-11-graph.png'],
   ];
-  it.each(MISSING)(
-    'В%i №%i: no Вариант 1 SVG, no foreign image — only the «missing figure» note',
-    (v, n) => {
-      const tags = [`ege-2026-variant-${v}`];
-      const exam = render(
+  it.each(RESTORED)(
+    'В%i №%i shows its own original figure (%s) — no Вариант 1 SVG, no «missing» note',
+    (v, n, file) => {
+      const src = `/tasks/imports/ege-2026-variant-${v}/${file}`;
+      const { container } = render(
         <TaskExamIllustration
           subjectId="math"
-          tags={tags}
+          tags={[`ege-2026-variant-${v}`]}
           taskNumber={n}
-          imageUrl={null}
+          imageUrl={src}
           conditionMd="На рисунке изображён график"
         />,
       );
-      expect(exam.container.querySelector('svg, img')).toBeNull();
-      expect(screen.getByRole('note')).toHaveTextContent('Рисунок к этому заданию ещё не добавлен');
-      exam.unmount();
-      const aid = render(<TaskSolutionIllustration subjectId="math" tags={tags} taskNumber={n} />);
+      expect(screen.getByRole('img', { name: `Рисунок к заданию ${n}` })).toHaveAttribute(
+        'src',
+        src,
+      );
+      expect(container.querySelector('svg')).toBeNull();
+      expect(screen.queryByRole('note')).not.toBeInTheDocument();
+      const aid = render(
+        <TaskSolutionIllustration
+          subjectId="math"
+          tags={[`ege-2026-variant-${v}`]}
+          taskNumber={n}
+        />,
+      );
       expect(aid.container).toBeEmptyDOMElement();
-      aid.unmount();
     },
   );
+
+  // В8 №8, №11: held back until the recorded answer is reviewed against the original.
+  it.each([
+    [8, 8],
+    [8, 11],
+  ])('В%i №%i still says the figure is missing — never Вариант 1’s', (v, n) => {
+    const { container } = render(
+      <TaskExamIllustration
+        subjectId="math"
+        tags={[`ege-2026-variant-${v}`]}
+        taskNumber={n}
+        imageUrl={null}
+        conditionMd="На рисунке изображён график"
+      />,
+    );
+    expect(container.querySelector('svg, img')).toBeNull();
+    expect(screen.getByRole('note')).toHaveTextContent('Рисунок к этому заданию ещё не добавлен');
+  });
 });

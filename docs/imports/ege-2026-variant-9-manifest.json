@@ -18,7 +18,7 @@
       "taskNumber": 2,
       "part": 1,
       "sourcePage": 1,
-      "hasImage": false,
+      "hasImage": true,
       "answerType": "short_answer",
       "status": "published",
       "contentHash": "a91e10386d8786ee399705a9ec000a43d4aaff1129061ef31b68fea33e18e7b1"
@@ -99,7 +99,7 @@
       "taskNumber": 11,
       "part": 1,
       "sourcePage": 3,
-      "hasImage": false,
+      "hasImage": true,
       "answerType": "short_answer",
       "status": "published",
       "contentHash": "2465394c8bdd6c6ce87f668f9d918f58db881779e4109e4e69b7f50bbeae5532"

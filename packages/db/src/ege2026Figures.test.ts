@@ -16,21 +16,30 @@ const SOURCE_2026 = 'Ященко ЕГЭ 2026. Типовые экзаменац
  * variant's picture.
  */
 const KNOWN_MISSING = [
-  // The condition refers to a figure the app does not have yet: the
-  // source PDFs are needed to crop them (see the audit doc). When one is
-  // added, remove it here.
-  '3:2',
-  '4:2',
-  '6:2',
-  '7:8',
-  '7:11',
+  // The condition refers to a figure the app does not show yet. В8 №8
+  // and №11: the original figure (PDF page 31) does not confirm the
+  // recorded answer, so it is held back until the answer is reviewed
+  // (see the audit doc). When one is added, remove it here.
   '8:8',
   '8:11',
-  '9:2',
-  '9:11',
-  '10:2',
-  '10:11',
 ];
+
+/**
+ * Figures restored from «ЕГЭ 2026 Ященко, первые 20 вариантов» (PDF
+ * pages in the audit doc): each pinned to its file and content hash, so
+ * a swapped or edited picture fails here.
+ */
+const RESTORED: Record<string, { file: string; sha256: string }> = {
+  '3:2': { file: 'task-02-vectors.png', sha256: 'e3073dadff4a0e34' },
+  '4:2': { file: 'task-02-vectors.png', sha256: 'b76b056582c027db' },
+  '6:2': { file: 'task-02-vectors.png', sha256: 'd7bb30efa9e6318e' },
+  '9:2': { file: 'task-02-vectors.png', sha256: '5138b7cc4f5e4e05' },
+  '10:2': { file: 'task-02-vectors.png', sha256: '2ea1a7725e0c8617' },
+  '7:8': { file: 'task-08-graph.png', sha256: '6a540995ba0a456d' },
+  '7:11': { file: 'task-11-graph.png', sha256: 'bba31bbe8d747c1b' },
+  '9:11': { file: 'task-11-graph.png', sha256: 'ee6f70f790f9ad38' },
+  '10:11': { file: 'task-11-graph.png', sha256: 'a12c73e60297a477' },
+};
 
 const refersToFigure = (text: string) =>
   /на рисунке|изображ[её]н|по рисунку|на клетчатой бумаге/i.test(text);
@@ -52,7 +61,7 @@ describe('ЕГЭ 2026 — figures belong to their own task', () => {
 
   it('every figure lies in its own variant folder, exists, and is used by one task only', () => {
     const withImage = rows.filter((r) => r.imageUrl);
-    expect(withImage.length).toBe(10);
+    expect(withImage.length).toBe(19);
     const byHash = new Map<string, string>();
     for (const r of withImage) {
       const id = `${r.sourceVariant}:${r.taskNumber}`;
@@ -70,14 +79,30 @@ describe('ЕГЭ 2026 — figures belong to their own task', () => {
     expect(new Set(withImage.map((r) => r.imageUrl)).size).toBe(withImage.length);
   });
 
-  it('the figures present are exactly В1–В4 №8/№11 and В5–В6 №11', () => {
+  it('the figures present are exactly the original 10 plus the 9 restored ones', () => {
     const present = rows
       .filter((r) => r.imageUrl)
       .map((r) => `${r.sourceVariant}:${r.taskNumber}`)
       .sort();
     expect(present).toEqual(
-      ['1:8', '1:11', '2:8', '2:11', '3:8', '3:11', '4:8', '4:11', '5:11', '6:11'].sort(),
+      [
+        ...['1:8', '1:11', '2:8', '2:11', '3:8', '3:11', '4:8', '4:11', '5:11', '6:11'],
+        ...Object.keys(RESTORED),
+      ].sort(),
     );
+  });
+
+  it('each restored task shows its own cropped original, byte for byte', () => {
+    for (const [id, { file, sha256 }] of Object.entries(RESTORED)) {
+      const [variant, number] = id.split(':').map(Number);
+      const row = rows.find((r) => r.sourceVariant === variant && r.taskNumber === number)!;
+      expect(row.imageUrl, id).toBe(`/tasks/imports/ege-2026-variant-${variant}/${file}`);
+      const hash = createHash('sha256')
+        .update(readFileSync(`${publicDir}${row.imageUrl}`))
+        .digest('hex');
+      expect(hash.slice(0, 16), id).toBe(sha256);
+      expect(refersToFigure(row.conditionMd), id).toBe(true);
+    }
   });
 
   it('the tasks whose condition needs a figure but has none are exactly the known list', () => {
