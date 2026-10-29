@@ -112,8 +112,10 @@ services:
   # columns on the same rows (EGE Fidelity: Final Polish, production
   # content-migration fix).
   #
-  # Runs math V1 -> V2 -> ... -> V10, then Russian V1 -> V2 -> ... ->
-  # V18, strictly in that order (`&&`, not `;` — a failing importer
+  # Runs math V1 -> V2 -> ... -> V10, then the separate math source
+  # «ЕГЭ 2027 Ященко» V1 -> V2 (importEge2027YashchenkoVariantN.ts — its
+  # own collection, kept out of «Все источники»), then Russian V1 -> V2
+  # -> ... -> V18, strictly in that order (`&&`, not `;` — a failing importer
   # stops the chain immediately rather than letting later ones, or
   # `api`/`worker`, run against a half-synced database) inside one
   # `sh -c`, so the service's own exit code is non-zero the moment ANY
@@ -165,6 +167,8 @@ services:
         node node_modules/@zybrilka/db/dist/importEge2026Variant8.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant9.js &&
         node node_modules/@zybrilka/db/dist/importEge2026Variant10.js &&
+        node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant1.js &&
+        node node_modules/@zybrilka/db/dist/importEge2027YashchenkoVariant2.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant1.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant2.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant3.js &&

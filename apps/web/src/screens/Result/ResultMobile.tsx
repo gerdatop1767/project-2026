@@ -117,7 +117,10 @@ export function ResultMobile({
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
+    void Promise.all([
+      getTask(taskId),
+      listTasksByNumber(subjectId, taskNumber, undefined, undefined, taskId),
+    ])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
         setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));

@@ -108,7 +108,10 @@ export function TaskDesktop({
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
+    void Promise.all([
+      getTask(taskId),
+      listTasksByNumber(subjectId, taskNumber, undefined, undefined, taskId),
+    ])
       .then(([fetchedTask, fetchedSiblings]) => {
         if (cancelled) return;
         setTask(toSampleTask(fetchedTask, fetchedSiblings));

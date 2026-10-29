@@ -12,6 +12,8 @@
  * checker is built.
  */
 
+import { parseBound } from './intervalAnswer.js';
+
 /** Collapse whitespace, unify punctuation/letters that EGE graders treat as equivalent. */
 export function normalizeAnswer(raw: string): string {
   return raw.trim().toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').replace(/,/g, '.');
@@ -32,6 +34,35 @@ function numericEquals(a: string, b: string): boolean {
   const numB = Number(b);
   if (Number.isNaN(numA) || Number.isNaN(numB)) return false;
   return Math.abs(numA - numB) < 1e-9;
+}
+
+/**
+ * Only for answers keyed as exact expressions ("-11π/2; -5π",
+ * "2√2163/103"): each token is read with the interval checker's fixed
+ * bound grammar and the two lists are compared as multisets of numbers,
+ * so "-5,5π; -5π" or "2√21/√103" are the same answer. Plain numeric keys
+ * (part one) never reach this — their accepted forms stay as they were.
+ */
+function expressionTokensEqual(
+  userTokens: readonly string[],
+  correctTokens: readonly string[],
+  normalizedCorrect: string,
+): boolean {
+  if (!/[π√/]|pi|sqrt/.test(normalizedCorrect)) return false;
+  if (userTokens.length === 0 || userTokens.length !== correctTokens.length) return false;
+  const read = (tokens: readonly string[]) => tokens.map((token) => parseBound(token));
+  const user = read(userTokens);
+  const correct = read(correctTokens);
+  const finite = (values: (number | null)[]): values is number[] =>
+    values.every((v) => v !== null && Number.isFinite(v));
+  if (!finite(user) || !finite(correct)) return false;
+  const byValue = (a: number, b: number) => a - b;
+  const sortedCorrect = [...correct].sort(byValue);
+  return [...user]
+    .sort(byValue)
+    .every(
+      (value, i) => Math.abs(value - sortedCorrect[i]!) <= 1e-9 * Math.max(1, Math.abs(value)),
+    );
 }
 
 /** True when every character of `normalized` is an ASCII digit 0-9 (and non-empty). */
@@ -78,12 +109,18 @@ export function checkAnswer(
 
   const userTokens = tokenize(normalizedUser);
   const correctTokens = tokenize(normalizedCorrect);
-  if (userTokens.length > 1 && userTokens.length === correctTokens.length) {
-    return userTokens.every((token, i) => {
+  if (
+    userTokens.length > 1 &&
+    userTokens.length === correctTokens.length &&
+    userTokens.every((token, i) => {
       const correctToken = correctTokens[i]!;
       return token === correctToken || numericEquals(token, correctToken);
-    });
+    })
+  ) {
+    return true;
   }
+
+  if (expressionTokensEqual(userTokens, correctTokens, normalizedCorrect)) return true;
 
   if (
     options?.digitSetOrderInsensitive &&

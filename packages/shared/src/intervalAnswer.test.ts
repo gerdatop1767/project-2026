@@ -135,3 +135,38 @@ describe('checkIntervalAnswer', () => {
     expect(checkIntervalAnswer(answer, answer)).toBe(true);
   });
 });
+
+describe('interval sets with isolated points and radical bounds (EGE-2027 №19, №16)', () => {
+  it('reads k√n, kπ/m and a√b/√c bounds', () => {
+    expect(parseBound('-2√2')).toBeCloseTo(-2 * Math.SQRT2, 12);
+    expect(parseBound('11π/2')).toBeCloseTo((11 * Math.PI) / 2, 12);
+    expect(parseBound('2√21/√103')).toBeCloseTo((2 * Math.sqrt(21)) / Math.sqrt(103), 12);
+    expect(parseBound('√3/9')).toBeCloseTo(Math.sqrt(3) / 9, 12);
+    expect(parseBound('2x')).toBeNull();
+  });
+
+  it('accepts a point written in braces, bare, or with a ";" between items', () => {
+    const key = '{-89/18} ∪ [-4.5;-2√2)';
+    expect(checkIntervalAnswer('{-89/18} ∪ [-4,5; -2√2)', key)).toBe(true);
+    expect(checkIntervalAnswer('[-4.5;-√8) ∪ {-89/18}', key)).toBe(true);
+    expect(checkIntervalAnswer('-89/18; [-4.5;-2√2)', key)).toBe(true);
+    expect(checkIntervalAnswer('a ∈ {-89/18} ∪ [-4.5;-2√2)', key)).toBe(true);
+    // A different point, a missing point or a wrong bracket is wrong.
+    expect(checkIntervalAnswer('{-4.9} ∪ [-4.5;-2√2)', key)).toBe(false);
+    expect(checkIntervalAnswer('[-4.5;-2√2)', key)).toBe(false);
+    expect(checkIntervalAnswer('{-89/18} ∪ [-4.5;-2√2]', key)).toBe(false);
+  });
+
+  it('treats the same set written in pieces as equal, but keeps a gap', () => {
+    expect(checkIntervalAnswer('{1} ∪ (1;2]', '[1;2]')).toBe(true);
+    expect(checkIntervalAnswer('[0;1] ∪ [1;3)', '[0;3)')).toBe(true);
+    expect(checkIntervalAnswer('(0;1) ∪ (1;3)', '(0;3)')).toBe(false);
+    expect(checkIntervalAnswer('[0;2.5) ∪ [16;81]', '[0;2,5) ∪ [16;81]')).toBe(true);
+  });
+
+  it('still rejects garbage and the semicolon inside a bracket is not a separator', () => {
+    expect(parseIntervalSet('{abc}')).toBeNull();
+    expect(parseIntervalSet('(1;2;3)')).toBeNull();
+    expect(parseIntervalSet('x ∈')).toBeNull();
+  });
+});

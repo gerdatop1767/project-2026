@@ -77,6 +77,28 @@ function parseUnsignedExpression(token: string): number | null {
     return value < 0 ? null : Math.sqrt(value);
   }
 
+  // A product/quotient of one coefficient, one π or √n and one divisor —
+  // "11π/2", "5π", "π/2", "2√2", "-2√2" (sign handled above), "√3/9",
+  // "2√21/√103". Still a fixed grammar, never an evaluator.
+  const product =
+    /^(\d+(?:\.\d+)?)?(π|pi|(?:√|sqrt)\(?(\d+(?:\.\d+)?)\)?)?(?:\/(?:(\d+(?:\.\d+)?)|(?:√|sqrt)\(?(\d+(?:\.\d+)?)\)?))?$/.exec(
+      token,
+    );
+  if (product && (product[1] !== undefined || product[2] !== undefined)) {
+    const [, coefficient, factor, radicand, divisor, divisorRadicand] = product;
+    let value = coefficient === undefined ? 1 : Number(coefficient);
+    if (factor !== undefined)
+      value *= radicand === undefined ? Math.PI : Math.sqrt(Number(radicand));
+    const denominator =
+      divisor !== undefined
+        ? Number(divisor)
+        : divisorRadicand !== undefined
+          ? Math.sqrt(Number(divisorRadicand))
+          : 1;
+    if (denominator === 0) return null;
+    return value / denominator;
+  }
+
   // log_b(x) or log_b x, base and argument each a plain positive number
   const logMatch = /^log_?(\d+(?:\.\d+)?)\(?(\d+(?:\.\d+)?)\)?$/.exec(token);
   if (logMatch) {
@@ -154,29 +176,100 @@ function parseSingleInterval(segment: string): Interval | null {
 }
 
 /**
+ * Splits on the separators that may stand between the items of a set
+ * answer: "∪"/"U", and a top-level ";" (one outside every bracket, so
+ * the ";" inside "(a;b)" or "{a;b}" is never a split point).
+ */
+function splitItems(raw: string): string[] {
+  const items: string[] = [];
+  for (const piece of raw.split(/∪|\bU\b/i)) {
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < piece.length; i++) {
+      const char = piece[i]!;
+      if (OPEN_BRACKETS.has(char) || char === '{') depth++;
+      else if (CLOSE_BRACKETS.has(char) || char === '}') depth--;
+      else if (depth === 0 && char === ';') {
+        items.push(piece.slice(start, i));
+        start = i + 1;
+      }
+    }
+    items.push(piece.slice(start));
+  }
+  return items.map((s) => s.trim()).filter(Boolean);
+}
+
+/** "{a}" / "{a; b}" or a bare finite number: isolated points. */
+function parsePoints(segment: string): Interval[] | null {
+  const inner = segment.startsWith('{') && segment.endsWith('}') ? segment.slice(1, -1) : segment;
+  const points: Interval[] = [];
+  for (const raw of inner.split(';')) {
+    const value = parseBound(raw);
+    if (value === null || !Number.isFinite(value)) return null;
+    points.push({ left: value, leftClosed: true, right: value, rightClosed: true });
+  }
+  return points;
+}
+
+/**
+ * Sorted, with touching/overlapping pieces merged, so that equal sets
+ * written differently compare equal: "{1} ∪ (1;2]" is "[1;2]", and
+ * "[0;1] ∪ [1;3)" is "[0;3)". (1;2) ∪ (2;3) stays two pieces.
+ */
+function mergeIntervals(intervals: readonly Interval[]): Interval[] {
+  const sorted = [...intervals].sort(
+    (a, b) => a.left - b.left || Number(b.leftClosed) - Number(a.leftClosed),
+  );
+  const merged: Interval[] = [];
+  for (const next of sorted) {
+    const last = merged[merged.length - 1];
+    const touches =
+      last !== undefined &&
+      (next.left < last.right ||
+        (boundsEqual(next.left, last.right) && (last.rightClosed || next.leftClosed)));
+    if (!last || !touches) {
+      merged.push({ ...next });
+      continue;
+    }
+    if (boundsEqual(next.left, last.left)) last.leftClosed = last.leftClosed || next.leftClosed;
+    if (next.right > last.right && !boundsEqual(next.right, last.right)) {
+      last.right = next.right;
+      last.rightClosed = next.rightClosed;
+    } else if (boundsEqual(next.right, last.right)) {
+      last.rightClosed = last.rightClosed || next.rightClosed;
+    }
+  }
+  return merged;
+}
+
+/**
  * Parses a full interval-set answer such as "(−∞;3] ∪ (5;+∞)" into a
  * sorted list of intervals, or `null` if any segment is malformed
  * (INVALID_ANSWER_FORMAT) — the caller treats `null` as simply
- * "incorrect", never as a server error.
+ * "incorrect", never as a server error. Isolated points may be written
+ * "{−50}" (or as a bare number), a leading "x ∈" / "a ∈" is ignored,
+ * and items may be joined by "∪" or a top-level ";".
  */
 export function parseIntervalSet(raw: string): readonly Interval[] | null {
-  const normalized = raw.trim();
+  const normalized = raw.trim().replace(/^[a-zа-я]\s*∈\s*/i, '');
   if (normalized === '') return null;
 
-  const segments = normalized
-    .split(/∪|\bU\b/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const segments = splitItems(normalized);
   if (segments.length === 0) return null;
 
   const intervals: Interval[] = [];
   for (const segment of segments) {
     const interval = parseSingleInterval(segment);
-    if (!interval) return null;
-    intervals.push(interval);
+    if (interval) {
+      intervals.push(interval);
+      continue;
+    }
+    const points = parsePoints(segment);
+    if (!points) return null;
+    intervals.push(...points);
   }
 
-  return [...intervals].sort((a, b) => a.left - b.left || a.right - b.right);
+  return mergeIntervals(intervals);
 }
 
 function boundsEqual(a: number, b: number): boolean {

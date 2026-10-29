@@ -121,3 +121,22 @@ describe('checkAnswer', () => {
     });
   });
 });
+
+describe('checkAnswer — exact-expression keys (EGE-2027 part two)', () => {
+  it('accepts equal roots in any order and any equivalent form', () => {
+    expect(checkAnswer('-5π; -11π/2', '-11π/2; -5π')).toBe(true);
+    expect(checkAnswer('-5,5π; -5π', '-11π/2; -5π')).toBe(true);
+    expect(checkAnswer('-11π/2; -4π', '-11π/2; -5π')).toBe(false);
+    expect(checkAnswer('-11π/2', '-11π/2; -5π')).toBe(false);
+  });
+
+  it('accepts a radical in either written form', () => {
+    expect(checkAnswer('2√21/√103', '2√2163/103')).toBe(true);
+    expect(checkAnswer('0.903', '2√2163/103')).toBe(false);
+  });
+
+  it('leaves plain numeric keys exactly as before', () => {
+    expect(checkAnswer('1/8', '0.125')).toBe(false);
+    expect(checkAnswer('0,125', '0.125')).toBe(true);
+  });
+});
