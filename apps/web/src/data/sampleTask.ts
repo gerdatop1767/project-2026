@@ -52,6 +52,8 @@ export interface SampleTask {
   passage: Passage | null;
   /** A graph/figure required to solve the task (e.g. derivative or parabola graphs). */
   imageUrl: string | null;
+  /** The task's import tags (e.g. `ege-2026-variant-1`) — figures are bound to them. */
+  tags?: readonly string[];
   /** 'short_answer' unless the backend says otherwise — most tasks need no UI branch at all. */
   answerType: 'short_answer' | 'multiple_choice' | 'interval' | 'multi_part' | 'essay';
   /** Non-null only for multi_part tasks — one input per part, no answers included. */

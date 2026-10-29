@@ -285,6 +285,8 @@ export function TaskMobile({
           <TaskExamIllustration
             subjectId={task.subjectId}
             taskNumber={task.number}
+            tags={task.tags}
+            imageUrl={task.imageUrl}
             className={styles.taskImage}
           />
           <RuleButton

@@ -448,7 +448,8 @@ describe('ResultMobile — "К списку заданий"', () => {
 
 describe('ResultMobile — solution-only illustration (QA v2 Block H)', () => {
   it('shows task 14\'s "Иллюстрация к решению" pyramid diagram once the result screen loads', async () => {
-    const task14 = { ...taskWithSolution, taskNumber: 14 };
+    // The SVG belongs to ЕГЭ 2026 Вариант 1's №14 — the real task carries its tag.
+    const task14 = { ...taskWithSolution, taskNumber: 14, tags: ['ege-2026-variant-1'] };
     vi.mocked(api.getTask).mockResolvedValue(task14);
     vi.mocked(api.listTasksByNumber).mockResolvedValue([task14]);
 

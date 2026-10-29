@@ -290,11 +290,30 @@ describe('TaskDesktop', () => {
   });
 
   it('renders our own verified SVG reconstruction for a task with a real original diagram (e.g. task 11)', async () => {
-    vi.mocked(api.getTask).mockResolvedValue({ ...baseTask, taskNumber: 11 });
-    vi.mocked(api.listTasksByNumber).mockResolvedValue([{ ...baseTask, taskNumber: 11 }]);
+    const task11 = { ...baseTask, taskNumber: 11, tags: ['ege-2026-variant-1'] };
+    vi.mocked(api.getTask).mockResolvedValue(task11);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([task11]);
     renderTask();
     await screen.findByText(CONDITION);
     expect(document.querySelector('svg[role="img"]')).toBeInTheDocument();
+  });
+
+  it("shows another task №11 with its own source figure, never Вариант 1's graph", async () => {
+    const other = {
+      ...baseTask,
+      taskNumber: 11,
+      tags: ['ege-2026-variant-3'],
+      imageUrl: '/tasks/imports/ege-2026-variant-3/task-11-graph.png',
+    };
+    vi.mocked(api.getTask).mockResolvedValue(other);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([other]);
+    renderTask();
+    await screen.findByText(CONDITION);
+    expect(document.querySelector('svg[role="img"]')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Рисунок к заданию 11' })).toHaveAttribute(
+      'src',
+      '/tasks/imports/ege-2026-variant-3/task-11-graph.png',
+    );
   });
 
   describe('calculator (Task Workspace block 3)', () => {

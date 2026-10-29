@@ -280,11 +280,14 @@ export function ResultDesktop({
             <TaskExamIllustration
               subjectId={task.subjectId}
               taskNumber={task.number}
+              tags={task.tags}
+              imageUrl={task.imageUrl}
               className={styles.taskImage}
             />
             <TaskSolutionIllustration
               subjectId={task.subjectId}
               taskNumber={task.number}
+              tags={task.tags}
               className={styles.taskImage}
             />
 

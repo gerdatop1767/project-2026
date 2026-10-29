@@ -339,6 +339,8 @@ export function TaskDesktop({
                 <TaskExamIllustration
                   subjectId={task.subjectId}
                   taskNumber={task.number}
+                  tags={task.tags}
+                  imageUrl={task.imageUrl}
                   className={styles.taskImage}
                 />
                 <RuleButton

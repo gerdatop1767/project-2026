@@ -33,3 +33,22 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* A task's own source figure (an exact crop of the scanned page): kept
+ * on white paper in both themes so nothing in the scan is recoloured,
+ * never upscaled past its natural size, and never wider than the card. */
+.sourceFigure {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  overflow-x: auto;
+}
+
+.sourceFigureImage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
