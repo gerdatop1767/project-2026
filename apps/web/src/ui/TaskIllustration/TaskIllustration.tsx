@@ -28,6 +28,13 @@ function hasOwnSvg({ subjectId, taskNumber, tags }: TaskFigureSource): boolean {
 export interface TaskExamIllustrationProps extends TaskFigureSource {
   /** The figure stored with this very task — an exact crop of the source scan. */
   imageUrl?: string | null;
+  /** The condition text: used only to notice that it refers to a figure. */
+  conditionMd?: string;
+}
+
+/** The condition itself says a figure is printed with it. */
+export function conditionRefersToFigure(conditionMd: string | undefined): boolean {
+  return /на рисунке|изображ[её]н|по рисунку|на клетчатой бумаге/i.test(conditionMd ?? '');
 }
 
 /**
@@ -37,20 +44,32 @@ export interface TaskExamIllustrationProps extends TaskFigureSource {
  * other task it is that task's own `imageUrl`: an exact, unretouched
  * fragment of the source page, shown on a white "paper" ground in both
  * themes. A task with neither renders nothing — never another task's
- * figure.
+ * figure — or, when its condition refers to a figure, a short note that
+ * the figure is missing.
  */
 export function TaskExamIllustration({
   subjectId,
   taskNumber,
   tags,
   imageUrl,
+  conditionMd,
   className,
 }: TaskExamIllustrationProps) {
   if (hasOwnSvg({ subjectId, taskNumber, tags })) {
     if (!illustrationReconstructsOriginal(subjectId, taskNumber)) return null;
     return <div className={className}>{getCustomIllustration(subjectId, taskNumber)}</div>;
   }
-  if (!imageUrl) return null;
+  if (!imageUrl) {
+    // Never another task's figure — but say plainly that this one is missing.
+    // Math only: elsewhere «изображён» is ordinary wording (e.g. a literary text).
+    if (subjectId !== 'math' || !conditionRefersToFigure(conditionMd)) return null;
+    return (
+      <p className={styles.missingFigure} role="note">
+        Рисунок к этому заданию ещё не добавлен, без него задание не решить. Мы знаем об этом —
+        можно выбрать другое задание.
+      </p>
+    );
+  }
   return (
     <div className={styles.sourceFigure}>
       <img

@@ -52,3 +52,13 @@
   max-width: 100%;
   height: auto;
 }
+
+/* The condition refers to a figure we do not have (yet). */
+.missingFigure {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-input);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}

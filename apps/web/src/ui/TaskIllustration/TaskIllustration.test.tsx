@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { TaskExamIllustration, TaskSolutionIllustration } from './TaskIllustration.js';
+import {
+  TaskExamIllustration,
+  TaskSolutionIllustration,
+  conditionRefersToFigure,
+} from './TaskIllustration.js';
 
 const V1 = ['ege-2026-variant-1'];
 
@@ -85,5 +89,60 @@ describe('figures are bound to the task, not just to its number', () => {
       'src',
       '/tasks/imports/ege-2027-variant-2/task-09-derivative-graph.png',
     );
+  });
+});
+
+describe('a condition that refers to a figure we do not have', () => {
+  it('shows a note instead of a figure — never Вариант 1’s', () => {
+    render(
+      <TaskExamIllustration
+        subjectId="math"
+        tags={['ege-2026-variant-7']}
+        taskNumber={8}
+        conditionMd="На рисунке изображён график функции $y=f(x)$."
+      />,
+    );
+    expect(screen.getByRole('note')).toHaveTextContent('Рисунок к этому заданию ещё не добавлен');
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('says nothing for a text-only condition, and nothing extra when the figure exists', () => {
+    const plain = render(
+      <TaskExamIllustration
+        subjectId="math"
+        tags={[]}
+        taskNumber={5}
+        conditionMd="Найдите корень."
+      />,
+    );
+    expect(plain.container).toBeEmptyDOMElement();
+    plain.unmount();
+    render(
+      <TaskExamIllustration
+        subjectId="math"
+        tags={['ege-2027-variant-1']}
+        taskNumber={9}
+        imageUrl="/x.png"
+        conditionMd="На рисунке изображён график"
+      />,
+    );
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('only for math — «изображён» in another subject is ordinary wording', () => {
+    const { container } = render(
+      <TaskExamIllustration
+        subjectId="russian"
+        taskNumber={8}
+        conditionMd="Кто изображён в отрывке?"
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('recognises the usual wordings', () => {
+    expect(conditionRefersToFigure('На координатной плоскости изображены векторы')).toBe(true);
+    expect(conditionRefersToFigure('На рисунке изображён график')).toBe(true);
+    expect(conditionRefersToFigure('Найдите значение выражения')).toBe(false);
   });
 });

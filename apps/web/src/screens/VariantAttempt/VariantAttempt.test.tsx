@@ -138,13 +138,13 @@ describe('VariantAttempt — one attempt’s full result', () => {
   });
 });
 
-describe('VariantAttempt — «Баллы ЕГЭ»', () => {
+describe('VariantAttempt — «Первичные баллы ЕГЭ»', () => {
   it('shows primary points, the part split and the per-task breakdown; no test score without a scale', async () => {
     vi.mocked(api.getVariantAttempt).mockResolvedValue(
       attemptDetail({ scoring: attemptScoring() }),
     );
     renderAttempt();
-    const card = (await screen.findByRole('heading', { name: 'Баллы ЕГЭ' })).closest(
+    const card = (await screen.findByRole('heading', { name: 'Первичные баллы ЕГЭ' })).closest(
       'div',
     )!.parentElement!;
     expect(within(card).getByText('9')).toBeInTheDocument();
@@ -156,6 +156,11 @@ describe('VariantAttempt — «Баллы ЕГЭ»', () => {
     ).toBeInTheDocument();
     expect(within(card).getByText(/№17 сейчас на проверке/)).toBeInTheDocument();
     expect(within(card).getByText(/Часть 2 оценена только по ответу/)).toBeInTheDocument();
+    expect(within(card).getByText(/не официальные критерии/)).toBeInTheDocument();
+    expect(within(card).getByText(/№20: По ответам пунктов/)).toBeInTheDocument();
+    // Primary points are never presented as the 0–100 test score.
+    expect(within(card).getByText('Первичные баллы — не тестовые (0–100)')).toBeInTheDocument();
+    expect(within(card).getByText('Тестовый балл (0–100)').nextSibling).toHaveTextContent('—');
     expect(within(card).getByText(/по проекту КИМ ЕГЭ 2027/)).toBeInTheDocument();
     expect(within(card).queryByText('Предварительно')).not.toBeInTheDocument();
     const table = within(card).getByRole('table', { name: 'Баллы по заданиям' });
@@ -220,6 +225,6 @@ describe('VariantAttempt — «Баллы ЕГЭ»', () => {
     vi.mocked(api.getVariantAttempt).mockResolvedValue(attemptDetail());
     renderAttempt();
     await screen.findByRole('heading', { name: 'Вариант 1' });
-    expect(screen.queryByRole('heading', { name: 'Баллы ЕГЭ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Первичные баллы ЕГЭ' })).not.toBeInTheDocument();
   });
 });

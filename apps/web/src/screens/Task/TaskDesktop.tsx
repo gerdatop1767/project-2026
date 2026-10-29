@@ -341,6 +341,7 @@ export function TaskDesktop({
                   taskNumber={task.number}
                   tags={task.tags}
                   imageUrl={task.imageUrl}
+                  conditionMd={task.condition}
                   className={styles.taskImage}
                 />
                 <RuleButton

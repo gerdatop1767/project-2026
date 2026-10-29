@@ -389,3 +389,8 @@
 .breakdown tr[data-status='zero'] .breakdownPoints {
   color: var(--color-error);
 }
+
+.pointsRule {
+  display: block;
+  margin-top: var(--space-1);
+}

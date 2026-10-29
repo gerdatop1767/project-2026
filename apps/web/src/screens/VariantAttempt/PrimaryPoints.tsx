@@ -12,7 +12,7 @@ const statusLabel: Record<TaskScoreStatus, string> = {
 };
 
 /**
- * «Баллы ЕГЭ» of one variant attempt: primary points from the attempt's
+ * «Первичные баллы ЕГЭ» of one variant attempt: primary points from the attempt's
  * frozen rules, the part split, the conversion to a test score only when
  * a confirmed scale exists (otherwise why not), and a per-task
  * breakdown. Says plainly what is an estimate.
@@ -30,7 +30,7 @@ export function PrimaryPoints({
     <Card className={styles.score} aria-labelledby="points-title">
       <div className={styles.pointsHead}>
         <h2 id="points-title" className={styles.sectionTitle}>
-          Баллы ЕГЭ
+          Первичные баллы ЕГЭ
         </h2>
         {s.preliminary && <span className={styles.badge}>Предварительно</span>}
       </div>
@@ -38,7 +38,7 @@ export function PrimaryPoints({
         <span className={styles.scoreValue}>{s.primary}</span>
         <span className="text-body text-secondary"> из {s.examMaxTotal}</span>
       </p>
-      <p className="text-body-sm text-secondary">Первичные баллы</p>
+      <p className="text-body-sm text-secondary">Первичные баллы — не тестовые (0–100)</p>
       <dl className={styles.scoreGrid}>
         <div className={styles.stat}>
           <dt className="text-body-sm text-secondary">Часть 1</dt>
@@ -53,7 +53,7 @@ export function PrimaryPoints({
           </dd>
         </div>
         <div className={styles.stat}>
-          <dt className="text-body-sm text-secondary">Тестовый балл</dt>
+          <dt className="text-body-sm text-secondary">Тестовый балл (0–100)</dt>
           <dd className={styles.statValue}>
             {s.conversion.available ? `≈ ${s.conversion.testScore}` : '—'}
           </dd>
@@ -81,7 +81,13 @@ export function PrimaryPoints({
         )}
         <li>
           Часть 2 оценена только по ответу: решение и доказательство здесь не проверяются, поэтому
-          балл за неё ориентировочный.
+          балл за неё ориентировочный — это наши правила, а не официальные критерии.
+          {partTwoRules(s).map((r) => (
+            <span key={r.note} className={styles.pointsRule}>
+              {' '}
+              №{r.numbers.join(', №')}: {r.note}
+            </span>
+          ))}
         </li>
         {s.rulesStatus === 'project' && (
           <li>
@@ -122,4 +128,14 @@ export function PrimaryPoints({
       )}
     </Card>
   );
+}
+
+/** Distinct Part 2 rule notes, each with the task numbers it applies to. */
+function partTwoRules(s: VariantAttemptScoring): { note: string; numbers: number[] }[] {
+  const byNote = new Map<string, number[]>();
+  for (const t of s.tasks) {
+    if (!t.estimated || !t.note) continue;
+    byNote.set(t.note, [...(byNote.get(t.note) ?? []), t.taskNumber]);
+  }
+  return [...byNote].map(([note, numbers]) => ({ note, numbers }));
 }

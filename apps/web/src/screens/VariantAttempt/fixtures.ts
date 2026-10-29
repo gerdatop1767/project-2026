@@ -108,7 +108,7 @@ export const attemptScoring = (
       awarded: 2,
       status: 'partial',
       estimated: true,
-      note: null,
+      note: 'По ответам пунктов: а) — 1 балл, б) — 1 балл, в) — 2 балла.',
     },
   ],
   conversion: {
