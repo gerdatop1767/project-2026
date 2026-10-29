@@ -19,6 +19,8 @@ import {
   ege2027V2T12,
   ege2027V3T12,
   ege2027V4T12,
+  EGE_2027_V5_T9_WAYPOINTS,
+  ege2027V5T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -45,6 +47,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-3:12',
         'ege-2027-variant-4:2',
         'ege-2027-variant-4:12',
+        'ege-2027-variant-5:9',
+        'ege-2027-variant-5:12',
       ].sort(),
     );
   });
@@ -256,6 +260,8 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [3, 12],
     [4, 2],
     [4, 12],
+    [5, 9],
+    [5, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -314,5 +320,30 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     expect(g(-4)).toBeCloseTo(3, 12);
     expect(g(1)).toBeCloseTo(2, 12);
     expect(f(10)).toBeCloseTo(g(10), 12);
+  });
+
+  it('В5 №9: f′ changes sign + → − at −14, −6, 1, 6 — two maxima on [−9; 3]', () => {
+    const w = EGE_2027_V5_T9_WAYPOINTS;
+    expect([w[0], w[w.length - 1]]).toEqual([
+      [-17, 1],
+      [7, -2],
+    ]);
+    const falls: number[] = [];
+    for (let i = 0; i < w.length - 1; i += 1) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 > 0 && y1 < 0) falls.push(x0 - (y0 * (x1 - x0)) / (y1 - y0));
+    }
+    expect(falls.map(Math.round)).toEqual([-14, -6, 1, 6]);
+    for (const x of falls) expect(Math.abs(x - Math.round(x))).toBeLessThan(0.1);
+    expect(falls.filter((x) => x >= -9 && x <= 3)).toHaveLength(2);
+  });
+
+  it('В5 №12: √(4x/3) and √(x+5) pass the marked points and meet at x = 15', () => {
+    const { f, g } = ege2027V5T12;
+    expect(f(0)).toBe(0);
+    expect(f(3)).toBeCloseTo(2, 12);
+    expect([g(-5), g(-4), g(-1)]).toEqual([0, 1, 2]);
+    expect(f(15)).toBeCloseTo(g(15), 12);
   });
 });

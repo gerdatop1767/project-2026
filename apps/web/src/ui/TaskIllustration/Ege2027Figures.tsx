@@ -79,50 +79,78 @@ export const EGE_2027_V2_T9_WAYPOINTS: readonly (readonly [number, number])[] = 
   [7, -1.52],
 ];
 
-export function Ege2027V2Task9() {
-  const first = EGE_2027_V2_T9_WAYPOINTS[0]!;
-  const last = EGE_2027_V2_T9_WAYPOINTS[EGE_2027_V2_T9_WAYPOINTS.length - 1]!;
+/**
+ * A printed curve on a grid with both ends open (a derivative graph
+ * «на интервале (a; b)»): spline through the traced waypoints, open
+ * circles at the ends joined to the axis by dashes, each end's abscissa
+ * written on the far side of the axis, and the «y = f′(x)» caption where
+ * the book prints it.
+ */
+function OpenEndedCurve({
+  waypoints,
+  xMin,
+  xMax,
+  yMin,
+  yMax,
+  tickLabels,
+  caption,
+  maxWidth,
+  ariaLabel,
+}: {
+  waypoints: readonly (readonly [number, number])[];
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  tickLabels: { x: readonly number[]; y: readonly number[] };
+  /** Left end of the caption text, in plane units. */
+  caption: { x: number; y: number };
+  maxWidth: number;
+  ariaLabel: string;
+}) {
+  const ends = [waypoints[0]!, waypoints[waypoints.length - 1]!];
   return (
     <CoordinatePlaneBase
-      xMin={-8}
-      xMax={8}
-      yMin={-4}
-      yMax={4}
-      tickLabels={{ x: [1], y: [1] }}
+      xMin={xMin}
+      xMax={xMax}
+      yMin={yMin}
+      yMax={yMax}
+      tickLabels={tickLabels}
       squareCells
-      maxWidth={520}
-      ariaLabel="График производной y = f′(x) на интервале (−7; 7), концы выколоты (вариант 2, задание 9)"
+      maxWidth={maxWidth}
+      ariaLabel={ariaLabel}
     >
       {({ toSvgX, toSvgY }) => (
         <>
-          {/* «−7» under the axis and «7» above it, joined to the open ends by dashes. */}
-          {[first, last].map(([x, y]) => (
-            <line
-              key={x}
-              x1={toSvgX(x)}
-              y1={toSvgY(0)}
-              x2={toSvgX(x)}
-              y2={toSvgY(y)}
-              stroke={MUTED}
-              strokeWidth={1}
-              strokeDasharray="4 3"
-            />
+          {ends.map(([x, y]) => (
+            <g key={x}>
+              <line
+                x1={toSvgX(x)}
+                y1={toSvgY(0)}
+                x2={toSvgX(x)}
+                y2={toSvgY(y)}
+                stroke={MUTED}
+                strokeWidth={1}
+                strokeDasharray="4 3"
+              />
+              <text
+                x={toSvgX(x)}
+                y={y > 0 ? toSvgY(0) + 15 : toSvgY(0) - 7}
+                fontSize={14}
+                textAnchor="middle"
+                fill={MUTED}
+              >
+                {x < 0 ? `−${-x}` : x}
+              </text>
+            </g>
           ))}
-          <text x={toSvgX(-7)} y={toSvgY(0) + 15} fontSize={14} textAnchor="middle" fill={MUTED}>
-            −7
-          </text>
-          <text x={toSvgX(7)} y={toSvgY(0) - 7} fontSize={14} textAnchor="middle" fill={MUTED}>
-            7
-          </text>
           <path
-            d={splinePath(
-              EGE_2027_V2_T9_WAYPOINTS.map(([x, y]) => [toSvgX(x), toSvgY(y)] as const),
-            )}
+            d={splinePath(waypoints.map(([x, y]) => [toSvgX(x), toSvgY(y)] as const))}
             fill="none"
             stroke={LINE}
             strokeWidth={2.25}
           />
-          {[first, last].map(([x, y]) => (
+          {ends.map(([x, y]) => (
             <circle
               key={x}
               cx={toSvgX(x)}
@@ -134,8 +162,8 @@ export function Ege2027V2Task9() {
             />
           ))}
           <text
-            x={toSvgX(1.75)}
-            y={toSvgY(3) + 5}
+            x={toSvgX(caption.x)}
+            y={toSvgY(caption.y) + 5}
             fontSize={14}
             fontStyle="italic"
             fill={LINE}
@@ -148,6 +176,22 @@ export function Ege2027V2Task9() {
         </>
       )}
     </CoordinatePlaneBase>
+  );
+}
+
+export function Ege2027V2Task9() {
+  return (
+    <OpenEndedCurve
+      waypoints={EGE_2027_V2_T9_WAYPOINTS}
+      xMin={-8}
+      xMax={8}
+      yMin={-4}
+      yMax={4}
+      tickLabels={{ x: [1], y: [1] }}
+      caption={{ x: 1.75, y: 3 }}
+      maxWidth={520}
+      ariaLabel="График производной y = f′(x) на интервале (−7; 7), концы выколоты (вариант 2, задание 9)"
+    />
   );
 }
 
@@ -276,6 +320,157 @@ export function Ege2027V4Task12() {
         { x: -2, y: -1 },
       ]}
       ariaLabel="Графики функций f(x) = k/x и g(x) = ax + b, пересекающиеся в точке A(1; 2) и в точке B (вариант 4, задание 12)"
+    />
+  );
+}
+
+/**
+ * В5 №9 (скан 2–15, стр. 14): y = f′(x) on (−17; 7), open ends at (−17; 1)
+ * and (7; −2); traced every 0.25 at the scan's scale (31.3 px per cell).
+ * Zeros −14, −12, −6, −2, 1, 4, 6.
+ */
+export const EGE_2027_V5_T9_WAYPOINTS: readonly (readonly [number, number])[] = [
+  [-17, 1],
+  [-16.8, 1.02],
+  [-16.55, 1.06],
+  [-16.3, 1.21],
+  [-16.05, 1.44],
+  [-15.8, 1.81],
+  [-15.55, 2.23],
+  [-15.3, 2.67],
+  [-15.05, 2.97],
+  [-14.8, 2.96],
+  [-14.55, 2.45],
+  [-14.3, 1.42],
+  [-14.05, 0.24],
+  [-13.8, -0.67],
+  [-13.55, -1.39],
+  [-13.3, -1.98],
+  [-13.05, -2.39],
+  [-12.8, -2.3],
+  [-12.55, -1.79],
+  [-12.3, -1.01],
+  [-12.05, -0.18],
+  [-11.8, 0.33],
+  [-11.55, 0.59],
+  [-11.3, 0.81],
+  [-11.05, 1.03],
+  [-10.8, 1.38],
+  [-10.55, 1.94],
+  [-10.3, 2.56],
+  [-10.05, 2.94],
+  [-9.8, 2.93],
+  [-9.55, 2.7],
+  [-9.3, 2.3],
+  [-9.05, 1.86],
+  [-8.8, 1.49],
+  [-8.55, 1.22],
+  [-8.3, 1.05],
+  [-8.05, 1.01],
+  [-7.8, 1.11],
+  [-7.55, 1.73],
+  [-7.3, 2.53],
+  [-7.05, 2.94],
+  [-6.8, 2.91],
+  [-6.55, 2.35],
+  [-6.3, 1.44],
+  [-6.05, 0.4],
+  [-5.8, -0.65],
+  [-5.55, -1.58],
+  [-5.3, -2.33],
+  [-5.05, -2.79],
+  [-4.8, -2.65],
+  [-4.55, -2.15],
+  [-4.3, -1.56],
+  [-4.05, -1.2],
+  [-3.8, -1.25],
+  [-3.55, -1.45],
+  [-3.3, -1.65],
+  [-3.05, -1.77],
+  [-2.8, -1.71],
+  [-2.55, -1.39],
+  [-2.3, -0.86],
+  [-2.05, -0.09],
+  [-1.8, 0.77],
+  [-1.55, 1.65],
+  [-1.3, 2.43],
+  [-1.05, 2.92],
+  [-0.8, 2.95],
+  [-0.55, 2.62],
+  [-0.3, 2.2],
+  [-0.05, 1.82],
+  [0.2, 1.44],
+  [0.45, 1.11],
+  [0.7, 0.74],
+  [0.95, 0.05],
+  [1.2, -0.94],
+  [1.45, -1.87],
+  [1.7, -2.59],
+  [1.95, -2.98],
+  [2.2, -2.87],
+  [2.45, -2.57],
+  [2.7, -2.21],
+  [2.95, -1.83],
+  [3.2, -1.41],
+  [3.45, -0.98],
+  [3.7, -0.53],
+  [3.95, -0.06],
+  [4.2, 0.47],
+  [4.45, 1.14],
+  [4.7, 1.78],
+  [4.95, 2.08],
+  [5.2, 1.95],
+  [5.45, 1.45],
+  [5.7, 0.79],
+  [5.95, 0.11],
+  [6.2, -0.48],
+  [6.45, -0.98],
+  [6.7, -1.44],
+  [7, -2],
+];
+
+export function Ege2027V5Task9() {
+  return (
+    <OpenEndedCurve
+      waypoints={EGE_2027_V5_T9_WAYPOINTS}
+      xMin={-18}
+      xMax={8}
+      yMin={-4}
+      yMax={4}
+      tickLabels={{ x: [2], y: [1] }}
+      caption={{ x: 1.6, y: 3 }}
+      maxWidth={640}
+      ariaLabel="График производной y = f′(x) на интервале (−17; 7), концы выколоты (вариант 5, задание 9)"
+    />
+  );
+}
+
+/** В5 №12 (скан 2–15, стр. 15): f(x)=√(ax) through (0;0), (3;2) ⇒ a=4/3; g(x)=√(x−b) through (−5;0), (−4;1), (−1;2) ⇒ b=−5. */
+export const ege2027V5T12 = {
+  f: (x: number) => (x >= 0 ? Math.sqrt((4 * x) / 3) : Number.NaN),
+  g: (x: number) => (x >= -5 ? Math.sqrt(x + 5) : Number.NaN),
+};
+
+export function Ege2027V5Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V5T12.f}
+      extraCurves={[ege2027V5T12.g]}
+      xMin={-5}
+      xMax={5}
+      yMin={-1}
+      yMax={4}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={380}
+      points={[
+        { x: -5, y: 0 },
+        { x: -4, y: 1 },
+        { x: -1, y: 2 },
+        { x: 0, y: 0 },
+        { x: 3, y: 2 },
+      ]}
+      ariaLabel="Графики функций f(x) = √(ax) и g(x) = √(x − b), пересекающиеся в точке A (вариант 5, задание 12)"
     />
   );
 }

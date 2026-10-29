@@ -193,3 +193,20 @@ describe('bracketed sums over a divisor (EGE-2027 №14, №19 boundary values)'
     expect(checkIntervalAnswer('{-0,788} ∪ (-2/3;-0,4]', key)).toBe(false);
   });
 });
+
+describe('sums and inverse trig functions in a bound', () => {
+  it('reads two terms joined outside brackets, and arctg/arcsin/arccos of a number', () => {
+    expect(parseBound('arctg(1/2)-3π')).toBeCloseTo(Math.atan(0.5) - 3 * Math.PI, 12);
+    expect(parseBound('-3π+arctg(1/2)')).toBeCloseTo(Math.atan(0.5) - 3 * Math.PI, 12);
+    expect(parseBound('3-√5')).toBeCloseTo(3 - Math.sqrt(5), 12);
+    expect(parseBound('arcsin(√3/2)')).toBeCloseTo(Math.PI / 3, 12);
+    expect(parseBound('arccos 0,6')).toBeCloseTo(Math.acos(0.6), 12);
+  });
+
+  it('still rejects what it cannot read', () => {
+    expect(parseBound('arcsin(2)')).toBeNull();
+    expect(parseBound('arctg(x)')).toBeNull();
+    expect(parseBound('1+')).toBeNull();
+    expect(parseBound('3-abc')).toBeNull();
+  });
+});

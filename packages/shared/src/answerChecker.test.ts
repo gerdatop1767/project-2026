@@ -155,4 +155,13 @@ describe('checkAnswer — exact-expression keys (EGE-2027 part two)', () => {
     expect(checkAnswer('(3+√5)/2; 1', '1; (3+√5)/2')).toBe(true);
     expect(checkAnswer('2,618; 1', '1; (3+√5)/2')).toBe(false);
   });
+
+  it('reads inverse-trig roots with a π shift, with or without spaces', () => {
+    const key = 'arctg(1/2)-3π; arctg(11/2)-3π';
+    expect(checkAnswer(key, key)).toBe(true);
+    expect(checkAnswer('arctg(11/2) - 3π; arctg 0,5 - 3π', key)).toBe(true);
+    expect(checkAnswer('-3π+arctg(0,5); -3π+arctan(5,5)', key)).toBe(true);
+    expect(checkAnswer('arctg(1/2)-3π', key)).toBe(false);
+    expect(checkAnswer('arctg(1/2)-2π; arctg(11/2)-3π', key)).toBe(false);
+  });
 });

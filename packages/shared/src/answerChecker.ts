@@ -48,7 +48,7 @@ function expressionTokensEqual(
   correctTokens: readonly string[],
   normalizedCorrect: string,
 ): boolean {
-  if (!/[π√/]|pi|sqrt/.test(normalizedCorrect)) return false;
+  if (!/[π√/]|pi|sqrt|arc/.test(normalizedCorrect)) return false;
   if (userTokens.length === 0 || userTokens.length !== correctTokens.length) return false;
   const read = (tokens: readonly string[]) => tokens.map((token) => parseBound(token));
   const user = read(userTokens);
@@ -134,6 +134,20 @@ export function checkAnswer(
   }
 
   if (expressionTokensEqual(userTokens, correctTokens, normalizedCorrect)) return true;
+  // Expression roots may contain spaces ("arctg(1/2) - 3π; …"): read them split on ";" only.
+  const bySemicolon = (normalized: string) =>
+    normalized
+      .split(';')
+      .map((token) => token.replace(/\s+/g, ''))
+      .filter(Boolean);
+  if (
+    expressionTokensEqual(
+      bySemicolon(normalizedUser),
+      bySemicolon(normalizedCorrect),
+      normalizedCorrect,
+    )
+  )
+    return true;
   if (ratioEquals(normalizedUser, normalizedCorrect)) return true;
 
   if (

@@ -42,6 +42,8 @@ export function parseBound(raw: string): number | null {
 }
 
 function parseSignedExpression(token: string): number | null {
+  const sum = parseTopLevelSum(token);
+  if (sum !== undefined) return sum;
   if (token.startsWith('-')) {
     const inner = parseSignedExpression(token.slice(1));
     return inner === null ? null : -inner;
@@ -52,7 +54,46 @@ function parseSignedExpression(token: string): number | null {
   return parseUnsignedExpression(token);
 }
 
+/**
+ * "arctg(1/2)-3π", "-3π+arctg(1/2)": two terms joined by a "+"/"-" outside
+ * any bracket (not a leading sign) — each term read by the same fixed
+ * grammar. `undefined` when there is no such split, `null` when there is
+ * one but a term is not readable.
+ */
+function parseTopLevelSum(token: string): number | null | undefined {
+  let depth = 0;
+  let at = -1;
+  for (let i = 0; i < token.length; i++) {
+    const char = token[i]!;
+    if (char === '(') depth++;
+    else if (char === ')') depth--;
+    else if (i > 0 && depth === 0 && (char === '+' || char === '-')) at = i;
+  }
+  if (at < 0) return undefined;
+  const first = parseSignedExpression(token.slice(0, at));
+  const second = parseUnsignedExpression(token.slice(at + 1));
+  if (first === null || second === null) return null;
+  return token[at] === '+' ? first + second : first - second;
+}
+
+const INVERSE_TRIG: Record<string, (x: number) => number> = {
+  arctg: Math.atan,
+  arctan: Math.atan,
+  arcsin: Math.asin,
+  arccos: Math.acos,
+};
+
 function parseUnsignedExpression(token: string): number | null {
+  // arctg(1/2), arcsin(√3/2), arccos 0.6 — an inverse trig function of a
+  // number the grammar already reads.
+  const inverse = /^(arctg|arctan|arcsin|arccos)\(?([^()]+)\)?$/.exec(token);
+  if (inverse) {
+    const argument = parseSignedExpression(inverse[2]!);
+    if (argument === null) return null;
+    const value = INVERSE_TRIG[inverse[1]!]!(argument);
+    return Number.isNaN(value) ? null : value;
+  }
+
   // Plain decimal, e.g. "5.4" or "3"
   if (/^\d+(\.\d+)?$/.test(token)) {
     return Number(token);

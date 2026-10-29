@@ -20,12 +20,13 @@ import { variant1 } from './importEge2027YashchenkoVariant1.js';
 import { variant2 } from './importEge2027YashchenkoVariant2.js';
 import { variant3 } from './importEge2027YashchenkoVariant3.js';
 import { variant4 } from './importEge2027YashchenkoVariant4.js';
+import { variant5 } from './importEge2027YashchenkoVariant5.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
 
 /** Варианты 3–10 of the scan of Варианты 2–15: Вариант N on its pages 4N−7…4N−4. */
-const LATER: readonly VariantData[] = [variant3, variant4];
+const LATER: readonly VariantData[] = [variant3, variant4, variant5];
 
 type Task = VariantData['tasks'][number];
 
@@ -122,6 +123,20 @@ describe('ЕГЭ 2027 Ященко — Варианты 3–10 (скан вар�
     expect(accepts(v4(19), '(-∞;-1,25) ∪ {-(5+9√5)/40} ∪ (1;+∞)')).toBe(true);
     expect(accepts(v4(19), '(-∞;-1,25] ∪ {-(5+9√5)/40} ∪ (1;+∞)')).toBe(false);
     expect(accepts(v4(20), { a: 'да', b: 'нет', c: '30' })).toBe(true);
+    const v5 = (n: number) => variant5.tasks[n - 1]!;
+    expect(accepts(v5(2), '-4,8')).toBe(true);
+    expect(accepts(v5(14), 'arctg(11/2) - 3π; arctg 0,5 - 3π')).toBe(true);
+    expect(accepts(v5(14), 'arctg(1/2) - 3π')).toBe(false);
+    expect(accepts(v5(15), '1/3')).toBe(true);
+    expect(accepts(v5(16), '(2,5;2,52)∪(15;+∞)')).toBe(true);
+    expect(accepts(v5(16), '(2,5;2,52]∪(15;+∞)')).toBe(false);
+    expect(accepts(v5(18), '√(325/3)')).toBe(false); // outside the bound grammar
+    expect(accepts(v5(18), '5√39/3')).toBe(true);
+    expect(accepts(v5(19), '(0;6)∪(6;6,25)')).toBe(true);
+    expect(accepts(v5(19), '(0;6,25)')).toBe(false);
+    expect(accepts(v5(20), { a: 'да', b: 'нет', c: '2,5' })).toBe(true);
+    expect(v5(17).status).toBe('needs_review');
+    expect(v5(17).reviewNote).toMatch(/R/);
   });
 
   describe('import', () => {
