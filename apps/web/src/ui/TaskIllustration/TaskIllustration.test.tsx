@@ -146,3 +146,40 @@ describe('a condition that refers to a figure we do not have', () => {
     expect(conditionRefersToFigure('Найдите значение выражения')).toBe(false);
   });
 });
+
+describe('ЕГЭ 2026: the 11 tasks without their own figure (figures audit)', () => {
+  const MISSING: [number, number][] = [
+    [3, 2],
+    [4, 2],
+    [6, 2],
+    [9, 2],
+    [10, 2],
+    [7, 8],
+    [8, 8],
+    [7, 11],
+    [8, 11],
+    [9, 11],
+    [10, 11],
+  ];
+  it.each(MISSING)(
+    'В%i №%i: no Вариант 1 SVG, no foreign image — only the «missing figure» note',
+    (v, n) => {
+      const tags = [`ege-2026-variant-${v}`];
+      const exam = render(
+        <TaskExamIllustration
+          subjectId="math"
+          tags={tags}
+          taskNumber={n}
+          imageUrl={null}
+          conditionMd="На рисунке изображён график"
+        />,
+      );
+      expect(exam.container.querySelector('svg, img')).toBeNull();
+      expect(screen.getByRole('note')).toHaveTextContent('Рисунок к этому заданию ещё не добавлен');
+      exam.unmount();
+      const aid = render(<TaskSolutionIllustration subjectId="math" tags={tags} taskNumber={n} />);
+      expect(aid.container).toBeEmptyDOMElement();
+      aid.unmount();
+    },
+  );
+});
