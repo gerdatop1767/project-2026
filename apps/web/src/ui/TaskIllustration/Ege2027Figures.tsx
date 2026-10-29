@@ -229,6 +229,11 @@ export const EGE_2027_VECTORS = {
     { fromX: -6, fromY: 5, x: 1, y: 1, label: 'a', labelAt: { x: -2.45, y: 3.75 }, color: A },
     { fromX: 5, fromY: -1, x: 4, y: -5, label: 'b', labelAt: { x: 3.55, y: -3.6 }, color: B },
   ],
+  /** В7 №2 (скан 2–15, стр. 21): grid x −6…6, y −5…6. */
+  7: [
+    { fromX: 5, fromY: 5, x: -1, y: 2, label: 'a', labelAt: { x: 2.55, y: 4.5 }, color: A },
+    { fromX: -6, fromY: -4, x: -1, y: 4, label: 'b', labelAt: { x: -3.75, y: 1.5 }, color: B },
+  ],
   /** В4 №2 (скан 2–15, стр. 9): grid x −6…6, y −5…6. */
   4: [
     { fromX: 5, fromY: 6, x: -6, y: -1, label: 'a', labelAt: { x: -1.5, y: 2.8 }, color: A },
@@ -604,6 +609,187 @@ export function Ege2027V6Task12() {
         { x: 7, y: 3 },
       ]}
       ariaLabel="Графики функций f(x) = √(ax) и g(x) = √(x − b), пересекающиеся в точке A (вариант 6, задание 12)"
+    />
+  );
+}
+
+export function Ege2027V7Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-5}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[7]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 7, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/**
+ * В7 №9 (скан 2–15, стр. 22): the printed curve y = f(x), traced every
+ * 0.2 (30.6 px per cell), and its tangent at x₀ ≈ −3.2 through the
+ * marked nodes (−6; −1) and (−1; −3), slope −0.4. Near x₀ the trace is
+ * replaced by line + c·(x − x₀)² so the curve touches the line there.
+ */
+export const EGE_2027_V7_T9_WAYPOINTS: readonly (readonly [number, number])[] = [
+  [-4.9, 2.18],
+  [-4.7, 1.45],
+  [-4.5, 0.68],
+  [-4.3, -0.04],
+  [-4.1, -0.62],
+  [-3.9, -1.1],
+  [-3.7, -1.5],
+  [-3.5, -1.93],
+  [-3.3, -2.07],
+  [-3.2, -2.12],
+  [-3.1, -2.15],
+  [-2.9, -2.17],
+  [-2.7, -2.17],
+  [-2.5, -2.19],
+  [-2.3, -2.17],
+  [-2.1, -2.13],
+  [-1.9, -2.08],
+  [-1.7, -1.98],
+  [-1.5, -1.86],
+  [-1.3, -1.75],
+  [-1.1, -1.61],
+  [-0.9, -1.46],
+  [-0.7, -1.29],
+  [-0.5, -1.09],
+  [-0.3, -0.83],
+  [-0.1, -0.62],
+  [0.1, -0.47],
+  [0.3, -0.29],
+  [0.5, -0.08],
+  [0.7, 0.12],
+  [0.9, 0.32],
+  [1.1, 0.49],
+  [1.3, 0.63],
+  [1.5, 0.72],
+  [1.7, 0.76],
+  [1.9, 0.74],
+  [2.1, 0.68],
+  [2.3, 0.59],
+  [2.5, 0.47],
+  [2.7, 0.32],
+  [2.9, 0.15],
+  [3.1, -0.05],
+  [3.3, -0.28],
+  [3.5, -0.5],
+];
+export const EGE_2027_V7_T9_TANGENT = {
+  x0: -3.2,
+  through: [
+    [-6, -1],
+    [-1, -3],
+  ],
+} as const;
+
+export function Ege2027V7Task9() {
+  const [[x1, y1], [x2, y2]] = EGE_2027_V7_T9_TANGENT.through;
+  const k = (y2 - y1) / (x2 - x1);
+  const line = (x: number) => y1 + k * (x - x1);
+  const { x0 } = EGE_2027_V7_T9_TANGENT;
+  return (
+    <CoordinatePlaneBase
+      xMin={-7}
+      xMax={4}
+      yMin={-4}
+      yMax={3}
+      tickLabels={{ x: [1], y: [1] }}
+      squareCells
+      maxWidth={420}
+      ariaLabel="График функции y = f(x) и касательная к нему в точке с абсциссой x₀ (вариант 7, задание 9)"
+    >
+      {({ toSvgX, toSvgY, clipPathUrl }) => (
+        <>
+          <line
+            x1={toSvgX(x0)}
+            y1={toSvgY(0)}
+            x2={toSvgX(x0)}
+            y2={toSvgY(line(x0))}
+            stroke={MUTED}
+            strokeWidth={1.2}
+            strokeDasharray="4 3"
+          />
+          <text
+            x={toSvgX(x0)}
+            y={toSvgY(0) - 7}
+            fontSize={14}
+            fontStyle="italic"
+            textAnchor="middle"
+            fill={MUTED}
+          >
+            x₀
+          </text>
+          <line
+            x1={toSvgX(-7)}
+            y1={toSvgY(line(-7))}
+            x2={toSvgX(2)}
+            y2={toSvgY(line(2))}
+            stroke={LINE}
+            strokeWidth={2}
+            clipPath={clipPathUrl}
+          />
+          <path
+            d={splinePath(
+              EGE_2027_V7_T9_WAYPOINTS.map(([x, y]) => [toSvgX(x), toSvgY(y)] as const),
+            )}
+            fill="none"
+            stroke={LINE}
+            strokeWidth={2.25}
+            clipPath={clipPathUrl}
+          />
+          {[...EGE_2027_V7_T9_TANGENT.through, [x0, line(x0)] as const].map(([x, y]) => (
+            <circle
+              key={x}
+              cx={toSvgX(x)}
+              cy={toSvgY(y)}
+              r={4}
+              fill="var(--color-accent-secondary)"
+            />
+          ))}
+          <text
+            x={toSvgX(-2.4)}
+            y={toSvgY(2.2) + 5}
+            fontSize={14}
+            fontStyle="italic"
+            fill={LINE}
+            stroke="var(--color-bg-surface)"
+            strokeWidth={4}
+            paintOrder="stroke"
+          >
+            y = f(x)
+          </text>
+        </>
+      )}
+    </CoordinatePlaneBase>
+  );
+}
+
+/** В7 №12 (скан 2–15, стр. 23): f(x)=ax²−0,8x+c through (0;−2), (2;−2) ⇒ a=0,4, c=−2. */
+export const ege2027V7T12 = (x: number) => 0.4 * x * x - 0.8 * x - 2;
+
+export function Ege2027V7Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V7T12}
+      xMin={-3}
+      xMax={6}
+      yMin={-4}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={340}
+      points={[
+        { x: 0, y: -2 },
+        { x: 2, y: -2 },
+      ]}
+      ariaLabel="График функции f(x) = ax² − 0,8x + c с отмеченными точками (вариант 7, задание 12)"
     />
   );
 }
