@@ -210,3 +210,14 @@ describe('sums and inverse trig functions in a bound', () => {
     expect(parseBound('3-abc')).toBeNull();
   });
 });
+
+describe('a small natural power of a readable expression', () => {
+  it('reads (log_5(34))^2 and log_5(34)^2', () => {
+    const v = (Math.log(34) / Math.log(5)) ** 2;
+    expect(parseBound('(log_5(34))^2')).toBeCloseTo(v, 12);
+    expect(parseBound('log_5(34)^2')).toBeCloseTo(v, 12);
+    expect(parseBound('(√2)^2')).toBeCloseTo(2, 12);
+    expect(parseBound('2^x')).toBeNull();
+    expect(parseBound('(abc)^2')).toBeNull();
+  });
+});

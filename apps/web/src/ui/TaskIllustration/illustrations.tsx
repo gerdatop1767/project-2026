@@ -34,6 +34,7 @@ import {
   Ege2027V8Task12,
   Ege2027V8Task2,
   Ege2027V8Task9,
+  Ege2027V9Task12,
 } from './Ege2027Figures.js';
 
 /** Matches the renderer families a new illustration can be built from — see CoordinatePlaneBase/FunctionGraphSVG/CoordinatePlaneSVG and the *SVG task components for the actual drawing code. Kept mainly for tests/documentation, not for any runtime branching. */
@@ -231,6 +232,11 @@ const CUSTOM_ILLUSTRATIONS: Record<string, IllustrationEntry> = {
     kind: 'function_graph',
     reconstructsOriginal: true,
     render: () => <Ege2027V8Task12 />,
+  },
+  'ege-2027-variant-9:12': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V9Task12 />,
   },
 };
 

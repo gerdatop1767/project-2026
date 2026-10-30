@@ -84,6 +84,15 @@ const INVERSE_TRIG: Record<string, (x: number) => number> = {
 };
 
 function parseUnsignedExpression(token: string): number | null {
+  // A readable expression to a small natural power: "(log_5 34)^2", "log_5(34)^2".
+  const power = /^(.+)\^(\d)$/.exec(token);
+  if (power) {
+    const raw = power[1]!;
+    const inner = raw.startsWith('(') && raw.endsWith(')') ? raw.slice(1, -1) : raw;
+    const base = parseSignedExpression(inner);
+    return base === null ? null : base ** Number(power[2]);
+  }
+
   // arctg(1/2), arcsin(√3/2), arccos 0.6 — an inverse trig function of a
   // number the grammar already reads.
   const inverse = /^(arctg|arctan|arcsin|arccos)\(?([^()]+)\)?$/.exec(token);

@@ -24,12 +24,21 @@ import { variant5 } from './importEge2027YashchenkoVariant5.js';
 import { variant6 } from './importEge2027YashchenkoVariant6.js';
 import { variant7 } from './importEge2027YashchenkoVariant7.js';
 import { variant8 } from './importEge2027YashchenkoVariant8.js';
+import { variant9 } from './importEge2027YashchenkoVariant9.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
 
 /** Варианты 3–10 of the scan of Варианты 2–15: Вариант N on its pages 4N−7…4N−4. */
-const LATER: readonly VariantData[] = [variant3, variant4, variant5, variant6, variant7];
+const LATER: readonly VariantData[] = [
+  variant3,
+  variant4,
+  variant5,
+  variant6,
+  variant7,
+  variant8,
+  variant9,
+];
 
 type Task = VariantData['tasks'][number];
 
@@ -169,6 +178,17 @@ describe('ЕГЭ 2027 Ященко — Варианты 3–10 (скан вар�
     expect(accepts(v8(16), '[0,2; (4-√5)/5]')).toBe(false);
     expect(accepts(v8(19), '(0;0,018]∪[500/169;+∞)')).toBe(true);
     expect(accepts(v8(20), { a: 'нет', b: 'да', c: '70' })).toBe(true);
+    const v9 = (n: number) => variant9.tasks[n - 1]!;
+    expect(v9(9).status).toBe('needs_review');
+    expect(accepts(v9(14), '(log_5(34))^2')).toBe(true);
+    expect(accepts(v9(14), 'log_5(34)')).toBe(false);
+    expect(accepts(v9(15), '28√2/3')).toBe(true);
+    expect(accepts(v9(16), '(-√3;-1)∪(1;√3)')).toBe(true);
+    expect(accepts(v9(16), '[-√3;-1)∪(1;√3]')).toBe(false);
+    expect(accepts(v9(18), '161/30')).toBe(true);
+    expect(accepts(v9(19), '(7-6√2;-1,4)∪(-1,4;1)∪(1;2√2-1)')).toBe(true);
+    expect(accepts(v9(19), '(7-6√2;2√2-1)')).toBe(false);
+    expect(accepts(v9(20), { a: 'да', b: 'нет', c: '30067/3661' })).toBe(true);
   });
 
   describe('import', () => {

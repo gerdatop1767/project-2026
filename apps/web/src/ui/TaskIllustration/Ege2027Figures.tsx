@@ -951,3 +951,26 @@ export function Ege2027V8Task12() {
     />
   );
 }
+
+/** В9 №12 (скан 2–15, стр. 31): f(x)=aˣ through (0;1) and (−2;3) ⇒ a=1/√3. */
+export const ege2027V9T12 = (x: number) => 3 ** (-x / 2);
+
+export function Ege2027V9Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V9T12}
+      xMin={-3}
+      xMax={3}
+      yMin={-2}
+      yMax={8}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={260}
+      points={[
+        { x: -2, y: 3 },
+        { x: 0, y: 1 },
+      ]}
+      ariaLabel="График функции f(x) = aˣ с отмеченными точками (вариант 9, задание 12)"
+    />
+  );
+}

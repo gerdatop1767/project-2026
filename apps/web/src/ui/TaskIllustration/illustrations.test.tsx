@@ -29,6 +29,7 @@ import {
   EGE_2027_V8_T9_TANGENT,
   EGE_2027_V8_T9_WAYPOINTS,
   ege2027V8T12,
+  ege2027V9T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -65,6 +66,7 @@ describe('illustration registry', () => {
         'ege-2027-variant-8:2',
         'ege-2027-variant-8:9',
         'ege-2027-variant-8:12',
+        'ege-2027-variant-9:12',
       ].sort(),
     );
   });
@@ -286,6 +288,7 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [8, 2],
     [8, 9],
     [8, 12],
+    [9, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -447,5 +450,11 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     expect(ege2027V8T12(0)).toBeCloseTo(-2, 12);
     expect(ege2027V8T12(4)).toBeCloseTo(-2, 12);
     expect(ege2027V8T12(-10)).toBeCloseTo(-30, 12);
+  });
+
+  it('В9 №12: f(x) = 3^(−x/2) through (−2; 3) and (0; 1), f(−6) = 27', () => {
+    expect(ege2027V9T12(-2)).toBeCloseTo(3, 12);
+    expect(ege2027V9T12(0)).toBeCloseTo(1, 12);
+    expect(ege2027V9T12(-6)).toBeCloseTo(27, 12);
   });
 });
