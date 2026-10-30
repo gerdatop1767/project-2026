@@ -259,6 +259,11 @@ export const EGE_2027_VECTORS = {
     { fromX: 3, fromY: 1, x: 2, y: -2, label: 'a', labelAt: { x: 3.25, y: -0.65 }, color: A },
     { fromX: -1, fromY: -1, x: -5, y: 5, label: 'b', labelAt: { x: -2.4, y: 2.45 }, color: B },
   ],
+  /** В20 №2 (скан 18–25, стр. 9): grid x −6…6, y −6…6. */
+  20: [
+    { fromX: -1, fromY: 6, x: 3, y: -5, label: 'a', labelAt: { x: 2.45, y: -2.35 }, color: A },
+    { fromX: 1, fromY: -2, x: 4, y: 5, label: 'b', labelAt: { x: 3.6, y: 2.45 }, color: B },
+  ],
   /** В4 №2 (скан 2–15, стр. 9): grid x −6…6, y −5…6. */
   4: [
     { fromX: 5, fromY: 6, x: -6, y: -1, label: 'a', labelAt: { x: -1.5, y: 2.8 }, color: A },
@@ -1522,6 +1527,45 @@ export function Ege2027V19Task12() {
         { x: 2, y: 1 },
       ]}
       ariaLabel="График функции f(x) = a^(x+b) с отмеченными точками (вариант 19, задание 12)"
+    />
+  );
+}
+
+export function Ege2027V20Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-6}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[20]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 20, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/** В20 №12 (скан 18–25, стр. 11): f(x) = log_a(x+b) through (−2; 0) and (1; 4) ⇒ b = 3, a = √2, f = 2·log₂(x+3). */
+export const ege2027V20T12 = (x: number) => (x > -3 ? 2 * Math.log2(x + 3) : Number.NaN);
+
+export function Ege2027V20Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V20T12}
+      xMin={-3}
+      xMax={5}
+      yMin={-3}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={260}
+      points={[
+        { x: -2, y: 0 },
+        { x: 1, y: 4 },
+      ]}
+      ariaLabel="График функции f(x) = log_a(x+b) с отмеченными точками (вариант 20, задание 12)"
     />
   );
 }

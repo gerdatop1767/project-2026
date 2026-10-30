@@ -36,6 +36,7 @@ import { variant16 } from './importEge2027YashchenkoVariant16.js';
 import { variant17 } from './importEge2027YashchenkoVariant17.js';
 import { variant18 } from './importEge2027YashchenkoVariant18.js';
 import { variant19 } from './importEge2027YashchenkoVariant19.js';
+import { variant20 } from './importEge2027YashchenkoVariant20.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
@@ -51,6 +52,7 @@ const NEW: readonly VariantData[] = [
   variant17,
   variant18,
   variant19,
+  variant20,
 ];
 const EARLIER: readonly VariantData[] = [
   variant1,
@@ -254,6 +256,16 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v19(19), '(-∞;0)∪(0;6-2√6]∪[6+2√6;+∞)')).toBe(true);
     expect(accepts(v19(19), '(-∞;0)∪(0;6-2√6)∪(6+2√6;+∞)')).toBe(false);
     expect(accepts(v19(20), { a: 'да', b: 'нет', c: '12' })).toBe(true);
+    const v20 = (n: number) => task(variant20, n);
+    expect(accepts(v20(14), '-21π/8; -8π/3; -23π/8; -25π/8; -10π/3; -27π/8')).toBe(true);
+    expect(accepts(v20(14), '-27π/8; -25π/8; -23π/8; -21π/8')).toBe(false);
+    expect(accepts(v20(15), 'arccos(√5/5)')).toBe(true);
+    expect(accepts(v20(16), '[-3√3;-3)∪[-√3/9;0)∪(0;√3/9]∪(3;3√3]')).toBe(true);
+    expect(accepts(v20(16), '[-3√3;-3)∪(3;3√3]')).toBe(false);
+    expect(accepts(v20(18), '30/√14')).toBe(true);
+    expect(accepts(v20(19), '(-∞;-6]∪[-6/5;0)∪(0;+∞)')).toBe(true);
+    expect(accepts(v20(19), '(-∞;-6)∪(-6/5;+∞)')).toBe(false);
+    expect(accepts(v20(20), { a: 'да', b: 'нет', c: '10' })).toBe(true);
   });
 
   it('a repeated statement is only allowed with its own figure', () => {

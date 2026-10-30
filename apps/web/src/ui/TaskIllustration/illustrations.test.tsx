@@ -42,6 +42,7 @@ import {
   ege2027V17T12,
   ege2027V18T12,
   ege2027V19T12,
+  ege2027V20T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -95,6 +96,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-18:12',
         'ege-2027-variant-19:2',
         'ege-2027-variant-19:12',
+        'ege-2027-variant-20:2',
+        'ege-2027-variant-20:12',
       ].sort(),
     );
   });
@@ -247,6 +250,19 @@ describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the
 
   it('В19 №12: f(x) = 2^(2−x) through (0; 4) and (2; 1), f(−3) = 32', () => {
     expect([ege2027V19T12(0), ege2027V19T12(2), ege2027V19T12(-3)]).toEqual([4, 1, 32]);
+  });
+
+  it('В20 №2: a = (4; −11), b = (3; 7), |b − 3a| = 41', () => {
+    const [a, b] = EGE_2027_VECTORS[20].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [4, -11],
+      [3, 7],
+    ]);
+    expect(Math.hypot(b![0]! - 3 * a![0]!, b![1]! - 3 * a![1]!)).toBe(41);
+  });
+
+  it('В20 №12: f(x) = 2·log₂(x+3) through (−2; 0) and (1; 4), f(29) = 10', () => {
+    expect([ege2027V20T12(-2), ege2027V20T12(1), ege2027V20T12(29)]).toEqual([0, 4, 10]);
   });
 
   it('В9 №11: through (0;4) and (2;1), f(−3) = 32', () => {
