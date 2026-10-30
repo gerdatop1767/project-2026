@@ -974,3 +974,25 @@ export function Ege2027V9Task12() {
     />
   );
 }
+
+export const ege2027V10T12 = (x: number) => 5 ** (x / 2);
+
+export function Ege2027V10Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V10T12}
+      xMin={-3}
+      xMax={3}
+      yMin={-2}
+      yMax={8}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={260}
+      points={[
+        { x: 0, y: 1 },
+        { x: 2, y: 5 },
+      ]}
+      ariaLabel="График функции f(x) = aˣ с отмеченными точками (вариант 10, задание 12)"
+    />
+  );
+}

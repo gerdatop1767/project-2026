@@ -30,6 +30,7 @@ import {
   EGE_2027_V8_T9_WAYPOINTS,
   ege2027V8T12,
   ege2027V9T12,
+  ege2027V10T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -67,6 +68,7 @@ describe('illustration registry', () => {
         'ege-2027-variant-8:9',
         'ege-2027-variant-8:12',
         'ege-2027-variant-9:12',
+        'ege-2027-variant-10:12',
       ].sort(),
     );
   });
@@ -289,6 +291,7 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [8, 9],
     [8, 12],
     [9, 12],
+    [10, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -456,5 +459,11 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     expect(ege2027V9T12(-2)).toBeCloseTo(3, 12);
     expect(ege2027V9T12(0)).toBeCloseTo(1, 12);
     expect(ege2027V9T12(-6)).toBeCloseTo(27, 12);
+  });
+
+  it('В10 №12: f(x) = 5^(x/2) through (0; 1) and (2; 5), f(−1)/f(−5) = 25', () => {
+    expect(ege2027V10T12(0)).toBeCloseTo(1, 12);
+    expect(ege2027V10T12(2)).toBeCloseTo(5, 12);
+    expect(ege2027V10T12(-1) / ege2027V10T12(-5)).toBeCloseTo(25, 10);
   });
 });
