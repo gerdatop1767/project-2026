@@ -34,6 +34,7 @@ import { variant14 } from './importEge2027YashchenkoVariant14.js';
 import { variant15 } from './importEge2027YashchenkoVariant15.js';
 import { variant16 } from './importEge2027YashchenkoVariant16.js';
 import { variant17 } from './importEge2027YashchenkoVariant17.js';
+import { variant18 } from './importEge2027YashchenkoVariant18.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
@@ -46,6 +47,8 @@ const NEW: readonly VariantData[] = [
   variant14,
   variant15,
   variant16,
+  variant17,
+  variant18,
 ];
 const EARLIER: readonly VariantData[] = [
   variant1,
@@ -224,13 +227,30 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     ).toBe(true);
     expect(accepts(v17(19), '[2-arccos(0,6)/(6π);2+arccos(0,6)/(6π))')).toBe(false);
     expect(accepts(v17(20), { a: 'да', b: 'нет', c: '880' })).toBe(true);
+    const v18 = (n: number) => task(variant18, n);
+    expect(accepts(v18(14), '4π; 3π; 5π/2; 2π; 3π/2; π')).toBe(true);
+    expect(accepts(v18(14), 'π; 3π/2; 2π; 5π/2; 3π; 7π/2; 4π')).toBe(false);
+    expect(accepts(v18(15), 'arctg(√15)')).toBe(true);
+    expect(accepts(v18(16), '(-∞;-3)∪(-3;-√6)∪(√6;3)∪(3;+∞)')).toBe(true);
+    expect(accepts(v18(16), '(-∞;-√6)∪(√6;+∞)')).toBe(false);
+    expect(v18(17).status).toBe('needs_review');
+    expect(
+      accepts(
+        v18(19),
+        '(-2-arccos(0,4)/(4π);-2+arccos(0,4)/(4π)]∪[2-arccos(0,4)/(4π);2+arccos(0,4)/(4π))',
+      ),
+    ).toBe(true);
+    expect(accepts(v18(20), { a: 'да', b: 'нет', c: '385' })).toBe(true);
   });
 
   it('a repeated statement is only allowed with its own figure', () => {
     const repeated = [...EARLIER, ...NEW].flatMap((v) =>
       v.tasks.filter((t) => t.figureFingerprint).map((t) => [v.variant, t.taskNumber]),
     );
-    expect(repeated).toEqual([[16, 12]]);
+    expect(repeated).toEqual([
+      [16, 12],
+      [18, 12],
+    ]);
     expect(task(variant16, 12).rawStatement).toBe(task(variant15, 12).rawStatement);
     expect(task(variant16, 12).imageUrl).not.toBe(task(variant15, 12).imageUrl);
   });

@@ -40,6 +40,7 @@ import {
   ege2027V15T12,
   ege2027V16T12,
   ege2027V17T12,
+  ege2027V18T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -90,6 +91,7 @@ describe('illustration registry', () => {
         'ege-2027-variant-16:2',
         'ege-2027-variant-16:12',
         'ege-2027-variant-17:12',
+        'ege-2027-variant-18:12',
       ].sort(),
     );
   });
@@ -225,6 +227,12 @@ describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the
     expect(f(-6.5)).toBeCloseTo(g(-6.5), 12);
   });
 
+  it('В18 №12: g = 2x² − 4x through (0; 0), (1; −2), (2; 0); f = 3,5x through (2; 7); A at x = 3,75', () => {
+    const { f, g } = ege2027V18T12;
+    expect([g(0) + 0, g(1), g(2), f(2)]).toEqual([0, -2, 0, 7]);
+    expect(f(3.75)).toBeCloseTo(g(3.75), 12);
+  });
+
   it('В9 №11: through (0;4) and (2;1), f(−3) = 32', () => {
     expect([ege2026V9T11(0), ege2026V9T11(2), ege2026V9T11(-3)]).toEqual([4, 1, 32]);
   });
@@ -325,6 +333,7 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [16, 2],
     [16, 12],
     [17, 12],
+    [18, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
