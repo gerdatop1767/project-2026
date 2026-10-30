@@ -34,6 +34,7 @@ import { importVariant18 as importYashchenko2027Variant18 } from './importEge202
 import { importVariant19 as importYashchenko2027Variant19 } from './importEge2027YashchenkoVariant19.js';
 import { importVariant20 as importYashchenko2027Variant20 } from './importEge2027YashchenkoVariant20.js';
 import { importVariant21 as importYashchenko2027Variant21 } from './importEge2027YashchenkoVariant21.js';
+import { importVariant22 as importYashchenko2027Variant22 } from './importEge2027YashchenkoVariant22.js';
 import * as schema from './schema.js';
 
 // In-memory Postgres (PGlite) with all migrations applied. Tests only.
@@ -106,5 +107,6 @@ export async function createImported2027TestDb() {
   await importYashchenko2027Variant19(testDb.db);
   await importYashchenko2027Variant20(testDb.db);
   await importYashchenko2027Variant21(testDb.db);
+  await importYashchenko2027Variant22(testDb.db);
   return testDb;
 }

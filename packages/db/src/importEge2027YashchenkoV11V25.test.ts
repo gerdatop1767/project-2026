@@ -38,6 +38,7 @@ import { variant18 } from './importEge2027YashchenkoVariant18.js';
 import { variant19 } from './importEge2027YashchenkoVariant19.js';
 import { variant20 } from './importEge2027YashchenkoVariant20.js';
 import { variant21 } from './importEge2027YashchenkoVariant21.js';
+import { variant22 } from './importEge2027YashchenkoVariant22.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
@@ -55,6 +56,7 @@ const NEW: readonly VariantData[] = [
   variant19,
   variant20,
   variant21,
+  variant22,
 ];
 const EARLIER: readonly VariantData[] = [
   variant1,
@@ -278,6 +280,16 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v21(19), '(-7/12;-1/4]∪[9/4;21/4)')).toBe(true);
     expect(accepts(v21(19), '[-7/12;-1/4]∪[9/4;21/4]')).toBe(false);
     expect(accepts(v21(20), { a: 'да', b: '36', c: '58' })).toBe(true);
+    const v22 = (n: number) => task(variant22, n);
+    expect(accepts(v22(14), '14π/3; 2π; 10π/3')).toBe(true);
+    expect(accepts(v22(14), '2π; 10π/3')).toBe(false);
+    expect(accepts(v22(15), '2:3')).toBe(true);
+    expect(accepts(v22(16), '(-3;0)∪(0;1,5)')).toBe(true);
+    expect(accepts(v22(16), '(-3;1,5)')).toBe(false);
+    expect(accepts(v22(18), '625/6')).toBe(true);
+    expect(accepts(v22(19), '[-36;-18)∪(2;4]')).toBe(true);
+    expect(accepts(v22(19), '(-36;-18]∪[2;4)')).toBe(false);
+    expect(accepts(v22(20), { a: 'да', b: '26', c: '48' })).toBe(true);
   });
 
   it('a repeated statement is only allowed with its own figure', () => {

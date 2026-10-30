@@ -33,6 +33,8 @@ export interface FunctionGraphSVGProps {
   points?: readonly FunctionGraphMarkedPoint[];
   /** Dashed horizontal lines y = c, e.g. an asymptote the source draws dashed. */
   dashedHorizontals?: readonly number[];
+  /** Dashed vertical lines x = c, e.g. a vertical asymptote the source draws dashed. */
+  dashedVerticals?: readonly number[];
   ariaLabel: string;
 }
 
@@ -56,6 +58,7 @@ export function FunctionGraphSVG({
   maxWidth,
   points = [],
   dashedHorizontals = [],
+  dashedVerticals = [],
   ariaLabel,
 }: FunctionGraphSVGProps) {
   return (
@@ -79,6 +82,18 @@ export function FunctionGraphSVG({
               y1={toSvgY(c)}
               x2={toSvgX(xMax)}
               y2={toSvgY(c)}
+              stroke="var(--color-text-secondary)"
+              strokeWidth={1.25}
+              strokeDasharray="6 4"
+            />
+          ))}
+          {dashedVerticals.map((c) => (
+            <line
+              key={`v${c}`}
+              x1={toSvgX(c)}
+              y1={toSvgY(yMin)}
+              x2={toSvgX(c)}
+              y2={toSvgY(yMax)}
               stroke="var(--color-text-secondary)"
               strokeWidth={1.25}
               strokeDasharray="6 4"
