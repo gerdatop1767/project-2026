@@ -131,6 +131,9 @@ describe('ЕГЭ 2027 Ященко — Варианты 3–10 (скан вар�
     expect(accepts(v4(14), '-0,5; -2,5')).toBe(true);
     expect(accepts(v4(14), '-2,5')).toBe(false);
     expect(accepts(v4(15), '97/99')).toBe(true);
+    // The key holds only for a right prism, and the scan does not say «прямой».
+    expect(v4(15).status).toBe('needs_review');
+    expect(v4(15).reviewNote).toMatch(/прямой/);
     expect(accepts(v4(16), '[-√7,96;-√7,8]∪[-√3;√3]∪[√7,8;√7,96]')).toBe(true);
     expect(accepts(v4(16), '[-√3;√3]')).toBe(false);
     expect(accepts(v4(18), '5 : 9')).toBe(true);
