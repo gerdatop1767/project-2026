@@ -190,6 +190,17 @@ function parseUnsignedExpression(token: string): number | null {
     return Math.log(arg) / Math.log(base);
   }
 
+  // A logarithm (optionally bracketed) over a plain divisor: "log_2(5)/5", "(log_2 25)/10".
+  const logOver = /^(\(?log_?[^/]+?\)?)\/(\d+(?:\.\d+)?)$/.exec(token);
+  if (logOver) {
+    const raw = logOver[1]!;
+    const inner = raw.startsWith('(') && raw.endsWith(')') ? raw.slice(1, -1) : raw;
+    const numerator = parseUnsignedExpression(inner);
+    const divisor = Number(logOver[2]);
+    if (numerator === null || divisor === 0) return null;
+    return numerator / divisor;
+  }
+
   return null;
 }
 

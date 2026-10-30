@@ -234,3 +234,12 @@ describe('parseBound — root of an expression', () => {
     expect(parseBound('√(2)+(3)')).not.toBeCloseTo(Math.sqrt(2) * 1, 3);
   });
 });
+
+describe('parseBound — a logarithm over a number', () => {
+  it('reads log_b(x)/d with or without brackets, and its negation', () => {
+    expect(parseBound('log_2(5)/5')).toBeCloseTo(Math.log2(5) / 5, 12);
+    expect(parseBound('-log_2(25)/10')).toBeCloseTo(-Math.log2(5) / 5, 12);
+    expect(parseBound('(log_2(25))/10')).toBeCloseTo(Math.log2(5) / 5, 12);
+    expect(parseBound('log_2(5)/0')).toBeNull();
+  });
+});
