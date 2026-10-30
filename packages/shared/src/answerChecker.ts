@@ -16,7 +16,21 @@ import { parseBound } from './intervalAnswer.js';
 
 /** Collapse whitespace, unify punctuation/letters that EGE graders treat as equivalent. */
 export function normalizeAnswer(raw: string): string {
-  return raw.trim().toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').replace(/,/g, '.');
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/\u2212/g, '-') // the typographic minus "−" (U+2212) is the same sign as "-"
+    .replace(/\s+/g, ' ')
+    .replace(/^- (?=\d)/, '-') // "- 0,5" → "-0,5"
+    .replace(/,/g, '.');
+}
+
+/** A one-word answer ("да", "нет") typed as a sentence: "Да." / "Нет!" — the end mark is not part of it. */
+function withoutEndMark(normalizedUser: string, normalizedCorrect: string): string {
+  return /^[a-zа-я-]+$/.test(normalizedCorrect)
+    ? normalizedUser.replace(/\s*[.!]+$/, '')
+    : normalizedUser;
 }
 
 /** Splits a multi-value answer like "2; 5" or "2,5" or "2 5" into normalized tokens. */
@@ -96,6 +110,80 @@ function ratioEquals(normalizedUser: string, normalizedCorrect: string): boolean
   return Math.abs(Number(user[1]) / Number(user[2]) - Number(key[1]) / Number(key[2])) < 1e-9;
 }
 
+const DEGREE_SUFFIX = /\s*(?:°|градус(?:а|ов)?|град\.?)$/;
+const ANGLE_EXPRESSION_KEY = /π|pi|arc/;
+
+/**
+ * Angles. A key written in degrees ("60°") also accepts the bare number
+ * ("60", "60 градусов") and any exact radian form of the same angle
+ * ("π/3", "arctg(√3)"). A key in radians ("π/6", "arccos(√5/5)") accepts
+ * degrees only when they are marked as degrees ("30°") and equal exactly —
+ * a bare number is never read as degrees there, so "30" stays wrong for π/6.
+ */
+function angleEquals(normalizedUser: string, normalizedCorrect: string): boolean {
+  const close = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
+  const userIsDegrees = DEGREE_SUFFIX.test(normalizedUser);
+  const userValue = parseBound(normalizedUser.replace(DEGREE_SUFFIX, ''));
+  if (userValue === null || !Number.isFinite(userValue)) return false;
+  if (DEGREE_SUFFIX.test(normalizedCorrect)) {
+    const keyDegrees = parseBound(normalizedCorrect.replace(DEGREE_SUFFIX, ''));
+    if (keyDegrees === null || !Number.isFinite(keyDegrees)) return false;
+    if (userIsDegrees || /^[+-]?\d+(?:\.\d+)?$/.test(normalizedUser)) {
+      return close(userValue, keyDegrees);
+    }
+    // A radian expression ("π/3", "arctg(√3)") — a plain decimal like "1.05" is not one.
+    return (
+      ANGLE_EXPRESSION_KEY.test(normalizedUser) && close(userValue, (keyDegrees * Math.PI) / 180)
+    );
+  }
+  if (!userIsDegrees) return false;
+  // A part-one answer "в градусах": "127°" is the key "127" with its unit written out.
+  if (/^[+-]?\d+(?:\.\d+)?$/.test(normalizedCorrect))
+    return close(userValue, Number(normalizedCorrect));
+  if (!ANGLE_EXPRESSION_KEY.test(normalizedCorrect)) return false;
+  const keyRadians = parseBound(normalizedCorrect);
+  return keyRadians !== null && close((userValue * Math.PI) / 180, keyRadians);
+}
+
+/** "(5;3), (6;2)" — a key that is a set of tuples (";" inside a tuple, as "," is the decimal comma). */
+const TUPLE = /\(([^()]*)\)/g;
+const TUPLE_SET_KEY = /^\(\s*[^();]+(?:;[^();]+)+\)(?:\s*[.;]?\s*\(\s*[^();]+(?:;[^();]+)+\))*$/;
+
+function readTupleSet(normalized: string): number[][] | null {
+  const tuples: number[][] = [];
+  for (const match of normalized.matchAll(TUPLE)) {
+    const values = match[1]!.split(';').map((part) => parseBound(part));
+    if (values.length < 2 || values.some((v) => v === null || !Number.isFinite(v))) return null;
+    tuples.push(values as number[]);
+  }
+  // Only separators may stand between the tuples: ",", ";", spaces (a "," is normalized to ".").
+  if (normalized.replace(TUPLE, '').replace(/[\s.;]/g, '') !== '') return null;
+  return tuples.length > 0 ? tuples : null;
+}
+
+/**
+ * Only for keys that are a set of tuples ("(5;3), (6;2), (7;1)"): the same
+ * tuples in any order, with any spacing and "," or ";" between them, are
+ * the same answer. Each tuple's own order matters; a missing, extra or
+ * repeated tuple does not match.
+ */
+function tupleSetEquals(normalizedUser: string, normalizedCorrect: string): boolean {
+  if (!TUPLE_SET_KEY.test(normalizedCorrect)) return false;
+  const key = readTupleSet(normalizedCorrect);
+  const user = readTupleSet(normalizedUser);
+  if (!key || !user || key.length !== user.length) return false;
+  const close = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
+  const remaining = [...key];
+  for (const tuple of user) {
+    const i = remaining.findIndex(
+      (k) => k.length === tuple.length && k.every((value, j) => close(tuple[j]!, value)),
+    );
+    if (i < 0) return false;
+    remaining.splice(i, 1);
+  }
+  return true;
+}
+
 /** True when every character of `normalized` is an ASCII digit 0-9 (and non-empty). */
 function isDigitString(normalized: string): boolean {
   return normalized.length > 0 && /^[0-9]+$/.test(normalized);
@@ -132,10 +220,12 @@ export function checkAnswer(
   correctAnswer: string,
   options?: CheckAnswerOptions,
 ): boolean {
-  const normalizedUser = normalizeAnswer(userAnswer);
   const normalizedCorrect = normalizeAnswer(correctAnswer);
+  const normalizedUser = withoutEndMark(normalizeAnswer(userAnswer), normalizedCorrect);
 
   if (normalizedUser === normalizedCorrect) return true;
+  if (tupleSetEquals(normalizedUser, normalizedCorrect)) return true;
+  if (angleEquals(normalizedUser, normalizedCorrect)) return true;
   // A scientific key ("3.105e-21") is far below the absolute tolerance: compare it relatively only.
   if (/^[+-]?\d+(?:\.\d+)?e[+-]?\d+$/.test(normalizedCorrect))
     return scientificEquals(normalizedUser, normalizedCorrect);

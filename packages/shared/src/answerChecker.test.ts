@@ -187,3 +187,87 @@ describe('checkAnswer — scientific notation keys', () => {
     expect(checkAnswer('1e-12', '0')).toBe(true);
   });
 });
+
+describe('checkAnswer — angles in degrees and radians', () => {
+  it('a degree key accepts the bare number, the unit and exact radian forms', () => {
+    for (const answer of ['60', '60°', '60 °', '60 градусов', 'π/3', 'arctg(√3)', 'arccos(1/2)']) {
+      expect(checkAnswer(answer, '60°'), answer).toBe(true);
+    }
+  });
+
+  it('a degree key rejects other angles and approximate radians', () => {
+    for (const answer of ['61', '30°', 'π/6', 'π/3+0.001', '1.0472', 'arctg(3)', '60 минут']) {
+      expect(checkAnswer(answer, '60°'), answer).toBe(false);
+    }
+  });
+
+  it('a radian key accepts degrees only when marked as degrees and exactly equal', () => {
+    expect(checkAnswer('30°', 'π/6')).toBe(true);
+    expect(checkAnswer('30 градусов', 'π/6')).toBe(true);
+    expect(checkAnswer('arctg(√3/3)', 'π/6')).toBe(true);
+    expect(checkAnswer('30', 'π/6')).toBe(false); // a bare number is not read as degrees here
+    expect(checkAnswer('60°', 'π/6')).toBe(false);
+    expect(checkAnswer('30°', 'arctg(2)')).toBe(false);
+  });
+
+  it('an arc-function key accepts its exact degree measure', () => {
+    expect(checkAnswer('45°', 'arctg(1)')).toBe(true);
+    expect(checkAnswer('44°', 'arctg(1)')).toBe(false);
+  });
+
+  it('a part-one number «в градусах» accepts the same number with its unit', () => {
+    expect(checkAnswer('127°', '127')).toBe(true);
+    expect(checkAnswer('127 градусов', '127')).toBe(true);
+    expect(checkAnswer('128°', '127')).toBe(false);
+  });
+});
+
+describe('checkAnswer — a set of pairs', () => {
+  const key = '(5;3), (6;2), (7;1), (8;6), (9;5)';
+
+  it('accepts the same pairs in any order, with any spacing and "," or ";" between them', () => {
+    for (const answer of [
+      key,
+      '(9;5), (8;6), (7;1), (6;2), (5;3)',
+      '(5;3);(6;2);(7;1);(8;6);(9;5)',
+      '(5; 3) (6; 2) (7; 1) (8; 6) (9; 5)',
+      '(7;1),(5;3),(9;5),(6;2),(8;6)',
+    ]) {
+      expect(checkAnswer(answer, key), answer).toBe(true);
+    }
+  });
+
+  it('rejects a swapped pair, a missing, extra or repeated pair, and stray text', () => {
+    for (const answer of [
+      '(3;5), (6;2), (7;1), (8;6), (9;5)',
+      '(5;3), (6;2), (7;1), (8;6)',
+      '(5;3), (6;2), (7;1), (8;6), (9;5), (4;4)',
+      '(5;3), (5;3), (7;1), (8;6), (9;5)',
+      '(5;3), (6;2), (7;1), (8;6), (9;5) и ещё',
+      '5;3 6;2 7;1 8;6 9;5',
+    ]) {
+      expect(checkAnswer(answer, key), answer).toBe(false);
+    }
+  });
+
+  it('keeps "," as the decimal comma inside a pair', () => {
+    expect(checkAnswer('(0,5;1)', '(0.5;1)')).toBe(true);
+    expect(checkAnswer('(5,3)', '(5;3)')).toBe(false);
+  });
+});
+
+describe('checkAnswer — signs and end marks', () => {
+  it('reads the typographic minus and a spaced leading minus as "-"', () => {
+    expect(checkAnswer('−0,5', '-0.5')).toBe(true);
+    expect(checkAnswer('- 0,5', '-0.5')).toBe(true);
+    expect(checkAnswer('0,5', '-0.5')).toBe(false);
+    expect(checkAnswer('−0,4', '-0.5')).toBe(false);
+  });
+
+  it('ignores a full stop or "!" after a one-word answer, nothing else', () => {
+    expect(checkAnswer('Да.', 'да')).toBe(true);
+    expect(checkAnswer('Нет!', 'нет')).toBe(true);
+    expect(checkAnswer('нет.', 'да')).toBe(false);
+    expect(checkAnswer('да?', 'да')).toBe(false);
+  });
+});
