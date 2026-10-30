@@ -36,6 +36,7 @@ import {
   EGE_2027_V12_T9_WAYPOINTS,
   ege2027V12T12,
   ege2027V13T12,
+  ege2027V14T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -80,6 +81,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-12:12',
         'ege-2027-variant-13:2',
         'ege-2027-variant-13:12',
+        'ege-2027-variant-14:2',
+        'ege-2027-variant-14:12',
       ].sort(),
     );
   });
@@ -309,6 +312,8 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [12, 12],
     [13, 2],
     [13, 12],
+    [14, 2],
+    [14, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -543,5 +548,19 @@ describe('ЕГЭ 2027 Ященко, Варианты 11–25 — figures drawn f
     // The asymptote y = −3 is dashed, as in the scan.
     const { container } = render(<>{getCustomIllustration(['ege-2027-variant-13'], 12)}</>);
     expect(container.querySelectorAll('line[stroke-dasharray="6 4"]')).toHaveLength(1);
+  });
+
+  it('В14 №2: a = (6; 4), b = (6; −7), 0,5a·b = 4', () => {
+    const [a, b] = EGE_2027_VECTORS[14].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [6, 4],
+      [6, -7],
+    ]);
+    expect(0.5 * (a![0]! * b![0]! + a![1]! * b![1]!)).toBe(4);
+  });
+
+  it('В14 №12: f(x) = 2/x + 2 through (−1; 0) and (1; 4), f(−20) = 1,9', () => {
+    expect([ege2027V14T12(-1), ege2027V14T12(1)]).toEqual([0, 4]);
+    expect(ege2027V14T12(-20)).toBeCloseTo(1.9, 12);
   });
 });
