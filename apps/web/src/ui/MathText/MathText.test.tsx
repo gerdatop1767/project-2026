@@ -154,3 +154,27 @@ describe('MathText — emphasis (**bold**/*italic*) composed with math and plain
     expect(strong).toBeInTheDocument();
   });
 });
+
+// ЕГЭ-2027 solutions showed raw «### а)» and «_…_» to students.
+describe('MathText — markdown headings and _italic_ in imported solutions', () => {
+  const solution =
+    'Введём координаты.\n\n### а)\nПусть $CK=t\\cdot CS$, тогда $t=\\dfrac23$.\n\n### б)\nОтвет: б) 1,5.\n\n_Разбор подготовлен редакцией Зубрилки._';
+
+  it('renders ### lines as headings and _…_ as <em>, with no markers left in the text', () => {
+    const { container } = render(<MathText text={solution} />);
+    const headings = [...container.querySelectorAll('strong')].map((s) => s.textContent);
+    expect(headings).toEqual(['а)', 'б)']);
+    expect(container.querySelector('em')?.textContent).toBe(
+      'Разбор подготовлен редакцией Зубрилки.',
+    );
+    expect(container.textContent).not.toMatch(/###|(^|\s)_|_($|\s)/);
+    expect(container.querySelectorAll('.katex').length).toBeGreaterThan(0);
+  });
+
+  it('a # after a formula on the same line is not a heading, and math subscripts are untouched', () => {
+    const { container } = render(<MathText text="$a_1$ # не заголовок, точка A_1" />);
+    expect(container.querySelector('strong')).toBeNull();
+    expect(container.querySelector('em')).toBeNull();
+    expect(container.textContent).toContain('# не заголовок, точка A_1');
+  });
+});

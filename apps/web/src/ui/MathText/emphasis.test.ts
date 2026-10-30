@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEmphasis } from './emphasis.js';
+import { parseEmphasis, parseHeading } from './emphasis.js';
 
 describe('parseEmphasis', () => {
   it('splits **bold** into a bold token', () => {
@@ -47,5 +47,38 @@ describe('parseEmphasis', () => {
       { type: 'italic', value: ' 3 ' },
       { type: 'text', value: ' 4 = 24' },
     ]);
+  });
+
+  // ЕГЭ-2027 content marks notes with underscores; they rendered as raw «_…_».
+  it('splits _italic_ (underscores at word boundaries) into an italic token', () => {
+    expect(parseEmphasis('_Разбор подготовлен редакцией Зубрилки._')).toEqual([
+      { type: 'italic', value: 'Разбор подготовлен редакцией Зубрилки.' },
+    ]);
+    expect(parseEmphasis('Ответ: 3. _В ответ запишите б)._')).toEqual([
+      { type: 'text', value: 'Ответ: 3. ' },
+      { type: 'italic', value: 'В ответ запишите б).' },
+    ]);
+  });
+
+  it('leaves underscores inside words and lone underscores as plain text', () => {
+    expect(parseEmphasis('точка A_1 и B_1')).toEqual([{ type: 'text', value: 'точка A_1 и B_1' }]);
+    expect(parseEmphasis('snake_case_name')).toEqual([{ type: 'text', value: 'snake_case_name' }]);
+    expect(parseEmphasis('пропуск _ внизу')).toEqual([{ type: 'text', value: 'пропуск _ внизу' }]);
+    expect(parseEmphasis('_ не курсив _')).toEqual([{ type: 'text', value: '_ не курсив _' }]);
+  });
+});
+
+describe('parseHeading', () => {
+  it('reads a markdown heading line', () => {
+    expect(parseHeading('### а)')).toBe('а)');
+    expect(parseHeading('## Шаг 1')).toBe('Шаг 1');
+    expect(parseHeading('# А')).toBe('А');
+  });
+
+  it('is not fooled by a # that is not a heading', () => {
+    expect(parseHeading('#5 в рейтинге')).toBeNull();
+    expect(parseHeading('Ответ: 3')).toBeNull();
+    expect(parseHeading('###')).toBeNull();
+    expect(parseHeading(' ### а)')).toBeNull();
   });
 });

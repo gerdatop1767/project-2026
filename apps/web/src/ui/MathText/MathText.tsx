@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import katex from 'katex';
 import { tokenizeMathText } from './mathTokenizer.js';
-import { parseEmphasis } from './emphasis.js';
+import { parseEmphasis, parseHeading } from './emphasis.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MathText.module.css';
 
@@ -70,14 +70,26 @@ function MathLine({ text }: { text: string }) {
           return <KatexSpan key={i} tex={token.value} block={token.block ?? false} />;
         }
         const lines = token.value.split('\n');
+        // A heading is a whole line of its own: the first line of a text
+        // token only counts when nothing (a formula) precedes it on that line.
+        const startsLine = i === 0 || /\n$/.test(tokens[i - 1]?.value ?? '');
         return (
           <Fragment key={i}>
-            {lines.map((line, j) => (
-              <Fragment key={j}>
-                <EmphasisLine text={line} />
-                {j < lines.length - 1 && <br />}
-              </Fragment>
-            ))}
+            {lines.map((line, j) => {
+              const heading = j > 0 || startsLine ? parseHeading(line) : null;
+              return (
+                <Fragment key={j}>
+                  {heading !== null ? (
+                    <strong className={styles.heading}>
+                      <EmphasisLine text={heading} />
+                    </strong>
+                  ) : (
+                    <EmphasisLine text={line} />
+                  )}
+                  {j < lines.length - 1 && <br />}
+                </Fragment>
+              );
+            })}
           </Fragment>
         );
       })}
@@ -85,7 +97,7 @@ function MathLine({ text }: { text: string }) {
   );
 }
 
-/** Renders one plain-text line with `**bold**`/`*italic*` spans as real `<strong>`/`<em>` — see `parseEmphasis`'s doc comment. */
+/** Renders one plain-text line with `**bold**`/`*italic*`/`_italic_` spans as real `<strong>`/`<em>` — see `parseEmphasis`'s doc comment. */
 function EmphasisLine({ text }: { text: string }) {
   const tokens = useMemo(() => parseEmphasis(text), [text]);
   return (
