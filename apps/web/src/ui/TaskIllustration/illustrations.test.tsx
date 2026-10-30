@@ -730,4 +730,19 @@ describe('ЕГЭ 2027 Ященко, Варианты 11–25 — figures drawn f
     expect([g(-4), g(-2), g(0) + 0, f(2)]).toEqual([0, 4, 0, 5]);
     expect(f(-6.5)).toBeCloseTo(g(-6.5), 12);
   });
+
+  // Each open end is labelled by the figure itself; listing it again as a
+  // tick printed it twice (above and below the axis) — the scan prints it once.
+  it.each([
+    ['ege-2027-variant-11', 9, ['−22', '2']],
+    ['ege-2027-variant-12', 9, ['−1', '17']],
+    ['ege-2027-variant-21', 9, ['−22', '2']],
+    ['ege-2027-variant-22', 9, ['−5', '12']],
+  ] as const)('%s №%i: each end of the interval is labelled once', (tag, n, ends) => {
+    const { container } = render(<>{getCustomIllustration([tag], n)}</>);
+    const labels = [...container.querySelectorAll('text')].map((t) =>
+      t.textContent!.replace('-', '−'),
+    );
+    for (const end of ends) expect(labels.filter((l) => l === end)).toHaveLength(1);
+  });
 });

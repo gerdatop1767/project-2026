@@ -97,6 +97,9 @@ function OpenEndedCurve({
   caption,
   captionText = 'y = f′(x)',
   maxWidth,
+  originLabel,
+  yTickSide,
+  startLabel = 'auto',
   ariaLabel,
 }: {
   waypoints: readonly (readonly [number, number])[];
@@ -109,6 +112,15 @@ function OpenEndedCurve({
   caption: { x: number; y: number };
   captionText?: string;
   maxWidth: number;
+  originLabel?: 'right' | 'left';
+  yTickSide?: 'left' | 'right';
+  /**
+   * Where the left end's x label goes. 'auto' puts it on the axis, on the
+   * side away from the curve; 'belowLeft' puts it under the axis, left of
+   * the end's dashed drop line — for an end next to the y-axis, where
+   * 'auto' would land on the «1» tick.
+   */
+  startLabel?: 'auto' | 'belowLeft';
   ariaLabel: string;
 }) {
   const ends = [waypoints[0]!, waypoints[waypoints.length - 1]!];
@@ -121,11 +133,13 @@ function OpenEndedCurve({
       tickLabels={tickLabels}
       squareCells
       maxWidth={maxWidth}
+      originLabel={originLabel}
+      yTickSide={yTickSide}
       ariaLabel={ariaLabel}
     >
       {({ toSvgX, toSvgY }) => (
         <>
-          {ends.map(([x, y]) => (
+          {ends.map(([x, y], i) => (
             <g key={x}>
               <line
                 x1={toSvgX(x)}
@@ -137,10 +151,12 @@ function OpenEndedCurve({
                 strokeDasharray="4 3"
               />
               <text
-                x={toSvgX(x)}
-                y={y > 0 ? toSvgY(0) + 15 : toSvgY(0) - 7}
+                x={i === 0 && startLabel === 'belowLeft' ? toSvgX(x) - 4 : toSvgX(x)}
+                y={
+                  y > 0 || (i === 0 && startLabel === 'belowLeft') ? toSvgY(0) + 15 : toSvgY(0) - 7
+                }
                 fontSize={14}
-                textAnchor="middle"
+                textAnchor={i === 0 && startLabel === 'belowLeft' ? 'end' : 'middle'}
                 fill={MUTED}
               >
                 {x < 0 ? `−${-x}` : x}
@@ -1135,9 +1151,11 @@ export function Ege2027V11Task9() {
       xMax={3}
       yMin={-4}
       yMax={4}
-      tickLabels={{ x: [-22, 1, 2], y: [1] }}
+      tickLabels={{ x: [1], y: [1] }}
       caption={{ x: -12.2, y: 1.85 }}
       maxWidth={640}
+      yTickSide="right"
+      originLabel="left"
       ariaLabel="График производной y = f′(x) на интервале (−22; 2), концы выколоты (вариант 11, задание 9)"
     />
   );
@@ -1253,9 +1271,10 @@ export function Ege2027V12Task9() {
       yMin={-5}
       yMax={5}
       // The scan's "−1" under the axis would sit on the y-axis "1" here; the open end marks x = −1.
-      tickLabels={{ x: [1, 17], y: [1] }}
+      tickLabels={{ x: [1], y: [1] }}
       caption={{ x: 9.3, y: 1.85 }}
       maxWidth={560}
+      startLabel="belowLeft"
       ariaLabel="График производной y = f′(x) на интервале (−1; 17), концы выколоты (вариант 12, задание 9)"
     />
   );
@@ -1685,9 +1704,11 @@ export function Ege2027V21Task9() {
       xMax={3}
       yMin={-4}
       yMax={4}
-      tickLabels={{ x: [-22, 1, 2], y: [1] }}
+      tickLabels={{ x: [1], y: [1] }}
       caption={{ x: -12.2, y: 1.85 }}
       maxWidth={640}
+      yTickSide="right"
+      originLabel="left"
       ariaLabel="График производной y = f′(x) на интервале (−22; 2), концы выколоты (вариант 21, задание 9)"
     />
   );
@@ -1801,7 +1822,7 @@ export function Ege2027V22Task9() {
       xMax={13}
       yMin={-4}
       yMax={4}
-      tickLabels={{ x: [-5, 1, 12], y: [1] }}
+      tickLabels={{ x: [1], y: [1] }}
       caption={{ x: 4.6, y: -1.6 }}
       maxWidth={560}
       ariaLabel="График производной y = f′(x) на интервале (−5; 12), концы выколоты (вариант 22, задание 9)"
@@ -1846,7 +1867,7 @@ export function Ege2027V23Task12() {
       yMax={5}
       tickLabels="unitOnly"
       squareCells
-      maxWidth={240}
+      maxWidth={260}
       points={[
         { x: 0, y: -4 },
         { x: 1, y: -2 },

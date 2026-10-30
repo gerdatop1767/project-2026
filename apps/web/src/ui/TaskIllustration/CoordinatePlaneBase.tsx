@@ -34,6 +34,14 @@ export interface CoordinatePlaneBaseProps {
    */
   squareCells?: boolean;
   maxWidth?: number;
+  /**
+   * Which side of the y-axis the origin's «0» sits on. 'left' is for a
+   * grid with narrow cells, where «0» to the right would run into the
+   * «1» tick one cell away (as the printed original places it).
+   */
+  originLabel?: 'right' | 'left';
+  /** Which side of the y-axis its tick numbers sit on (the curve may run along the other). */
+  yTickSide?: 'left' | 'right';
   ariaLabel: string;
   /** Anything plotted on top of the grid/axes — a curve, vectors, points. */
   children: (transform: CoordinateTransform) => ReactNode;
@@ -55,6 +63,8 @@ export function CoordinatePlaneBase({
   tickLabels = 'all',
   squareCells = false,
   maxWidth,
+  originLabel = 'right',
+  yTickSide = 'left',
   ariaLabel,
   children,
 }: CoordinatePlaneBaseProps) {
@@ -163,9 +173,10 @@ export function CoordinatePlaneBase({
         y
       </text>
       <text
-        x={toSvgX(0) + 4}
+        x={originLabel === 'left' ? toSvgX(0) - 4 : toSvgX(0) + 4}
         y={toSvgY(0) + 14}
         fontSize={tickFont}
+        textAnchor={originLabel === 'left' ? 'end' : 'start'}
         fill="var(--color-text-secondary)"
       >
         0
@@ -192,10 +203,10 @@ export function CoordinatePlaneBase({
       ).map((y) => (
         <text
           key={`hy${y}`}
-          x={toSvgX(0) - 8}
+          x={yTickSide === 'right' ? toSvgX(0) + 8 : toSvgX(0) - 8}
           y={toSvgY(y) + 4}
           fontSize={tickFont}
-          textAnchor="end"
+          textAnchor={yTickSide === 'right' ? 'start' : 'end'}
           fill="var(--color-text-secondary)"
         >
           {y}
