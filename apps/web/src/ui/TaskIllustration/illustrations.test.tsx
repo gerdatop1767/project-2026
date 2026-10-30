@@ -43,6 +43,8 @@ import {
   ege2027V18T12,
   ege2027V19T12,
   ege2027V20T12,
+  ege2027V21T12,
+  EGE_2027_V21_T9_WAYPOINTS,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -98,6 +100,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-19:12',
         'ege-2027-variant-20:2',
         'ege-2027-variant-20:12',
+        'ege-2027-variant-21:9',
+        'ege-2027-variant-21:12',
       ].sort(),
     );
   });
@@ -263,6 +267,25 @@ describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the
 
   it('В20 №12: f(x) = 2·log₂(x+3) through (−2; 0) and (1; 4), f(29) = 10', () => {
     expect([ege2027V20T12(-2), ege2027V20T12(1), ege2027V20T12(29)]).toEqual([0, 4, 10]);
+  });
+
+  it('В21 №9: f′ on (−22; 2); minima of f at −16, −9, −1 in [−18; 1]', () => {
+    const w = EGE_2027_V21_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-22, -2]);
+    expect(w[w.length - 1]).toEqual([2, 1]);
+    const minima: number[] = [];
+    for (let i = 0; i + 1 < w.length; i++) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 < 0 && y1 >= 0) minima.push(x0 + (-y0 * (x1 - x0)) / (y1 - y0));
+    }
+    expect(minima).toEqual([-21, -16, -9, -1]);
+    expect(minima.filter((x) => x >= -18 && x <= 1)).toHaveLength(3);
+  });
+
+  it('В21 №12: f(x) = 4/(x+1) through (0; 4) and (−3; −2), f(−0,8) = 20', () => {
+    expect([ege2027V21T12(0), ege2027V21T12(-3)]).toEqual([4, -2]);
+    expect(ege2027V21T12(-0.8)).toBeCloseTo(20, 12);
   });
 
   it('В9 №11: through (0;4) and (2;1), f(−3) = 32', () => {
