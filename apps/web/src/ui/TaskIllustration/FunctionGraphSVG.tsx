@@ -31,6 +31,8 @@ export interface FunctionGraphSVGProps {
   maxWidth?: number;
   /** Points to mark on the curve/axes (roots, intercepts, ...) with a filled dot + optional label. */
   points?: readonly FunctionGraphMarkedPoint[];
+  /** Dashed horizontal lines y = c, e.g. an asymptote the source draws dashed. */
+  dashedHorizontals?: readonly number[];
   ariaLabel: string;
 }
 
@@ -53,6 +55,7 @@ export function FunctionGraphSVG({
   squareCells,
   maxWidth,
   points = [],
+  dashedHorizontals = [],
   ariaLabel,
 }: FunctionGraphSVGProps) {
   return (
@@ -69,6 +72,18 @@ export function FunctionGraphSVG({
     >
       {({ toSvgX, toSvgY, clipPathUrl }: CoordinateTransform) => (
         <>
+          {dashedHorizontals.map((c) => (
+            <line
+              key={`h${c}`}
+              x1={toSvgX(xMin)}
+              y1={toSvgY(c)}
+              x2={toSvgX(xMax)}
+              y2={toSvgY(c)}
+              stroke="var(--color-text-secondary)"
+              strokeWidth={1.25}
+              strokeDasharray="6 4"
+            />
+          ))}
           {extraCurves.map((extra, i) => (
             <Curve
               key={i}

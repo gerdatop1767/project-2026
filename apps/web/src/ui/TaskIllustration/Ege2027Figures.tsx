@@ -239,6 +239,11 @@ export const EGE_2027_VECTORS = {
     { fromX: 5, fromY: -4, x: -3, y: 6, label: 'a', labelAt: { x: 3.55, y: -1.6 }, color: A },
     { fromX: -4, fromY: -1, x: 1, y: 3, label: 'b', labelAt: { x: -3.15, y: 0.6 }, color: B },
   ],
+  /** В13 №2 (скан 10–17, стр. 13): grid x −6…6, y −6…6. */
+  13: [
+    { fromX: -6, fromY: 4, x: -2, y: -2, label: 'a', labelAt: { x: -3.55, y: 2.4 }, color: A },
+    { fromX: 1, fromY: -3, x: 6, y: 3, label: 'b', labelAt: { x: 3.4, y: 1.55 }, color: B },
+  ],
   /** В4 №2 (скан 2–15, стр. 9): grid x −6…6, y −5…6. */
   4: [
     { fromX: 5, fromY: 6, x: -6, y: -1, label: 'a', labelAt: { x: -1.5, y: 2.8 }, color: A },
@@ -1253,6 +1258,46 @@ export function Ege2027V12Task12() {
         { x: 0, y: 4 },
       ]}
       ariaLabel="График функции f(x) = ax² + bx + c с отмеченными точками (вариант 12, задание 12)"
+    />
+  );
+}
+
+export function Ege2027V13Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-6}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[13]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 13, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/** В13 №12 (скан 10–17, стр. 15): f(x) = k/x + b through (−1; 0) and (3; −4) ⇒ k = −3, b = −3; asymptote y = −3 dashed. */
+export const ege2027V13T12 = (x: number) => (x === 0 ? Number.NaN : -3 / x - 3);
+
+export function Ege2027V13Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V13T12}
+      xMin={-4}
+      xMax={5}
+      yMin={-6}
+      yMax={2}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={320}
+      dashedHorizontals={[-3]}
+      points={[
+        { x: -1, y: 0 },
+        { x: 3, y: -4 },
+      ]}
+      ariaLabel="График функции f(x) = k/x + b с отмеченными точками и пунктирной асимптотой (вариант 13, задание 12)"
     />
   );
 }

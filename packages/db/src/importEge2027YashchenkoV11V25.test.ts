@@ -29,12 +29,13 @@ import { variant9 } from './importEge2027YashchenkoVariant9.js';
 import { variant10 } from './importEge2027YashchenkoVariant10.js';
 import { variant11 } from './importEge2027YashchenkoVariant11.js';
 import { variant12 } from './importEge2027YashchenkoVariant12.js';
+import { variant13 } from './importEge2027YashchenkoVariant13.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
 
 /** Варианты 11–25: scans of Варианты 10–17 and 18–25, four pages per variant. */
-const NEW: readonly VariantData[] = [variant11, variant12];
+const NEW: readonly VariantData[] = [variant11, variant12, variant13];
 const EARLIER: readonly VariantData[] = [
   variant1,
   variant2,
@@ -153,6 +154,17 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v12(19), '(2;√13-1)')).toBe(true);
     expect(accepts(v12(19), '[2;√13-1]')).toBe(false);
     expect(accepts(v12(20), { a: 'нет', b: '833', c: '1001' })).toBe(true);
+    const v13 = (n: number) => task(variant13, n);
+    expect(accepts(v13(14), '-2/3')).toBe(true);
+    expect(accepts(v13(14), '-2/3; -log_2(5)/6')).toBe(false);
+    expect(accepts(v13(15), '18,8√5')).toBe(true);
+    expect(accepts(v13(16), '(-∞;-3-4√2]∪(3;+∞)')).toBe(true);
+    expect(accepts(v13(16), '(-∞;-3-4√2)∪(3;+∞)')).toBe(false);
+    expect(accepts(v13(18), '√7-√2')).toBe(true);
+    expect(accepts(v13(19), '{2/3}∪{1}∪[3;+∞)')).toBe(true);
+    expect(accepts(v13(19), '{1}∪[3;+∞)')).toBe(false);
+    expect(accepts(v13(20), { a: 'да', b: 'да', c: '-3329' })).toBe(true);
+    expect(accepts(v13(20), { a: 'да', b: 'нет', c: '-3329' })).toBe(false);
   });
 
   describe('import', () => {
