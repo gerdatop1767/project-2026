@@ -33,6 +33,8 @@ import {
   ege2027V10T12,
   EGE_2027_V11_T9_WAYPOINTS,
   ege2027V11T12,
+  EGE_2027_V12_T9_WAYPOINTS,
+  ege2027V12T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -73,6 +75,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-10:12',
         'ege-2027-variant-11:9',
         'ege-2027-variant-11:12',
+        'ege-2027-variant-12:9',
+        'ege-2027-variant-12:12',
       ].sort(),
     );
   });
@@ -298,6 +302,8 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [10, 12],
     [11, 9],
     [11, 12],
+    [12, 9],
+    [12, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -499,5 +505,20 @@ describe('ЕГЭ 2027 Ященко, Варианты 11–25 — figures drawn f
   it('В11 №12: f(x) = x² + 5x + 4 through (−4; 0), (−1; 0), (0; 4), f(3) = 28', () => {
     expect([ege2027V11T12(-4), ege2027V11T12(-1), ege2027V11T12(0)]).toEqual([0, 0, 4]);
     expect(ege2027V11T12(3)).toBe(28);
+  });
+
+  it('В12 №9: f′ on (−1; 17); maxima of f at x ≈ 3 and x ≈ 10, both in [1; 15]', () => {
+    const w = EGE_2027_V12_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-1, -1]);
+    const m = maxima(w);
+    expect(m).toHaveLength(2);
+    expect(m[0]).toBeCloseTo(3, 0);
+    expect(m[1]).toBeCloseTo(10, 0);
+    expect(m.every((x) => x >= 1 && x <= 15)).toBe(true);
+  });
+
+  it('В12 №12: f(x) = −x² + 3x + 4 through (−1; 0), (4; 0), (0; 4), f(−3) = −14', () => {
+    expect([ege2027V12T12(-1), ege2027V12T12(4), ege2027V12T12(0)]).toEqual([0, 0, 4]);
+    expect(ege2027V12T12(-3)).toBe(-14);
   });
 });

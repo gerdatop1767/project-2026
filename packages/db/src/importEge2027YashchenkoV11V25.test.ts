@@ -28,12 +28,13 @@ import { variant8 } from './importEge2027YashchenkoVariant8.js';
 import { variant9 } from './importEge2027YashchenkoVariant9.js';
 import { variant10 } from './importEge2027YashchenkoVariant10.js';
 import { variant11 } from './importEge2027YashchenkoVariant11.js';
+import { variant12 } from './importEge2027YashchenkoVariant12.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
 
 /** Варианты 11–25: scans of Варианты 10–17 and 18–25, four pages per variant. */
-const NEW: readonly VariantData[] = [variant11];
+const NEW: readonly VariantData[] = [variant11, variant12];
 const EARLIER: readonly VariantData[] = [
   variant1,
   variant2,
@@ -140,6 +141,18 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v11(19), '{36/25}∪(√13-2;4)')).toBe(true);
     expect(accepts(v11(19), '(√13-2;4)')).toBe(false);
     expect(accepts(v11(20), { a: 'нет', b: '607', c: '1066' })).toBe(true);
+    const v12 = (n: number) => task(variant12, n);
+    expect(accepts(v12(14), '11π/2; 29π/6; 31π/6')).toBe(true);
+    expect(accepts(v12(14), '29π/6; 31π/6')).toBe(false);
+    expect(accepts(v12(15), 'arccos(17/35)')).toBe(true);
+    expect(accepts(v12(16), '(log_3(2);log_3(2,2))∪(log_3(2,2);log_2(5)]')).toBe(true);
+    expect(accepts(v12(16), '(log_3(2);log_2(5)]')).toBe(false);
+    expect(accepts(v12(17), '5,52·10^(-22)')).toBe(true);
+    expect(accepts(v12(18), '√(36-18√2)')).toBe(true);
+    expect(accepts(v12(18), '3√(4+2√2)')).toBe(false);
+    expect(accepts(v12(19), '(2;√13-1)')).toBe(true);
+    expect(accepts(v12(19), '[2;√13-1]')).toBe(false);
+    expect(accepts(v12(20), { a: 'нет', b: '833', c: '1001' })).toBe(true);
   });
 
   describe('import', () => {
