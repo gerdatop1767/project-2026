@@ -66,6 +66,14 @@ export interface ImportTask {
   solutionSteps: readonly ImportSolutionStep[];
   status: ImportStatus;
   reviewNote?: string;
+  /**
+   * Only for a statement the book prints word for word in another variant
+   * with a different figure (В15 №12 / В16 №12): what tells the figures
+   * apart, folded into the dedup fingerprint (`tasks.contentHash`) so the
+   * two tasks don't collide. Omitted everywhere else — existing
+   * fingerprints never change.
+   */
+  figureFingerprint?: string;
 }
 
 export interface VariantData {
@@ -101,9 +109,10 @@ function normalizeForHash(text: string): string {
  * it: the same statement in another edition is a different task and must
  * never collide with (or overwrite) a 2026 row.
  */
-function contentHashFor(taskNumber: number, statement: string): string {
+function contentHashFor(taskNumber: number, statement: string, figure?: string): string {
+  const figurePart = figure === undefined ? '' : `|figure:${figure}`;
   return createHash('sha256')
-    .update(`math|${SOURCE}|${taskNumber}|${normalizeForHash(statement)}`)
+    .update(`math|${SOURCE}|${taskNumber}|${normalizeForHash(statement)}${figurePart}`)
     .digest('hex');
 }
 
@@ -214,7 +223,7 @@ export async function importYashchenko2027Variant(db: Database, data: VariantDat
       sourceVariant: variantNumber,
       sourcePage: t.sourcePage,
       rawStatement: t.rawStatement,
-      contentHash: contentHashFor(t.taskNumber, t.rawStatement),
+      contentHash: contentHashFor(t.taskNumber, t.rawStatement, t.figureFingerprint),
       tags: [importTag(variantNumber)],
       status: t.status,
       reviewNote: t.reviewNote ?? null,

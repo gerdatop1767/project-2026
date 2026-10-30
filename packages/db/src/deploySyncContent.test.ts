@@ -36,7 +36,7 @@ import { describe, expect, it } from 'vitest';
  * importer) still runs before `sync-content` starts.
  */
 /** «ЕГЭ 2027 Ященко» math variants imported so far (Вариант 1…N). */
-const MATH_2027_VARIANTS = 15;
+const MATH_2027_VARIANTS = 16;
 
 describe(`infra/docker-compose.yml — sync-content runs every EGE variant import (10 math 2026 + ${MATH_2027_VARIANTS} math 2027 + 18 Russian)`, () => {
   const composePath = fileURLToPath(new URL('../../../infra/docker-compose.yml', import.meta.url));

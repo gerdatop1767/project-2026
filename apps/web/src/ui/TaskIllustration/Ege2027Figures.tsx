@@ -249,6 +249,11 @@ export const EGE_2027_VECTORS = {
     { fromX: -4, fromY: 1, x: 2, y: 5, label: 'a', labelAt: { x: -2.6, y: 2.45 }, color: A },
     { fromX: -1, fromY: 4, x: 5, y: -3, label: 'b', labelAt: { x: 2.45, y: 1.5 }, color: B },
   ],
+  /** В16 №2 (скан 10–17, стр. 25): grid x −6…6, y −6…6. */
+  16: [
+    { fromX: -5, fromY: -4, x: -2, y: 2, label: 'a', labelAt: { x: -4.4, y: -1.6 }, color: A },
+    { fromX: -6, fromY: 4, x: 5, y: 2, label: 'b', labelAt: { x: 1.5, y: 3.45 }, color: B },
+  ],
   /** В4 №2 (скан 2–15, стр. 9): grid x −6…6, y −5…6. */
   4: [
     { fromX: 5, fromY: 6, x: -6, y: -1, label: 'a', labelAt: { x: -1.5, y: 2.8 }, color: A },
@@ -1371,6 +1376,50 @@ export function Ege2027V15Task12() {
         { x: 4, y: 4 },
       ]}
       ariaLabel="Графики функций f(x) = kx + b и g(x) = p√x с отмеченными точками (вариант 15, задание 12)"
+    />
+  );
+}
+
+export function Ege2027V16Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-6}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[16]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 16, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/** В16 №12 (скан 10–17, стр. 26): g(x) = p√x through (1; 3) ⇒ p = 3; f(x) = kx + b through (0; 0) and (4; 3) ⇒ f = 0,75x. */
+export const ege2027V16T12 = {
+  f: (x: number) => 0.75 * x,
+  g: (x: number) => (x >= 0 ? 3 * Math.sqrt(x) : Number.NaN),
+};
+
+export function Ege2027V16Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V16T12.g}
+      extraCurves={[ege2027V16T12.f]}
+      xMin={-3}
+      xMax={5}
+      yMin={-3}
+      yMax={5}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={300}
+      points={[
+        { x: 0, y: 0 },
+        { x: 1, y: 3 },
+        { x: 4, y: 3 },
+      ]}
+      ariaLabel="Графики функций f(x) = kx + b и g(x) = p√x с отмеченными точками (вариант 16, задание 12)"
     />
   );
 }

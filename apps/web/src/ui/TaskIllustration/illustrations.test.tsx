@@ -38,6 +38,7 @@ import {
   ege2027V13T12,
   ege2027V14T12,
   ege2027V15T12,
+  ege2027V16T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -85,6 +86,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-14:2',
         'ege-2027-variant-14:12',
         'ege-2027-variant-15:12',
+        'ege-2027-variant-16:2',
+        'ege-2027-variant-16:12',
       ].sort(),
     );
   });
@@ -317,6 +320,8 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [14, 2],
     [14, 12],
     [15, 12],
+    [16, 2],
+    [16, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -571,5 +576,21 @@ describe('ЕГЭ 2027 Ященко, Варианты 11–25 — figures drawn f
     const { f, g } = ege2027V15T12;
     expect([g(4), f(3), f(0), g(0)]).toEqual([4, 1, 0, 0]);
     expect(f(36)).toBeCloseTo(g(36), 12);
+  });
+
+  it('В16 №2: a = (3; 6), b = (11; −2), cos = 0,28', () => {
+    const [a, b] = EGE_2027_VECTORS[16].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [3, 6],
+      [11, -2],
+    ]);
+    const dot = a![0]! * b![0]! + a![1]! * b![1]!;
+    expect(dot / (Math.hypot(a![0]!, a![1]!) * Math.hypot(b![0]!, b![1]!))).toBeCloseTo(0.28, 12);
+  });
+
+  it('В16 №12: g = 3√x through (1; 3), f = 0,75x through (4; 3); they meet again at x = 16', () => {
+    const { f, g } = ege2027V16T12;
+    expect([g(1), f(4), f(0), g(0)]).toEqual([3, 3, 0, 0]);
+    expect(f(16)).toBeCloseTo(g(16), 12);
   });
 });

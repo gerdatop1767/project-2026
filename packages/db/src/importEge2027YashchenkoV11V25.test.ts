@@ -32,12 +32,20 @@ import { variant12 } from './importEge2027YashchenkoVariant12.js';
 import { variant13 } from './importEge2027YashchenkoVariant13.js';
 import { variant14 } from './importEge2027YashchenkoVariant14.js';
 import { variant15 } from './importEge2027YashchenkoVariant15.js';
+import { variant16 } from './importEge2027YashchenkoVariant16.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
 
 /** Варианты 11–25: scans of Варианты 10–17 and 18–25, four pages per variant. */
-const NEW: readonly VariantData[] = [variant11, variant12, variant13, variant14, variant15];
+const NEW: readonly VariantData[] = [
+  variant11,
+  variant12,
+  variant13,
+  variant14,
+  variant15,
+  variant16,
+];
 const EARLIER: readonly VariantData[] = [
   variant1,
   variant2,
@@ -123,7 +131,8 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     const seen = new Map<string, string>();
     for (const v of [...EARLIER, ...NEW]) {
       for (const t of v.tasks) {
-        const key = t.rawStatement.replace(/\s+/g, ' ').trim().toLowerCase();
+        // A statement the book repeats with another figure is told apart by that figure.
+        const key = `${t.rawStatement.replace(/\s+/g, ' ').trim().toLowerCase()}|${t.figureFingerprint ?? ''}`;
         expect(seen.get(key), `В${v.variant} №${t.taskNumber}`).toBeUndefined();
         seen.set(key, `В${v.variant} №${t.taskNumber}`);
       }
@@ -188,6 +197,25 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v15(19), '(-∞;-3)∪(-3;-1)∪(1;3)∪(3;+∞)')).toBe(true);
     expect(accepts(v15(19), '(-∞;-1)∪(1;+∞)')).toBe(false);
     expect(accepts(v15(20), { a: 'да', b: 'нет', c: '111' })).toBe(true);
+    const v16 = (n: number) => task(variant16, n);
+    expect(accepts(v16(14), '6')).toBe(true);
+    expect(accepts(v16(14), '6; 12')).toBe(false);
+    expect(accepts(v16(16), '[-5;-3)∪(-√3;√3)∪(3;+∞)')).toBe(true);
+    expect(accepts(v16(16), '(-5;-3)∪(-√3;√3)∪(3;+∞)')).toBe(false);
+    expect(v16(17).status).toBe('needs_review');
+    expect(accepts(v16(18), '10√73/3')).toBe(true);
+    expect(accepts(v16(19), '(0;0,5)∪(0,5;2/3)∪(2/3;1)∪(1;2)∪(2;1+√6/2)')).toBe(true);
+    expect(accepts(v16(19), '(0;(2+√6)/2)')).toBe(false);
+    expect(accepts(v16(20), { a: 'да', b: 'нет', c: '37/27' })).toBe(true);
+  });
+
+  it('a repeated statement is only allowed with its own figure', () => {
+    const repeated = [...EARLIER, ...NEW].flatMap((v) =>
+      v.tasks.filter((t) => t.figureFingerprint).map((t) => [v.variant, t.taskNumber]),
+    );
+    expect(repeated).toEqual([[16, 12]]);
+    expect(task(variant16, 12).rawStatement).toBe(task(variant15, 12).rawStatement);
+    expect(task(variant16, 12).imageUrl).not.toBe(task(variant15, 12).imageUrl);
   });
 
   describe('import', () => {
