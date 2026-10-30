@@ -83,8 +83,9 @@ export const EGE_2027_V2_T9_WAYPOINTS: readonly (readonly [number, number])[] = 
  * A printed curve on a grid with both ends open (a derivative graph
  * «на интервале (a; b)»): spline through the traced waypoints, open
  * circles at the ends joined to the axis by dashes, each end's abscissa
- * written on the far side of the axis, and the «y = f′(x)» caption where
- * the book prints it.
+ * written on the far side of the axis, and the «y = f′(x)» caption (or the
+ * given `captionText`, e.g. «y = f(x)» for a graph of f itself) where the
+ * book prints it.
  */
 function OpenEndedCurve({
   waypoints,
@@ -94,6 +95,7 @@ function OpenEndedCurve({
   yMax,
   tickLabels,
   caption,
+  captionText = 'y = f′(x)',
   maxWidth,
   ariaLabel,
 }: {
@@ -105,6 +107,7 @@ function OpenEndedCurve({
   tickLabels: { x: readonly number[]; y: readonly number[] };
   /** Left end of the caption text, in plane units. */
   caption: { x: number; y: number };
+  captionText?: string;
   maxWidth: number;
   ariaLabel: string;
 }) {
@@ -171,7 +174,7 @@ function OpenEndedCurve({
             strokeWidth={4}
             paintOrder="stroke"
           >
-            y = f′(x)
+            {captionText}
           </text>
         </>
       )}
@@ -1872,6 +1875,115 @@ export function Ege2027V24Task12() {
         { x: 0, y: 3 },
       ]}
       ariaLabel="График функции f(x) = a^x + b с отмеченными точками (вариант 24, задание 12)"
+    />
+  );
+}
+
+/**
+ * В25 №9 (скан 18–25, стр. 30): the graph of f itself on (−8; 6), traced from
+ * the scan's grid (1 cell = 1). Extrema on the nodes x = −7, 1 (max), 4 (min),
+ * 5 (max); the first minimum lies between −5 and −4 (x ≈ −4,5).
+ */
+export const EGE_2027_V25_T9_WAYPOINTS: readonly (readonly [number, number])[] = [
+  [-8, 2.8],
+  [-7.75, 3.37],
+  [-7.5, 3.7],
+  [-7.25, 3.91],
+  [-7, 4],
+  [-6.75, 3.41],
+  [-6.5, 2.43],
+  [-6.25, 1.21],
+  [-6, -0.26],
+  [-5.75, -1.67],
+  [-5.5, -2.79],
+  [-5.25, -3.56],
+  [-5, -4.08],
+  [-4.75, -4.4],
+  [-4.5, -4.52],
+  [-4.25, -4.38],
+  [-4, -3.99],
+  [-3.75, -3.27],
+  [-3.5, -2.5],
+  [-3.25, -1.73],
+  [-3, -1.06],
+  [-2.75, -0.75],
+  [-2.5, -0.5],
+  [-2.25, -0.26],
+  [-2, -0.02],
+  [-1.75, 0.22],
+  [-1.5, 0.5],
+  [-1.25, 0.86],
+  [-1, 1.21],
+  [-0.75, 1.65],
+  [-0.5, 2.13],
+  [-0.25, 2.63],
+  [0, 3.06],
+  [0.25, 3.45],
+  [0.5, 3.75],
+  [0.75, 3.92],
+  [1, 4],
+  [1.25, 3.63],
+  [1.5, 2.66],
+  [1.75, 1.18],
+  [2, -0.06],
+  [2.25, -0.69],
+  [2.5, -1.03],
+  [2.75, -1.33],
+  [3, -1.78],
+  [3.25, -2.42],
+  [3.5, -3.13],
+  [3.75, -3.66],
+  [4, -3.72],
+  [4.25, -3.35],
+  [4.5, -2.47],
+  [4.75, -1.8],
+  [5, -1.7],
+  [5.25, -1.88],
+  [5.5, -2.16],
+  [5.75, -2.74],
+  [6, -3],
+];
+
+export function Ege2027V25Task9() {
+  return (
+    <OpenEndedCurve
+      waypoints={EGE_2027_V25_T9_WAYPOINTS}
+      xMin={-9}
+      xMax={7}
+      yMin={-5}
+      yMax={5}
+      tickLabels={{ x: [1], y: [1] }}
+      caption={{ x: -5.6, y: 3 }}
+      captionText="y = f(x)"
+      maxWidth={520}
+      ariaLabel="График функции y = f(x) на интервале (−8; 6), концы выколоты (вариант 25, задание 9)"
+    />
+  );
+}
+
+/** В25 №12 (скан 18–25, стр. 30): lines through (−3; −2), (2; 5) and (1; −3), (6; 1). */
+export const ege2027V25T12a = (x: number) => 1.4 * x + 2.2;
+export const ege2027V25T12b = (x: number) => 0.8 * x - 3.8;
+
+export function Ege2027V25Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V25T12a}
+      extraCurves={[ege2027V25T12b]}
+      xMin={-4}
+      xMax={6}
+      yMin={-4}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={300}
+      points={[
+        { x: -3, y: -2 },
+        { x: 2, y: 5 },
+        { x: 1, y: -3 },
+        { x: 6, y: 1 },
+      ]}
+      ariaLabel="Графики двух линейных функций f(x) = kx + b с отмеченными точками (вариант 25, задание 12)"
     />
   );
 }

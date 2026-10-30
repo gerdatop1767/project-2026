@@ -49,6 +49,9 @@ import {
   EGE_2027_V22_T9_WAYPOINTS,
   ege2027V23T12,
   ege2027V24T12,
+  ege2027V25T12a,
+  ege2027V25T12b,
+  EGE_2027_V25_T9_WAYPOINTS,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -110,6 +113,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-22:12',
         'ege-2027-variant-23:12',
         'ege-2027-variant-24:12',
+        'ege-2027-variant-25:9',
+        'ege-2027-variant-25:12',
       ].sort(),
     );
   });
@@ -323,6 +328,26 @@ describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the
 
   it('В24 №12: f(x) = (1/2)^x + 2 through (−2; 6) and (0; 3), f(−4) = 18', () => {
     expect([ege2027V24T12(-2), ege2027V24T12(0), ege2027V24T12(-4)]).toEqual([6, 3, 18]);
+  });
+
+  it('В25 №9: f on (−8; 6) decreases at the integer points −6, −5, 2, 3 only', () => {
+    const w = EGE_2027_V25_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-8, 2.8]);
+    expect(w[w.length - 1]).toEqual([6, -3]);
+    const y = (x: number) => w.find(([wx]) => wx === x)![1];
+    const decreasing = [];
+    for (let k = -7; k <= 5; k++) {
+      if (y(k - 0.25) > y(k) && y(k) > y(k + 0.25)) decreasing.push(k);
+    }
+    expect(decreasing).toEqual([-6, -5, 2, 3]);
+    expect([y(-7), y(1)]).toEqual([4, 4]);
+  });
+
+  it('В25 №12: lines y = 1,4x + 2,2 and y = 0,8x − 3,8 meet at (−10; −11,8)', () => {
+    expect([ege2027V25T12a(-3), ege2027V25T12a(2)].map((v) => +v.toFixed(10))).toEqual([-2, 5]);
+    expect([ege2027V25T12b(1), ege2027V25T12b(6)].map((v) => +v.toFixed(10))).toEqual([-3, 1]);
+    expect(+ege2027V25T12a(-10).toFixed(10)).toBe(-11.8);
+    expect(+ege2027V25T12b(-10).toFixed(10)).toBe(-11.8);
   });
 
   it('В9 №11: through (0;4) and (2;1), f(−3) = 32', () => {
