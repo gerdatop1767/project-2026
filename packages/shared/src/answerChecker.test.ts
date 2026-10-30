@@ -165,3 +165,25 @@ describe('checkAnswer — exact-expression keys (EGE-2027 part two)', () => {
     expect(checkAnswer('arctg(1/2)-2π; arctg(11/2)-3π', key)).toBe(false);
   });
 });
+
+describe('checkAnswer — scientific notation keys', () => {
+  it('accepts the usual ways to write a·10^n and compares relatively', () => {
+    const key = '3.105e-21';
+    for (const answer of [
+      '3,105·10^-21',
+      '3,105*10^(-21)',
+      '3.105×10^−21',
+      '3,105e-21',
+      '31,05·10^(-22)',
+    ])
+      expect(checkAnswer(answer, key)).toBe(true);
+    expect(checkAnswer('3,1·10^-21', key)).toBe(false);
+    expect(checkAnswer('3,105·10^-20', key)).toBe(false);
+    expect(checkAnswer('0', key)).toBe(false);
+  });
+
+  it('leaves ordinary numeric keys as they were', () => {
+    expect(checkAnswer('2·10^2', '200')).toBe(false);
+    expect(checkAnswer('1e-12', '0')).toBe(true);
+  });
+});

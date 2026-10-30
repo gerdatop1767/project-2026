@@ -221,3 +221,16 @@ describe('a small natural power of a readable expression', () => {
     expect(parseBound('(abc)^2')).toBeNull();
   });
 });
+
+describe('parseBound — root of an expression', () => {
+  it('reads k√(expression) and √(expression)', () => {
+    expect(parseBound('3√(4-2√2)')).toBeCloseTo(3 * Math.sqrt(4 - 2 * Math.SQRT2), 12);
+    expect(parseBound('√(36-18√2)')).toBeCloseTo(3 * Math.sqrt(4 - 2 * Math.SQRT2), 12);
+    expect(parseBound('sqrt(2)')).toBeCloseTo(Math.SQRT2, 12);
+  });
+
+  it('rejects a negative radicand and unbalanced brackets', () => {
+    expect(parseBound('√(1-2√2)')).toBeNull();
+    expect(parseBound('√(2)+(3)')).not.toBeCloseTo(Math.sqrt(2) * 1, 3);
+  });
+});

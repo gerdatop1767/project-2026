@@ -144,7 +144,7 @@ describe('ЕГЭ 2027 Ященко — Варианты 3–10 (скан вар�
     expect(accepts(v5(15), '1/3')).toBe(true);
     expect(accepts(v5(16), '(2,5;2,52)∪(15;+∞)')).toBe(true);
     expect(accepts(v5(16), '(2,5;2,52]∪(15;+∞)')).toBe(false);
-    expect(accepts(v5(18), '√(325/3)')).toBe(false); // outside the bound grammar
+    expect(accepts(v5(18), '√(325/3)')).toBe(true); // the root of an expression is read too
     expect(accepts(v5(18), '5√39/3')).toBe(true);
     expect(accepts(v5(19), '(0;6)∪(6;6,25)')).toBe(true);
     expect(accepts(v5(19), '(0;6,25)')).toBe(false);
@@ -165,7 +165,7 @@ describe('ЕГЭ 2027 Ященко — Варианты 3–10 (скан вар�
     const v7 = (n: number) => variant7.tasks[n - 1]!;
     expect(accepts(v7(14), '7π/2; 19π/6; 23π/6')).toBe(true);
     expect(accepts(v7(14), '19π/6; 23π/6')).toBe(false);
-    expect(accepts(v7(15), '√(27/40)')).toBe(false); // outside the bound grammar
+    expect(accepts(v7(15), '√(27/40)')).toBe(true); // the root of an expression is read too
     expect(accepts(v7(15), '3√30/20')).toBe(true);
     expect(accepts(v7(16), '(1,5; (2+√3)/2]')).toBe(true);
     expect(accepts(v7(16), '(1,5; (2+√3)/2)')).toBe(false);

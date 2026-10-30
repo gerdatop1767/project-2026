@@ -83,6 +83,16 @@ const INVERSE_TRIG: Record<string, (x: number) => number> = {
   arccos: Math.acos,
 };
 
+/** True when the "(" at `open` is closed by the token's last character. */
+function closesAtEnd(open: number, token: string): boolean {
+  let depth = 0;
+  for (let i = open; i < token.length; i++) {
+    if (token[i] === '(') depth++;
+    else if (token[i] === ')' && --depth === 0) return i === token.length - 1;
+  }
+  return false;
+}
+
 function parseUnsignedExpression(token: string): number | null {
   // A readable expression to a small natural power: "(log_5 34)^2", "log_5(34)^2".
   const power = /^(.+)\^(\d)$/.exec(token);
@@ -119,6 +129,14 @@ function parseUnsignedExpression(token: string): number | null {
 
   if (token === 'pi' || token === 'π') return Math.PI;
   if (token === 'e') return Math.E;
+
+  // A coefficient times the root of a readable expression: "3√(4-2√2)", "√(36-18√2)".
+  const nestedRoot = /^(\d+(?:\.\d+)?)?(?:√|sqrt)\((.+)\)$/.exec(token);
+  if (nestedRoot && closesAtEnd(token.indexOf('('), token)) {
+    const radicand = parseSignedExpression(nestedRoot[2]!);
+    if (radicand === null || radicand < 0) return null;
+    return Number(nestedRoot[1] ?? 1) * Math.sqrt(radicand);
+  }
 
   // √n or sqrt(n) or sqrt n
   const sqrtMatch = /^(?:√|sqrt)\(?(\d+(?:\.\d+)?)\)?$/.exec(token);

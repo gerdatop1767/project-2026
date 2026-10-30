@@ -28,6 +28,24 @@ function tokenize(normalized: string): readonly string[] {
     .sort();
 }
 
+const SCIENTIFIC = /^([+-]?\d+(?:\.\d+)?)\s*[·*×x]\s*10\s*\^\s*\(?\s*([+−-]?\d+)\s*\)?$/;
+
+/** "3.105·10^-21", "3.105*10^(-21)", "3.105×10^−21" → "3.105e-21"; anything else unchanged. */
+function scientificToE(normalized: string): string {
+  const match = SCIENTIFIC.exec(normalized);
+  return match ? `${match[1]}e${match[2]!.replace('−', '-')}` : normalized;
+}
+
+/** Only for keys in scientific notation; compared relatively, as the values are tiny or huge. */
+function scientificEquals(normalizedUser: string, normalizedCorrect: string): boolean {
+  const key = scientificToE(normalizedCorrect);
+  if (!/e[+-]?\d+$/.test(key)) return false;
+  const user = Number(scientificToE(normalizedUser));
+  const correct = Number(key);
+  if (!Number.isFinite(user) || !Number.isFinite(correct) || correct === 0) return false;
+  return Math.abs(user - correct) <= 1e-9 * Math.abs(correct);
+}
+
 function numericEquals(a: string, b: string): boolean {
   if (a === '' || b === '') return false;
   const numA = Number(a);
@@ -118,6 +136,9 @@ export function checkAnswer(
   const normalizedCorrect = normalizeAnswer(correctAnswer);
 
   if (normalizedUser === normalizedCorrect) return true;
+  // A scientific key ("3.105e-21") is far below the absolute tolerance: compare it relatively only.
+  if (/^[+-]?\d+(?:\.\d+)?e[+-]?\d+$/.test(normalizedCorrect))
+    return scientificEquals(normalizedUser, normalizedCorrect);
   if (numericEquals(normalizedUser, normalizedCorrect)) return true;
 
   const userTokens = tokenize(normalizedUser);
