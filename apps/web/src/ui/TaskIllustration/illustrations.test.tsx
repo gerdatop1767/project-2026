@@ -31,6 +31,8 @@ import {
   ege2027V8T12,
   ege2027V9T12,
   ege2027V10T12,
+  EGE_2027_V11_T9_WAYPOINTS,
+  ege2027V11T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -69,6 +71,8 @@ describe('illustration registry', () => {
         'ege-2027-variant-8:12',
         'ege-2027-variant-9:12',
         'ege-2027-variant-10:12',
+        'ege-2027-variant-11:9',
+        'ege-2027-variant-11:12',
       ].sort(),
     );
   });
@@ -83,7 +87,7 @@ describe('illustration registry', () => {
     expect(getCustomIllustration(tag(8), 8)).toBeNull();
     expect(getCustomIllustration(tag(8), 11)).toBeNull();
     // Вариант 1's figures never land on another variant's task.
-    for (const v of [2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+    for (let v = 2; v <= 25; v++) {
       for (const n of [1, 3, 14, 17]) expect(getCustomIllustration(tag(v), n)).toBeNull();
     }
     expect(getCustomIllustration(tag(5), 2)).toBeNull();
@@ -292,6 +296,8 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     [8, 12],
     [9, 12],
     [10, 12],
+    [11, 9],
+    [11, 12],
   ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
@@ -303,7 +309,7 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     const other = render(<>{getCustomIllustration([`ege-2026-variant-${v}`], n)}</>);
     expect(other.container.innerHTML).not.toBe(container.innerHTML);
     // Another 2027 variant with the same number never shows this figure.
-    for (const w of [3, 4, 5, 6, 7, 8, 9, 10].filter((w) => w !== v)) {
+    for (const w of Array.from({ length: 23 }, (_, i) => i + 3).filter((w) => w !== v)) {
       const r = render(<>{getCustomIllustration(tag(w), n)}</>);
       expect(r.container.innerHTML).not.toBe(container.innerHTML);
       r.unmount();
@@ -465,5 +471,33 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     expect(ege2027V10T12(0)).toBeCloseTo(1, 12);
     expect(ege2027V10T12(2)).toBeCloseTo(5, 12);
     expect(ege2027V10T12(-1) / ege2027V10T12(-5)).toBeCloseTo(25, 10);
+  });
+});
+
+describe('ЕГЭ 2027 Ященко, Варианты 11–25 — figures drawn from the scan', () => {
+  /** x where f′ changes sign from + to − (maxima of f), linear between waypoints. */
+  const maxima = (w: readonly (readonly [number, number])[]) => {
+    const out: number[] = [];
+    for (let i = 0; i + 1 < w.length; i++) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 > 0 && y1 <= 0) out.push(x0 + (y0 * (x1 - x0)) / (y0 - y1));
+    }
+    return out;
+  };
+
+  it('В11 №9: f′ on (−22; 2) with open ends; two maxima of f lie in [−18; 1]', () => {
+    const w = EGE_2027_V11_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-22, -2]);
+    expect(w[w.length - 1]).toEqual([2, 1]);
+    const m = maxima(w);
+    expect(m).toHaveLength(3);
+    expect(m.filter((x) => x >= -18 && x <= 1)).toHaveLength(2);
+    expect(m[0]).toBeLessThan(-18.5); // the first one, near −19, is outside the segment
+  });
+
+  it('В11 №12: f(x) = x² + 5x + 4 through (−4; 0), (−1; 0), (0; 4), f(3) = 28', () => {
+    expect([ege2027V11T12(-4), ege2027V11T12(-1), ege2027V11T12(0)]).toEqual([0, 0, 4]);
+    expect(ege2027V11T12(3)).toBe(28);
   });
 });

@@ -31,6 +31,11 @@ export const EXAM_FORMAT = 'ege-math-profile-2027';
 const SOURCE_FILE = 'ege2027-yashchenko-v1-v2.pdf';
 /** The later scan of book Варианты 2–15 (4 pages each; Вариант N on pages 4N−7…4N−4). */
 export const SOURCE_FILE_V2_V15 = 'ege2027-yashchenko-v2-v15.pdf';
+/** The book's scans of Варианты 10–17 and 18–25 (4 pages each): Вариант N
+ * on pages 4(N−10)+1…4(N−10)+4 and 4(N−18)+1…4(N−18)+4 respectively. Their
+ * Вариант 10 pages are identical to pages 33–36 of the scan above. */
+export const SOURCE_FILE_V10_V17 = 'ege2027-yashchenko-v10-v17.pdf';
+export const SOURCE_FILE_V18_V25 = 'ege2027-yashchenko-v18-v25.pdf';
 
 /** Every explanation here was written by the Зубрилка editors, not taken from the book. */
 const AUTHORSHIP_NOTE =
