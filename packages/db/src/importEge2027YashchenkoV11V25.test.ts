@@ -300,6 +300,9 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v23(14), '-9π/4; -5π/2; -11π/4')).toBe(true);
     expect(accepts(v23(14), '-5π/2')).toBe(false);
     expect(accepts(v23(15), 'arctg(√3)')).toBe(true);
+    expect(accepts(v23(15), '60')).toBe(true);
+    expect(accepts(v23(15), 'π/3')).toBe(true);
+    expect(accepts(v23(15), '30')).toBe(false);
     expect(accepts(v23(16), '{1}')).toBe(true);
     expect(accepts(v23(16), '(0;1]')).toBe(false);
     expect(accepts(v23(18), '77')).toBe(true);
@@ -310,6 +313,9 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v24(14), '23π/6; 7π/2; 19π/6')).toBe(true);
     expect(accepts(v24(14), '7π/2')).toBe(false);
     expect(accepts(v24(15), 'arctg(√3/3)')).toBe(true);
+    expect(accepts(v24(15), '30°')).toBe(true);
+    expect(accepts(v24(15), 'π/6')).toBe(true);
+    expect(accepts(v24(15), '60')).toBe(false);
     expect(accepts(v24(16), '(0;1)∪(1;+∞)')).toBe(true);
     expect(accepts(v24(16), '(1;+∞)')).toBe(false);
     expect(accepts(v24(18), '65')).toBe(true);
@@ -329,6 +335,8 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v25(20), { a: 'да', b: '12', c: '(5;3), (6;2), (7;1), (8;6), (9;5)' })).toBe(
       true,
     );
+    expect(accepts(v25(20), { a: 'да', b: '12', c: '(9;5);(8;6);(7;1);(6;2);(5;3)' })).toBe(true);
+    expect(accepts(v25(20), { a: 'да', b: '12', c: '(5;3), (6;2), (7;1), (8;6)' })).toBe(false);
   });
 
   it('a repeated statement is only allowed with its own figure', () => {
