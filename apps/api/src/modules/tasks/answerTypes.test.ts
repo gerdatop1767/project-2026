@@ -77,7 +77,9 @@ describe('interval and multi_part answer types', () => {
         correctAnswer: '',
         explanationMd: 'Нет единственного правильного ответа.',
         source: 'test',
-        status: 'needs_review',
+        // Published like the real essay tasks: a needs_review task can't
+        // be opened by id at all (see needsReviewExclusion2027.test.ts).
+        status: 'published',
       })
       .returning();
     essayTaskId = essayTask!.id;

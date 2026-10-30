@@ -14,7 +14,14 @@ export async function listMistakes(db: Database, userId: string) {
     .innerJoin(schema.tasks, eq(schema.mistakes.taskId, schema.tasks.id))
     .leftJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
     .innerJoin(schema.attempts, eq(schema.mistakes.lastAttemptId, schema.attempts.id))
-    .where(and(eq(schema.mistakes.userId, userId), ne(schema.mistakes.status, 'dismissed')))
+    .where(
+      and(
+        eq(schema.mistakes.userId, userId),
+        ne(schema.mistakes.status, 'dismissed'),
+        // A task put back on review drops out until it is checked.
+        ne(schema.tasks.status, 'needs_review'),
+      ),
+    )
     .orderBy(desc(schema.mistakes.updatedAt));
 }
 

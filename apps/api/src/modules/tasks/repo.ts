@@ -1,7 +1,7 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
 import type { RandomTaskQuery, TaskListQuery } from '@zybrilka/shared';
-import { and, asc, count, eq, gt, inArray, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, ne, notInArray, or, sql } from 'drizzle-orm';
 
 type TaskRow = typeof schema.tasks.$inferSelect;
 type PassageRow = typeof schema.passages.$inferSelect;
@@ -193,13 +193,16 @@ export async function listTasks(
   return { items: page, nextCursor };
 }
 
+/** A `needs_review` task answers like a missing one: its id may still sit
+ * in an old link, a mistake, a favorite or a running session, but the
+ * task must not be opened, answered or served until it is checked. */
 export async function getTaskById(db: Database, id: string): Promise<TaskWithTopic | undefined> {
   const [row] = await db
     .select({ task: schema.tasks, topicName: schema.topics.name, passage: schema.passages })
     .from(schema.tasks)
     .leftJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
     .leftJoin(schema.passages, eq(schema.tasks.passageId, schema.passages.id))
-    .where(eq(schema.tasks.id, id));
+    .where(and(eq(schema.tasks.id, id), ne(schema.tasks.status, 'needs_review')));
   return row;
 }
 
