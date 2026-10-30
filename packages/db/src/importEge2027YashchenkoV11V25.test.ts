@@ -35,6 +35,7 @@ import { variant15 } from './importEge2027YashchenkoVariant15.js';
 import { variant16 } from './importEge2027YashchenkoVariant16.js';
 import { variant17 } from './importEge2027YashchenkoVariant17.js';
 import { variant18 } from './importEge2027YashchenkoVariant18.js';
+import { variant19 } from './importEge2027YashchenkoVariant19.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
@@ -49,6 +50,7 @@ const NEW: readonly VariantData[] = [
   variant16,
   variant17,
   variant18,
+  variant19,
 ];
 const EARLIER: readonly VariantData[] = [
   variant1,
@@ -241,6 +243,17 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
       ),
     ).toBe(true);
     expect(accepts(v18(20), { a: 'да', b: 'нет', c: '385' })).toBe(true);
+    const v19 = (n: number) => task(variant19, n);
+    expect(accepts(v19(14), '-17π/8; -19π/8; -31π/12; -21π/8; -23π/8; -35π/12')).toBe(true);
+    expect(accepts(v19(14), '-23π/8; -21π/8; -19π/8; -17π/8')).toBe(false);
+    expect(accepts(v19(15), 'arccos(√21/7)')).toBe(true);
+    expect(accepts(v19(16), '(-∞;-10)∪[-4√2;-√2/8]∪[√2/8;4√2]∪(10;+∞)')).toBe(true);
+    expect(accepts(v19(16), '(-∞;-10)∪(-4√2;-√2/8)∪(√2/8;4√2)∪(10;+∞)')).toBe(false);
+    expect(accepts(v19(18), '√11(√5-1)')).toBe(false); // outside the bound grammar
+    expect(accepts(v19(18), '√55-√11')).toBe(true);
+    expect(accepts(v19(19), '(-∞;0)∪(0;6-2√6]∪[6+2√6;+∞)')).toBe(true);
+    expect(accepts(v19(19), '(-∞;0)∪(0;6-2√6)∪(6+2√6;+∞)')).toBe(false);
+    expect(accepts(v19(20), { a: 'да', b: 'нет', c: '12' })).toBe(true);
   });
 
   it('a repeated statement is only allowed with its own figure', () => {

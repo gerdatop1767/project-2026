@@ -254,6 +254,11 @@ export const EGE_2027_VECTORS = {
     { fromX: -5, fromY: -4, x: -2, y: 2, label: 'a', labelAt: { x: -4.4, y: -1.6 }, color: A },
     { fromX: -6, fromY: 4, x: 5, y: 2, label: 'b', labelAt: { x: 1.5, y: 3.45 }, color: B },
   ],
+  /** В19 №2 (скан 18–25, стр. 5): grid x −6…6, y −6…6. */
+  19: [
+    { fromX: 3, fromY: 1, x: 2, y: -2, label: 'a', labelAt: { x: 3.25, y: -0.65 }, color: A },
+    { fromX: -1, fromY: -1, x: -5, y: 5, label: 'b', labelAt: { x: -2.4, y: 2.45 }, color: B },
+  ],
   /** В4 №2 (скан 2–15, стр. 9): grid x −6…6, y −5…6. */
   4: [
     { fromX: 5, fromY: 6, x: -6, y: -1, label: 'a', labelAt: { x: -1.5, y: 2.8 }, color: A },
@@ -1478,6 +1483,45 @@ export function Ege2027V18Task12() {
         { x: 2, y: 7 },
       ]}
       ariaLabel="Графики функций f(x) = kx + b и g(x) = ax² + bx + c с отмеченными точками (вариант 18, задание 12)"
+    />
+  );
+}
+
+export function Ege2027V19Task2() {
+  return (
+    <CoordinatePlaneSVG
+      xMin={-6}
+      xMax={6}
+      yMin={-6}
+      yMax={6}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={360}
+      vectors={EGE_2027_VECTORS[19]}
+      ariaLabel="Векторы a и b на клетчатой координатной плоскости (вариант 19, задание 2); координаты концов — целые числа, их нужно считать по клеткам"
+    />
+  );
+}
+
+/** В19 №12 (скан 18–25, стр. 7): f(x) = a^(x+b) through (0; 4) and (2; 1) ⇒ a = 1/2, b = −2, f = 2^(2−x). */
+export const ege2027V19T12 = (x: number) => 2 ** (2 - x);
+
+export function Ege2027V19Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V19T12}
+      xMin={-2}
+      xMax={5}
+      yMin={-2}
+      yMax={5}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={260}
+      points={[
+        { x: 0, y: 4 },
+        { x: 2, y: 1 },
+      ]}
+      ariaLabel="График функции f(x) = a^(x+b) с отмеченными точками (вариант 19, задание 12)"
     />
   );
 }
