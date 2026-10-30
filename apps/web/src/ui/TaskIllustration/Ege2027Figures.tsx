@@ -1346,3 +1346,31 @@ export function Ege2027V14Task12() {
     />
   );
 }
+
+/** В15 №12 (скан 10–17, стр. 22): g(x) = p√x through (4; 4) ⇒ p = 2; f(x) = kx + b through (0; 0) and (3; 1) ⇒ f = x/3. */
+export const ege2027V15T12 = {
+  f: (x: number) => x / 3,
+  g: (x: number) => (x >= 0 ? 2 * Math.sqrt(x) : Number.NaN),
+};
+
+export function Ege2027V15Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V15T12.g}
+      extraCurves={[ege2027V15T12.f]}
+      xMin={-3}
+      xMax={5}
+      yMin={-3}
+      yMax={5}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={300}
+      points={[
+        { x: 0, y: 0 },
+        { x: 3, y: 1 },
+        { x: 4, y: 4 },
+      ]}
+      ariaLabel="Графики функций f(x) = kx + b и g(x) = p√x с отмеченными точками (вариант 15, задание 12)"
+    />
+  );
+}
