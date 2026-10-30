@@ -243,3 +243,13 @@ describe('parseBound — a logarithm over a number', () => {
     expect(parseBound('log_2(5)/0')).toBeNull();
   });
 });
+
+describe('parseBound — inverse trig over an expression', () => {
+  it('reads arccos(x)/(kπ) and sums with it', () => {
+    const t = Math.acos(0.6) / (6 * Math.PI);
+    expect(parseBound('arccos(0.6)/(6π)')).toBeCloseTo(t, 12);
+    expect(parseBound('2-arccos(0.6)/(6π)')).toBeCloseTo(2 - t, 12);
+    expect(parseBound('-2-arccos(0.6)/(6π)')).toBeCloseTo(-2 - t, 12);
+    expect(parseBound('arctg(1/2)/2')).toBeCloseTo(Math.atan(0.5) / 2, 12);
+  });
+});

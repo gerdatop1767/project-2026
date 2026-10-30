@@ -190,15 +190,25 @@ function parseUnsignedExpression(token: string): number | null {
     return Math.log(arg) / Math.log(base);
   }
 
-  // A logarithm (optionally bracketed) over a plain divisor: "log_2(5)/5", "(log_2 25)/10".
-  const logOver = /^(\(?log_?[^/]+?\)?)\/(\d+(?:\.\d+)?)$/.exec(token);
-  if (logOver) {
-    const raw = logOver[1]!;
-    const inner = raw.startsWith('(') && raw.endsWith(')') ? raw.slice(1, -1) : raw;
-    const numerator = parseUnsignedExpression(inner);
-    const divisor = Number(logOver[2]);
-    if (numerator === null || divisor === 0) return null;
-    return numerator / divisor;
+  // A logarithm or inverse trig function over a divisor the grammar reads:
+  // "log_2(5)/5", "(log_2 25)/10", "arccos(0.6)/(6π)". Split on the last "/" outside brackets.
+  if (/^\(?(?:log|arc)/.test(token)) {
+    let depth = 0;
+    let at = -1;
+    for (let i = 0; i < token.length; i++) {
+      const char = token[i]!;
+      if (char === '(') depth++;
+      else if (char === ')') depth--;
+      else if (char === '/' && depth === 0) at = i;
+    }
+    if (at > 0) {
+      const unwrap = (part: string) =>
+        part.startsWith('(') && closesAtEnd(0, part) ? part.slice(1, -1) : part;
+      const numerator = parseUnsignedExpression(unwrap(token.slice(0, at)));
+      const divisor = parseUnsignedExpression(unwrap(token.slice(at + 1)));
+      if (numerator === null || divisor === null || divisor === 0) return null;
+      return numerator / divisor;
+    }
   }
 
   return null;
