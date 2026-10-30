@@ -1423,3 +1423,32 @@ export function Ege2027V16Task12() {
     />
   );
 }
+
+/** В17 №12 (скан 10–17, стр. 31): g(x) = ax² + bx + c through (−4; 0), (0; 0) with vertex (−2; 4) ⇒ g = −x² − 4x; f(x) = kx + b through (0; 0) and (2; 5) ⇒ f = 2,5x. */
+export const ege2027V17T12 = {
+  f: (x: number) => 2.5 * x,
+  g: (x: number) => -x * x - 4 * x,
+};
+
+export function Ege2027V17Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V17T12.g}
+      extraCurves={[ege2027V17T12.f]}
+      xMin={-5}
+      xMax={3}
+      yMin={-4}
+      yMax={5}
+      tickLabels={{ x: [1], y: [3] }}
+      squareCells
+      maxWidth={300}
+      points={[
+        { x: -4, y: 0 },
+        { x: -2, y: 4 },
+        { x: 0, y: 0 },
+        { x: 2, y: 5 },
+      ]}
+      ariaLabel="Графики функций f(x) = kx + b и g(x) = ax² + bx + c с отмеченными точками (вариант 17, задание 12)"
+    />
+  );
+}

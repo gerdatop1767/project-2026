@@ -33,6 +33,7 @@ import { variant13 } from './importEge2027YashchenkoVariant13.js';
 import { variant14 } from './importEge2027YashchenkoVariant14.js';
 import { variant15 } from './importEge2027YashchenkoVariant15.js';
 import { variant16 } from './importEge2027YashchenkoVariant16.js';
+import { variant17 } from './importEge2027YashchenkoVariant17.js';
 import { createTestDb } from './testing.js';
 
 const publicDir = fileURLToPath(new URL('../../../apps/web/public', import.meta.url));
@@ -207,6 +208,22 @@ describe('ЕГЭ 2027 Ященко — Варианты 11–25 (сканы ва
     expect(accepts(v16(19), '(0;0,5)∪(0,5;2/3)∪(2/3;1)∪(1;2)∪(2;1+√6/2)')).toBe(true);
     expect(accepts(v16(19), '(0;(2+√6)/2)')).toBe(false);
     expect(accepts(v16(20), { a: 'да', b: 'нет', c: '37/27' })).toBe(true);
+    const v17 = (n: number) => task(variant17, n);
+    expect(accepts(v17(14), '4π; 7π/2; 5π/2; 2π; 3π/2; π; π/2; 0')).toBe(true);
+    expect(accepts(v17(14), '0; π/2; π; 3π/2; 2π; 5π/2; 3π; 7π/2; 4π')).toBe(false);
+    expect(accepts(v17(15), 'arctg(√102/3)')).toBe(true);
+    expect(accepts(v17(16), '(-4√2;-4)∪(-4;-√7]∪[√7;4)∪(4;4√2)')).toBe(true);
+    expect(accepts(v17(16), '(-4√2;-√7]∪[√7;4√2)')).toBe(false);
+    expect(v17(17).status).toBe('needs_review');
+    expect(accepts(v17(18), '150√3')).toBe(true);
+    expect(
+      accepts(
+        v17(19),
+        '(-2-arccos(0,6)/(6π);-2+arccos(0,6)/(6π)]∪[2-arccos(0,6)/(6π);2+arccos(0,6)/(6π))',
+      ),
+    ).toBe(true);
+    expect(accepts(v17(19), '[2-arccos(0,6)/(6π);2+arccos(0,6)/(6π))')).toBe(false);
+    expect(accepts(v17(20), { a: 'да', b: 'нет', c: '880' })).toBe(true);
   });
 
   it('a repeated statement is only allowed with its own figure', () => {
