@@ -1852,3 +1852,26 @@ export function Ege2027V23Task12() {
     />
   );
 }
+
+/** В24 №12 (скан 18–25, стр. 27): f(x) = a^x + b through (−2; 6) and (0; 3) ⇒ b = 2, a = 1/2. */
+export const ege2027V24T12 = (x: number) => 0.5 ** x + 2;
+
+export function Ege2027V24Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V24T12}
+      xMin={-3}
+      xMax={4}
+      yMin={-1}
+      yMax={8}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={260}
+      points={[
+        { x: -2, y: 6 },
+        { x: 0, y: 3 },
+      ]}
+      ariaLabel="График функции f(x) = a^x + b с отмеченными точками (вариант 24, задание 12)"
+    />
+  );
+}
