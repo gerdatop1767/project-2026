@@ -1829,3 +1829,26 @@ export function Ege2027V22Task12() {
     />
   );
 }
+
+/** В23 №12 (скан 18–25, стр. 23): f(x) = a^x + b through (0; −4) and (1; −2) ⇒ b = −5, a = 3. */
+export const ege2027V23T12 = (x: number) => 3 ** x - 5;
+
+export function Ege2027V23Task12() {
+  return (
+    <FunctionGraphSVG
+      fn={ege2027V23T12}
+      xMin={-3}
+      xMax={3}
+      yMin={-5}
+      yMax={5}
+      tickLabels="unitOnly"
+      squareCells
+      maxWidth={240}
+      points={[
+        { x: 0, y: -4 },
+        { x: 1, y: -2 },
+      ]}
+      ariaLabel="График функции f(x) = a^x + b с отмеченными точками (вариант 23, задание 12)"
+    />
+  );
+}

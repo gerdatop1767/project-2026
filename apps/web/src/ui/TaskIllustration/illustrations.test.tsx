@@ -47,6 +47,7 @@ import {
   EGE_2027_V21_T9_WAYPOINTS,
   ege2027V22T12,
   EGE_2027_V22_T9_WAYPOINTS,
+  ege2027V23T12,
 } from './Ege2027Figures.js';
 import { curveY } from './TracedGraphSVG.js';
 
@@ -106,6 +107,7 @@ describe('illustration registry', () => {
         'ege-2027-variant-21:12',
         'ege-2027-variant-22:9',
         'ege-2027-variant-22:12',
+        'ege-2027-variant-23:12',
       ].sort(),
     );
   });
@@ -311,6 +313,10 @@ describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the
   it('В22 №12: f(x) = −3/(x−3) through (0; 1) and (2; 3), f(18) = −0,2', () => {
     expect([ege2027V22T12(0), ege2027V22T12(2)]).toEqual([1, 3]);
     expect(ege2027V22T12(18)).toBeCloseTo(-0.2, 12);
+  });
+
+  it('В23 №12: f(x) = 3^x − 5 through (0; −4) and (1; −2), f(4) = 76', () => {
+    expect([ege2027V23T12(0), ege2027V23T12(1), ege2027V23T12(4)]).toEqual([-4, -2, 76]);
   });
 
   it('В9 №11: through (0;4) and (2;1), f(−3) = 32', () => {
