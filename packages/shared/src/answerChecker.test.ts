@@ -271,3 +271,39 @@ describe('checkAnswer — signs and end marks', () => {
     expect(checkAnswer('да?', 'да')).toBe(false);
   });
 });
+
+// Found by the pre-deploy answer matrix: correct answers in common forms were marked wrong.
+describe('checkAnswer — equivalent forms students write (pre-deploy matrix)', () => {
+  it('accepts an explicit multiplication sign and a bracketed product over a divisor', () => {
+    for (const form of ['5*√39/3', '5·√39/3', '5×√39/3', '(5√39)/3', '(5*√39)/3'])
+      expect(checkAnswer(form, '5√39/3'), form).toBe(true);
+    expect(checkAnswer('11*π/2', '11π/2')).toBe(true);
+  });
+
+  it('still rejects a wrong coefficient, radicand or divisor written the same way', () => {
+    for (const form of ['5*√38/3', '(5√39)/2', '4*√39/3', '5*√39', '(5√39)'])
+      expect(checkAnswer(form, '5√39/3'), form).toBe(false);
+  });
+
+  it('reads logarithm and power keys as numbers, not only as the exact string', () => {
+    // KNOWN LIMITATION: «(log_5 34)^2» with a space is not read — spaces are
+    // dropped before parsing, which glues base and argument («log_534»).
+    for (const form of ['log_5(34)^2', '(log5(34))^2', '(log_5(34))^2'])
+      expect(checkAnswer(form, '(log_5(34))^2'), form).toBe(true);
+    expect(checkAnswer('(log_2(126))^2; (log_2(6))^2', '(log_2(6))^2; (log_2(126))^2')).toBe(true);
+    for (const form of ['log_5(34)', '(log_5(35))^2', '(log_5(34))^3', '2·log_5(34)'])
+      expect(checkAnswer(form, '(log_5(34))^2'), form).toBe(false);
+  });
+
+  it('accepts a bracketed number and digit groups for a plain number key', () => {
+    expect(checkAnswer('(-13)', '-13')).toBe(true);
+    expect(checkAnswer('2 062 500', '2062500')).toBe(true);
+    expect(checkAnswer('62 500', '62500')).toBe(true);
+    expect(checkAnswer('(13)', '-13')).toBe(false);
+    expect(checkAnswer('2 06 2500', '2062500')).toBe(false);
+    expect(checkAnswer('20 625 00', '2062500')).toBe(false);
+    // Two answers separated by a space are never glued into one number.
+    expect(checkAnswer('2 5', '25')).toBe(false);
+    expect(checkAnswer('1 500', '1.5')).toBe(false);
+  });
+});

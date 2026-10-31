@@ -181,9 +181,16 @@ describe('bracketed sums over a divisor (EGE-2027 №14, №19 boundary values)'
 
   it('rejects anything outside that grammar', () => {
     expect(parseBound('(3-)/2')).toBeNull();
-    expect(parseBound('(3)/2')).toBeNull();
     expect(parseBound('(1+2+3)/2')).toBeNull();
     expect(parseBound('((1+2))/2')).toBeNull();
+  });
+
+  // A single bracketed term over a divisor is just that quotient — needed
+  // for «(5√39)/3»; sums of three terms and nested brackets stay out.
+  it('reads a single bracketed term over a divisor', () => {
+    expect(parseBound('(3)/2')).toBe(1.5);
+    expect(parseBound('(5√39)/3')).toBeCloseTo((5 * Math.sqrt(39)) / 3, 12);
+    expect(parseBound('(5*√39)/3')).toBeCloseTo((5 * Math.sqrt(39)) / 3, 12);
   });
 
   it('works as an isolated point next to an interval', () => {

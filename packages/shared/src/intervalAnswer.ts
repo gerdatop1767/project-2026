@@ -30,7 +30,9 @@ export function parseBound(raw: string): number | null {
     .toLowerCase()
     .replace(/−/g, '-') // U+2212 minus sign, common in typeset math, vs ASCII hyphen
     .replace(/,/g, '.')
-    .replace(/\s+/g, '');
+    .replace(/\s+/g, '')
+    // An explicit product sign before a factor is the implied one: "5*√39" = "5√39".
+    .replace(/(\d)[*·×](?=[√π(]|pi|sqrt)/g, '$1');
   if (token === '') return null;
 
   const infinityMatch = /^([+-]?)(infinity|inf|∞)$/.exec(token);
@@ -172,12 +174,17 @@ function parseUnsignedExpression(token: string): number | null {
   const grouped = /^\(([^()]+)\)(?:\/(\d+(?:\.\d+)?))?$/.exec(token);
   if (grouped) {
     const inner = grouped[1]!;
+    const divisor = grouped[2] === undefined ? 1 : Number(grouped[2]);
+    if (divisor === 0) return null;
     const at = inner.slice(1).search(/[+-]/) + 1;
-    if (at <= 0) return null;
+    if (at <= 0) {
+      // A single bracketed term: "(5√39)/3" reads as "5√39/3".
+      const term = parseSignedExpression(inner);
+      return term === null ? null : term / divisor;
+    }
     const first = parseSignedExpression(inner.slice(0, at));
     const second = parseUnsignedExpression(inner.slice(at + 1));
-    const divisor = grouped[2] === undefined ? 1 : Number(grouped[2]);
-    if (first === null || second === null || divisor === 0) return null;
+    if (first === null || second === null) return null;
     return (inner[at] === '+' ? first + second : first - second) / divisor;
   }
 

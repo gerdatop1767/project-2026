@@ -60,6 +60,19 @@ function scientificEquals(normalizedUser: string, normalizedCorrect: string): bo
   return Math.abs(user - correct) <= 1e-9 * Math.abs(correct);
 }
 
+/**
+ * How a student may write a plain number key: a bracketed number «(-13)»,
+ * and an integer in digit groups «2 062 500» (only whole groups of three,
+ * so «2 5» — two answers — is never glued into 25).
+ */
+function plainNumberForm(normalizedUser: string, normalizedCorrect: string): string {
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(normalizedCorrect)) return normalizedUser;
+  const bracketed = /^\(([+-]?\d+(?:\.\d+)?)\)$/.exec(normalizedUser);
+  if (bracketed) return bracketed[1]!;
+  if (/^[+-]?\d{1,3}(?: \d{3})+$/.test(normalizedUser)) return normalizedUser.replace(/ /g, '');
+  return normalizedUser;
+}
+
 function numericEquals(a: string, b: string): boolean {
   if (a === '' || b === '') return false;
   const numA = Number(a);
@@ -80,7 +93,7 @@ function expressionTokensEqual(
   correctTokens: readonly string[],
   normalizedCorrect: string,
 ): boolean {
-  if (!/[π√/]|pi|sqrt|arc/.test(normalizedCorrect)) return false;
+  if (!/[π√/^]|pi|sqrt|arc|log/.test(normalizedCorrect)) return false;
   if (userTokens.length === 0 || userTokens.length !== correctTokens.length) return false;
   const read = (tokens: readonly string[]) => tokens.map((token) => parseBound(token));
   const user = read(userTokens);
@@ -229,7 +242,8 @@ export function checkAnswer(
   // A scientific key ("3.105e-21") is far below the absolute tolerance: compare it relatively only.
   if (/^[+-]?\d+(?:\.\d+)?e[+-]?\d+$/.test(normalizedCorrect))
     return scientificEquals(normalizedUser, normalizedCorrect);
-  if (numericEquals(normalizedUser, normalizedCorrect)) return true;
+  if (numericEquals(plainNumberForm(normalizedUser, normalizedCorrect), normalizedCorrect))
+    return true;
 
   const userTokens = tokenize(normalizedUser);
   const correctTokens = tokenize(normalizedCorrect);
