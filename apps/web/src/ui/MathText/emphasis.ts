@@ -51,3 +51,28 @@ export function parseHeading(line: string): string | null {
   const match = /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
   return match ? match[1]! : null;
 }
+
+/**
+ * Splits text into runs of lines, marking each whole line wrapped in
+ * `_…_` that contains a `$…$` formula as italic (markers removed) — e.g.
+ * «_В ответ запишите результат в виде $a:b$._». Such a line can't be
+ * handled by `parseEmphasis`, which only ever sees the text between
+ * formulas. Other lines are kept together, joined by their newlines.
+ */
+export function splitItalicMathLines(text: string): { text: string; italic: boolean }[] {
+  const segments: { text: string; italic: boolean }[] = [];
+  let plain: string[] = [];
+  for (const line of text.split('\n')) {
+    const match = /^_([^_\s](?:.*[^_\s])?)_\s*$/.exec(line);
+    if (match && line.includes('$')) {
+      if (plain.length) segments.push({ text: plain.join('\n'), italic: false });
+      plain = [];
+      segments.push({ text: match[1]!, italic: true });
+    } else {
+      plain.push(line);
+    }
+  }
+  if (plain.length || segments.length === 0)
+    segments.push({ text: plain.join('\n'), italic: false });
+  return segments;
+}

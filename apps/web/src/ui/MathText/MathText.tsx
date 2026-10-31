@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import katex from 'katex';
 import { tokenizeMathText } from './mathTokenizer.js';
-import { parseEmphasis, parseHeading } from './emphasis.js';
+import { parseEmphasis, parseHeading, splitItalicMathLines } from './emphasis.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MathText.module.css';
 
@@ -61,7 +61,31 @@ export function InlineMathText({ text }: { text: string }) {
   return <MathLine text={text} />;
 }
 
+/** Splits off whole `_…_` lines that hold a formula: the formula would
+ * otherwise cut the line into separate text tokens, and neither half
+ * would see both underscores (see `splitItalicMathLines`). */
 function MathLine({ text }: { text: string }) {
+  const segments = useMemo(() => splitItalicMathLines(text), [text]);
+  if (segments.length === 1 && !segments[0]!.italic) return <MathTokens text={text} />;
+  return (
+    <>
+      {segments.map((segment, i) => (
+        <Fragment key={i}>
+          {segment.italic ? (
+            <em>
+              <MathTokens text={segment.text} />
+            </em>
+          ) : (
+            <MathTokens text={segment.text} />
+          )}
+          {i < segments.length - 1 && <br />}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+function MathTokens({ text }: { text: string }) {
   const tokens = useMemo(() => tokenizeMathText(text), [text]);
   return (
     <>

@@ -178,3 +178,30 @@ describe('MathText — markdown headings and _italic_ in imported solutions', ()
     expect(container.textContent).toContain('# не заголовок, точка A_1');
   });
 });
+
+// «_В ответ запишите … в виде $a:b$ …_» kept its underscores: the formula
+// split the line, so no text token saw both markers.
+describe('MathText — a whole _italic_ line that contains a formula', () => {
+  it('renders the line as <em> with the formula inside, no underscores left', () => {
+    const { container } = render(
+      <MathText
+        text={
+          'Найдите отношение площадей.\n\n_В ответ запишите результат в виде $a:b$ — меньшая к большей._'
+        }
+      />,
+    );
+    const em = container.querySelector('em');
+    expect(em?.textContent).toContain('В ответ запишите результат в виде');
+    expect(em?.querySelector('.katex')).not.toBeNull();
+    expect(container.textContent).not.toMatch(/(^|\s)_|_($|\s)/);
+  });
+
+  it('keeps the lines around it and leaves an italic line without a formula to parseEmphasis', () => {
+    const { container } = render(
+      <MathText text={'Строка $x$\n_Курсив $y$ тут_\nЕщё строка\n_просто курсив_'} />,
+    );
+    expect(container.querySelectorAll('br')).toHaveLength(3);
+    expect([...container.querySelectorAll('em')].map((e) => e.textContent?.trim())).toHaveLength(2);
+    expect(container.textContent).toContain('Ещё строка');
+  });
+});
