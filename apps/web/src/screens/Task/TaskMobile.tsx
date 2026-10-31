@@ -168,6 +168,7 @@ export function TaskMobile({
           customOrderedTasks,
           returnTo,
           timeSpentMs,
+          xpAwarded: result.xp?.awarded,
           // A guest's answer was checked but not recorded (attemptId null).
           revealed:
             result.attemptId === null

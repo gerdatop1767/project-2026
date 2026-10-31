@@ -132,6 +132,9 @@ export type OverlayRoute =
        * never started. Carried the same way `userAnswer` is, purely for
        * Result's own display; never re-sent to the backend. */
       timeSpentMs?: number;
+      /** XP the server actually awarded for this attempt (`xp.awarded`) —
+       * absent for a guest. Result shows it only when it is > 0. */
+      xpAwarded?: number;
     }
   | { screen: 'mistakes' }
   /**

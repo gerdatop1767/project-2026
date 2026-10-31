@@ -668,3 +668,40 @@ describe('ResultMobile — "К списку заданий №N" (navigation to 
     );
   });
 });
+
+// The result screen showed a fixed «+20 XP» for every correct answer —
+// a first solve gives 15/25, a repeat 0, a guest nothing.
+describe('ResultMobile — XP chip shows what the server awarded', () => {
+  function renderWithXp(xpAwarded: number | undefined) {
+    return render(
+      <NavigationProvider>
+        <ResultMobile
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+          correct
+          userAnswer={CORRECT_ANSWER}
+          xpAwarded={xpAwarded}
+        />
+      </NavigationProvider>,
+    );
+  }
+
+  it('shows the real award', async () => {
+    renderWithXp(25);
+    expect(await screen.findByText(/\+25 XP/, {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(screen.queryByText(/\+20 XP/)).not.toBeInTheDocument();
+  });
+
+  it('shows no XP chip for a repeat solve (0) or a guest (no award)', async () => {
+    renderWithXp(0);
+    await screen.findByText('Правильно!');
+    expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
+  });
+
+  it('shows no XP chip for a guest', async () => {
+    renderWithXp(undefined);
+    await screen.findByText('Правильно!');
+    expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
+  });
+});

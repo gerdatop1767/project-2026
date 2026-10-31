@@ -62,11 +62,11 @@ export interface ResultMobileProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time chip is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** XP the server awarded for this attempt; absent for a guest. */
+  xpAwarded?: number;
   /** A guest's check — see the `result` route's `revealed`. */
   revealed?: RevealedAnswer;
 }
-
-const XP_REWARD = 20;
 
 /**
  * Mobile Result screen (S1 Block 6, approved design —
@@ -86,6 +86,7 @@ export function ResultMobile({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  xpAwarded,
   revealed,
 }: ResultMobileProps) {
   const { navigate } = useNavigation();
@@ -113,7 +114,10 @@ export function ResultMobile({
   const [otherOpen, setOtherOpen] = useState(false);
   const [solutionOpen, setSolutionOpen] = useState(false);
   const [accuracyPercent, setAccuracyPercent] = useState<number | null>(null);
-  const xp = useCountUp(correct ? XP_REWARD : 0, 500);
+  // The real award, never a fixed number: 15/25 for a first solve, 0 for a
+  // repeat or a wrong answer, nothing for a guest.
+  const xp = useCountUp(xpAwarded ?? 0, 500);
+  const showXp = correct && (xpAwarded ?? 0) > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -282,9 +286,11 @@ export function ResultMobile({
         </p>
 
         <div className={styles.statRow}>
-          <span className={styles.statChip}>
-            <Icon name="xp" size={16} className={styles.statIconGold} />+{Math.round(xp)} XP
-          </span>
+          {showXp && (
+            <span className={styles.statChip}>
+              <Icon name="xp" size={16} className={styles.statIconGold} />+{Math.round(xp)} XP
+            </span>
+          )}
           {timeSpentMs !== undefined && (
             <span className={styles.statChip}>
               <Icon name="progress" size={16} className={styles.statIconBlue} />

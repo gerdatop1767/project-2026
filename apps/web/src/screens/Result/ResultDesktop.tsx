@@ -61,11 +61,11 @@ export interface ResultDesktopProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** XP the server awarded for this attempt; absent for a guest. */
+  xpAwarded?: number;
   /** A guest's check — see the `result` route's `revealed`. */
   revealed?: RevealedAnswer;
 }
-
-const XP_REWARD = 20;
 
 /**
  * Desktop Result screen (S1 Block 6, approved design —
@@ -86,6 +86,7 @@ export function ResultDesktop({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  xpAwarded,
   revealed,
 }: ResultDesktopProps) {
   const { navigate } = useNavigation();
@@ -126,7 +127,10 @@ export function ResultDesktop({
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(false);
-  const xp = useCountUp(correct ? XP_REWARD : 0, 500);
+  // The real award, never a fixed number: 15/25 for a first solve, 0 for a
+  // repeat or a wrong answer, nothing for a guest.
+  const xp = useCountUp(xpAwarded ?? 0, 500);
+  const showXp = correct && (xpAwarded ?? 0) > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -314,7 +318,7 @@ export function ResultDesktop({
                   {correct ? 'Ты отлично справился!' : 'Разберём это задание вместе.'}
                 </p>
               </div>
-              {correct && (
+              {showXp && (
                 <div className={styles.rewardChips}>
                   <span className={styles.rewardChip}>
                     <Icon name="target" size={16} className={styles.rewardIconGold} />+
@@ -495,6 +499,7 @@ export function ResultDesktop({
                 : null
             }
             xp={xp}
+            showXp={showXp}
           />
           {correct ? (
             <SessionTaskListCard
@@ -548,6 +553,7 @@ function ResultCard({
   correctAnswer,
   resultSummary,
   xp,
+  showXp,
 }: {
   correct: boolean;
   userAnswer: string;
@@ -555,6 +561,7 @@ function ResultCard({
   /** "2 из 3" for a multi_part task, shown next to the headline instead of plain correct/incorrect. */
   resultSummary: string | null;
   xp: number;
+  showXp: boolean;
 }) {
   return (
     <div className={styles.resultCard}>
@@ -590,10 +597,14 @@ function ResultCard({
             <InlineMathText text={correctAnswer} />
           </span>
         </div>
-        <div className={styles.resultRow}>
-          <span className="text-body-sm text-secondary">Получено опыта</span>
-          <span className={clsx('text-body-sm', styles.resultHighlight)}>+{Math.round(xp)} XP</span>
-        </div>
+        {showXp && (
+          <div className={styles.resultRow}>
+            <span className="text-body-sm text-secondary">Получено опыта</span>
+            <span className={clsx('text-body-sm', styles.resultHighlight)}>
+              +{Math.round(xp)} XP
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
