@@ -135,6 +135,20 @@ function EmphasisLine({ text }: { text: string }) {
   );
 }
 
+/** KaTeX glyphs (a subscript after a letter, «a₂») overhang their box by
+ * a couple of pixels; that is not content to scroll to, and treating it as
+ * such lit the edge fade on every formula ending in a subscript. */
+export const SCROLL_SLACK_PX = 4;
+
+/** Whether a formula's box has more to scroll to, and on which side. */
+export function scrollCue(scrollWidth: number, clientWidth: number, scrollLeft: number) {
+  return {
+    scrollable: scrollWidth > clientWidth + SCROLL_SLACK_PX,
+    atStart: scrollLeft <= SCROLL_SLACK_PX,
+    atEnd: scrollLeft + clientWidth >= scrollWidth - SCROLL_SLACK_PX,
+  };
+}
+
 function KatexSpan({ tex, block }: { tex: string; block: boolean }) {
   const html = useMemo(() => {
     try {
@@ -162,11 +176,7 @@ function KatexSpan({ tex, block }: { tex: string; block: boolean }) {
     if (!el) return;
     function update() {
       if (!el) return;
-      setOverflow({
-        scrollable: el.scrollWidth > el.clientWidth + 1,
-        atStart: el.scrollLeft <= 1,
-        atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1,
-      });
+      setOverflow(scrollCue(el.scrollWidth, el.clientWidth, el.scrollLeft));
     }
     update();
     el.addEventListener('scroll', update, { passive: true });

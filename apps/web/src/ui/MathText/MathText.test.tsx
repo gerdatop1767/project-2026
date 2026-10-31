@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { InlineMathText, MathText } from './MathText.js';
+import { InlineMathText, MathText, scrollCue } from './MathText.js';
 
 describe('MathText / InlineMathText — real KaTeX typography', () => {
   it('renders a $...$ span as KaTeX, not plain text', () => {
@@ -203,5 +203,20 @@ describe('MathText — a whole _italic_ line that contains a formula', () => {
     expect(container.querySelectorAll('br')).toHaveLength(3);
     expect([...container.querySelectorAll('em')].map((e) => e.textContent?.trim())).toHaveLength(2);
     expect(container.textContent).toContain('Ещё строка');
+  });
+});
+
+// Light theme showed a blue fade on every formula ending in a subscript:
+// KaTeX's 2 px glyph overhang counted as «more to scroll».
+describe('scrollCue — formula scroll fade', () => {
+  it('ignores the couple of pixels a subscript overhangs', () => {
+    expect(scrollCue(102, 100, 0)).toMatchObject({ scrollable: false });
+    expect(scrollCue(104, 100, 0)).toMatchObject({ scrollable: false });
+  });
+
+  it('still marks a formula that is really wider than its box, and where it can scroll', () => {
+    expect(scrollCue(160, 100, 0)).toEqual({ scrollable: true, atStart: true, atEnd: false });
+    expect(scrollCue(160, 100, 30)).toEqual({ scrollable: true, atStart: false, atEnd: false });
+    expect(scrollCue(160, 100, 60)).toEqual({ scrollable: true, atStart: false, atEnd: true });
   });
 });
