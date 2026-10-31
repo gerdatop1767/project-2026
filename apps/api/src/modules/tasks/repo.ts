@@ -120,23 +120,64 @@ export async function outsideSourcesOf(db: Database, taskId: string): Promise<st
 }
 
 /**
- * Real published-task counts, one query for every subject at once —
- * the Home "Математика — N заданий" cards need exactly this, and
- * fetching it once here beats a separate `/tasks?subject=X` round trip
- * per subject card.
+ * Task ids a student can reach through a source: a slot of a published
+ * variant in a published collection. A task outside «Все источники»
+ * (ЕГЭ 2027) is available only this way.
  */
-export async function getCountsBySubject(
-  db: Database,
-): Promise<{ subjectId: string; count: number; countAllSources: number }[]> {
+export function taskIdsInPublishedVariants(db: Database) {
   return db
+    .select({ id: schema.variantTasks.taskId })
+    .from(schema.variantTasks)
+    .innerJoin(schema.variants, eq(schema.variantTasks.variantId, schema.variants.id))
+    .innerJoin(schema.collections, eq(schema.variants.collectionId, schema.collections.id))
+    .where(
+      and(eq(schema.variants.status, 'published'), eq(schema.collections.status, 'published')),
+    );
+}
+
+/**
+ * The one definition of "a task a student can open": published, and
+ * either in its subject's default pool or in a published variant of a
+ * published collection. Drafts, `needs_review` and tasks reachable only
+ * through an unpublished source never count.
+ */
+export function availableToStudents(db: Database) {
+  return and(
+    eq(schema.tasks.status, 'published'),
+    or(inAllSourcesPool(db), inArray(schema.tasks.id, taskIdsInPublishedVariants(db))),
+  )!;
+}
+
+/**
+ * Real task counts, one query for every subject at once (Home, the
+ * subject catalog, the subject picker, Subject's «из N», Statistics).
+ * Each row counts DISTINCT tasks — a task linked into several variants
+ * or collections is one task; variant slots are counted separately by
+ * GET /collections.
+ */
+export async function getCountsBySubject(db: Database): Promise<
+  {
+    subjectId: string;
+    count: number;
+    countAllSources: number;
+    taskNumbers: number[];
+  }[]
+> {
+  const pool = inAllSourcesPool(db);
+  const rows = await db
     .select({
       subjectId: schema.tasks.subjectId,
-      count: count(sql`case when ${inAllSourcesPool(db)} then 1 end`),
+      count: count(sql`case when ${pool} then 1 end`),
       countAllSources: count(),
+      taskNumbers: sql<
+        number[] | null
+      >`array_agg(distinct ${schema.tasks.taskNumber} order by ${schema.tasks.taskNumber}) filter (where ${pool})`,
     })
     .from(schema.tasks)
-    .where(eq(schema.tasks.status, 'published'))
-    .groupBy(schema.tasks.subjectId);
+    .where(availableToStudents(db))
+    .groupBy(schema.tasks.subjectId)
+    .orderBy(asc(schema.tasks.subjectId));
+  return rows.map((row) => ({ ...row, taskNumbers: (row.taskNumbers ?? []).map(Number) }));
 }
 
 export async function listTasks(
