@@ -2,15 +2,18 @@ import { MobileShell } from './ui/MobileShell/MobileShell.js';
 import { BottomNav } from './ui/BottomNav/BottomNav.js';
 import { defaultBottomNavItems } from './ui/BottomNav/defaultItems.js';
 import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
-import { MobileMenu } from './ui/MobileMenu/MobileMenu.js';
 import { TaskMobile } from './screens/Task/TaskMobile.js';
 import { ResultMobile } from './screens/Result/ResultMobile.js';
+import { useAccountGate } from './lib/accountGate.js';
 import { useNavigation, type MainTabId } from './lib/navigation.js';
 import { HomeMobile } from './screens/Home/HomeMobile.js';
 import { StatisticsMobile } from './screens/Statistics/StatisticsMobile.js';
 import { MistakesMobile } from './screens/Mistakes/MistakesMobile.js';
 import { AchievementsMobile } from './screens/Achievements/AchievementsMobile.js';
 import { RatingMobile } from './screens/Rating/RatingMobile.js';
+import { Level } from './screens/Level/Level.js';
+import { TheoryCatalog } from './screens/Theory/TheoryCatalog.js';
+import { Notifications } from './screens/Notifications/Notifications.js';
 import { HelpMobile } from './screens/Help/HelpMobile.js';
 import { FriendsMobile } from './screens/Friends/FriendsMobile.js';
 import { FriendProfileMobile } from './screens/Friends/FriendProfileMobile.js';
@@ -19,8 +22,10 @@ import { SubjectMobile } from './screens/Subject/SubjectMobile.js';
 import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { Profile } from './screens/Profile/Profile.js';
 import { Training } from './screens/Training/Training.js';
-import { TrainingByNumber } from './screens/Training/TrainingByNumber.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
+import { VariantAttempt } from './screens/VariantAttempt/VariantAttempt.js';
+import { MiniGames } from './screens/MiniGames/MiniGames.js';
+import { StressGame } from './screens/MiniGames/StressGame.js';
 
 /**
  * Mobile app tree (S1 Block 6, approved design). Screens not yet
@@ -29,15 +34,13 @@ import { LearningSession } from './screens/LearningSession/LearningSession.js';
  * screens, which visually contradict the new design — see the
  * project report for which screens are still pending.
  *
- * Menu is not a full-screen overlay swap like Task/Result/Mistakes —
- * the approved screenshot shows it as a drawer over whatever screen
- * is currently showing, so it renders as a portal on top of the
- * normal tab/overlay content instead (see `isMenuOpen` below).
+ * There is no menu drawer on mobile: the bottom nav and Профиль reach
+ * every section (the gear and its drawer were removed).
  *
  * Exactly one `<MobileShell>` in exactly one place in the returned
- * tree: this used to be three separate `return` statements with
- * `{menu}` placed inconsistently relative to `<MobileShell>` across
- * them. That inconsistency was investigated as a possible cause of
+ * tree: this used to be three separate `return` statements with the
+ * old menu drawer placed inconsistently relative to `<MobileShell>`
+ * across them. That inconsistency was investigated as a possible cause of
  * the mobile-only visual flash (a hypothesis that the differing root
  * element shape forced React to unmount/remount the shell on certain
  * transitions), but a mount-counter instrumentation test proved the
@@ -47,11 +50,20 @@ import { LearningSession } from './screens/LearningSession/LearningSession.js';
  * vary), not as the flash fix. The real cause is tracked separately.
  */
 export function AppMobile() {
-  const { tab, overlay, navigate, back } = useNavigation();
-  const isMenuOpen = overlay?.screen === 'menu';
-  const contentOverlay = isMenuOpen ? null : overlay;
+  const { tab, overlay, navigate } = useNavigation();
+  const contentOverlay = overlay;
+
+  const { isGuest, requireAccount } = useAccountGate();
+  const navItems = isGuest
+    ? defaultBottomNavItems.map((item) =>
+        item.id === 'statistics' || item.id === 'mistakes' ? { ...item, locked: true } : item,
+      )
+    : defaultBottomNavItems;
 
   function selectTab(id: string) {
+    // Guest mode: these two need an account — explain, stay where we are.
+    if (id === 'statistics' && !requireAccount('statistics')) return;
+    if (id === 'mistakes' && !requireAccount('mistakes')) return;
     // Профиль/Мои ошибки are real overlay screens (see navigation.tsx's
     // doc comments), not MainTabIds, so they need their own navigate()
     // — unlike every other overlay entry, the bottom nav stays visible
@@ -67,8 +79,6 @@ export function AppMobile() {
     navigate({ screen: id as MainTabId });
   }
 
-  const menu = <MobileMenu open={isMenuOpen} onClose={back} activeTab={tab} />;
-
   // Профиль and Мои ошибки are the two overlays that keep the bottom
   // nav visible (with their own slot highlighted) — every other
   // overlay below is a chrome-less full-screen takeover. See
@@ -81,13 +91,9 @@ export function AppMobile() {
     (contentOverlay.screen === 'profile' || contentOverlay.screen === 'mistakes');
 
   const nav = !contentOverlay ? (
-    <BottomNav items={defaultBottomNavItems} activeId={tab} onSelect={selectTab} />
+    <BottomNav items={navItems} activeId={tab} onSelect={selectTab} />
   ) : showsBottomNavOverlay ? (
-    <BottomNav
-      items={defaultBottomNavItems}
-      activeId={contentOverlay.screen}
-      onSelect={selectTab}
-    />
+    <BottomNav items={navItems} activeId={contentOverlay.screen} onSelect={selectTab} />
   ) : undefined;
 
   return (
@@ -116,6 +122,7 @@ export function AppMobile() {
                 from={contentOverlay.from}
                 collectionSlug={contentOverlay.collectionSlug}
                 initialMode={contentOverlay.initialMode}
+                initialTaskNumber={contentOverlay.initialTaskNumber}
               />
             )}
             {contentOverlay.screen === 'task' && (
@@ -143,6 +150,8 @@ export function AppMobile() {
                 customOrderedTasks={contentOverlay.customOrderedTasks}
                 returnTo={contentOverlay.returnTo}
                 timeSpentMs={contentOverlay.timeSpentMs}
+                xpAwarded={contentOverlay.xpAwarded}
+                revealed={contentOverlay.revealed}
               />
             )}
             {contentOverlay.screen === 'learningSession' && (
@@ -150,6 +159,11 @@ export function AppMobile() {
                 key={contentOverlay.sessionId}
                 sessionId={contentOverlay.sessionId}
               />
+            )}
+            {contentOverlay.screen === 'miniGames' && <MiniGames />}
+            {contentOverlay.screen === 'stressGame' && <StressGame />}
+            {contentOverlay.screen === 'variantAttempt' && (
+              <VariantAttempt key={contentOverlay.sessionId} sessionId={contentOverlay.sessionId} />
             )}
             {contentOverlay.screen === 'trainingTopic' && (
               <WipPlaceholder
@@ -166,15 +180,14 @@ export function AppMobile() {
             {contentOverlay.screen === 'trainingVariants' && (
               <WipPlaceholder title="Варианты" note="Экран в разработке — следующий блок." />
             )}
-            {contentOverlay.screen === 'trainingByNumber' && (
-              <TrainingByNumber
-                subjectId={contentOverlay.subjectId}
-                collectionSlug={contentOverlay.collectionSlug}
-                from={contentOverlay.from}
-                initialTaskNumber={contentOverlay.initialTaskNumber}
+            {contentOverlay.screen === 'rating' && <RatingMobile />}
+            {contentOverlay.screen === 'level' && <Level />}
+            {contentOverlay.screen === 'theory' && (
+              <TheoryCatalog
+                section={contentOverlay.section}
+                taskNumber={contentOverlay.taskNumber}
               />
             )}
-            {contentOverlay.screen === 'rating' && <RatingMobile />}
             {contentOverlay.screen === 'learningCenter' && (
               <WipPlaceholder
                 title="Учебный центр"
@@ -199,10 +212,10 @@ export function AppMobile() {
               <WipPlaceholder title="Настройки" note="Экран в разработке — следующий блок." />
             )}
             {contentOverlay.screen === 'help' && <HelpMobile />}
+            {contentOverlay.screen === 'notifications' && <Notifications />}
           </>
         )}
       </MobileShell>
-      {menu}
     </>
   );
 }

@@ -1,7 +1,7 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
 import type { RandomTaskQuery, TaskListQuery } from '@zybrilka/shared';
-import { and, asc, count, eq, gt, inArray, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, ne, notInArray, or, sql } from 'drizzle-orm';
 
 type TaskRow = typeof schema.tasks.$inferSelect;
 type PassageRow = typeof schema.passages.$inferSelect;
@@ -76,6 +76,50 @@ export function taskIdsForCollectionOrVariant(
 }
 
 /**
+ * Task ids of sources outside «Все источники» (`collections.inAllSources
+ * = false` — e.g. the ЕГЭ 2027 edition, whose task numbers mean other
+ * tasks than the current exam's). Such a task is reachable only through
+ * its own collection/variant, never through the subject's default pool.
+ */
+export function taskIdsOutsideAllSources(db: Database) {
+  return db
+    .select({ id: schema.variantTasks.taskId })
+    .from(schema.variantTasks)
+    .innerJoin(schema.variants, eq(schema.variantTasks.variantId, schema.variants.id))
+    .innerJoin(schema.collections, eq(schema.variants.collectionId, schema.collections.id))
+    .where(eq(schema.collections.inAllSources, false));
+}
+
+/** The task is in its subject's default pool («Все источники»). */
+export function inAllSourcesPool(db: Database) {
+  return notInArray(schema.tasks.id, taskIdsOutsideAllSources(db));
+}
+
+/**
+ * The source condition every task picker uses: the chosen collection or
+ * variant, else the default pool («Все источники»), so a source outside
+ * it can never leak into a «все источники» pick.
+ */
+export function sourceScope(db: Database, filters: { collection?: string; variant?: string }) {
+  const scoped = taskIdsForCollectionOrVariant(db, filters);
+  return scoped ? inArray(schema.tasks.id, scoped) : inAllSourcesPool(db);
+}
+
+/**
+ * For «Похожие задания»: the collections outside «Все источники» that
+ * `taskId` belongs to — their slugs, or [] for a default-pool task.
+ */
+export async function outsideSourcesOf(db: Database, taskId: string): Promise<string[]> {
+  const rows = await db
+    .select({ slug: schema.collections.slug })
+    .from(schema.variantTasks)
+    .innerJoin(schema.variants, eq(schema.variantTasks.variantId, schema.variants.id))
+    .innerJoin(schema.collections, eq(schema.variants.collectionId, schema.collections.id))
+    .where(and(eq(schema.variantTasks.taskId, taskId), eq(schema.collections.inAllSources, false)));
+  return [...new Set(rows.map((r) => r.slug))];
+}
+
+/**
  * Real published-task counts, one query for every subject at once —
  * the Home "Математика — N заданий" cards need exactly this, and
  * fetching it once here beats a separate `/tasks?subject=X` round trip
@@ -83,9 +127,13 @@ export function taskIdsForCollectionOrVariant(
  */
 export async function getCountsBySubject(
   db: Database,
-): Promise<{ subjectId: string; count: number }[]> {
+): Promise<{ subjectId: string; count: number; countAllSources: number }[]> {
   return db
-    .select({ subjectId: schema.tasks.subjectId, count: count() })
+    .select({
+      subjectId: schema.tasks.subjectId,
+      count: count(sql`case when ${inAllSourcesPool(db)} then 1 end`),
+      countAllSources: count(),
+    })
     .from(schema.tasks)
     .where(eq(schema.tasks.status, 'published'))
     .groupBy(schema.tasks.subjectId);
@@ -104,8 +152,12 @@ export async function listTasks(
   if (filters.taskNumber) conditions.push(eq(schema.tasks.taskNumber, filters.taskNumber));
   if (filters.topic) conditions.push(eq(schema.tasks.topicId, filters.topic));
   if (filters.difficulty) conditions.push(eq(schema.tasks.difficulty, filters.difficulty));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  let scope: { collection?: string; variant?: string } = filters;
+  if (!filters.collection && !filters.variant && filters.sameSourceAs) {
+    const own = await outsideSourcesOf(db, filters.sameSourceAs);
+    if (own.length > 0) scope = { collection: own[0] };
+  }
+  conditions.push(sourceScope(db, scope));
   if (filters.unsolved && userId) {
     conditions.push(
       notInArray(
@@ -145,13 +197,16 @@ export async function listTasks(
   return { items: page, nextCursor };
 }
 
+/** A `needs_review` task answers like a missing one: its id may still sit
+ * in an old link, a mistake, a favorite or a running session, but the
+ * task must not be opened, answered or served until it is checked. */
 export async function getTaskById(db: Database, id: string): Promise<TaskWithTopic | undefined> {
   const [row] = await db
     .select({ task: schema.tasks, topicName: schema.topics.name, passage: schema.passages })
     .from(schema.tasks)
     .leftJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
     .leftJoin(schema.passages, eq(schema.tasks.passageId, schema.passages.id))
-    .where(eq(schema.tasks.id, id));
+    .where(and(eq(schema.tasks.id, id), ne(schema.tasks.status, 'needs_review')));
   return row;
 }
 
@@ -167,8 +222,7 @@ export async function getRandomTask(
   if (filters.subject) conditions.push(eq(schema.tasks.subjectId, filters.subject));
   if (filters.taskNumber) conditions.push(eq(schema.tasks.taskNumber, filters.taskNumber));
   if (filters.topic) conditions.push(eq(schema.tasks.topicId, filters.topic));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  conditions.push(sourceScope(db, filters));
   if (filters.unseen && userId) {
     conditions.push(
       notInArray(
@@ -244,10 +298,45 @@ export async function createAttempt(
     answerRaw: string;
     isCorrect: boolean;
     timeSpentMs?: number;
+    /** Claimed by the client — linked only if `sessionForAttempt` agrees. */
+    sessionId?: string;
   },
 ) {
-  const [attempt] = await db.insert(schema.attempts).values(input).returning();
+  const { sessionId, ...values } = input;
+  const learningSessionId = sessionId
+    ? await sessionForAttempt(db, sessionId, input.userId, input.taskId)
+    : null;
+  const [attempt] = await db
+    .insert(schema.attempts)
+    .values({ ...values, learningSessionId })
+    .returning();
   return attempt!;
+}
+
+/**
+ * The session an answer belongs to — only the answering user's own,
+ * still active session that has served this task. Anything else (someone
+ * else's session, a finished one, a task it never served) links nothing:
+ * the answer is still recorded, just not counted in any session.
+ */
+export async function sessionForAttempt(
+  db: Database,
+  sessionId: string,
+  userId: string,
+  taskId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: schema.learningSessions.id })
+    .from(schema.learningSessions)
+    .where(
+      and(
+        eq(schema.learningSessions.id, sessionId),
+        eq(schema.learningSessions.userId, userId),
+        eq(schema.learningSessions.status, 'active'),
+        sql`${schema.learningSessions.consumedTaskIds} @> ${JSON.stringify([taskId])}::jsonb`,
+      ),
+    );
+  return row?.id ?? null;
 }
 
 /**

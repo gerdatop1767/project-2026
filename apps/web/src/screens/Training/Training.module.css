@@ -10,35 +10,90 @@
   gap: var(--space-2);
 }
 
-.modeGrid {
+.header {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.subject {
+  flex: 1 1 16rem;
+  max-width: 26rem;
+}
+
+/*
+ * Modes: compact cards — 2 per row on a phone, 4 in one row on a wide
+ * screen. Icon on top, title, a two-line description; the chosen one
+ * gets a tinted surface, an accent rim and a check badge.
+ */
+.modeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
+@media (min-width: 900px) {
+  .modeGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+}
+
 .modeCard {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  border: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
   width: 100%;
+  border: none;
   text-align: left;
   background: var(--color-bg-surface);
   border-radius: var(--radius-card);
-  padding: var(--space-4);
-  box-shadow: inset 0 0 0 1.5px transparent;
+  padding: var(--space-3);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  color: var(--color-text-primary);
+  cursor: pointer;
   transition:
     box-shadow var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-fast) var(--easing-standard),
     transform var(--duration-fast) var(--easing-standard);
+}
+
+@media (min-width: 900px) {
+  .modeCard {
+    padding: var(--space-4);
+  }
 }
 
 .modeCard:active {
   transform: scale(0.98);
 }
 
-.modeCardSelected {
-  background: var(--color-bg-elevated);
-  box-shadow: inset 0 0 0 1.5px var(--color-accent-primary);
+.modeCard:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modeCard:hover {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 40%, transparent);
+  }
+}
+
+.modeCardSelected,
+.modeCardSelected:hover {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent-primary) 22%, var(--color-bg-elevated)),
+    var(--color-bg-surface) 75%
+  );
+  box-shadow:
+    inset 0 0 0 1.5px var(--color-accent-primary-end),
+    0 6px 22px color-mix(in srgb, var(--color-accent-primary) 25%, transparent);
 }
 
 /* Each mode gets its own icon-chip color (a fixed rotation through
@@ -48,8 +103,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   background: color-mix(
     in srgb,
@@ -61,14 +116,116 @@
 }
 
 .modeText {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
+  padding-right: var(--space-4);
+}
+
+.modeText > :first-child {
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+}
+
+.modeText > :last-child {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
 }
 
 .modeCheck {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--gradient-primary, var(--color-accent-primary));
+  color: var(--color-on-accent);
+}
+
+/* Guest mode: a mode built from a personal history — dimmed, with a lock. */
+.modeCard[data-locked] .modeIcon,
+.modeCard[data-locked] .modeText {
+  opacity: 0.6;
+}
+
+.modeLock {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+/* Sampling + amount: side by side once there is room. */
+.settingsRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 720px) {
+  .settingsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.startBar {
+  padding-top: var(--space-1);
+}
+
+@media (min-width: 900px) {
+  .startBar {
+    max-width: 26rem;
+  }
+}
+
+.gamesEntry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-subject-russian) 14%, var(--color-bg-surface)),
+    var(--color-bg-surface) 70%
+  );
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.gamesEntry:hover {
+  border-color: var(--color-subject-russian);
+}
+
+.gamesEntry:active {
+  transform: scale(0.99);
+}
+
+.gamesIcon {
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
-  color: var(--color-accent-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: var(--color-subject-russian);
+  background: color-mix(in srgb, var(--color-subject-russian) 18%, var(--color-bg-elevated));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gamesEntry {
+    transition: none;
+  }
 }

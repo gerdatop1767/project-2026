@@ -1,0 +1,291 @@
+/*
+ * Topic picker: dark section cards with a thin rim, the open/selected
+ * section lifted with a soft accent edge — no big filled blocks. Topic
+ * rows are compact pills that wrap long names.
+ */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.search {
+  flex: 1 1 14rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  color: var(--color-text-secondary);
+}
+
+.search:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent-primary-end);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  /* 16px keeps iOS Safari from zooming in. */
+  font-size: max(1rem, 16px);
+  outline: none;
+}
+
+.selectedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent-primary) 20%, var(--color-bg-elevated));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 55%, transparent);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  cursor: pointer;
+}
+
+.selectedName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.group {
+  min-width: 0;
+  border-radius: var(--radius-card);
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  transition:
+    box-shadow var(--duration-base) var(--easing-standard),
+    background-color var(--duration-base) var(--easing-standard);
+}
+
+.groupOpen {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent-primary) 7%, var(--color-bg-surface)),
+    var(--color-bg-surface)
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-accent-primary) 30%, var(--color-border-subtle));
+}
+
+.group[data-has-selected] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 55%, transparent);
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 3.25rem;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-card);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-accent-primary) 14%, var(--color-bg-elevated));
+  color: var(--color-accent-primary-end);
+}
+
+.groupTitle {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-body-sm);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.groupCount {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.chevron {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--color-text-secondary);
+  transition: transform var(--duration-base) var(--easing-out);
+}
+
+.groupOpen .chevron {
+  transform: rotate(180deg);
+}
+
+.topicList {
+  opacity: 0;
+  transition: opacity 180ms var(--easing-out);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  list-style: none;
+}
+
+.groupOpen .topicList {
+  opacity: 1;
+}
+
+.topicList > li {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.topic {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: 0.875rem;
+  background: var(--color-bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+
+.topic:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .topic:hover {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 45%, transparent);
+  }
+
+  .groupHeader:hover .groupTitle {
+    color: var(--color-text-primary);
+  }
+}
+
+.topicSelected {
+  background: color-mix(in srgb, var(--color-accent-primary) 22%, var(--color-bg-elevated));
+  box-shadow:
+    inset 0 0 0 1.5px var(--color-accent-primary-end),
+    0 0 14px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+}
+
+.topicMark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--color-border-subtle);
+  color: var(--color-on-accent);
+}
+
+.topicSelected .topicMark {
+  background: var(--gradient-primary, var(--color-accent-primary));
+  box-shadow: none;
+}
+
+.topicName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.topicMeta {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  text-align: center;
+}
+
+.groupHeader:focus-visible,
+.topic:focus-visible,
+.selectedPill:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron,
+  .topic,
+  .group,
+  .topicList {
+    transition: none;
+  }
+}

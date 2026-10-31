@@ -6,6 +6,7 @@ import {
   termsOfUse,
   type LegalDocument,
 } from '../../data/siteInfo.js';
+import { resetConsent } from '../../lib/consent.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { FaqList } from '../Landing/FaqList.js';
 import { SiteFooter, SiteHeader, useRouteLink } from '../Landing/SiteChrome.js';
@@ -107,7 +108,16 @@ function InfoPageContent({ kind }: { kind: InfoPageKind }) {
         </p>
 
         {doc ? (
-          <LegalBody doc={doc} />
+          <>
+            <LegalBody doc={doc} />
+            {kind === 'privacy' && (
+              <p className={styles.more}>
+                <button type="button" className={styles.moreButton} onClick={resetConsent}>
+                  Изменить настройки cookie
+                </button>
+              </p>
+            )}
+          </>
         ) : (
           <>
             <FaqList items={faq} />

@@ -1,7 +1,7 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
-import type { LearningSessionStatus } from '@zybrilka/shared';
-import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
+import type { LearningSessionStatus, VariantScoringSnapshot } from '@zybrilka/shared';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 
 export interface LearningSessionRow {
   readonly id: string;
@@ -15,6 +15,8 @@ export interface LearningSessionRow {
    * comment. `plannedTaskIds` is also non-null exactly when this is. */
   readonly variantId: string | null;
   readonly plannedTaskIds: readonly string[] | null;
+  /** A variant's scoring rules frozen at its start; null before 0035. */
+  readonly scoring: VariantScoringSnapshot | null;
   readonly status: LearningSessionStatus;
   readonly startedAt: Date;
   readonly completedAt: Date | null;
@@ -31,6 +33,7 @@ function toRow(row: typeof schema.learningSessions.$inferSelect): LearningSessio
     randomizeTopTier: row.randomizeTopTier,
     variantId: row.variantId,
     plannedTaskIds: row.plannedTaskIds ?? null,
+    scoring: row.scoring ?? null,
     status: row.status as LearningSessionStatus,
     startedAt: row.startedAt,
     completedAt: row.completedAt,
@@ -51,6 +54,8 @@ export async function createSession(
     randomizeTopTier?: boolean;
     variantId?: string;
     plannedTaskIds?: readonly string[];
+    /** A variant's scoring rules, frozen for this attempt. */
+    scoring?: VariantScoringSnapshot | null;
   },
 ): Promise<LearningSessionRow> {
   const [row] = await db
@@ -64,6 +69,7 @@ export async function createSession(
       randomizeTopTier: input.randomizeTopTier ?? false,
       variantId: input.variantId,
       plannedTaskIds: input.plannedTaskIds,
+      scoring: input.scoring ?? null,
     })
     .returning();
   return toRow(row!);
@@ -76,10 +82,15 @@ export async function createSession(
 export async function getVariantIdentity(
   db: Database,
   variantId: string,
-): Promise<{ variantNumber: number; title: string } | undefined> {
+): Promise<{ variantNumber: number; title: string; examFormat: string | null } | undefined> {
   const [row] = await db
-    .select({ variantNumber: schema.variants.variantNumber, title: schema.variants.title })
+    .select({
+      variantNumber: schema.variants.variantNumber,
+      title: schema.variants.title,
+      examFormat: schema.collections.examFormat,
+    })
     .from(schema.variants)
+    .innerJoin(schema.collections, eq(schema.collections.id, schema.variants.collectionId))
     .where(eq(schema.variants.id, variantId));
   return row;
 }
@@ -155,6 +166,39 @@ export async function appendConsumedTask(
   return toRow(row!);
 }
 
+/**
+ * A VARIANT session: makes `taskId` the current task — served (so answers
+ * to it are linked to the session) and last in `consumedTaskIds`, which is
+ * what the snapshot reports as current. Opening it again only moves it to
+ * the end, never adds it twice. One conditional UPDATE: a session that is
+ * not this user's, not active, or never planned this task is left alone
+ * (null).
+ */
+export async function focusVariantTask(
+  db: Database,
+  sessionId: string,
+  userId: string,
+  taskId: string,
+): Promise<LearningSessionRow | null> {
+  const item = JSON.stringify([taskId]);
+  const [row] = await db
+    .update(schema.learningSessions)
+    .set({
+      consumedTaskIds: sql`(${schema.learningSessions.consumedTaskIds} - ${taskId}::text) || ${item}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(schema.learningSessions.id, sessionId),
+        eq(schema.learningSessions.userId, userId),
+        eq(schema.learningSessions.status, 'active'),
+        sql`${schema.learningSessions.plannedTaskIds} @> ${item}::jsonb`,
+      ),
+    )
+    .returning();
+  return row ? toRow(row) : null;
+}
+
 export async function markCompleted(db: Database, sessionId: string): Promise<LearningSessionRow> {
   const [row] = await db
     .update(schema.learningSessions)
@@ -162,34 +206,6 @@ export async function markCompleted(db: Database, sessionId: string): Promise<Le
     .where(eq(schema.learningSessions.id, sessionId))
     .returning();
   return toRow(row!);
-}
-
-export interface SessionAttemptRow {
-  readonly taskId: string;
-  readonly isCorrect: boolean;
-}
-
-/** Every attempt by this user, on one of `taskIds`, created at or
- * after `since` — the real evidence the session summary is built from.
- * `since` (the session's own `startedAt`) excludes any older attempt
- * on the same task from before the session existed. */
-export async function getSessionAttempts(
-  db: Database,
-  userId: string,
-  taskIds: readonly string[],
-  since: Date,
-): Promise<SessionAttemptRow[]> {
-  if (taskIds.length === 0) return [];
-  return db
-    .select({ taskId: schema.attempts.taskId, isCorrect: schema.attempts.isCorrect })
-    .from(schema.attempts)
-    .where(
-      and(
-        eq(schema.attempts.userId, userId),
-        inArray(schema.attempts.taskId, taskIds as string[]),
-        gte(schema.attempts.createdAt, since),
-      ),
-    );
 }
 
 export interface SessionAttemptFullRow {
@@ -200,42 +216,6 @@ export interface SessionAttemptFullRow {
   readonly answerRaw: string;
   readonly answerType: (typeof schema.taskAnswerTypes)[number];
   readonly correctAnswer: string;
-}
-
-/**
- * Same join/shape as progress/repo.ts's `getAttemptsForTaskNumberDetail`
- * (full attempt rows, ready for `detectErrorSignatures`/`buildDetection
- * Input` and time aggregation) but scoped by an explicit task id list
- * instead of one task number — what a variant session's real "key
- * errors" and "total time" are built from (`getVariantProgress`).
- */
-export async function getAttemptsForTaskIds(
-  db: Database,
-  userId: string,
-  taskIds: readonly string[],
-  since: Date,
-): Promise<SessionAttemptFullRow[]> {
-  if (taskIds.length === 0) return [];
-  return db
-    .select({
-      taskId: schema.attempts.taskId,
-      isCorrect: schema.attempts.isCorrect,
-      createdAt: schema.attempts.createdAt,
-      timeSpentMs: schema.attempts.timeSpentMs,
-      answerRaw: schema.attempts.answerRaw,
-      answerType: schema.tasks.answerType,
-      correctAnswer: schema.tasks.correctAnswer,
-    })
-    .from(schema.attempts)
-    .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
-    .where(
-      and(
-        eq(schema.attempts.userId, userId),
-        inArray(schema.attempts.taskId, taskIds as string[]),
-        gte(schema.attempts.createdAt, since),
-      ),
-    )
-    .orderBy(schema.attempts.createdAt);
 }
 
 export async function getSkillIdsForTasks(
@@ -273,4 +253,90 @@ export async function countMistakesCreatedSince(
       ),
     );
   return rows.length;
+}
+
+export interface SessionAnswerRow extends SessionAttemptFullRow {
+  readonly attemptId: string;
+}
+
+/**
+ * The answers given IN this session. Exact for every answer submitted
+ * with the session's id (attempts.learning_session_id, migration 0033).
+ * A session with no linked answer at all (started before that, or by an
+ * older client) falls back to its time window: unlinked answers to its
+ * tasks between its start and its finish — bounded on both ends, so a
+ * later attempt of the same variant never leaks into an earlier one.
+ */
+export async function getAnswersOfSession(
+  db: Database,
+  session: LearningSessionRow,
+): Promise<{ rows: SessionAnswerRow[]; attribution: 'exact' | 'time_window' }> {
+  const columns = {
+    attemptId: schema.attempts.id,
+    taskId: schema.attempts.taskId,
+    isCorrect: schema.attempts.isCorrect,
+    createdAt: schema.attempts.createdAt,
+    timeSpentMs: schema.attempts.timeSpentMs,
+    answerRaw: schema.attempts.answerRaw,
+    answerType: schema.tasks.answerType,
+    correctAnswer: schema.tasks.correctAnswer,
+  };
+  const linked = await db
+    .select(columns)
+    .from(schema.attempts)
+    .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
+    .where(
+      and(
+        eq(schema.attempts.userId, session.userId),
+        eq(schema.attempts.learningSessionId, session.id),
+      ),
+    )
+    .orderBy(asc(schema.attempts.createdAt));
+  if (linked.length > 0 || session.consumedTaskIds.length === 0) {
+    return { rows: linked, attribution: 'exact' };
+  }
+  const window = [
+    eq(schema.attempts.userId, session.userId),
+    inArray(schema.attempts.taskId, session.consumedTaskIds as string[]),
+    isNull(schema.attempts.learningSessionId),
+    gte(schema.attempts.createdAt, session.startedAt),
+  ];
+  if (session.completedAt) window.push(lte(schema.attempts.createdAt, session.completedAt));
+  const rows = await db
+    .select(columns)
+    .from(schema.attempts)
+    .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
+    .where(and(...window))
+    .orderBy(asc(schema.attempts.createdAt));
+  return { rows, attribution: 'time_window' };
+}
+
+export interface PlannedTaskRow {
+  readonly taskId: string;
+  readonly taskNumber: number;
+  readonly topic: string | null;
+  readonly answerType: (typeof schema.taskAnswerTypes)[number];
+  readonly correctAnswer: string;
+  readonly correctAnswerDisplay: string | null;
+  readonly explanationMd: string;
+}
+
+export async function getPlannedTasks(
+  db: Database,
+  taskIds: readonly string[],
+): Promise<PlannedTaskRow[]> {
+  if (taskIds.length === 0) return [];
+  return db
+    .select({
+      taskId: schema.tasks.id,
+      taskNumber: schema.tasks.taskNumber,
+      topic: schema.topics.name,
+      answerType: schema.tasks.answerType,
+      correctAnswer: schema.tasks.correctAnswer,
+      correctAnswerDisplay: schema.tasks.correctAnswerDisplay,
+      explanationMd: schema.tasks.explanationMd,
+    })
+    .from(schema.tasks)
+    .leftJoin(schema.topics, eq(schema.topics.id, schema.tasks.topicId))
+    .where(inArray(schema.tasks.id, taskIds as string[]));
 }

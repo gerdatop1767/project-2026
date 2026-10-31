@@ -89,14 +89,22 @@ describe('importVariant10', () => {
     }
   });
 
-  it('has no image-attached tasks (graphs resolved via pixel-grid analysis, no image fallback needed)', async () => {
+  it('attaches an image only to the figure tasks №2, №11, each from its own variant folder', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
       .from(schema.tasks)
       .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.sourceVariant, 10)));
     for (const row of rows) {
-      expect(row.imageUrl).toBeNull();
+      if (row.taskNumber === 2 || row.taskNumber === 11) {
+        expect(row.imageUrl).toMatch(
+          new RegExp(
+            `^/tasks/imports/ege-2026-variant-10/task-${String(row.taskNumber).padStart(2, '0')}-`,
+          ),
+        );
+      } else {
+        expect(row.imageUrl).toBeNull();
+      }
     }
   });
 

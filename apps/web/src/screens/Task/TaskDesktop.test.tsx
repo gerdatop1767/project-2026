@@ -21,8 +21,24 @@ vi.mock('../../lib/api.js', () => ({
   listFavoriteTaskIds: vi.fn(() => Promise.resolve({ taskIds: [] })),
   addFavorite: vi.fn(() => Promise.resolve()),
   removeFavorite: vi.fn(() => Promise.resolve()),
+  // The rating place (StreakProvider): pending unless a test says otherwise.
+  getLeaderboard: vi.fn(() => new Promise(() => {})),
   getStreak: vi.fn(() =>
     Promise.resolve({ currentStreak: 0, lastActiveDate: null, isActiveToday: false }),
+  ),
+  getXpSummary: vi.fn(() =>
+    Promise.resolve({
+      totalXp: 0,
+      level: 1,
+      levelStartXp: 0,
+      nextLevelXp: 50,
+      xpIntoLevel: 0,
+      xpForNextLevel: 50,
+      xpToNextLevel: 50,
+      progress: 0,
+      maxLevel: 50,
+      isMaxLevel: false,
+    }),
   ),
 }));
 
@@ -234,6 +250,8 @@ describe('TaskDesktop', () => {
     await pasteAnswer(user, CORRECT_ANSWER);
     await user.click(screen.getByRole('button', { name: /Проверить ответ/ }));
     await waitFor(() => expect(api.getStreak).toHaveBeenCalledTimes(2));
+    // The level is refreshed by the same call (header chip stays in step).
+    expect(api.getXpSummary).toHaveBeenCalledTimes(2);
   });
 
   it('navigates to an incorrect Result for the wrong answer, per the server response', async () => {
@@ -272,11 +290,30 @@ describe('TaskDesktop', () => {
   });
 
   it('renders our own verified SVG reconstruction for a task with a real original diagram (e.g. task 11)', async () => {
-    vi.mocked(api.getTask).mockResolvedValue({ ...baseTask, taskNumber: 11 });
-    vi.mocked(api.listTasksByNumber).mockResolvedValue([{ ...baseTask, taskNumber: 11 }]);
+    const task11 = { ...baseTask, taskNumber: 11, tags: ['ege-2026-variant-1'] };
+    vi.mocked(api.getTask).mockResolvedValue(task11);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([task11]);
     renderTask();
     await screen.findByText(CONDITION);
     expect(document.querySelector('svg[role="img"]')).toBeInTheDocument();
+  });
+
+  it("shows another task №11 with its own source figure, never Вариант 1's graph", async () => {
+    const other = {
+      ...baseTask,
+      taskNumber: 11,
+      tags: ['ege-2026-variant-3'],
+      imageUrl: '/tasks/imports/ege-2026-variant-3/task-11-graph.png',
+    };
+    vi.mocked(api.getTask).mockResolvedValue(other);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([other]);
+    renderTask();
+    await screen.findByText(CONDITION);
+    expect(document.querySelector('svg[role="img"]')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Рисунок к заданию 11' })).toHaveAttribute(
+      'src',
+      '/tasks/imports/ege-2026-variant-3/task-11-graph.png',
+    );
   });
 
   describe('calculator (Task Workspace block 3)', () => {
@@ -421,17 +458,18 @@ describe('TaskDesktop', () => {
     });
   });
 
-  describe('report task (canvas mobile fix block — "Пожаловаться на задание")', () => {
-    it('opens from the warning icon and shows a placeholder confirmation once reported', async () => {
+  describe('report task (canvas mobile fix block — «Сообщить об ошибке»)', () => {
+    it('opens from the warning icon; signed out it asks to sign in', async () => {
       const user = userEvent.setup();
       renderTask();
       await screen.findByText(CONDITION);
 
-      await user.click(screen.getByRole('button', { name: 'Пожаловаться на задание' }));
-      const dialog = screen.getByRole('dialog', { name: 'Задание' });
-      await user.click(within(dialog).getByRole('button', { name: 'Пожаловаться на задание' }));
+      await user.click(screen.getByRole('button', { name: 'Сообщить об ошибке в задании' }));
+      const dialog = screen.getByRole('dialog', { name: 'Сообщить об ошибке' });
 
-      expect(within(dialog).getByRole('status')).toHaveTextContent('Жалоба отправлена');
+      // Signed out here: the real form needs an account, so it offers sign-in
+      // (the form itself is covered in ReportTaskContent.test.tsx).
+      expect(within(dialog).getByText(/войдите в аккаунт/)).toBeInTheDocument();
     });
 
     it('no longer shows the old bare "Ещё" (three dots) button', async () => {
@@ -916,7 +954,8 @@ describe('TaskDesktop — "Другие задания" (desktop, bugfix: block 
   it('"К списку заданий №N" navigates to По номерам with this taskNumber pre-selected (never auto-starts training)', async () => {
     function ByNumberOverlayDetail() {
       const { overlay } = useNavigation();
-      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      if (overlay?.screen !== 'subject' || overlay.initialMode !== 'byNumber')
+        return <p data-testid="by-number">none</p>;
       return (
         <p data-testid="by-number">
           byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}

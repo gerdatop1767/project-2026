@@ -4,8 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { Login } from './Login.js';
 import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
-import { ApiError } from '../../lib/api.js';
-import * as api from '../../lib/api.js';
 import type * as ApiModule from '../../lib/api.js';
 
 vi.mock('../../lib/api.js', async () => {
@@ -13,8 +11,7 @@ vi.mock('../../lib/api.js', async () => {
   return {
     ...actual,
     getCurrentUser: vi.fn(() => Promise.resolve({ user: null })),
-    requestMagicLink: vi.fn(),
-    verifyMagicLink: vi.fn(),
+    yandexLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/yandex/start'),
     vkLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/vk/start'),
   };
 });
@@ -28,105 +25,91 @@ function renderLogin(path = '/login') {
   );
 }
 
-describe('Login — unified layout (no separate signup/login tabs)', () => {
-  it('shows one fixed headline, the VK ID button, the email form and consent text', () => {
+describe('Login — layout', () => {
+  it('offers VK ID and Yandex ID, and no email registration or emailed links', () => {
     renderLogin();
     expect(screen.getByText('Войти или создать аккаунт')).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByText('Продолжить через VK ID')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Продолжить с почтой' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Продолжить через VK ID/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeInTheDocument();
     expect(screen.getByText(/условиями использования/)).toBeInTheDocument();
-    // No tab control at all — one unified flow for new and returning users.
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    // Nothing that sends a letter or creates an account by email.
+    expect(screen.queryByRole('tab', { name: 'Регистрация' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Зарегистрироваться/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Забыли пароль/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ссылк[уа] для входа/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/письм/)).not.toBeInTheDocument();
+    // No email / password sign-in at all.
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Пароль')).not.toBeInTheDocument();
+    expect(screen.queryByText(/почт/i)).not.toBeInTheDocument();
+  });
+
+  it('tells existing VK/Telegram users to sign in the old way and connect Yandex in the profile', () => {
+    renderLogin();
+    const hint = screen.getByText(/Уже занимались в Зубрилке через VK или Telegram/);
+    expect(hint).toHaveTextContent('Войдите тем же способом');
+    expect(hint).toHaveTextContent('Яндекс ID подключите потом в профиле');
+    expect(hint).toHaveTextContent('профили не объединяются автоматически');
+  });
+
+  it('old emailed links (?confirm=, ?reset=, ?token=) no longer do anything', () => {
+    for (const path of ['/login?confirm=abc', '/login?reset=abc', '/login?token=abc']) {
+      const { unmount } = renderLogin(path);
+      expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Новый пароль')).not.toBeInTheDocument();
+      unmount();
+    }
   });
 });
 
-describe('Login — email validation', () => {
-  it('rejects an invalid email without calling the API', async () => {
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText('Email'), 'not-an-email');
-    await user.click(screen.getByRole('button', { name: 'Продолжить с почтой' }));
-    expect(screen.getByText('Введите корректный email')).toBeInTheDocument();
-    expect(api.requestMagicLink).not.toHaveBeenCalled();
+describe('Login — theme', () => {
+  it('follows the site theme instead of forcing its own (same flow in light and dark)', async () => {
+    const { setTheme } = await import('../../lib/theme.js');
+    for (const theme of ['light', 'dark'] as const) {
+      setTheme(theme);
+      const { container, unmount } = renderLogin();
+      expect(container.querySelector('[data-theme]')).toBeNull();
+      expect(container.querySelector('[style*="--color"]')).toBeNull();
+      expect(document.documentElement).toHaveAttribute('data-theme', theme);
+      expect(screen.getByText('Продолжить через VK ID')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeInTheDocument();
+      unmount();
+    }
   });
 });
 
-describe('Login — magic-link request', () => {
-  it('sends the trimmed email and shows the "check your email" state, explicitly naming it a link (never a code)', async () => {
-    vi.mocked(api.requestMagicLink).mockResolvedValue({ ok: true });
+describe('Login — Yandex ID', () => {
+  it('is a full-page redirect to the API start URL', async () => {
     const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText('Email'), '  student@example.com  ');
-    await user.click(screen.getByRole('button', { name: 'Продолжить с почтой' }));
-    await waitFor(() => expect(screen.getByText('Проверьте почту')).toBeInTheDocument());
-    expect(api.requestMagicLink).toHaveBeenCalledWith('student@example.com');
-    expect(screen.getByText(/student@example\.com/)).toBeInTheDocument();
-    expect(screen.getByText(/ссылкой для входа/)).toBeInTheDocument();
-    expect(screen.getByText(/это ссылка, не код/)).toBeInTheDocument();
-  });
-
-  it('never claims success on a 503 (email not configured) — shows an honest error instead', async () => {
-    vi.mocked(api.requestMagicLink).mockRejectedValue(
-      new ApiError(503, { error: 'email_not_configured' }),
-    );
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    await user.click(screen.getByRole('button', { name: 'Продолжить с почтой' }));
-    await waitFor(() =>
-      expect(screen.getByText(/Отправка писем сейчас недоступна/)).toBeInTheDocument(),
-    );
-    expect(screen.queryByText('Проверьте почту')).not.toBeInTheDocument();
-  });
-
-  it('shows a clear rate-limit message on a 429, never a generic/fake error', async () => {
-    vi.mocked(api.requestMagicLink).mockRejectedValue(new ApiError(429, { error: 'rate_limited' }));
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    await user.click(screen.getByRole('button', { name: 'Продолжить с почтой' }));
-    await waitFor(() => expect(screen.getByText(/Слишком много попыток/)).toBeInTheDocument());
-  });
-
-  it('guards against a double submit while the request is in flight', async () => {
-    let resolveRequest: (() => void) | undefined;
-    vi.mocked(api.requestMagicLink).mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveRequest = () => resolve({ ok: true });
-        }),
-    );
-    const user = userEvent.setup();
-    renderLogin();
-    await user.type(screen.getByLabelText('Email'), 'student@example.com');
-    const submit = screen.getByRole('button', { name: 'Продолжить с почтой' });
-    await user.click(submit);
-    await user.click(submit);
-    await user.click(submit);
-    expect(api.requestMagicLink).toHaveBeenCalledTimes(1);
-    resolveRequest?.();
-  });
-});
-
-describe('Login — magic-link verification (?token=...)', () => {
-  it('shows a loading state, then success, then auto-redirects into the trainer using the real server session', async () => {
-    vi.mocked(api.verifyMagicLink).mockResolvedValue({
-      user: makeAuthUser({ id: 'u1', email: 'student@example.com' }),
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...original,
+        search: '',
+        assign: (url: string) => assign(url),
+      },
     });
-    renderLogin('/login?token=good-token');
-    expect(screen.getByText('Входим…')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Готово!')).toBeInTheDocument());
-    expect(api.verifyMagicLink).toHaveBeenCalledWith('good-token');
+    try {
+      renderLogin();
+      await user.click(screen.getByRole('button', { name: /Войти через Яндекс/ }));
+      expect(assign).toHaveBeenCalledWith('https://api.test/api/v1/auth/yandex/start');
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
   });
 
-  it('shows an honest error state when the token is invalid/expired, never a fake success', async () => {
-    vi.mocked(api.verifyMagicLink).mockRejectedValue(
-      new ApiError(400, { error: 'invalid_or_expired_token' }),
-    );
-    renderLogin('/login?token=bad-token');
-    await waitFor(() => expect(screen.getByText('Ссылка недействительна')).toBeInTheDocument());
-    expect(screen.queryByText('Готово!')).not.toBeInTheDocument();
+  it.each([
+    ['cancelled', 'Вход через Яндекс отменён'],
+    ['error', 'Не удалось войти через Яндекс'],
+    ['invalid_state', 'Сеанс входа через Яндекс устарел'],
+    ['not_configured', 'Вход через Яндекс пока не настроен'],
+    ['<script>', 'Не удалось войти через Яндекс'],
+  ])('explains ?yandex=%s and cleans the address', async (code, text) => {
+    renderLogin(`/login?yandex=${encodeURIComponent(code)}`);
+    expect(screen.getByRole('status')).toHaveTextContent(text);
+    await waitFor(() => expect(window.location.search).toBe(''));
   });
 });
 
@@ -151,7 +134,12 @@ describe('Login — Telegram Mini App sign-in failure', () => {
 
   it('shows nothing about Telegram when no Telegram sign-in failed', () => {
     renderWithTelegramError(null);
-    expect(screen.queryByText(/Telegram/)).not.toBeInTheDocument();
+    // (The account hint below the buttons names Telegram as a way in; no
+    // failure message does.)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Не удалось войти через Telegram|код: telegram/),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -186,10 +174,8 @@ describe('Login — the close (×) button', () => {
 
     // It sits inside no <form>, and using it never triggers form validation.
     expect(close.closest('form')).toBeNull();
-    await user.type(screen.getByLabelText('Email'), 'not-an-email');
     await user.click(close);
-    expect(screen.queryByText('Введите корректный email')).not.toBeInTheDocument();
-    expect(api.requestMagicLink).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/');
   });
 
   it('opened directly by URL (nothing behind it): closes to the public Home in place — never about:blank, no extra entry', async () => {
@@ -282,7 +268,7 @@ describe('Login — returning from a cancelled VK ID consent (?vk=cancelled)', (
     renderLogin('/login?vk=cancelled');
     expect(screen.getByRole('status')).toHaveTextContent('Вход через VK ID отменён');
     expect(screen.getByRole('button', { name: /Продолжить через VK ID/ })).toBeEnabled();
-    expect(screen.getByLabelText('Email')).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Войти через Яндекс/ })).toBeEnabled();
     await waitFor(() => expect(window.location.search).toBe(''));
     expect(window.location.pathname).toBe('/login');
     // The message stays for this visit even though the flag left the URL.
@@ -297,5 +283,28 @@ describe('Login — returning from a cancelled VK ID consent (?vk=cancelled)', (
   it('ignores any other value of the flag', () => {
     renderLogin('/login?vk=%3Cb%3Ehi%3C/b%3E');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+describe('Login — VK ID on the regular website', () => {
+  it('is the usual full-page redirect to the API start URL (no Telegram handoff)', async () => {
+    const user = userEvent.setup();
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...original,
+        search: '',
+        assign: (url: string) => assign(url),
+      },
+    });
+    try {
+      renderLogin();
+      await user.click(screen.getByRole('button', { name: /Продолжить через VK ID/ }));
+      expect(assign).toHaveBeenCalledWith('https://api.test/api/v1/auth/vk/start');
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
   });
 });

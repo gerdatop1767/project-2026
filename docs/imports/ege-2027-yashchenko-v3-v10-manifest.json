@@ -1,0 +1,2132 @@
+{
+  "source": "Ященко ЕГЭ 2027. Типовые экзаменационные варианты",
+  "sourceDocument": "ЕГЭ 2027 Ященко 36 вариантов",
+  "sourceFile": "ege2027-yashchenko-v2-v15.pdf (скан, 56 страниц, без текстового слоя)",
+  "sourceFileSha256": "9cae35e4a728374e9f31711039194c740330b7920d9d418a17be595579c1ab7e",
+  "collection": "ege-2027-yashchenko",
+  "inAllSources": false,
+  "examFormat": "ege-math-profile-2027",
+  "generatedAt": "2026-10-30T07:49:20.263Z",
+  "variants": [
+    {
+      "variant": 3,
+      "pages": [5, 8],
+      "bookPages": [19, 22],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-3/task-01-trapezoid.png",
+            "scanPage": 5,
+            "sizePx": [184, 100]
+          },
+          "reviewNote": null,
+          "contentHash": "7cccbfeaf9e4b89a6aa8de78d358a4c91d99785e0e4299c2af09f8d1e58cf7b6"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-3/task-02-vectors.png",
+            "scanPage": 5,
+            "sizePx": [453, 418]
+          },
+          "reviewNote": null,
+          "contentHash": "b1c2b3adc938312c8e040d4a1bcebab92c41b72ca285afb020800600b51bb4e7"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-3/task-03-prism-cylinder.png",
+            "scanPage": 5,
+            "sizePx": [216, 127]
+          },
+          "reviewNote": null,
+          "contentHash": "ad14b817591ccba2d99325be8ca6cbd1f60a8250dcb66873f66ce6a2a07e79d5"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "0eb5fc03ba7c30e3fd88a43715667a0fe70e37b5bd89b8924234b62a1f1e5dba"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "bfaba49594e0e9df1a19e555ca3a3efa60600f100bffdccdfce40220034131b5"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "d26df44007582d0784c194823ae15068541ea4c0692b181f9cd95660dc939f15"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "dbf1b757107a89bc6bd0aa1f23950dd55a8b6418c2ea4fe0a9e4ecf04568e144"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "91001c68137be4285f0c23eacb0b69a96855d1f5d8c01df14b15334817f2f3cd"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "85469aa1706ad39b4cf274d6be652e1b436bb984b0470a84864d6494a3d62966"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "d3e78bd559770117ea66b943d8037c574b9a301a9fe640bfd63961be9938ab72"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "9d0960a6ec0838031f1bfed896f85b0f3c4c6af7aa4030682e55dae34de2e1d2"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 7,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-3/task-12-graphs.png",
+            "scanPage": 7,
+            "sizePx": [374, 383]
+          },
+          "reviewNote": null,
+          "contentHash": "ae23b8a0e36a3e8aca344e1471e5b28f4abb30ce0f4e68c73d3ecf722bd0a288"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 7,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "9756c532707481c5464656951e146d19bc387c6264b1e3653773517ac8a53b70"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 7,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "927100290a4ffaf67e5f1cc16583e10a2b2b35f5b6ad91b89f2f04ac85bd74de"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 8,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "1a5b7602e9e081684a0eb4a1ede7ce2bf446455960d9287bc4aa21f648c64c47"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 8,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "abd3912600736c0b2d959ff04d59106ad804ce3f25344caee0993f68aa61aaff"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 8,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c1edb2cbba5b4e28789ee73ceae1927e99b08ba0bb7bab7a846018711b2b208a"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 8,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "b290a881807f2764efcb6dd680cacf8c19070bc46d584daa9baf2b48572908ad"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 8,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "423fcea5c59ed19823902a7d36c4e76984d002b77c8b8efefac2b973b06f7b2a"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 8,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c86432239c4cdfa34e4ceca5936f7a5195be6c7c313ab46c9760446e156b292c"
+        }
+      ]
+    },
+    {
+      "variant": 4,
+      "pages": [9, 12],
+      "bookPages": [23, 26],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 9,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-4/task-01-trapezoid.png",
+            "scanPage": 9,
+            "sizePx": [283, 129]
+          },
+          "reviewNote": null,
+          "contentHash": "36ed904f18cccf763ea4c1af8ca874d3fbcc065f74c6d007f846bf80af0e5f98"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 9,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-4/task-02-vectors.png",
+            "scanPage": 9,
+            "sizePx": [458, 416]
+          },
+          "reviewNote": null,
+          "contentHash": "7605f147c84ee16385c094ab3f3df1404e1e7ffc9a653e28ab98bfb64d04dd93"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 9,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-4/task-03-prism-cylinder.png",
+            "scanPage": 9,
+            "sizePx": [272, 151]
+          },
+          "reviewNote": null,
+          "contentHash": "df5435fa0f96017f4cf48d8e993cb2d0aa628115b4daae2910f29c453a9883e4"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 9,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "8f0b8b2c9f558c8a8eb82ef71767e07d820129bc863c7ba593837121650db2f6"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 9,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c69556daec4c918ed7e4b0190886ae6919e1161fa5787c7f5d64c6c250cbf82f"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 10,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "148daa0bf80f5cafefc3ef06e86680b2ac30d77f97918e68107b7efc061bb512"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 10,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "223dfa290bdfb1e8a35e8a2914972bfc25b034cc887123fa399370fa257c0356"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 10,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "8196667de0138c2c44f795725b88988b96d70a78a71ded3f2c77a7a5f1ab61df"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 10,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "6a4cc07c9556d2e22d477548d95e357a7c42c2fe6e2767b1a72683e9b438f883"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 10,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "264f5fa342fab43e8ce4642bf3010ccd9a8fc3ef88daa82ebee436f5780978da"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 10,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "794e7b787bcfa09a7ffe5454c0a175f22a75d7cd593df11fcd57916e2ffec408"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 11,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-4/task-12-graphs.png",
+            "scanPage": 11,
+            "sizePx": [358, 383]
+          },
+          "reviewNote": null,
+          "contentHash": "126b575120e05dd5ab2efd69d1978341df5f73def8071338b7327e59e5488045"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 11,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "71814e3bfdef218a00e137d5b8d51e2dcf33198a1c6bcf38ca3486cf52832598"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 11,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "6b516daecb495603af9621ad1347216ead86ea0824d632d07a38850caac446a7"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 12,
+          "answerType": "short_answer",
+          "status": "needs_review",
+          "image": null,
+          "reviewNote": "В условии сказано «треугольной призмы», без слова «прямой». Пункт а) верен для любой призмы, а косинус в пункте б) зависит от наклона боковых рёбер: для прямой призмы 97/99, для наклонных при AB:AA₁=6:7 — от ≈0,95 до ≈0,99. Ответ сборника в доступных сканах отсутствует (в PDF только условия), восстановить условие по оригиналу нельзя. Скрыто до сверки с ответами сборника.",
+          "contentHash": "91f4482f888fecd057a2f8908e590eee2b73cef2fefd86866bad03d246c044ef"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 12,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "52993655c6a95917f76951a4bdb681bc5a3f566f22446829fbf930296e003275"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 12,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "d7c9ffea4bcbbc2193555d5535326ee21b5ec408c0c87c6e16a1643fb9fc2527"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 12,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ecef92aaf3f83ca3665ef1f954ed5a4232629c5bade1826fe5460c036cb19e37"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 12,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "dc1e86688c4ab1a5cf924f49b1deeef67436bf84748b081fb37974daefa779fc"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 12,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ac02f3b93b42e1c8ab8f5b9d1ce8d3bbb96d486e466017d0cbabff1e404bcdd6"
+        }
+      ]
+    },
+    {
+      "variant": 5,
+      "pages": [13, 16],
+      "bookPages": [27, 30],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 13,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-5/task-01-triangle.png",
+            "scanPage": 13,
+            "sizePx": [181, 149]
+          },
+          "reviewNote": null,
+          "contentHash": "446c9cb880dd52870c18a795f4efdae27c185186aabd723f42bbd1f63b398d48"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 13,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "600ec18828374513546b7492d8b56ced826b779f49fd129f11df9bee9e9fefd4"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 13,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-5/task-03-sphere-cone.png",
+            "scanPage": 13,
+            "sizePx": [174, 173]
+          },
+          "reviewNote": null,
+          "contentHash": "5eb89b149f3d786c4fb57fa5ce4c1ebd135e31cd8915b823f09e8cd0de71bc9d"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 13,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ab5ac8da3f8e8c4e2660098a79a9f43dc64f3271081eda557b0c3fd5f3f08703"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 13,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "5dd5fbb0d04a74afa271bd0666d996de22fc5da48f35dac831d6ea99c7c65b95"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 13,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "79757fed91577ea6aaeb1773d5d6e755d9aa39f5b4939f7eabcc4aef29ba091b"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 14,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "453aae9e78c13bcda65c3071f5a57986a6b83b292331a67a9f42752e96b7a241"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 14,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c7c45c59be5799f9b1c5ebd30cf01642db84b085adc5a5d1919df75889f0b6ad"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 14,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-5/task-09-derivative-graph.png",
+            "scanPage": 14,
+            "sizePx": [867, 308]
+          },
+          "reviewNote": null,
+          "contentHash": "acb06ef6499a6037e9121a93bc00a5866e7da2a4698410c701ecc9db1d636375"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 14,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "039c220f87e750633ec131b66ae0cc28c927962e970949c811598b2f1968af3b"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 14,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "45f7bd79d59aab770157f4712af1bd08d427867461b6551c134d61148b2f6e97"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 15,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-5/task-12-graphs.png",
+            "scanPage": 15,
+            "sizePx": [372, 229]
+          },
+          "reviewNote": null,
+          "contentHash": "e64cc3574f1dcf8fc328617e3082ccd9aad1cf0efceea39d375d7cbbd173eb89"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 15,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "6b5131b426412b62e453648958e8bb9133845047300f75a33e1a60249bbc6a22"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 15,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "b4a02ac8e6beb09e91371ac97dc1d603fa9939278cd5694fb999083c7da4d8b0"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 15,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": "Данные пункта б) допускают четыре положения H на расстоянии √5 от прямых AB и BC: (0; −1,5), (0; 3,5), (±5; 1), с тангенсами угла ABC/SAC 1/3, 1/7, 1/2. Утверждение пункта а) выполнено только для H — центра описанной окружности основания (0; −1,5); принят ответ 1/3. Сверить с ответом сборника.",
+          "contentHash": "dea3399d8834a8e16ecf8e6a4911ec327d7c6a78844edc2924a0f6ed7082dd51"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 16,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "f72cc0084c355bc1980fce00c48516f009350fc76ad3e0c7e358fb585add2ed2"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 16,
+          "answerType": "short_answer",
+          "status": "needs_review",
+          "image": null,
+          "reviewNote": "Ответ выражается через R — значение универсальной газовой постоянной в условии не дано. При R≈8,31 Дж/(моль·К) v≈509,6 м/с, при R≈8,314 — ≈509,7 м/с; округлённое значение зависит от принятого R. Нужна сверка с ответом сборника и решение, в каком виде принимать ответ.",
+          "contentHash": "3f06aa5d4c58d5a3259f3e243409f304d031ed47173c427afe6d3fb19a42b86b"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 16,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "d6170183ff0aab282df757e43cb239a1a925c14deecd726f65181993e1e93858"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 16,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "e929f52256ff092dd50db8ff24f24a113a5fd17317d83a09d57ec73447576109"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 16,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "310d8333d30a7030329676dcfe5133cd8cbfaf897dc4cf10b69a23c16e9db0d9"
+        }
+      ]
+    },
+    {
+      "variant": 6,
+      "pages": [17, 20],
+      "bookPages": [31, 34],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 17,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-6/task-01-triangle.png",
+            "scanPage": 17,
+            "sizePx": [178, 148]
+          },
+          "reviewNote": null,
+          "contentHash": "51875f79d0399ffe69ad85440488b43d4772d71ea7d2b100d4b698d23b855628"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 17,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "2250679ff0c13a77b49f5abfc29c3779694f40a5deb1e98e45f848acc19f56c7"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 17,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-6/task-03-sphere-cone.png",
+            "scanPage": 17,
+            "sizePx": [170, 171]
+          },
+          "reviewNote": null,
+          "contentHash": "5c405b0917830c0a3c6e47b454c19d1e1959087887e57323ee698542a6324310"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 17,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "9ca387a40bdde1b5a0a8e427a7168e5d40f789ab670fca9379331467dfe1622d"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 17,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "8a319660cc2e5e909b813a3ec9006bcdd0dfd661065622928b013924cd16de70"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 17,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "564e72f63bc2f9f65bf4da630e3e8409994920952ddbc68226ff888ab95e6493"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 18,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "0c948c91da9239cca86ee4a0b7f9331d6ef733ca36feaf6b99c002da021e98ac"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 18,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "1790828a5bbe40fdebad6e2c102b3190295c5492252ccd1f487d67d0c2256734"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 18,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-6/task-09-derivative-graph.png",
+            "scanPage": 18,
+            "sizePx": [705, 348]
+          },
+          "reviewNote": null,
+          "contentHash": "ef9bab4767de28fd4ed7cb65b2140a5eb8a8071af0bdb8cdf04eaa2560c7de15"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 18,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "cf93b9ea36e160900fe07dda5791fdf6ac77b0e7117d5f4216f477dc782dcc48"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 18,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "7aedbcc878ce3ea6c383f7225416f40c3181868d4559e7a344f6e08633a0cfdb"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 19,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-6/task-12-graphs.png",
+            "scanPage": 19,
+            "sizePx": [360, 289]
+          },
+          "reviewNote": null,
+          "contentHash": "c7ffe93a48227b516a62639c9e354203630d98dbe941554847ce075ccf7f51e8"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 19,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "199f363afa835af86cb1ec03414ef7793b1de4dab97b562b838e2bb68d4464f6"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 19,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "646db6aa5cb35bde7c673b1e2292dba335d3cca3cb7999a3f5df56e48014ff53"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 19,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": "Данные пункта б) допускают четыре положения H на расстоянии 3√2/2 от прямых AB и BC: (0; −√3/2), (0; 5√3/2), (±3√6/2; √3), с тангенсами угла ABC/SAC 2√2, 2√2/5 и √2. Утверждение пункта а) выполнено только для H — центра описанной окружности основания; принят ответ 2√2. Сверить с ответом сборника.",
+          "contentHash": "c01a2fcbf1e24f4633ec5e1daffa99262143c10740e7fef092fb5db3d644a933"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 20,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c6ae7171acda887c3b80733e5dd5926425e64c064fbb4a435b9f070e2d75486d"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 20,
+          "answerType": "short_answer",
+          "status": "needs_review",
+          "image": null,
+          "reviewNote": "Ответ выражается через R — значение универсальной газовой постоянной в условии не дано. При R≈8,31 Дж/(моль·К) v≈455,8 м/с, при R≈8,314 — ≈455,9 м/с. Нужна сверка с ответом сборника и решение, в каком виде принимать ответ.",
+          "contentHash": "eb707ab7b7c3bebd0559b4e38a935fe9aeebfb869c700dbd02356620ee8c2fe6"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 20,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ac8d185aac9d4200891a89896f730a2c5d37bb8b9d22d99e02e8824fdfe8cf20"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 20,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "b93e481b097c1c342057fb15507e753fd4b602ce1334006e2ee0147f25ce3764"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 20,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "bfe3da8b00f3ce6c639fd03ae391a86974dc8293a579934cf04c20382dd0d329"
+        }
+      ]
+    },
+    {
+      "variant": 7,
+      "pages": [21, 24],
+      "bookPages": [35, 38],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 21,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-7/task-01-trapezoid.png",
+            "scanPage": 21,
+            "sizePx": [141, 105]
+          },
+          "reviewNote": null,
+          "contentHash": "4ad1da9cd096d85d6c8bd92d18937c912dbfc1ebe3bc0fd01cea7749864c0841"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 21,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-7/task-02-vectors.png",
+            "scanPage": 21,
+            "sizePx": [447, 533]
+          },
+          "reviewNote": null,
+          "contentHash": "06a0c18ad494f95458a96621047aee32bbcf458424968d202bfa89e6c0a0578c"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 21,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-7/task-03-prism.png",
+            "scanPage": 21,
+            "sizePx": [141, 207]
+          },
+          "reviewNote": null,
+          "contentHash": "6736868e80fe620854d15f81b14f28c3070e29f5337d199ad45f7a7f27fc2186"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 21,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "f94ac313817e17de9c9268dafdddf37def90cccf335fb7585ac527d8df7f013e"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 22,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "0e4937152401fb7a6d19982d9f1dcf82e0d91880a56fb32bbc493f0751a66620"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 22,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "3566bb186c6df41ff028f9c488ed084dbbdcc944f3e13fa406538964051c39bc"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 22,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "8c9def0e8edf232bd75551c7aead03ce3a3c7a538438efeb488935d13578922e"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 22,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c053404f41a3990697982af2dfec6101c2c0d2dd2bd1b452f7a314962d79bb8d"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 22,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-7/task-09-tangent-graph.png",
+            "scanPage": 22,
+            "sizePx": [364, 297]
+          },
+          "reviewNote": null,
+          "contentHash": "a1cdccaa3f869a04da70edfebf274d0c2784ecaad7271909569eaba25a10b08b"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 22,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "43a3fe805f98f87545d94dee3b721eb9dfbe04b221dc02ac594daaa4e85da2fa"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 23,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "de8343f243c6c8bea2a84bae4385b2b699d262e0718c64a4b09a85769b348d8c"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 23,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-7/task-12-parabola.png",
+            "scanPage": 23,
+            "sizePx": [343, 357]
+          },
+          "reviewNote": null,
+          "contentHash": "7653f490eb7991030c7e9bf51db3f28c13141dbca99312f0d10074eeb8e11f3d"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 23,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "8d8caa024d1b24b5d280c6ac30389f9ec979a254b1040ea15d120fd2394226d7"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 23,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "f693d5cff7b1af2e94fe2cfcd33fc99ab4fd57fcd5677948de1bb8c18c0f3938"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 24,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "50d6323d6f104965048cc106e07ed53b0c55c88d69c11011db0f99bcea6ac4ec"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 24,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "963ae6038d34342a5df6dc86ce43b9a8c67ee47f317fb23431d9a93b54ce3579"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 24,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "e852ac40aadf111bef09a22f6be2927a88427c4059ec2aa78e9edc5319ce02e0"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 24,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c7502f4a081c6d0531ed5ecda9ead71530cd695af4adf6491860f944d536fd81"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 24,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "4071e208bc1e1214d8ef71ed624632000139ee7e1ee2c016c9b89824f4e59af6"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 24,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "d7d691ced528688f02054bebd2aaace091885974939a826b9b3ae0a9da724fd6"
+        }
+      ]
+    },
+    {
+      "variant": 8,
+      "pages": [25, 28],
+      "bookPages": [39, 42],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 25,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-8/task-01-trapezoid.png",
+            "scanPage": 25,
+            "sizePx": [143, 104]
+          },
+          "reviewNote": null,
+          "contentHash": "7f6f4a0e16b5a931fd27d9c1f34749ba73dcfa4bad0b28dfd645e4bb87639184"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 25,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-8/task-02-vectors.png",
+            "scanPage": 25,
+            "sizePx": [449, 415]
+          },
+          "reviewNote": null,
+          "contentHash": "451375043540bee78dffb2fd7d94e2be99435c471af9327885717da76b708110"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 25,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-8/task-03-prism.png",
+            "scanPage": 25,
+            "sizePx": [122, 176]
+          },
+          "reviewNote": null,
+          "contentHash": "600c47d0818f58b3f11758d7a6b65e276320a73ecd46beea9d77096a9c37cdc2"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 25,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "4f0ec11302e712407b666c769ba09230d36d19f305cb3235816da8b0a2dba57e"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 26,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "fe066759dcfa568893e9ae1ae485579d673e12f1bf77a599c4c258b2cd22a03d"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 26,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "6c83d7a0ba26493e22c866246e23800dfe0923416d91dafc151218023feac3e2"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 26,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "9b58c697c25173a3a1644fc3eca29b0bc77ea5cd8f73eb55f79e46b5eb570fca"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 26,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "3fb76245b26dd33d40d956dcade82fbf4577da58a65855beebf0318833ea0298"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 26,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-8/task-09-tangent-graph.png",
+            "scanPage": 26,
+            "sizePx": [353, 318]
+          },
+          "reviewNote": null,
+          "contentHash": "dd264804a500e6a56241ede409ae8d7b17e00b76514a0622605cc2d0064f0dad"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 26,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "89f87e64d4e8c696ec94691a188e999853ecddd4ffc67e42bea07987bcc9d742"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 27,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "fab2d9e081296ab080d4e82ce70ee4ff377e3651dc210476d823212d9d890703"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 27,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-8/task-12-parabola.png",
+            "scanPage": 27,
+            "sizePx": [357, 387]
+          },
+          "reviewNote": null,
+          "contentHash": "46ca74c964db9e8871f64299eafda27f121d383be34526f797123236c51c29f8"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 27,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "55026364cb13b6d4f8d0cc789cdc4a65e2574c80eb9222d3eb4444b4a3298c56"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 27,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "7f74c4e484086b877f06d328569176f065f16854afe6fba746509b219b038309"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 28,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "f8bf2e0daf416b2f2ed351b459ab156db8dcff97d2635d36b68ba5bab66202b1"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 28,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "e839c5fe0e9bc36123e867aee4bbb7f6cade800985012982838cf48f4c043bac"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 28,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "0731331c97987d69295d691870efc908d93d155ecfb67f998409f43031ea589e"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 28,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "a141940c495f7164686cf651a2de8f14345779bf5c6680df4f2bf0c3965d7311"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 28,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "eb63ddf89bbe9a467577f47d29b82fb4c9d3791a4ef2f62c918f8c6b38f3d2f3"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 28,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "d0f7082b6fe9f0b087159f6d2e8cfa0f2b1742a48e2bfd8ebde20c5f65845765"
+        }
+      ]
+    },
+    {
+      "variant": 9,
+      "pages": [29, 32],
+      "bookPages": [43, 46],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 29,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-9/task-01-triangle.png",
+            "scanPage": 29,
+            "sizePx": [231, 101]
+          },
+          "reviewNote": null,
+          "contentHash": "74ca95b28ff95b99388847eed7b536276f37c5c223fc450101ba2f78bd225297"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 29,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "fa83b961553ed507b439bcf8690bb356bdacbe7f8d53a28d3eac30b25a6bc0d9"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 29,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-9/task-03-prism.png",
+            "scanPage": 29,
+            "sizePx": [162, 169]
+          },
+          "reviewNote": null,
+          "contentHash": "bbf96197b859564de38609296ee2ccf585276ae97c18a21694f0d65bcfc62078"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 29,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "cf2d06759ee7987269c9938ed4b6047074f846ecc91b98b30193dd33c41a1d18"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 29,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "110211f3b410f2b3cced224b68bc4f9a7777aee6b7b142a76cee264c33b85a76"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 29,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "32e9b4dcebc6eaf83c98c403df6f9e49ae283b09e06f7576204c578dc6483781"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 30,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "3596082667fcf487a7cc2b4dc9f0c31ac2c69beaf80e39d0e834f7ffc204f633"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 30,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "271a604b68f5739fe955588da629f531b9692bc5e4a123e7c5801510a9afb328"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 30,
+          "answerType": "short_answer",
+          "status": "needs_review",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-9/task-09-graph.png",
+            "scanPage": 30,
+            "sizePx": [630, 340]
+          },
+          "reviewNote": "Точка x₉ отмечена практически в вершине графика: штриховая линия проходит на 4 px (≈0,1 условной единицы) левее максимума, на возрастающем участке. Буквальное прочтение даёт 8, прочтение «x₉ — точка максимума» даёт 7. Остальные 12 точек однозначны (x₈ на 6–7 px левее минимума — убывание). Сверить с ответом сборника.",
+          "contentHash": "4a41bca92bac5db3f618ec8aa6d70918318fbde1f728127346278d12c6f39245"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 30,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "2d07f7914f87de610d6e5c7dd44d254a68ce0c829d6738cee7398b943f63e556"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 30,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "3f15571f5366c82d0b158c719e011927159d2483a9d41cab44fa4570a8377c31"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 31,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-9/task-12-exp-graph.png",
+            "scanPage": 31,
+            "sizePx": [250, 384]
+          },
+          "reviewNote": null,
+          "contentHash": "91f5a12134db3c9332d9f45a606ae4df814b16868e1a4f7f49dcd61c5600408f"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 31,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "659f3c9bcd1438d974852cc85da36697c22c277182b6349d406e9659620d203a"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 31,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "358ce03e6c71e27d59af6d3b73c336919b0633578a7a9cb1979444c67fb066b5"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 31,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "fe63edb583e6a84a8674f1aa7a7b3c6ec281e0fcf30835fdd893e779fa7a25e2"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 32,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "5e9ab23268b9c2abe9772a18b56a6b8701c3119d478a54e4dab4df41afeddfe1"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 32,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-9/task-17-river.png",
+            "scanPage": 32,
+            "sizePx": [218, 186]
+          },
+          "reviewNote": null,
+          "contentHash": "c1ecccbec87e5fd70b7d0b7291daa417c1b07ab5f5f43706dc2a790fcc60dc70"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 32,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ae9917867263baabea8f4df179559c77f8438037f4c3583ca4ff3c8ce9ae2415"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 32,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "8399d58cae5fc8adc4bbcba27da0f113589037c5cec49bffefe7a6dfee414fef"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 32,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": "В условии не сказано, что числа различны; ответ пункта в) 30067/3661 получен для набора с повторениями (98 чисел 109, числа 190 и 111). Если числа должны быть различными, ответ другой. Сверить с ответом сборника.",
+          "contentHash": "501feea4357827ee852d5db6d94163733b2df4ed0e9a8f34616970dc5493d6b0"
+        }
+      ]
+    },
+    {
+      "variant": 10,
+      "pages": [33, 36],
+      "bookPages": [47, 50],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 33,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-10/task-01-triangle.png",
+            "scanPage": 33,
+            "sizePx": [235, 102]
+          },
+          "reviewNote": null,
+          "contentHash": "7b8a5edc5e532340e8bd514c735943fb96da8da28a79c9d31fdd3eca52fb49ba"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 33,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "6623da6574ffd23db49068db6450d4f6e965bd679a118718b60b507684c8ee35"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 33,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-10/task-03-pyramid.png",
+            "scanPage": 33,
+            "sizePx": [148, 196]
+          },
+          "reviewNote": null,
+          "contentHash": "532b2227b3cff34bb2e73ec0027cb94a8f85fd8d7770cbaf641095d317275897"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 33,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "f8bdb3671136586d66d21843e801120fad1359afd8e2c5d60faa0cac7f79e501"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 33,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "61bdab1c74dbbd614e27fe239da3fdb5fb113b7e44343bc5f36bd15890698970"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 33,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "3f809ac420ca74516208bfb86b065b5f7aab6bb55830cb93712ee8686cef6a93"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 34,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "8a6376fe75e4391739c40ca776350a7faf4c4db3210901817fd9aecdadfc910d"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 34,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "b142b400d4ffdb820e3b381fcacd5c330456aea794a280a7d6b8b570977f5c6b"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 34,
+          "answerType": "short_answer",
+          "status": "needs_review",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-10/task-09-graph.png",
+            "scanPage": 34,
+            "sizePx": [517, 282]
+          },
+          "reviewNote": "Точка x₁₂ отмечена практически в вершине графика: ось симметрии вершины на скане проходит через x≈838–839 px, штриховая линия x₁₂ — через x≈844–845 px, то есть на 5–6 px правее, на убывающем участке. Буквальное прочтение даёт 6, прочтение «x₁₂ — точка максимума» даёт 5. Остальные 12 точек однозначны. Сверить с ответом сборника.",
+          "contentHash": "f2344afb521564f8fc931d1b3a4ed57b24fb5cc5c1d973a9db7ca5cc0266058b"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 34,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "1e9293be3655cc12d25117e2157e798de970ae8b9631b699032fbc32cd9be3cf"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 34,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "b025c5eb7c631431ad270c45383a2fd404f0e9ced6f1ce37047ac25b9effbb5e"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 35,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-10/task-12-exp-graph.png",
+            "scanPage": 35,
+            "sizePx": [256, 387]
+          },
+          "reviewNote": null,
+          "contentHash": "36cda25595201141de2ba2ac7986df420510a98b5ac23b6c59a884d8852ec894"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 35,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ad8db7e3bd27f84fa0beaac834df1fee3412ee076995fdfcd98b002708170beb"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 35,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "930aeec422a43ce8372eb2391f5a66576dd84c1fd0e86e4ff31045858cc48ba4"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 35,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "e492f8f6d47b3fba0321a34f69ec53d760b3190c59d34e7c1a0d35e8e38d5bd6"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 36,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "18f92073b98f93a5b4b0aa06f306067c6005fad16ebdbd55aa5adbacc512a7ae"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 36,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-10/task-17-river.png",
+            "scanPage": 36,
+            "sizePx": [233, 192]
+          },
+          "reviewNote": null,
+          "contentHash": "881dcd4df0042afce815d25cddb5414a8142cb5109abaada48d0592c76f14ccb"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 36,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "3ac75f495707e29026ab1eee4684071897b247e4b7f3ed13a55467f5ffc08a23"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 36,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "53c5b701be932407d7c819744ef42ffdb51f23c5e9d76ac14a6bba7f56bcc3b5"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 36,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": "В условии не сказано, что числа различны; ответ пункта в) 33133/4357 получен для набора с повторениями (109 чисел 911 и число 100). Если числа должны быть различными, ответ другой. Сверить с ответом сборника.",
+          "contentHash": "fe087da8c9c776b7a296c770b17bea99541de2e02849eb7d8b699b3d93e2cdd8"
+        }
+      ]
+    }
+  ]
+}

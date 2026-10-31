@@ -13,7 +13,7 @@ import {
   isNotNull,
   sql,
 } from 'drizzle-orm';
-import { taskIdsForCollectionOrVariant } from '../tasks/repo.js';
+import { inAllSourcesPool, sourceScope } from '../tasks/repo.js';
 
 export async function getTotals(db: Database, userId: string) {
   const [row] = await db
@@ -65,17 +65,21 @@ export async function getUniqueSolvedBySubject(db: Database, userId: string) {
 }
 
 export async function getByTaskNumber(db: Database, userId: string) {
-  return db
-    .select({
-      subjectId: schema.tasks.subjectId,
-      taskNumber: schema.tasks.taskNumber,
-      solved: count(),
-      correct: count(sql`case when ${schema.attempts.isCorrect} then 1 end`),
-    })
-    .from(schema.attempts)
-    .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
-    .where(eq(schema.attempts.userId, userId))
-    .groupBy(schema.tasks.subjectId, schema.tasks.taskNumber);
+  return (
+    db
+      .select({
+        subjectId: schema.tasks.subjectId,
+        taskNumber: schema.tasks.taskNumber,
+        solved: count(),
+        correct: count(sql`case when ${schema.attempts.isCorrect} then 1 end`),
+      })
+      .from(schema.attempts)
+      .innerJoin(schema.tasks, eq(schema.attempts.taskId, schema.tasks.id))
+      // «№N» means the current exam's N: an edition with its own numbering
+      // (outside «Все источники») is not mixed into these buckets.
+      .where(and(eq(schema.attempts.userId, userId), inAllSourcesPool(db)))
+      .groupBy(schema.tasks.subjectId, schema.tasks.taskNumber)
+  );
 }
 
 export async function getByTopic(db: Database, userId: string) {
@@ -111,8 +115,7 @@ export async function getByTaskNumberWithTotals(
 ) {
   const conditions = [eq(schema.tasks.status, 'published' as const)];
   if (filters.subject) conditions.push(eq(schema.tasks.subjectId, filters.subject));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  conditions.push(sourceScope(db, filters));
   const where = and(...conditions);
 
   const totals = await db
@@ -190,7 +193,8 @@ export async function getByTaskNumberWithTotals(
  */
 export async function getByTopicWithTotals(
   db: Database,
-  userId: string,
+  /** null: the public topic list (a guest) — totals only, nothing personal. */
+  userId: string | null,
   filters: ProgressByTopicQuery,
 ) {
   const conditions = [
@@ -198,39 +202,49 @@ export async function getByTopicWithTotals(
     isNotNull(schema.tasks.topicId),
   ];
   if (filters.subject) conditions.push(eq(schema.tasks.subjectId, filters.subject));
-  const scoped = taskIdsForCollectionOrVariant(db, filters);
-  if (scoped) conditions.push(inArray(schema.tasks.id, scoped));
+  conditions.push(sourceScope(db, filters));
   const where = and(...conditions);
 
   const totals = await db
     .select({
       topicId: schema.tasks.topicId,
       topicName: schema.topics.name,
+      topicSlug: schema.topics.slug,
       total: count(),
+      // The EGE numbers this topic's tasks actually have, so the client can
+      // offer only numbers that exist in it (never an empty pick).
+      taskNumbers: sql<
+        number[]
+      >`array_agg(DISTINCT ${schema.tasks.taskNumber} ORDER BY ${schema.tasks.taskNumber})`,
     })
     .from(schema.tasks)
     .innerJoin(schema.topics, eq(schema.tasks.topicId, schema.topics.id))
     .where(where)
-    .groupBy(schema.tasks.topicId, schema.topics.name);
+    .groupBy(schema.tasks.topicId, schema.topics.name, schema.topics.slug);
 
-  const completed = await db
-    .select({
-      topicId: schema.tasks.topicId,
-      completed: countDistinct(schema.tasks.id),
-    })
-    .from(schema.tasks)
-    .innerJoin(
-      schema.attempts,
-      and(eq(schema.attempts.taskId, schema.tasks.id), eq(schema.attempts.userId, userId)),
-    )
-    .where(where)
-    .groupBy(schema.tasks.topicId);
+  const completed =
+    userId === null
+      ? []
+      : await db
+          .select({
+            topicId: schema.tasks.topicId,
+            completed: countDistinct(schema.tasks.id),
+          })
+          .from(schema.tasks)
+          .innerJoin(
+            schema.attempts,
+            and(eq(schema.attempts.taskId, schema.tasks.id), eq(schema.attempts.userId, userId)),
+          )
+          .where(where)
+          .groupBy(schema.tasks.topicId);
 
   const completedByTopic = new Map(completed.map((row) => [row.topicId, row.completed]));
 
   return totals.map((row) => ({
     topicId: row.topicId!,
     topicName: row.topicName,
+    topicSlug: row.topicSlug,
+    taskNumbers: (row.taskNumbers ?? []).map(Number),
     total: row.total,
     completed: completedByTopic.get(row.topicId) ?? 0,
   }));
@@ -342,6 +356,7 @@ export async function getAttemptsForTaskNumberDetail(
         eq(schema.attempts.userId, userId),
         eq(schema.tasks.subjectId, subjectId),
         eq(schema.tasks.taskNumber, taskNumber),
+        inAllSourcesPool(db),
       ),
     )
     .orderBy(asc(schema.attempts.createdAt));
@@ -387,7 +402,13 @@ export async function getSkillRowsForTaskNumber(
         eq(schema.userSkillStatistics.userId, userId),
       ),
     )
-    .where(and(eq(schema.tasks.subjectId, subjectId), eq(schema.tasks.taskNumber, taskNumber)));
+    .where(
+      and(
+        eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.taskNumber, taskNumber),
+        inAllSourcesPool(db),
+      ),
+    );
 }
 
 /**
@@ -454,7 +475,13 @@ export async function getTaskStatisticsForTaskNumber(
     })
     .from(schema.taskStatistics)
     .innerJoin(schema.tasks, eq(schema.taskStatistics.taskId, schema.tasks.id))
-    .where(and(eq(schema.tasks.subjectId, subjectId), eq(schema.tasks.taskNumber, taskNumber)));
+    .where(
+      and(
+        eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.taskNumber, taskNumber),
+        inAllSourcesPool(db),
+      ),
+    );
 }
 
 /**
@@ -482,6 +509,7 @@ export async function getDominantTopicNameForTaskNumber(
         eq(schema.tasks.subjectId, subjectId),
         eq(schema.tasks.taskNumber, taskNumber),
         eq(schema.tasks.status, 'published' as const),
+        inAllSourcesPool(db),
       ),
     )
     .groupBy(schema.topics.name)

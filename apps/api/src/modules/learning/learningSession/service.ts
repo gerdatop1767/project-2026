@@ -1,6 +1,19 @@
 import type { Database } from '@zybrilka/db';
 import {
+  buildScoringSnapshot,
   detectErrorSignatures,
+  gradeMultiPart,
+  parseMultiPartSpec,
+  parseMultiPartUserAnswer,
+  scoreVariantAttempt,
+  type FirstAnswer,
+  type MultiPartSpec,
+  type VariantAttemptScoring,
+  type VariantScoringSnapshot,
+  type VariantAttemptDetail,
+  type VariantAttemptGroup,
+  type VariantAttemptTask,
+  type VariantTaskOutcome,
   type LearningSessionResponse,
   type LearningSessionSummary,
   type VariantProgressItem,
@@ -102,6 +115,12 @@ export async function startVariantSession(
   const orderedTasks = [...detail.tasks].sort((a, b) => a.position - b.position);
   const plannedTaskIds = orderedTasks.map((t) => t.task.id);
   const firstTask = orderedTasks[0]!.task;
+  // The exam's scoring rules as they are NOW, frozen into the attempt:
+  // a later change of the rules (or of the variant) never re-scores it.
+  const scoring = buildScoringSnapshot(
+    detail.collection.examFormat ?? null,
+    orderedTasks.map((t) => ({ taskId: t.task.id, taskNumber: t.task.taskNumber })),
+  );
 
   const session = await repo.createSession(db, {
     userId,
@@ -110,6 +129,7 @@ export async function startVariantSession(
     firstTaskId: firstTask.id,
     variantId,
     plannedTaskIds,
+    scoring,
   });
 
   return {
@@ -145,17 +165,21 @@ export async function advanceLearningSession(
     return buildCompletedResponse(db, session);
   }
 
-  if (session.consumedTaskIds.length >= session.total) {
+  // A variant's tasks can all be opened before the last one is reached —
+  // it ends after its last planned task instead (below).
+  if (!session.plannedTaskIds && session.consumedTaskIds.length >= session.total) {
     const completed = await repo.markCompleted(db, session.id);
     return buildCompletedResponse(db, completed);
   }
 
   // VARIANT session — the next task is the variant's own fixed real
-  // order (`plannedTaskIds[position]`), never a fresh `getLearningPath`
-  // scoring: there is nothing to recommend, the exam's order already
-  // is the order.
+  // order, never a fresh `getLearningPath` scoring: the one after the
+  // current task in the plan. Tasks may be opened in any order (see
+  // `openVariantTask`), so "next" follows the plan from where the student
+  // is, not from how many tasks were served; after the last one the
+  // variant is finished.
   if (session.plannedTaskIds) {
-    const nextTaskId = session.plannedTaskIds[session.consumedTaskIds.length];
+    const nextTaskId = nextPlannedTask(session);
     if (!nextTaskId) {
       const completed = await repo.markCompleted(db, session.id);
       return buildCompletedResponse(db, completed);
@@ -167,17 +191,9 @@ export async function advanceLearningSession(
       const completed = await repo.markCompleted(db, session.id);
       return buildCompletedResponse(db, completed);
     }
-    const updated = await repo.appendConsumedTask(db, session.id, nextTaskId);
-    const variant = await variantInfoFor(db, session);
-    return {
-      sessionId: updated.id,
-      subject: updated.subjectId,
-      status: 'active',
-      position: updated.consumedTaskIds.length,
-      total: updated.total,
-      task: toPublicTask(row),
-      variant,
-    };
+    const updated = await repo.focusVariantTask(db, session.id, userId, nextTaskId);
+    if (!updated) return null;
+    return activeVariantResponse(db, updated, row);
   }
 
   const path = await getLearningPath(db, userId, {
@@ -244,7 +260,7 @@ export async function getLearningSessionSnapshot(
   const row = await tasksRepo.getTaskById(db, currentTaskId);
   if (!row) return null;
 
-  const variant = await variantInfoFor(db, session);
+  if (session.plannedTaskIds) return activeVariantResponse(db, session, row);
 
   return {
     sessionId: session.id,
@@ -253,8 +269,71 @@ export async function getLearningSessionSnapshot(
     position: session.consumedTaskIds.length,
     total: session.total,
     task: toPublicTask(row),
-    variant,
   };
+}
+
+/** The planned task after the current (last served) one, or null after
+ * the last. */
+function nextPlannedTask(session: repo.LearningSessionRow): string | null {
+  const planned = session.plannedTaskIds ?? [];
+  const current = session.consumedTaskIds[session.consumedTaskIds.length - 1];
+  const index = current === undefined ? -1 : planned.indexOf(current);
+  return planned[index + 1] ?? null;
+}
+
+/** A variant's position is the current task's place in the plan (1-based)
+ * — the same number the sequential flow always reported. */
+async function activeVariantResponse(
+  db: Database,
+  session: repo.LearningSessionRow,
+  row: NonNullable<Awaited<ReturnType<typeof tasksRepo.getTaskById>>>,
+): Promise<LearningSessionResponse> {
+  const index = (session.plannedTaskIds ?? []).indexOf(row.task.id);
+  return {
+    sessionId: session.id,
+    subject: session.subjectId,
+    status: 'active',
+    position: index >= 0 ? index + 1 : session.consumedTaskIds.length,
+    total: session.total,
+    task: toPublicTask(row),
+    variant: await variantInfoFor(db, session),
+  };
+}
+
+/**
+ * A VARIANT session: open any of its planned tasks, in any order (the
+ * number panel). Opening only serves the task — nothing is answered or
+ * counted by it, and opening it again changes nothing but which task is
+ * current. `null`: not this user's active variant session, or a task the
+ * variant does not contain (both a 404 outside).
+ */
+export async function openVariantTask(
+  db: Database,
+  userId: string,
+  sessionId: string,
+  taskId: string,
+): Promise<LearningSessionResponse> {
+  const row = await tasksRepo.getTaskById(db, taskId);
+  if (!row) return null;
+  const updated = await repo.focusVariantTask(db, sessionId, userId, taskId);
+  if (!updated) return null;
+  return activeVariantResponse(db, updated, row);
+}
+
+/**
+ * «Завершить вариант»: finishes a variant session now, whatever order its
+ * tasks were solved in and however many are left (they count as not
+ * answered). Idempotent: a finished one just returns its summary again.
+ */
+export async function finishVariantSession(
+  db: Database,
+  userId: string,
+  sessionId: string,
+): Promise<LearningSessionResponse> {
+  const session = await repo.getSessionById(db, sessionId);
+  if (!session || session.userId !== userId || !session.plannedTaskIds) return null;
+  if (session.status === 'completed') return buildCompletedResponse(db, session);
+  return buildCompletedResponse(db, await repo.markCompleted(db, session.id));
 }
 
 async function variantInfoFor(
@@ -310,13 +389,17 @@ async function computeSessionSummary(
     };
   }
 
-  const [sessionAttempts, mistakesCreated] = await Promise.all([
-    repo.getSessionAttempts(db, session.userId, taskIds, session.startedAt),
+  const [{ rows }, mistakesCreated] = await Promise.all([
+    repo.getAnswersOfSession(db, session),
     repo.countMistakesCreatedSince(db, session.userId, taskIds, session.startedAt),
   ]);
 
-  const attemptedTaskIds = new Set(sessionAttempts.map((a) => a.taskId));
-  const correctTaskIds = new Set(sessionAttempts.filter((a) => a.isCorrect).map((a) => a.taskId));
+  const attemptedTaskIds = new Set(rows.map((a) => a.taskId));
+  // A variant is an exam: its FIRST answer to a task counts. Smart
+  // training counts a task correct once any answer to it was.
+  const correctTaskIds = session.variantId
+    ? new Set([...firstAnswers(rows).values()].filter((a) => a.isCorrect).map((a) => a.taskId))
+    : new Set(rows.filter((a) => a.isCorrect).map((a) => a.taskId));
   const incorrectTaskIds = [...attemptedTaskIds].filter((id) => !correctTaskIds.has(id));
 
   const attempted = attemptedTaskIds.size;
@@ -352,14 +435,10 @@ async function toVariantProgressItem(
 ): Promise<VariantProgressItem> {
   const summary = await computeSessionSummary(db, session);
 
-  const attemptRows = await repo.getAttemptsForTaskIds(
-    db,
-    session.userId,
-    session.consumedTaskIds,
-    session.startedAt,
-  );
+  const { rows: attemptRows } = await repo.getAnswersOfSession(db, session);
 
-  const timedRows = attemptRows.filter(
+  // Time of each task's first answer — the one that counts.
+  const timedRows = [...firstAnswers(attemptRows).values()].filter(
     (r): r is typeof r & { timeSpentMs: number } => r.timeSpentMs !== null,
   );
   const totalTimeMs =
@@ -395,4 +474,194 @@ async function toVariantProgressItem(
     totalTimeMs,
     keyErrors,
   };
+}
+
+/** Each task's first answer in the session (rows come oldest first). */
+function firstAnswers<T extends { taskId: string }>(rows: readonly T[]): Map<string, T> {
+  const first = new Map<string, T>();
+  for (const row of rows) if (!first.has(row.taskId)) first.set(row.taskId, row);
+  return first;
+}
+
+/** An answer the way the user typed it; a multi-part one as «а) 3; б) 5». */
+function answerForDisplay(
+  answerRaw: string,
+  answerType: string,
+  spec: MultiPartSpec | null,
+): string {
+  if (answerType !== 'multi_part') return answerRaw;
+  const parsed = parseMultiPartUserAnswer(answerRaw);
+  if (!parsed) return answerRaw;
+  const labelOf = new Map(spec?.parts.map((p) => [p.id, p.label]) ?? []);
+  return Object.entries(parsed)
+    .map(([id, value]) => `${labelOf.get(id) ?? id} ${value}`)
+    .join('; ');
+}
+
+function correctForDisplay(task: repo.PlannedTaskRow, spec: MultiPartSpec | null): string {
+  if (task.correctAnswerDisplay) return task.correctAnswerDisplay;
+  if (task.answerType === 'multi_part' && spec) {
+    return spec.parts.map((p) => `${p.label} ${p.correctAnswer}`).join('; ');
+  }
+  return task.correctAnswer;
+}
+
+function groupBy(
+  tasks: readonly VariantAttemptTask[],
+  keyOf: (t: VariantAttemptTask) => string | null,
+): VariantAttemptGroup[] {
+  const groups = new Map<string, { correct: number; total: number }>();
+  for (const task of tasks) {
+    const key = keyOf(task);
+    if (key === null) continue;
+    const g = groups.get(key) ?? { correct: 0, total: 0 };
+    g.total += 1;
+    if (task.outcome === 'correct') g.correct += 1;
+    groups.set(key, g);
+  }
+  return [...groups.entries()].map(([key, g]) => ({ key, ...g }));
+}
+
+/**
+ * GET /progress/variants/:sessionId — the full result of ONE attempt of a
+ * variant. `null` unless it is this user's own variant session: someone
+ * else's attempt is indistinguishable from a missing one.
+ */
+export async function getVariantAttemptDetail(
+  db: Database,
+  userId: string,
+  sessionId: string,
+): Promise<VariantAttemptDetail | null> {
+  const session = await repo.getSessionById(db, sessionId);
+  if (!session || session.userId !== userId || !session.variantId || !session.plannedTaskIds) {
+    return null;
+  }
+  const [identity, planned, answers] = await Promise.all([
+    repo.getVariantIdentity(db, session.variantId),
+    repo.getPlannedTasks(db, session.plannedTaskIds),
+    repo.getAnswersOfSession(db, session),
+  ]);
+  if (!identity) return null;
+  const taskOf = new Map(planned.map((t) => [t.taskId, t]));
+  const first = firstAnswers(answers.rows);
+  const answerCount = new Map<string, number>();
+  for (const row of answers.rows)
+    answerCount.set(row.taskId, (answerCount.get(row.taskId) ?? 0) + 1);
+  const served = new Set(session.consumedTaskIds);
+
+  const tasks: VariantAttemptTask[] = [];
+  session.plannedTaskIds.forEach((taskId, index) => {
+    const task = taskOf.get(taskId);
+    if (!task) return; // removed from the catalogue since
+    const spec = task.answerType === 'multi_part' ? parseMultiPartSpec(task.correctAnswer) : null;
+    const answer = first.get(taskId);
+    tasks.push({
+      position: index + 1,
+      taskId,
+      taskNumber: task.taskNumber,
+      topic: task.topic,
+      outcome: answer
+        ? answer.isCorrect
+          ? 'correct'
+          : 'incorrect'
+        : served.has(taskId)
+          ? 'skipped'
+          : 'not_reached',
+      userAnswer: answer ? answerForDisplay(answer.answerRaw, task.answerType, spec) : null,
+      correctAnswer: correctForDisplay(task, spec),
+      explanationMd: task.explanationMd,
+      answers: answerCount.get(taskId) ?? 0,
+      timeSpentMs: answer?.timeSpentMs ?? null,
+    });
+  });
+
+  const scoring = scoreAttempt(session, identity.examFormat, planned, first);
+
+  const count = (outcome: VariantTaskOutcome) => tasks.filter((t) => t.outcome === outcome).length;
+  const correctCount = count('correct');
+  const incorrectCount = count('incorrect');
+  const answered = correctCount + incorrectCount;
+  const timed = tasks.filter((t) => t.timeSpentMs !== null);
+  return {
+    sessionId: session.id,
+    variantId: session.variantId,
+    variantNumber: identity.variantNumber,
+    variantTitle: identity.title,
+    subjectId: session.subjectId,
+    status: session.status,
+    startedAt: session.startedAt.toISOString(),
+    completedAt: session.completedAt?.toISOString() ?? null,
+    attribution: answers.attribution,
+    plannedCount: session.plannedTaskIds.length,
+    correctCount,
+    incorrectCount,
+    skippedCount: count('skipped'),
+    notReachedCount: count('not_reached'),
+    accuracyPercent: answered > 0 ? Math.round((correctCount / answered) * 100) : null,
+    totalTimeMs: timed.length > 0 ? timed.reduce((sum, t) => sum + t.timeSpentMs!, 0) : null,
+    timedCount: timed.length,
+    byTaskNumber: groupBy(tasks, (t) => String(t.taskNumber)),
+    byTopic: groupBy(tasks, (t) => t.topic),
+    tasks,
+    toRepeat: tasks
+      .filter((t) => t.outcome === 'incorrect' || t.outcome === 'skipped')
+      .map((t) => ({ taskId: t.taskId, taskNumber: t.taskNumber, topic: t.topic })),
+    scoring,
+  };
+}
+
+/**
+ * Primary points of one variant attempt, from its FIRST answers only
+ * (one per task — nothing counted twice, an empty task scores 0). Uses
+ * the rules frozen into the attempt; an attempt from before scoring
+ * existed gets today's rules of its exam format, labelled `current`.
+ * A multi-part task's parts are re-checked from the stored first answer
+ * so per-part credit (а/б/в) can be given.
+ */
+function scoreAttempt(
+  session: {
+    status: string;
+    scoring: VariantScoringSnapshot | null;
+    plannedTaskIds: readonly string[] | null;
+  },
+  examFormat: string | null,
+  planned: readonly { taskId: string; taskNumber: number }[],
+  first: ReadonlyMap<
+    string,
+    { isCorrect: boolean; answerRaw: string; answerType: string; correctAnswer: string }
+  >,
+): VariantAttemptScoring | null {
+  const snapshot =
+    session.scoring ??
+    buildScoringSnapshot(
+      examFormat,
+      (session.plannedTaskIds ?? [])
+        .map((id) => planned.find((p) => p.taskId === id))
+        .filter((p) => p !== undefined),
+    );
+  if (!snapshot) return null;
+  const answers = new Map<string, FirstAnswer>();
+  for (const [taskId, row] of first) {
+    answers.set(taskId, { correct: row.isCorrect, correctParts: partsOf(row) });
+  }
+  return {
+    ...scoreVariantAttempt(snapshot, answers),
+    preliminary: session.status !== 'completed',
+    rulesSource: session.scoring ? 'snapshot' : 'current',
+  };
+}
+
+function partsOf(row: {
+  isCorrect: boolean;
+  answerRaw: string;
+  answerType: string;
+  correctAnswer: string;
+}): Record<string, boolean> | undefined {
+  if (row.answerType !== 'multi_part') return undefined;
+  const spec = parseMultiPartSpec(row.correctAnswer);
+  const answer = parseMultiPartUserAnswer(row.answerRaw);
+  if (!spec || !answer) return undefined;
+  const graded = gradeMultiPart(spec, answer);
+  // The stored verdict wins when it says the whole answer was right.
+  return Object.fromEntries(graded.parts.map((p) => [p.id, row.isCorrect || p.correct]));
 }

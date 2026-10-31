@@ -19,8 +19,24 @@ vi.mock('../../lib/api.js', () => ({
   listFavoriteTaskIds: vi.fn(() => Promise.resolve({ taskIds: [] })),
   addFavorite: vi.fn(() => Promise.resolve()),
   removeFavorite: vi.fn(() => Promise.resolve()),
+  // The rating place (StreakProvider): pending unless a test says otherwise.
+  getLeaderboard: vi.fn(() => new Promise(() => {})),
   getStreak: vi.fn(() =>
     Promise.resolve({ currentStreak: 0, lastActiveDate: null, isActiveToday: false }),
+  ),
+  getXpSummary: vi.fn(() =>
+    Promise.resolve({
+      totalXp: 0,
+      level: 1,
+      levelStartXp: 0,
+      nextLevelXp: 50,
+      xpIntoLevel: 0,
+      xpForNextLevel: 50,
+      xpToNextLevel: 50,
+      progress: 0,
+      maxLevel: 50,
+      isMaxLevel: false,
+    }),
   ),
 }));
 
@@ -187,6 +203,27 @@ describe('TaskMobile', () => {
     );
   });
 
+  it('marks the picked task in the number strip at once, while its content is still loading', () => {
+    vi.mocked(api.getTask).mockReturnValue(new Promise(() => {}));
+    render(
+      <NavigationProvider>
+        <TaskMobile
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+          customOrderedTasks={[
+            { taskId: 'other-task', taskNumber: 1 },
+            { taskId: TASK_ID, taskNumber: baseTask.taskNumber },
+          ]}
+        />
+      </NavigationProvider>,
+    );
+    // No waiting: the strip and progress come from the route, not the request.
+    const active = document.querySelector('[aria-current="true"]');
+    expect(active).toHaveTextContent(String(baseTask.taskNumber));
+    expect(screen.getByText('Задание 2 из 2')).toBeInTheDocument();
+  });
+
   it('renders the task condition and code', async () => {
     renderTask();
     expect(await screen.findByText(CONDITION)).toBeInTheDocument();
@@ -273,16 +310,17 @@ describe('TaskMobile', () => {
     expect(within(reopened).getByRole('button', { name: 'Отменить' })).toBeEnabled();
   });
 
-  it('opens "Пожаловаться на задание" from the header warning icon (canvas mobile fix block)', async () => {
+  it('opens «Сообщить об ошибке» from the header warning icon (canvas mobile fix block)', async () => {
     const user = userEvent.setup();
     renderTask();
     await screen.findByText(CONDITION);
 
-    await user.click(screen.getByRole('button', { name: 'Пожаловаться на задание' }));
-    const dialog = screen.getByRole('dialog', { name: 'Задание' });
-    await user.click(within(dialog).getByRole('button', { name: 'Пожаловаться на задание' }));
+    await user.click(screen.getByRole('button', { name: 'Сообщить об ошибке в задании' }));
+    const dialog = screen.getByRole('dialog', { name: 'Сообщить об ошибке' });
 
-    expect(within(dialog).getByRole('status')).toHaveTextContent('Жалоба отправлена');
+    // Signed out here: the real form needs an account, so it offers sign-in
+    // (the form itself is covered in ReportTaskContent.test.tsx).
+    expect(within(dialog).getByText(/войдите в аккаунт/)).toBeInTheDocument();
   });
 
   it('renders "Другие задания" collapsed by default with real sibling tasks', async () => {
@@ -337,6 +375,8 @@ describe('TaskMobile', () => {
     await pasteAnswer(user, CORRECT_ANSWER);
     await user.click(screen.getByRole('button', { name: /Проверить ответ/ }));
     await waitFor(() => expect(api.getStreak).toHaveBeenCalledTimes(2));
+    // The level is refreshed by the same call (header chip stays in step).
+    expect(api.getXpSummary).toHaveBeenCalledTimes(2);
   });
 
   it('navigates to an incorrect Result for the wrong answer', async () => {
@@ -796,7 +836,8 @@ describe('TaskMobile — "К списку заданий №N" (navigation to П
   it('navigates to По номерам with this taskNumber pre-selected', async () => {
     function ByNumberOverlayDetail() {
       const { overlay } = useNavigation();
-      if (overlay?.screen !== 'trainingByNumber') return <p data-testid="by-number">none</p>;
+      if (overlay?.screen !== 'subject' || overlay.initialMode !== 'byNumber')
+        return <p data-testid="by-number">none</p>;
       return (
         <p data-testid="by-number">
           byNumber:{overlay.subjectId}:{overlay.initialTaskNumber}

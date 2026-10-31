@@ -7,7 +7,10 @@ import { StatisticsDesktop } from './screens/Statistics/StatisticsDesktop.js';
 import { MistakesDesktop } from './screens/Mistakes/MistakesDesktop.js';
 import { AchievementsDesktop } from './screens/Achievements/AchievementsDesktop.js';
 import { RatingDesktop } from './screens/Rating/RatingDesktop.js';
+import { Level } from './screens/Level/Level.js';
 import { LearningCenterDesktop } from './screens/LearningCenter/LearningCenterDesktop.js';
+import { TheoryCatalog } from './screens/Theory/TheoryCatalog.js';
+import { Notifications } from './screens/Notifications/Notifications.js';
 import { SubjectCatalogDesktop } from './screens/SubjectCatalog/SubjectCatalogDesktop.js';
 import { SubjectDesktop } from './screens/Subject/SubjectDesktop.js';
 import { ProfileDesktop } from './screens/Profile/ProfileDesktop.js';
@@ -15,9 +18,11 @@ import { HelpDesktop } from './screens/Help/HelpDesktop.js';
 import { FriendsDesktop } from './screens/Friends/FriendsDesktop.js';
 import { FriendProfileDesktop } from './screens/Friends/FriendProfileDesktop.js';
 import { Training } from './screens/Training/Training.js';
-import { TrainingByNumber } from './screens/Training/TrainingByNumber.js';
 import { Onboarding } from './screens/Onboarding/Onboarding.js';
 import { LearningSession } from './screens/LearningSession/LearningSession.js';
+import { VariantAttempt } from './screens/VariantAttempt/VariantAttempt.js';
+import { MiniGames } from './screens/MiniGames/MiniGames.js';
+import { StressGame } from './screens/MiniGames/StressGame.js';
 
 /** Screens whose approved desktop composition has no left sidebar. */
 const noSidebarScreens = new Set(['task', 'result', 'onboarding', 'learningSession']);
@@ -42,6 +47,7 @@ export function AppDesktop() {
             from={overlay.from}
             collectionSlug={overlay.collectionSlug}
             initialMode={overlay.initialMode}
+            initialTaskNumber={overlay.initialTaskNumber}
           />
         )}
         {overlay.screen === 'task' && (
@@ -69,10 +75,17 @@ export function AppDesktop() {
             customOrderedTasks={overlay.customOrderedTasks}
             returnTo={overlay.returnTo}
             timeSpentMs={overlay.timeSpentMs}
+            xpAwarded={overlay.xpAwarded}
+            revealed={overlay.revealed}
           />
         )}
         {overlay.screen === 'learningSession' && (
           <LearningSession key={overlay.sessionId} sessionId={overlay.sessionId} />
+        )}
+        {overlay.screen === 'miniGames' && <MiniGames />}
+        {overlay.screen === 'stressGame' && <StressGame />}
+        {overlay.screen === 'variantAttempt' && (
+          <VariantAttempt key={overlay.sessionId} sessionId={overlay.sessionId} />
         )}
         {overlay.screen === 'mistakes' && <MistakesDesktop />}
         {overlay.screen === 'trainingTopic' && (
@@ -84,16 +97,12 @@ export function AppDesktop() {
         {overlay.screen === 'trainingVariants' && (
           <WipPlaceholder title="Варианты" note="Экран в разработке — следующий блок." />
         )}
-        {overlay.screen === 'trainingByNumber' && (
-          <TrainingByNumber
-            subjectId={overlay.subjectId}
-            collectionSlug={overlay.collectionSlug}
-            from={overlay.from}
-            initialTaskNumber={overlay.initialTaskNumber}
-          />
-        )}
         {overlay.screen === 'rating' && <RatingDesktop />}
+        {overlay.screen === 'level' && <Level />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
+        {overlay.screen === 'theory' && (
+          <TheoryCatalog section={overlay.section} taskNumber={overlay.taskNumber} />
+        )}
         {overlay.screen === 'onboarding' && <Onboarding />}
         {overlay.screen === 'favorites' && (
           <WipPlaceholder title="Избранное" note="Экран в разработке — следующий блок." />
@@ -110,9 +119,7 @@ export function AppDesktop() {
           <WipPlaceholder title="Настройки" note="Экран в разработке — следующий блок." />
         )}
         {overlay.screen === 'help' && <HelpDesktop />}
-        {overlay.screen === 'notifications' && (
-          <WipPlaceholder title="Уведомления" note="Экран в разработке — следующий блок." />
-        )}
+        {overlay.screen === 'notifications' && <Notifications />}
         {overlay.screen === 'profile' && <ProfileDesktop from={overlay.from} />}
       </DesktopShell>
     );
@@ -125,7 +132,7 @@ export function AppDesktop() {
       {/* A signed-in visitor's `/` is the Учебный центр — the same hub the
           logo opens. (It used to be a marketing page that duplicated the
           public landing's old copy.) */}
-      {tab === 'home' && <LearningCenterDesktop root />}
+      {tab === 'home' && <LearningCenterDesktop />}
       {tab === 'training' && <Training />}
       {tab === 'statistics' && <StatisticsDesktop />}
       {tab === 'achievements' && <AchievementsDesktop />}

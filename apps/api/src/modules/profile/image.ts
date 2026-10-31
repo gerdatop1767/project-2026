@@ -22,14 +22,24 @@ export interface InspectedImage {
  * worst case is a broken picture.
  */
 export function inspectImage(buf: Buffer): InspectedImage | { problem: ImageProblem } {
+  const image = readImageHeader(buf);
+  if ('problem' in image) return image;
+  const { width, height } = image;
+  const ok = (side: number) => side >= AVATAR_MIN_SIDE && side <= AVATAR_MAX_SIDE;
+  if (!ok(width) || !ok(height)) return { problem: 'bad_dimensions' };
+  return image;
+}
+
+/** The real type and pixel size from the file's own header, with no size
+ * policy — callers apply their own limits (avatars above, broadcasts). */
+export function readImageHeader(
+  buf: Buffer,
+): InspectedImage | { problem: 'unsupported_type' | 'corrupt' } {
   const detected = detect(buf);
   if (!detected) return { problem: 'unsupported_type' };
   const size = detected.read(buf);
   if (!size) return { problem: 'corrupt' };
-  const { width, height } = size;
-  const ok = (side: number) => side >= AVATAR_MIN_SIDE && side <= AVATAR_MAX_SIDE;
-  if (!ok(width) || !ok(height)) return { problem: 'bad_dimensions' };
-  return { contentType: detected.contentType, width, height };
+  return { contentType: detected.contentType, width: size.width, height: size.height };
 }
 
 interface Detected {

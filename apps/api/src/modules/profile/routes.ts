@@ -2,7 +2,7 @@ import type { Database } from '@zybrilka/db';
 import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
-  identityProviderSchema,
+  linkableProviderSchema,
   telegramInitDataRequestSchema,
   updateProfileRequestSchema,
 } from '@zybrilka/shared';
@@ -18,8 +18,10 @@ export interface ProfileRoutesOptions {
   config: Config;
 }
 
-const avatarSourceParams = z.object({ source: z.enum(['user', 'telegram']) });
-const providerParams = z.object({ provider: identityProviderSchema });
+const avatarSourceParams = z.object({ source: z.enum(['user', 'telegram', 'vk']) });
+// Only working methods can be unlinked: `DELETE /me/identities/email` is a
+// 404 like any unknown provider, so a legacy email row is never removed.
+const providerParams = z.object({ provider: linkableProviderSchema });
 
 /**
  * "My profile" API. Registered INSIDE the private scope (every route here

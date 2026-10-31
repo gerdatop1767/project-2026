@@ -25,6 +25,8 @@ const IMPORT_TAG = 'ege-2026-variant-3';
 const COLLECTION_SLUG = 'ege-2026-yashchenko';
 const COLLECTION_TITLE = 'ЕГЭ 2026 Ященко';
 const COLLECTION_PUBLISHER = 'Ященко';
+/** Scoring rules of this edition (`@zybrilka/shared` examScoring). */
+const EXAM_FORMAT = 'ege-math-profile-2026';
 const VARIANT_TITLE = 'ЕГЭ 2026 — Ященко — Вариант 3';
 const SOURCE_FILE = 'ЕГЭ_2026_Ященко_варианты_2-5.pdf';
 const SOURCE_PAGE_START = 5;
@@ -102,7 +104,9 @@ const importTasks: readonly ImportTask[] = [
       'На координатной плоскости изображены векторы a⃗ и b⃗, координаты у которых — целые числа. Найдите скалярное произведение векторов a⃗ и 2b⃗. [по рисунку: a⃗=(4;−6), b⃗=(5;6)]',
     conditionMd:
       'На координатной плоскости изображены векторы $\\vec a$ и $\\vec b$, координаты у которых — целые числа. Найдите скалярное произведение векторов $\\vec a$ и $2\\vec b$.',
-    imageUrl: null,
+    // Exact crop of the original figure: «ЕГЭ 2026 Ященко, первые 20
+    // вариантов» PDF, page 10 (docs/imports/ege-2026-v2-v10-figures-audit.md).
+    imageUrl: `${IMAGE_BASE}/task-02-vectors.png`,
     correctAnswer: '-32',
     explanationMd:
       'Что дано: по клеткам графика a⃗=(4;−6), b⃗=(5;6).\n\nИдея: скалярное произведение (a⃗, 2b⃗)=2·(a⃗,b⃗)=2·(a_x·b_x+a_y·b_y).\n\nШаг 1. a⃗·b⃗ = 4·5+(−6)·6 = 20−36=−16.\n\nШаг 2. a⃗·2b⃗ = 2·(−16)=−32.\n\nОтвет: −32.',
@@ -758,10 +762,16 @@ export async function importVariant3(db: Database) {
       publisher: COLLECTION_PUBLISHER,
       year: SOURCE_YEAR,
       status: 'published',
+      examFormat: EXAM_FORMAT,
     })
     .onConflictDoUpdate({
       target: schema.collections.slug,
-      set: { title: COLLECTION_TITLE, publisher: COLLECTION_PUBLISHER, year: SOURCE_YEAR },
+      set: {
+        title: COLLECTION_TITLE,
+        publisher: COLLECTION_PUBLISHER,
+        year: SOURCE_YEAR,
+        examFormat: EXAM_FORMAT,
+      },
     })
     .returning();
 

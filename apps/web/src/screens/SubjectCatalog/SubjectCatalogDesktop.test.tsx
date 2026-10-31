@@ -49,8 +49,8 @@ describe('SubjectCatalogDesktop', () => {
   it('shows real published-task counts per subject, not the static demo numbers', async () => {
     vi.mocked(api.getTaskCountsBySubject).mockResolvedValue({
       items: [
-        { subjectId: 'math', count: 7 },
-        { subjectId: 'russian', count: 3 },
+        { subjectId: 'math', count: 7, countAllSources: 7 },
+        { subjectId: 'russian', count: 3, countAllSources: 3 },
       ],
     });
     renderCatalog();

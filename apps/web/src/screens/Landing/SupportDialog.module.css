@@ -92,7 +92,7 @@
   border: none;
   border-radius: 50%;
   color: var(--color-text-secondary);
-  background: color-mix(in srgb, #fff 6%, transparent);
+  background: color-mix(in srgb, var(--color-tint) 6%, transparent);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -146,7 +146,7 @@
 }
 
 .accent {
-  color: color-mix(in srgb, var(--color-accent-primary) 68%, #fff);
+  color: color-mix(in srgb, var(--color-accent-primary) 68%, var(--color-tint));
 }
 
 .text {
@@ -258,7 +258,7 @@
 @media (hover: hover) and (pointer: fine) {
   .close:hover {
     color: var(--color-text-primary);
-    background: color-mix(in srgb, #fff 12%, transparent);
+    background: color-mix(in srgb, var(--color-tint) 12%, transparent);
   }
 
   .action:hover {

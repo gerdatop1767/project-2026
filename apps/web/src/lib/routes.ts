@@ -1,7 +1,7 @@
 import type { MainTabId, OverlayRoute, Route } from './navigation.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 
-const subjectModeIds: readonly SubjectModeId[] = ['topics', 'variants', 'favorites'];
+const subjectModeIds: readonly SubjectModeId[] = ['topics', 'byNumber', 'variants', 'favorites'];
 
 /**
  * URL <-> Route mapping. The URL is the single source of truth for
@@ -10,10 +10,9 @@ const subjectModeIds: readonly SubjectModeId[] = ['topics', 'variants', 'favorit
  * links, and Back/Forward all resolve to the same screen `navigate()`
  * would have produced.
  *
- * Not every `Route` is addressable: `menu` is a transient drawer (no
- * approved screenshot treats it as its own page — see DesktopMenu/
- * MobileMenu), and `task`/`result` need a real `taskId` this demo data
- * model can't restore from a bare URL, so those three keep the
+ * Not every `Route` is addressable: `task`/`result` need a real
+ * `taskId` this demo data model can't restore from a bare URL, so those
+ * two keep the
  * pre-routing behavior (no history entry, no path) rather than
  * pretending to deep-link into content that doesn't exist yet.
  */
@@ -43,8 +42,8 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   trainingTopic: '/training/topic',
   trainingRandom: '/training/random',
   trainingVariants: '/training/variants',
-  trainingByNumber: '/training/by-number',
   rating: '/rating',
+  level: '/level',
   favorites: '/favorites',
   mockExams: '/mock-exams',
   topics: '/topics',
@@ -55,7 +54,11 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   privacy: '/privacy',
   terms: '/terms',
   notifications: '/notifications',
+  miniGames: '/games',
+  stressGame: '/games/stress',
   onboarding: '/onboarding',
+  landing: '/landing',
+  telegramReturn: '/telegram-return',
 };
 
 const tabPaths: Record<string, string> = {
@@ -67,13 +70,14 @@ const tabPaths: Record<string, string> = {
 
 /** Routes that never get a URL/history entry (see file header). */
 function isUnaddressable(route: Route): boolean {
-  return route.screen === 'menu' || route.screen === 'task' || route.screen === 'result';
+  return route.screen === 'task' || route.screen === 'result';
 }
 
 /** `/learning/session/:sessionId` prefix — see navigation.tsx's
  * `learningSession` route for why this one (unlike `task`/`result`)
  * must be addressable and refresh-safe. */
 const learningSessionPathPrefix = '/learning/session/';
+const variantAttemptPathPrefix = '/statistics/variants/';
 
 export function pathForRoute(route: Route): string | null {
   if (isUnaddressable(route)) return null;
@@ -87,6 +91,9 @@ export function pathForRoute(route: Route): string | null {
     const params = new URLSearchParams();
     if (route.collectionSlug) params.set('source', route.collectionSlug);
     if (route.initialMode) params.set('mode', route.initialMode);
+    if (route.initialMode === 'byNumber' && route.initialTaskNumber) {
+      params.set('n', String(route.initialTaskNumber));
+    }
     const query = params.size > 0 ? `?${params.toString()}` : '';
     return `/subjects/${slug}${query}`;
   }
@@ -95,8 +102,17 @@ export function pathForRoute(route: Route): string | null {
     return '/profile';
   }
 
+  if (route.screen === 'theory') {
+    const base = route.section === 'materials' ? '/materials' : '/theory';
+    return route.taskNumber ? `${base}?n=${route.taskNumber}` : base;
+  }
+
   if (route.screen === 'learningSession') {
     return `${learningSessionPathPrefix}${route.sessionId}`;
+  }
+
+  if (route.screen === 'variantAttempt') {
+    return `${variantAttemptPathPrefix}${route.sessionId}`;
   }
 
   if (route.screen === 'friendProfile') {
@@ -109,11 +125,20 @@ export function pathForRoute(route: Route): string | null {
 
 const simpleOverlayScreens = new Set(Object.keys(simpleOverlayPaths));
 
+const legacyByNumberPath = '/training/by-number';
+
 /** Paths of screens that were removed from the product. `routeFromPath`
  * already lands them on Home; this lets the router also correct the
  * address bar (see NavigationProvider) so an old bookmark or link does
  * not keep showing a URL of a page that no longer exists. */
 const removedPaths: ReadonlySet<string> = new Set(['/about']);
+
+/** A path that still works but has a newer address (today: the old
+ * standalone "По номерам" page) — the router rewrites the address bar. */
+export function isLegacyPath(pathname: string): boolean {
+  const path = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
+  return path === legacyByNumberPath;
+}
 
 export function isRemovedPath(pathname: string): boolean {
   const path = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
@@ -144,15 +169,48 @@ export function routeFromPath(pathname: string): Route {
     const initialMode = subjectModeIds.includes(modeParam as SubjectModeId)
       ? (modeParam as SubjectModeId)
       : undefined;
-    return { screen: 'subject', subjectId, from: 'subjectCatalog', collectionSlug, initialMode };
+    const n = Number(params.get('n'));
+    const initialTaskNumber =
+      initialMode === 'byNumber' && Number.isInteger(n) && n > 0 ? n : undefined;
+    return {
+      screen: 'subject',
+      subjectId,
+      from: 'subjectCatalog',
+      collectionSlug,
+      initialMode,
+      ...(initialTaskNumber ? { initialTaskNumber } : {}),
+    };
+  }
+
+  // "По номерам" used to be its own screen; old links land on the
+  // subject page in that mode (math was that screen's default subject).
+  if (path === legacyByNumberPath) {
+    return {
+      screen: 'subject',
+      subjectId: 'math',
+      from: 'subjectCatalog',
+      initialMode: 'byNumber',
+    };
   }
 
   if (path === '/profile') return { screen: 'profile' };
+
+  if (path === '/theory' || path === '/materials') {
+    const n = Number(params.get('n'));
+    return {
+      screen: 'theory',
+      section: path === '/materials' ? 'materials' : 'rules',
+      ...(Number.isInteger(n) && n > 0 ? { taskNumber: n } : {}),
+    };
+  }
 
   if (path.startsWith(learningSessionPathPrefix)) {
     const sessionId = path.slice(learningSessionPathPrefix.length);
     if (sessionId) return { screen: 'learningSession', sessionId };
   }
+
+  const attemptMatch = path.match(/^\/statistics\/variants\/([0-9a-f-]{36})$/);
+  if (attemptMatch) return { screen: 'variantAttempt', sessionId: attemptMatch[1]! };
 
   const friendMatch = path.match(/^\/friends\/([a-zA-Z0-9_-]+)$/);
   if (friendMatch) {
@@ -173,6 +231,7 @@ export function isAddressableScreen(screen: string): boolean {
     screen === 'profile' ||
     screen === 'friendProfile' ||
     screen === 'learningSession' ||
+    screen === 'variantAttempt' ||
     simpleOverlayScreens.has(screen)
   );
 }

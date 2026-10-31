@@ -12,6 +12,7 @@ vi.mock('./lib/api.js', () => ({
   listTasksByNumber: vi.fn(),
   getProgressSummary: vi.fn(() => new Promise(() => {})),
   getVariantProgress: vi.fn(() => new Promise(() => {})),
+  getProgressDaily: vi.fn(() => new Promise(() => {})),
   getTaskCountsBySubject: vi.fn(() => new Promise(() => {})),
   getProgressByTaskNumber: vi.fn(() => new Promise(() => {})),
   getProgressByTopic: vi.fn(() => new Promise(() => {})),
@@ -201,6 +202,7 @@ describe('AppMobile — Достижения/Рейтинг moved inside Ста�
     const user = userEvent.setup();
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 0,
+      uniqueSolvedTotal: 0,
       correctTotal: 0,
       incorrectTotal: 0,
       accuracyPercent: 0,
@@ -262,12 +264,9 @@ describe('AppMobile — Subject → Задания по номерам → task 
 
     renderApp();
     await user.click(screen.getByRole('button', { name: 'Главная' }));
-    // Open Subject via a direct navigate through Menu isn't exercised
-    // here — Subject itself is unit-tested for the tab; this covers the
-    // real screen-swap + Back chain starting from inside По номерам.
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Все задания' }));
+    // Subject itself is unit-tested for the tab; this covers the real
+    // screen-swap + Back chain starting from inside По номерам.
+    await user.click(await screen.findByRole('button', { name: /Все предметы/ }));
     await user.click(await screen.findByText('Математика'));
     await user.click(await screen.findByRole('button', { name: 'По номерам' }));
 
@@ -294,8 +293,8 @@ describe('AppMobile — Subject → Задания по номерам → task 
     await user.click(screen.getByRole('button', { name: 'Профиль' }));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Все задания' }));
+    await user.click(screen.getByRole('button', { name: 'Главная' }));
+    await user.click(await screen.findByRole('button', { name: /Все предметы/ }));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
     await user.click(await screen.findByText('Математика'));
@@ -311,17 +310,21 @@ describe('AppMobile — Subject → Задания по номерам → task 
   });
 });
 
-describe("AppMobile — menu (opened from Профиль's header button)", () => {
-  it('opens the real Training setup screen from the menu, not a WIP placeholder', async () => {
+describe('AppMobile — no gear menu: Профиль reaches the rest', () => {
+  it('Профиль has no gear button and no menu drawer', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.listCollections).mockResolvedValue([]);
     renderApp();
-
     await user.click(screen.getByRole('button', { name: 'Профиль' }));
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    await user.click(screen.getByRole('button', { name: 'Тренировка' }));
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Начать тренировку/ })).toBeInTheDocument();
-    });
+    expect(await screen.findByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Меню' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
+  });
+
+  it('«Помощь» and «Теория» open from Профиль → «Ещё»', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(await screen.findByRole('button', { name: 'Помощь' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/help'));
   });
 });

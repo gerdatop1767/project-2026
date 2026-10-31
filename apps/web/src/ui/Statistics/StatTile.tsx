@@ -8,11 +8,14 @@ export interface StatTileProps {
   icon: IconName;
   iconColor: string;
   label: string;
-  /** Its digits roll into place (AnimatedNumber); text without digits ("—", "···") is shown as is. */
+  /** Counted up when `animate` (AnimatedNumber); text without digits ("—", "···") is shown as is. */
   value: number | string;
   suffix?: string;
   deltaLabel?: ReactNode;
   deltaDirection?: 'up' | 'down';
+  /** Count the value up on first view — the Statistics screens only; everywhere
+   * else (profile, mistakes…) the number is simply there. */
+  animate?: boolean;
   className?: string;
 }
 
@@ -30,8 +33,10 @@ export function StatTile({
   suffix,
   deltaLabel,
   deltaDirection,
+  animate = false,
   className,
 }: StatTileProps) {
+  const text = `${value}${suffix ?? ''}`;
   return (
     <div
       className={`${styles.tile} ${className ?? ''}`}
@@ -41,9 +46,7 @@ export function StatTile({
         <Icon name={icon} size={20} />
       </span>
       <p className="text-body-sm text-secondary">{label}</p>
-      <p className={styles.value}>
-        <AnimatedNumber value={`${value}${suffix ?? ''}`} />
-      </p>
+      <p className={styles.value}>{animate ? <AnimatedNumber value={text} /> : text}</p>
       {deltaLabel && (
         <span
           className={`${styles.delta} ${deltaDirection === 'down' ? styles.deltaDown : styles.deltaUp}`}

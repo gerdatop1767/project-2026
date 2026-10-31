@@ -1,0 +1,287 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 44rem;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  border: none;
+  border-radius: 999px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.backButton:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
+}
+
+.card,
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-modal);
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  /* The rank's palette (style vars from levelRanks.ts), with the brand
+     violet as the fallback. */
+  border-color: color-mix(
+    in srgb,
+    var(--rank-to, var(--color-accent-primary)) 45%,
+    var(--color-border-subtle)
+  );
+  background-image:
+    radial-gradient(
+      circle at 0% 0%,
+      color-mix(in srgb, var(--rank-to, var(--color-accent-primary)) 26%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      color-mix(in srgb, var(--rank-from, var(--color-accent-primary)) 12%, transparent),
+      transparent 55%
+    );
+}
+
+/* The progress fill takes the rank's colours. */
+.hero [role='progressbar'] > div {
+  background: linear-gradient(90deg, var(--rank-from), var(--rank-to));
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rankName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-semibold);
+  color: color-mix(in srgb, var(--rank-from) 70%, var(--color-text-primary));
+}
+
+.rankOf {
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-tint) 7%, transparent);
+}
+
+.nextRank {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.nextRank strong {
+  color: var(--color-text-primary);
+}
+
+.ladder {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12.5rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ladderItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-tint) 3%, transparent);
+  border: 1px solid transparent;
+}
+
+.ladderCurrent {
+  border-color: color-mix(in srgb, var(--rank-to) 60%, transparent);
+  background: color-mix(in srgb, var(--rank-to) 14%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--rank-glow) 70%, transparent);
+}
+
+.ladderText {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.ladderState {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ladderYou {
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  color: color-mix(in srgb, var(--rank-from) 70%, var(--color-text-primary));
+}
+
+.ladderCurrent .ladderState {
+  color: color-mix(in srgb, var(--rank-from) 70%, var(--color-text-primary));
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.heroTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.levelValue {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.6rem, 6vw, 2.1rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
+
+.progressRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.remaining {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.maxBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: 700;
+}
+
+.rules {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.historyList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.historyItem:last-child {
+  border-bottom: none;
+}
+
+.historyText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.amount {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--color-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.strong {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.inlineError {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}

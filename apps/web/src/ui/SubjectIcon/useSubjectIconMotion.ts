@@ -35,7 +35,9 @@ export function useRevealOnScroll(ref: RefObject<HTMLElement | null>, enabled: b
           observer.disconnect();
         }
       },
-      { threshold: 0.15 },
+      // Starts a little BEFORE the icon is on screen, so by the time it is
+      // seen it is already arriving — part of the page, not something to wait for.
+      { threshold: 0, rootMargin: '0px 0px 12% 0px' },
     );
     observer.observe(element);
     return () => observer.disconnect();

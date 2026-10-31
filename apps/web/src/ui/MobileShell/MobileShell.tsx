@@ -52,11 +52,7 @@ export function MobileShell({ children, nav }: MobileShellProps) {
           Boolean(nav) && styles.contentWithNav,
         )}
       >
-        {/* The menu drawer is an overlay route but draws OVER the screen
-            below it, so it never counts as a screen change. */}
-        <ScreenEnter screenKey={overlay && overlay.screen !== 'menu' ? overlay.screen : tab}>
-          {children}
-        </ScreenEnter>
+        <ScreenEnter screenKey={overlay ? overlay.screen : tab}>{children}</ScreenEnter>
       </main>
       {nav && <div className={styles.nav}>{nav}</div>}
     </div>

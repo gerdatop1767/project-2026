@@ -1,6 +1,6 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 /** Finds the user already linked to this (provider, providerUserId)
  * identity, or creates a fresh `users` row and links it — the usual
@@ -77,51 +77,6 @@ export async function getUserEmail(db: Database, userId: string): Promise<string
       and(eq(schema.authIdentities.userId, userId), eq(schema.authIdentities.provider, 'email')),
     );
   return row?.providerUserId ?? null;
-}
-
-/** Stores a magic-link token by its hash only — see schema.ts's
- * `magicLinkTokens` doc comment for why the raw token is never
- * persisted. */
-export async function createMagicLinkToken(
-  db: Database,
-  email: string,
-  tokenHash: string,
-  expiresAt: Date,
-): Promise<void> {
-  await db.insert(schema.magicLinkTokens).values({ email, tokenHash, expiresAt });
-}
-
-/** Looks up an unconsumed, unexpired token by its hash. Does NOT mark
- * it consumed — call `consumeMagicLinkToken` after this succeeds, so a
- * failed downstream step (e.g. user creation) can still be retried
- * with the same link rather than burning it on a transient error. */
-export async function findValidMagicLinkToken(
-  db: Database,
-  tokenHash: string,
-): Promise<{ id: string; email: string; expiresAt: Date } | null> {
-  const [row] = await db
-    .select({
-      id: schema.magicLinkTokens.id,
-      email: schema.magicLinkTokens.email,
-      expiresAt: schema.magicLinkTokens.expiresAt,
-    })
-    .from(schema.magicLinkTokens)
-    .where(
-      and(
-        eq(schema.magicLinkTokens.tokenHash, tokenHash),
-        isNull(schema.magicLinkTokens.consumedAt),
-      ),
-    );
-  if (!row) return null;
-  if (row.expiresAt.getTime() < Date.now()) return null;
-  return row;
-}
-
-export async function consumeMagicLinkToken(db: Database, id: string): Promise<void> {
-  await db
-    .update(schema.magicLinkTokens)
-    .set({ consumedAt: new Date() })
-    .where(eq(schema.magicLinkTokens.id, id));
 }
 
 export async function createSession(

@@ -15,15 +15,16 @@
   width: 100%;
   height: 100%;
   flex-shrink: 0;
+  /* Quick: the icons are part of the page arriving, not a show to wait for. */
   transition:
-    opacity 480ms var(--easing-standard) var(--reveal-delay, 0ms),
-    transform 480ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms);
+    opacity 240ms ease var(--reveal-delay, 0ms),
+    transform 340ms var(--easing-out) var(--reveal-delay, 0ms);
 }
 
 /* Scroll-reveal: only ever hidden while an observer is actually waiting. */
 .root[data-reveal='pending'] {
   opacity: 0;
-  transform: translateY(10px) scale(0.96);
+  transform: translateY(6px) scale(0.97);
 }
 
 .halo {
@@ -45,7 +46,8 @@
     );
   opacity: var(--halo-opacity);
   pointer-events: none;
-  animation: halo-breathe 5.5s ease-in-out infinite;
+  /* Static on purpose: a forever-breathing glow on every icon (10 on Home,
+     9 in each picker) kept the compositor busy on every screen while idle. */
   transition: opacity 260ms var(--easing-standard);
 }
 
@@ -101,22 +103,8 @@
   --halo-opacity: 0.55;
 }
 
-.root[data-selected] .halo {
-  animation: none;
-}
-
 .root[data-selected] .ring {
   opacity: 1;
-}
-
-@keyframes halo-breathe {
-  0%,
-  100% {
-    opacity: calc(var(--halo-opacity) * 0.7);
-  }
-  50% {
-    opacity: var(--halo-opacity);
-  }
 }
 
 /* Hover: fine pointers only — touch screens never get a stuck hover state. */

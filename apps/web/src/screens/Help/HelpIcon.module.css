@@ -1,0 +1,83 @@
+/*
+ * Help category icons: each glyph has a small motion of its own (a bulb
+ * that lights, a gear that turns, a person that nods, a bubble that
+ * hops). It plays once as the cards appear, staggered, and again on
+ * hover / keyboard focus of the card. Transform and opacity only.
+ */
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+  animation: iconIn 520ms var(--easing-out) calc(120ms + var(--i, 0) * 70ms) backwards;
+}
+
+.icon > svg {
+  transform-origin: 50% 50%;
+}
+
+@keyframes iconIn {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+[data-help-card]:hover .icon > svg,
+[data-help-card]:focus-visible .icon > svg {
+  animation: var(--help-anim) 620ms var(--easing-out);
+}
+
+.icon[data-kind='suggestions'] {
+  --help-anim: helpGlow;
+}
+
+.icon[data-kind='technical'] {
+  --help-anim: helpTurn;
+}
+
+.icon[data-kind='login'] {
+  --help-anim: helpNod;
+}
+
+.icon[data-kind='other'] {
+  --help-anim: helpHop;
+}
+
+@keyframes helpGlow {
+  40% {
+    transform: scale(1.18);
+    opacity: 0.75;
+  }
+}
+
+@keyframes helpTurn {
+  to {
+    transform: rotate(90deg);
+  }
+}
+
+@keyframes helpNod {
+  30% {
+    transform: translateY(-3px);
+  }
+  60% {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes helpHop {
+  30% {
+    transform: translateY(-4px) rotate(-8deg);
+  }
+  65% {
+    transform: translateY(0) rotate(4deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon,
+  [data-help-card]:hover .icon > svg,
+  [data-help-card]:focus-visible .icon > svg {
+    animation: none;
+  }
+}

@@ -1,5 +1,12 @@
+import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
+import { useTaskExit } from '../../ui/LearningSession/useTaskExit.js';
 import { useEffect, useState } from 'react';
-import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
+import {
+  trainingByNumberRouteFor,
+  useNavigation,
+  type Route,
+  type RevealedAnswer,
+} from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
@@ -54,9 +61,11 @@ export interface ResultDesktopProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** XP the server awarded for this attempt; absent for a guest. */
+  xpAwarded?: number;
+  /** A guest's check — see the `result` route's `revealed`. */
+  revealed?: RevealedAnswer;
 }
-
-const XP_REWARD = 20;
 
 /**
  * Desktop Result screen (S1 Block 6, approved design —
@@ -77,8 +86,10 @@ export function ResultDesktop({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  xpAwarded,
+  revealed,
 }: ResultDesktopProps) {
-  const { navigate, back } = useNavigation();
+  const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const taskNav = useTaskNavigation({
     subjectId,
@@ -88,7 +99,10 @@ export function ResultDesktop({
     customOrderedTasks,
     returnTo,
   });
-  const goBack = returnTo ? () => navigate(returnTo) : back;
+  // The task/result has no address of its own, so the current history
+  // entry IS the page underneath it: replace it with the exact place to
+  // return to instead of pushing a duplicate stop onto the Back stack.
+  const { goBack, exitSheet } = useTaskExit(taskId, returnTo);
   const learningSession = useActiveLearningSessionForTask(taskId);
   function retryTask() {
     navigate({
@@ -113,14 +127,20 @@ export function ResultDesktop({
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(false);
-  const xp = useCountUp(correct ? XP_REWARD : 0, 500);
+  // The real award, never a fixed number: 15/25 for a first solve, 0 for a
+  // repeat or a wrong answer, nothing for a guest.
+  const xp = useCountUp(xpAwarded ?? 0, 500);
+  const showXp = correct && (xpAwarded ?? 0) > 0;
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
+    void Promise.all([
+      getTask(taskId),
+      listTasksByNumber(subjectId, taskNumber, undefined, undefined, taskId),
+    ])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
-        setTask(toSampleTask(fetchedTask, siblings));
+        setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -128,7 +148,7 @@ export function ResultDesktop({
     return () => {
       cancelled = true;
     };
-  }, [taskId, subjectId, taskNumber]);
+  }, [taskId, subjectId, taskNumber, revealed]);
 
   if (loadError) {
     return (
@@ -137,6 +157,7 @@ export function ResultDesktop({
         <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
+        {exitSheet}
       </FadeIn>
     );
   }
@@ -153,7 +174,11 @@ export function ResultDesktop({
   // list the top TaskNumberStrip/prev-next already use, never
   // `task.indexInSession`/`task.totalInSession` (a safe single-item
   // default — see taskAdapter.ts).
-  const progress = buildSessionProgress(task.id, taskNav.orderedTasks);
+  const progress = buildSessionProgress(task.id, taskNav.orderedTasks, taskNav.marks);
+  function selectFromList(index: number) {
+    const entry = taskNav.orderedTasks[index - 1];
+    if (entry) taskNav.goTo(entry);
+  }
   const progressPercent = (progress.indexInSession / progress.totalInSession) * 100;
   const displayedAnswer = userAnswer || '—';
 
@@ -259,11 +284,15 @@ export function ResultDesktop({
             <TaskExamIllustration
               subjectId={task.subjectId}
               taskNumber={task.number}
+              tags={task.tags}
+              imageUrl={task.imageUrl}
+              conditionMd={task.condition}
               className={styles.taskImage}
             />
             <TaskSolutionIllustration
               subjectId={task.subjectId}
               taskNumber={task.number}
+              tags={task.tags}
               className={styles.taskImage}
             />
 
@@ -289,7 +318,7 @@ export function ResultDesktop({
                   {correct ? 'Ты отлично справился!' : 'Разберём это задание вместе.'}
                 </p>
               </div>
-              {correct && (
+              {showXp && (
                 <div className={styles.rewardChips}>
                   <span className={styles.rewardChip}>
                     <Icon name="target" size={16} className={styles.rewardIconGold} />+
@@ -470,19 +499,20 @@ export function ResultDesktop({
                 : null
             }
             xp={xp}
+            showXp={showXp}
           />
           {correct ? (
             <SessionTaskListCard
               title="Задания в теме"
               sessionTasks={progress.sessionTasks}
-              onSelect={() => undefined}
+              onSelect={selectFromList}
             />
           ) : (
             <>
               <SessionTaskListCard
                 title="Задания"
                 sessionTasks={progress.sessionTasks}
-                onSelect={() => undefined}
+                onSelect={selectFromList}
               />
               <DesktopToolsCard
                 onSelectHint={() => undefined}
@@ -512,6 +542,7 @@ export function ResultDesktop({
         taskId={task.id}
         task={task}
       />
+      {exitSheet}
     </FadeIn>
   );
 }
@@ -522,6 +553,7 @@ function ResultCard({
   correctAnswer,
   resultSummary,
   xp,
+  showXp,
 }: {
   correct: boolean;
   userAnswer: string;
@@ -529,6 +561,7 @@ function ResultCard({
   /** "2 из 3" for a multi_part task, shown next to the headline instead of plain correct/incorrect. */
   resultSummary: string | null;
   xp: number;
+  showXp: boolean;
 }) {
   return (
     <div className={styles.resultCard}>
@@ -564,10 +597,14 @@ function ResultCard({
             <InlineMathText text={correctAnswer} />
           </span>
         </div>
-        <div className={styles.resultRow}>
-          <span className="text-body-sm text-secondary">Получено опыта</span>
-          <span className={clsx('text-body-sm', styles.resultHighlight)}>+{Math.round(xp)} XP</span>
-        </div>
+        {showXp && (
+          <div className={styles.resultRow}>
+            <span className="text-body-sm text-secondary">Получено опыта</span>
+            <span className={clsx('text-body-sm', styles.resultHighlight)}>
+              +{Math.round(xp)} XP
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

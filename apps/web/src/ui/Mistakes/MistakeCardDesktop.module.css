@@ -52,6 +52,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Multi-line conditions (lists, display formulas) stay a two-line
+     preview; the full text is one click away in «Разобрать». */
+  max-height: 3em;
 }
 
 .date {
@@ -80,8 +83,43 @@
   width: 9.5rem;
 }
 
+.actions > * {
+  white-space: nowrap;
+}
+
+.actions svg {
+  flex-shrink: 0;
+}
+
 .solveSimilarButton {
   padding-top: 6px;
   padding-bottom: 6px;
   font-size: 13px;
+}
+
+.card[data-busy] {
+  opacity: 0.6;
+}
+
+.dismissButton {
+  width: 36px;
+  height: 36px;
+  border: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
+}
+
+.dismissButton:not(:disabled):hover {
+  background: color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+.dismissButton:active {
+  transform: scale(0.92);
+}
+
+.dismissButton:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
 }

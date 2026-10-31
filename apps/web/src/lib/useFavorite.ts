@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { addFavorite, listFavoriteTaskIds, removeFavorite } from './api.js';
 import { registerPrivateCacheReset } from './privateCaches.js';
+import { useAccountGate } from './accountGate.js';
 
 // Module-scoped so every `useFavorite` call across the app (Task
 // screen, later a favorites list, ...) shares one fetch instead of
@@ -61,6 +62,7 @@ export interface UseFavoriteResult {
  * navigating between tasks never leaks one task's state into another.
  */
 export function useFavorite(taskId: string): UseFavoriteResult {
+  const { isGuest, requireAccount } = useAccountGate();
   // Starts null (unknown) rather than reset-on-taskId-change: every
   // caller (TaskDesktop, TaskChrome) is itself remounted by its parent
   // whenever the task changes (`key={taskId}` — see AppDesktop.tsx/
@@ -70,15 +72,18 @@ export function useFavorite(taskId: string): UseFavoriteResult {
 
   useEffect(() => {
     let cancelled = false;
+    // A guest has no favorites (they live in an account): nothing to load.
+    if (isGuest) return;
     void loadFavoriteIds().then((ids) => {
       if (!cancelled) setIsFavorite(ids.has(taskId));
     });
     return () => {
       cancelled = true;
     };
-  }, [taskId]);
+  }, [taskId, isGuest]);
 
   function toggle() {
+    if (!requireAccount('favorites')) return;
     if (isFavorite === null) return;
     const next = !isFavorite;
     setIsFavorite(next);
@@ -93,5 +98,5 @@ export function useFavorite(taskId: string): UseFavoriteResult {
       });
   }
 
-  return { isFavorite, toggle };
+  return { isFavorite: isGuest ? false : isFavorite, toggle };
 }

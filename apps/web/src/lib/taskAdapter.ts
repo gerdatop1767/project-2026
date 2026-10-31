@@ -2,6 +2,7 @@ import type { TaskPublic, TaskWithSolution } from '@zybrilka/shared';
 import type { SampleTask, SessionTask } from '../data/sampleTask.js';
 import { subjects } from '../data/subjects.js';
 import type { TaskNavigationEntry } from './useTaskNavigation.js';
+import type { TaskMark } from './useVariantTaskMarks.js';
 
 const DIFFICULTY_LABELS = ['Лёгкое', 'Среднее', 'Сложное'] as const;
 
@@ -62,6 +63,7 @@ export function toSampleTask(
     condition: task.conditionMd,
     passage: task.passage,
     imageUrl: task.imageUrl,
+    tags: task.tags,
     answerType: task.answerType,
     answerParts: task.answerParts,
     correctAnswer: hasSolution ? task.correctAnswer : '',
@@ -123,6 +125,9 @@ export interface SessionProgress {
 export function buildSessionProgress(
   currentTaskId: string,
   orderedTasks: readonly TaskNavigationEntry[],
+  /** Inside a variant attempt: each task's real state (see
+   * `useVariantTaskMarks`) — otherwise every other task is «pending». */
+  marks: Readonly<Record<string, TaskMark>> = {},
 ): SessionProgress {
   const list = orderedTasks.length > 0 ? orderedTasks : [{ taskId: currentTaskId, taskNumber: 0 }];
   const indexInSession = Math.max(list.findIndex((t) => t.taskId === currentTaskId) + 1, 1);
@@ -131,7 +136,7 @@ export function buildSessionProgress(
     totalInSession: list.length,
     sessionTasks: list.map((t, i) => ({
       index: i + 1,
-      status: t.taskId === currentTaskId ? 'current' : 'pending',
+      status: t.taskId === currentTaskId ? 'current' : (marks[t.taskId] ?? 'pending'),
     })),
   };
 }

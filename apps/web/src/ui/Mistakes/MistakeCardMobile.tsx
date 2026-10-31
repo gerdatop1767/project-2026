@@ -18,6 +18,10 @@ export interface MistakeCardMobileProps {
    * the card never shows a button with nothing real behind it. */
   onSolveSimilar?: () => void;
   solvingSimilar?: boolean;
+  /** «Убрать из ошибок» — omitted when the screen can't offer it. */
+  onDismiss?: () => void;
+  /** The dismiss request is in flight: the × is disabled (no double tap). */
+  dismissing?: boolean;
 }
 
 /**
@@ -35,11 +39,13 @@ export function MistakeCardMobile({
   onOpen,
   onSolveSimilar,
   solvingSimilar = false,
+  onDismiss,
+  dismissing = false,
 }: MistakeCardMobileProps) {
   const color = getTopicColor(mistake.topic);
 
   return (
-    <div className={styles.card}>
+    <div className={styles.card} data-busy={dismissing || undefined}>
       <div className={styles.topRow}>
         <button
           type="button"
@@ -50,14 +56,28 @@ export function MistakeCardMobile({
         >
           <Icon name={selected ? 'checkboxChecked' : 'checkboxEmpty'} size={20} />
         </button>
-        <span className={styles.metaRow}>
-          <span className={styles.numberChip}>№{mistake.taskNumber}</span>
-          <span className={styles.topicChip} style={{ background: `${color}26`, color }}>
-            {mistake.topic}
+        <span className={styles.meta}>
+          <span className={styles.metaRow}>
+            <span className={styles.numberChip}>№{mistake.taskNumber}</span>
+            <span className={styles.topicChip} style={{ background: `${color}26`, color }}>
+              {mistake.topic}
+            </span>
+            <DifficultyTag label={mistake.difficultyLabel} />
           </span>
-          <DifficultyTag label={mistake.difficultyLabel} />
+          <span className={styles.date}>{formatDateLong(mistake.date)}</span>
         </span>
-        <span className={styles.date}>{formatDateLong(mistake.date)}</span>
+        {onDismiss && (
+          <button
+            type="button"
+            className={styles.dismissButton}
+            aria-label={`Убрать из ошибок (задание ${mistake.taskNumber})`}
+            disabled={dismissing}
+            aria-busy={dismissing || undefined}
+            onClick={onDismiss}
+          >
+            <Icon name={dismissing ? 'spinner' : 'close'} size={18} />
+          </button>
+        )}
       </div>
 
       <button type="button" className={styles.condition} onClick={onOpen}>

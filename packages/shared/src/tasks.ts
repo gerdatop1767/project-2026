@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { attemptXpSchema } from './xp.js';
 import { canonicalSolutionDtoSchema } from './canonicalSolutionDto.js';
 
 /**
@@ -144,6 +145,13 @@ export const taskListQuerySchema = z.object({
   collection: z.string().optional(),
   /** A specific variant's id — only that variant's own tasks. */
   variant: z.uuid().optional(),
+  /**
+   * «Похожие задания» of this task: when it belongs to a source outside
+   * «Все источники» (another edition's numbering, e.g. ЕГЭ 2027), the
+   * list stays inside that source — a 2027 «№13» never lists 2026 «№13»
+   * tasks. Ignored when `collection`/`variant` is given.
+   */
+  sameSourceAs: z.uuid().optional(),
   // 'needs_review' is deliberately excluded here — it must never be
   // reachable through the public list endpoint, even by an explicit
   // query param, unlike the other statuses this endpoint already allows.
@@ -178,7 +186,17 @@ export type TaskListResponse = z.infer<typeof taskListResponseSchema>;
  * row for it.
  */
 export const taskCountsBySubjectResponseSchema = z.object({
-  items: z.array(z.object({ subjectId: z.string(), count: z.number().int().nonnegative() })),
+  items: z.array(
+    z.object({
+      subjectId: z.string(),
+      /** Tasks in «Все источники» — the catalog a subject card advertises. */
+      count: z.number().int().nonnegative(),
+      /** Every published task of the subject, other editions (ЕГЭ 2027)
+       * included — the honest «из N» for progress, whose «Решено» counts
+       * tasks from any source. */
+      countAllSources: z.number().int().nonnegative(),
+    }),
+  ),
 });
 export type TaskCountsBySubjectResponse = z.infer<typeof taskCountsBySubjectResponseSchema>;
 
@@ -208,6 +226,10 @@ export type AttemptAnswer = z.infer<typeof attemptAnswerSchema>;
 export const attemptRequestSchema = z.object({
   answer: attemptAnswerSchema,
   timeSpentMs: z.number().int().nonnegative().optional(),
+  /** The learning session (variant attempt / smart training) the task was
+   * served in. The server links the answer to it only when that session
+   * is the user's own, still active, and served this task. */
+  sessionId: z.uuid().optional(),
 });
 export type AttemptRequest = z.infer<typeof attemptRequestSchema>;
 
@@ -228,12 +250,17 @@ export const attemptResultSchema = z.object({
    * presentation-only LaTeX form, never used for grading. */
   correctAnswerDisplay: z.string().nullable(),
   explanation: z.string(),
-  attemptId: z.uuid(),
+  /** null when a guest's answer was checked but, having no account,
+   * nothing was recorded. */
+  attemptId: z.uuid().nullable(),
   mistakeId: z.uuid().nullable(),
   // Present only for multi_part tasks — per-part breakdown of a single logical attempt.
   parts: z.array(attemptPartResultSchema).optional(),
   correctParts: z.number().int().nonnegative().optional(),
   totalParts: z.number().int().nonnegative().optional(),
   partStatus: multiPartStatusSchema.optional(),
+  /** Signed-in attempts only: XP this answer earned (0 when none) and the
+   * account's total/level after it — all decided server-side (docs/XP.md). */
+  xp: attemptXpSchema.optional(),
 });
 export type AttemptResult = z.infer<typeof attemptResultSchema>;

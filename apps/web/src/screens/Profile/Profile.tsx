@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLearningProfile, getProgressSummary } from '../../lib/api.js';
+import { useAuth } from '../../lib/authContext.js';
+import { GuestProfileCard } from '../../ui/AccountGate/GuestProfileCard.js';
 import type { LearningProfileResponse, ProgressSummary } from '@zybrilka/shared';
 import { selfReportedScoreLabel, targetScoreLabel } from '../../lib/learningProfileLabels.js';
 import { subjects as staticSubjects } from '../../data/subjects.js';
@@ -13,6 +15,7 @@ import { SlideUp } from '../../ui/motion/motion.js';
 import { ProfileIdentityCard } from './account/ProfileIdentityCard.js';
 import { useIdentities } from './account/useIdentities.js';
 import { SignInMethodsSection } from './account/SignInMethodsSection.js';
+import { ProfileMore } from './ProfileMore.js';
 import styles from './Profile.module.css';
 
 function findSubject(subjectId: string) {
@@ -32,6 +35,22 @@ function findSubject(subjectId: string) {
  * straight from GET /progress/summary and GET /me/learning/profile.
  */
 export function Profile() {
+  const { user } = useAuth();
+  return user === null ? <GuestProfile /> : <AccountProfile />;
+}
+
+/** Guest mode: no personal data is loaded; «Ещё» still offers the rest. */
+function GuestProfile() {
+  return (
+    <SlideUp className={styles.stack}>
+      <h1 className="text-h1">Профиль</h1>
+      <GuestProfileCard />
+      <ProfileMore guest />
+    </SlideUp>
+  );
+}
+
+function AccountProfile() {
   const { navigate } = useNavigation();
   const identities = useIdentities();
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
@@ -63,17 +82,7 @@ export function Profile() {
 
   return (
     <SlideUp className={styles.stack}>
-      <div className={styles.headerRow}>
-        <h1 className="text-h1">Профиль</h1>
-        <button
-          type="button"
-          className={styles.iconButton}
-          aria-label="Меню"
-          onClick={() => navigate({ screen: 'menu' })}
-        >
-          <Icon name="settings" size={20} />
-        </button>
-      </div>
+      <h1 className="text-h1">Профиль</h1>
 
       <ProfileIdentityCard identities={identities} />
 
@@ -83,7 +92,7 @@ export function Profile() {
           icon="target"
           iconColor="var(--color-accent-primary)"
           label="Решено"
-          value={progress ? progress.solvedTotal : '···'}
+          value={progress ? progress.uniqueSolvedTotal : '···'}
         />
         <StatTile
           className={styles.statTile}
@@ -204,7 +213,7 @@ export function Profile() {
             </span>
             <span className={styles.settingsLabel}>
               Уведомления
-              <span className={styles.settingsSublabel}>Напоминания, серия, обновления</span>
+              <span className={styles.settingsSublabel}>Ежедневные напоминания в Telegram</span>
             </span>
             <Icon name="chevronRight" size={16} className={styles.subjectChevron} />
           </button>
@@ -237,6 +246,8 @@ export function Profile() {
           </div>
         </Card>
       </div>
+
+      <ProfileMore />
     </SlideUp>
   );
 }

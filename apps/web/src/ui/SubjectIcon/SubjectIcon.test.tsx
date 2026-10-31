@@ -9,6 +9,7 @@ import {
   SUBJECT_ICON_GLOW,
   isSubjectIconId,
   subjectIconSrc,
+  subjectIconSrcSet,
 } from './subjectIcons.js';
 
 const PUBLIC_DIR = resolve(__dirname, '../../../public/branding/v2/subject-icons');
@@ -37,7 +38,11 @@ describe('subject icon files', () => {
   });
 
   it('ships a real, square, transparent PNG for each of the nine, and nothing else', () => {
-    expect(readdirSync(PUBLIC_DIR).sort()).toEqual(Object.values(SUBJECT_ICON_FILES).sort());
+    expect(
+      readdirSync(PUBLIC_DIR)
+        .filter((f) => f !== 'sized')
+        .sort(),
+    ).toEqual(Object.values(SUBJECT_ICON_FILES).sort());
     for (const file of Object.values(SUBJECT_ICON_FILES)) {
       const bytes = readFileSync(join(PUBLIC_DIR, file));
       expect(bytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a'); // PNG signature
@@ -46,6 +51,21 @@ describe('subject icon files', () => {
       expect([width, height]).toEqual([512, 512]);
       expect(bytes[25]).toBe(6); // RGBA colour type: keeps the transparent corners
       expect(statSync(join(PUBLIC_DIR, file)).size).toBeLessThan(600 * 1024);
+    }
+  });
+
+  it('ships small WebP copies (128/256 px) of each, used through srcset', () => {
+    for (const [id, file] of Object.entries(SUBJECT_ICON_FILES)) {
+      const base = file.replace(/\.png$/, '');
+      for (const w of [128, 256]) {
+        const bytes = readFileSync(join(PUBLIC_DIR, 'sized', `${base}-${w}.webp`));
+        expect(bytes.subarray(0, 4).toString()).toBe('RIFF');
+        expect(bytes.subarray(8, 12).toString()).toBe('WEBP');
+        expect(bytes.length).toBeLessThan(40 * 1024);
+      }
+      expect(subjectIconSrcSet(id as keyof typeof SUBJECT_ICON_FILES)).toContain(
+        `sized/${base}-128.webp 128w`,
+      );
     }
   });
 
@@ -115,12 +135,12 @@ describe('SubjectIcon — scroll reveal', () => {
     expect(disconnects).toBeGreaterThan(0);
   });
 
-  it('staggers neighbours ~65 ms apart, capped so a late scroll-in is never sluggish', () => {
+  it('staggers neighbours only ~30 ms apart, capped low — icons arrive with the page, never trail behind it', () => {
     const delays = [0, 1, 2, 9].map((index) => {
       const { container } = render(<SubjectIcon subjectId="math" reveal={index} />);
       return (container.firstElementChild as HTMLElement).style.getPropertyValue('--reveal-delay');
     });
-    expect(delays).toEqual(['0ms', '65ms', '130ms', '260ms']);
+    expect(delays).toEqual(['0ms', '30ms', '60ms', '90ms']);
   });
 
   it('is plainly visible (never hidden) when reveal is not requested', () => {

@@ -15,7 +15,11 @@ function Probe() {
       >
         go-math
       </button>
-      <button onClick={() => navigate({ screen: 'menu' })}>go-menu</button>
+      <button
+        onClick={() => navigate({ screen: 'task', subjectId: 'math', taskNumber: 1, taskId: 't1' })}
+      >
+        go-task
+      </button>
       <button onClick={() => navigate({ screen: 'statistics' })}>go-statistics</button>
       <button onClick={back}>back</button>
     </div>
@@ -57,7 +61,7 @@ describe('NavigationProvider — URL is the source of truth', () => {
     expect(window.location.pathname).toBe('/subjects/math');
   });
 
-  it('navigate() to an unaddressable route (menu) does not change the URL', async () => {
+  it('navigate() to an unaddressable route (task) does not change the URL', async () => {
     const user = userEvent.setup();
     render(
       <NavigationProvider>
@@ -65,8 +69,8 @@ describe('NavigationProvider — URL is the source of truth', () => {
       </NavigationProvider>,
     );
     const before = window.location.pathname;
-    await user.click(screen.getByText('go-menu'));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('menu');
+    await user.click(screen.getByText('go-task'));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('task');
     expect(window.location.pathname).toBe(before);
   });
 
@@ -113,21 +117,21 @@ describe('NavigationProvider — URL is the source of truth', () => {
  * neither platform invents its own navigation mechanism.
  */
 describe('trainingByNumberRouteFor', () => {
-  it('builds a trainingByNumber route with the real subjectId and initialTaskNumber', () => {
+  it('opens the subject page in "По номерам" with the real subjectId and number pre-selected', () => {
     expect(trainingByNumberRouteFor('math', 13)).toEqual({
-      screen: 'trainingByNumber',
+      screen: 'subject',
       subjectId: 'math',
+      initialMode: 'byNumber',
       initialTaskNumber: 13,
-      from: { screen: 'subject', subjectId: 'math' },
     });
   });
 
   it('is deterministic for different subjects/numbers, never hardcoded to one', () => {
     expect(trainingByNumberRouteFor('russian', 7)).toEqual({
-      screen: 'trainingByNumber',
+      screen: 'subject',
       subjectId: 'russian',
+      initialMode: 'byNumber',
       initialTaskNumber: 7,
-      from: { screen: 'subject', subjectId: 'russian' },
     });
   });
 });

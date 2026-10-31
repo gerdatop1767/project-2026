@@ -1,0 +1,546 @@
+{
+  "source": "Ященко ЕГЭ 2027. Типовые экзаменационные варианты",
+  "sourceDocument": "ЕГЭ 2027 Ященко 36 вариантов",
+  "sourceFile": "ege2027-yashchenko-v1-v2.pdf (скан, 8 страниц, без текстового слоя)",
+  "sourceFileSha256": "ca019ec130169dfe677da39b502052de8cb8c89cf315ce0ba90ccb68f8aef3d4",
+  "collection": "ege-2027-yashchenko",
+  "inAllSources": false,
+  "examFormat": "ege-math-profile-2027",
+  "generatedAt": "2026-10-29T08:54:22.204Z",
+  "variants": [
+    {
+      "variant": 1,
+      "pages": [1, 4],
+      "bookPages": [11, 14],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 1,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-1/task-01-triangle.png",
+            "scanPage": 1,
+            "boxPx": [1078, 531, 1177, 697],
+            "sizePx": [99, 166]
+          },
+          "reviewNote": null,
+          "contentHash": "9bd8faffbb7f7138d7bdd28ba2c2ba702024ed668aea505b6b6337c9dbfefa2a"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 1,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "175eabe63340be2e2201177b5455dd0fc08e9d5589ef06539b3939bb754e2838"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 1,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-1/task-03-cylinder-sphere.png",
+            "scanPage": 1,
+            "boxPx": [999, 875, 1177, 1065],
+            "sizePx": [178, 190]
+          },
+          "reviewNote": null,
+          "contentHash": "21dc9667a7d4ac10a5ecc53523bd78655519dee12fa2118f88e87d0083bccc50"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 1,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "a91ed586751ac6ca787069515bae2869929fca0f50e0b50eedfeed6855f4d4ad"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 1,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c497271b43eb0b8270b280275cdd83f903c1a808ede3e9d461bb0c68f5580be2"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 2,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c32c0e6e066132a7410f09916d14115bff42c80692af63f2918288e0ccfe23dd"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 2,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "e66cb2889184e5d3be65fcab3bc9d1809b23d20489043e00babf31cf336c48f6"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 2,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "955944031d14f7dbcd7673927d0758cebd07ae7b0724a58839708987b66a2b2e"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 2,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-1/task-09-derivative-graph.png",
+            "scanPage": 2,
+            "boxPx": [396, 800, 945, 1122],
+            "sizePx": [549, 322]
+          },
+          "reviewNote": null,
+          "contentHash": "56cd486e02c1c1ebdaf6496005c7facea25145482c8213b4d6071fdc06d6d7c2"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 2,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "11410c3c8d1cd9c647d10c81c08bea9a26e3ef1fcdb0e7da6b462de9392f7e2e"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 2,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "cd6fd2351551e0aadc3b26ec5b586dca60ac0ffc898cde21ce07741911371829"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 3,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-1/task-12-log-graph.png",
+            "scanPage": 3,
+            "boxPx": [881, 162, 1172, 548],
+            "sizePx": [291, 386]
+          },
+          "reviewNote": null,
+          "contentHash": "332b901dea9d4f019d7401095b3da27340310e82f6d7b161d3f23dd802bbaa8e"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 3,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "a2ece81606364ceafb6c20c0ac789cbf18e798585eb02094633319d2080ee14f"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 3,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "312ee0e4c65c59b626e2f2d62f126176708c23399bf213320fc9c3fd4c1668e9"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 4,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "93cad51909f5689acbcae55b106c9a4561cac50cfcd6bd3f475086687c3a3d8d"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 4,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ee3f15a5b9c134bcea3ddb1a8384b98ef5491bfaee8d9d3f5bd8ec3a1b85aa4b"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 4,
+          "answerType": "short_answer",
+          "status": "needs_review",
+          "image": null,
+          "reviewNote": "Ответ выражается через параметр n (0<n<0,5), конкретного значения n в условии нет; автоматическая проверка такой формулы ненадёжна. Нужна сверка с ответами сборника и решение, как принимать ответ (например, многочастный ответ или ручная проверка).",
+          "contentHash": "aec0c71b457fb934a2ce187fee8fff3f8561d0be8382356014d22355a955a066"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 4,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "9da4d96738a4e0599556e950d6382e06e9a27f2ca550f82f59b76cef14d1b30f"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 4,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "17aaa037476b54bd7a45827f6c30cb724cc7211c61e57fab1b0c0acf26ab058b"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 4,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "c76509e7bca120a2ddc2bdb23ae550b0c217f41c2119dc99b3ca3e8324239d8e"
+        }
+      ]
+    },
+    {
+      "variant": 2,
+      "pages": [5, 8],
+      "bookPages": [15, 18],
+      "tasks": [
+        {
+          "taskNumber": 1,
+          "sourceTaskNumber": 1,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-2/task-01-triangle.png",
+            "scanPage": 5,
+            "boxPx": [957, 536, 1172, 606],
+            "sizePx": [215, 70]
+          },
+          "reviewNote": null,
+          "contentHash": "f56ae380cfbc41f887a9eaf8d435b6d1899010d2e41b61cd4041463850b5ca74"
+        },
+        {
+          "taskNumber": 2,
+          "sourceTaskNumber": 2,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "2d9fb8249aee70be7a3c5a008f25c12beb236382364567f12dc3e816399ccf24"
+        },
+        {
+          "taskNumber": 3,
+          "sourceTaskNumber": 3,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-2/task-03-cylinder-sphere.png",
+            "scanPage": 5,
+            "boxPx": [995, 870, 1173, 1059],
+            "sizePx": [178, 189]
+          },
+          "reviewNote": null,
+          "contentHash": "20a7bb68456d537cfb771df9b7a7e21f275debbdc0bc791aa4c4f0aaeff7d0e8"
+        },
+        {
+          "taskNumber": 4,
+          "sourceTaskNumber": 4,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "94b2342c40f3dcb8ca7a8b55ee71f129d9292b0d97d2420fe4a0ba2f02cb74da"
+        },
+        {
+          "taskNumber": 5,
+          "sourceTaskNumber": 5,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 5,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "643c621e87350cd2e0754982bbcc0b046859386c880613f39629a347bab89faa"
+        },
+        {
+          "taskNumber": 6,
+          "sourceTaskNumber": 6,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": "Принято стандартное прочтение задания (распределение на всех 100 покупателях, включая «0 бутылок»), как в аналогичных заданиях; формально возможное прочтение «только среди купивших» дало бы 4. Сверить с ответами сборника.",
+          "contentHash": "ac58924fdb06b398a4cf9690b349810a19fa3ac1f8e5605c157fd920ecf41236"
+        },
+        {
+          "taskNumber": 7,
+          "sourceTaskNumber": 7,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "876360b0b9eda9d01219103ac5217a69088d8aa2f33f1785cae45f4ab2234357"
+        },
+        {
+          "taskNumber": 8,
+          "sourceTaskNumber": 8,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "963d8ebdbca31937354ad5337f09ee40cff45e8cd9d3feb2c49077e5011c5742"
+        },
+        {
+          "taskNumber": 9,
+          "sourceTaskNumber": 9,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-2/task-09-derivative-graph.png",
+            "scanPage": 6,
+            "boxPx": [431, 788, 1007, 1118],
+            "sizePx": [576, 330]
+          },
+          "reviewNote": null,
+          "contentHash": "76a96112731113cbf2b04c70176571389efac82819e1343c0092b9be28a6df7b"
+        },
+        {
+          "taskNumber": 10,
+          "sourceTaskNumber": 10,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "b8b640a5e722765003af402d2e96ecb998aff8510e0ec4c7df66f63f0b772232"
+        },
+        {
+          "taskNumber": 11,
+          "sourceTaskNumber": 11,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 6,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "6f3f9ee11f5f12c7f90d069e2f31bbd36a4948866b89f426d7328367065d03e1"
+        },
+        {
+          "taskNumber": 12,
+          "sourceTaskNumber": 12,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 7,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": {
+            "url": "/tasks/imports/ege-2027-variant-2/task-12-log-graph.png",
+            "scanPage": 7,
+            "boxPx": [801, 159, 1170, 485],
+            "sizePx": [369, 326]
+          },
+          "reviewNote": null,
+          "contentHash": "2fe58f9c04bcbfef4146e6e6d7dfd6fc30904fc12410ad53ef6b6c84d8b459e5"
+        },
+        {
+          "taskNumber": 13,
+          "sourceTaskNumber": 13,
+          "part": 1,
+          "maxPrimaryScore": 1,
+          "sourcePage": 7,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "4339a481172983966d4dc3cf03bb7b7ddfec0250010429c75c9a6973fe6a33be"
+        },
+        {
+          "taskNumber": 14,
+          "sourceTaskNumber": 14,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 7,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "760acb903de86b3b6ae9d2d7c5a590bc4370005dc55d963a7d072b55c3282007"
+        },
+        {
+          "taskNumber": 15,
+          "sourceTaskNumber": 15,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 8,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "f04b4fff112c04ec90b2de0295bf0e163d825faee73fdb92f802e51f6c17d3c5"
+        },
+        {
+          "taskNumber": 16,
+          "sourceTaskNumber": 16,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 8,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "f9703fd4d30a563d387a98eb570bc9059693caec0e19ae059074a6c8e8c52ad8"
+        },
+        {
+          "taskNumber": 17,
+          "sourceTaskNumber": 17,
+          "part": 2,
+          "maxPrimaryScore": 2,
+          "sourcePage": 8,
+          "answerType": "short_answer",
+          "status": "needs_review",
+          "image": null,
+          "reviewNote": "Ответ выражается через параметр n (0<n<0,5), конкретного значения n в условии нет; автоматическая проверка такой формулы ненадёжна. Нужна сверка с ответами сборника и решение, как принимать ответ (например, многочастный ответ или ручная проверка).",
+          "contentHash": "d9e28b9f10a4bb1cafdfeb1b0d1ca64b992008e6760aeb128155b6744a0cb708"
+        },
+        {
+          "taskNumber": 18,
+          "sourceTaskNumber": 18,
+          "part": 2,
+          "maxPrimaryScore": 3,
+          "sourcePage": 8,
+          "answerType": "short_answer",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "23c30fd83044ea2940496adf8781256e7bd3ae2668355ce883078e81842f5dd3"
+        },
+        {
+          "taskNumber": 19,
+          "sourceTaskNumber": 19,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 8,
+          "answerType": "interval",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "300d3062f346904165873cfce465421c241c6caf2e3642b768333ca3a37adc47"
+        },
+        {
+          "taskNumber": 20,
+          "sourceTaskNumber": 20,
+          "part": 2,
+          "maxPrimaryScore": 4,
+          "sourcePage": 8,
+          "answerType": "multi_part",
+          "status": "published",
+          "image": null,
+          "reviewNote": null,
+          "contentHash": "ee60761f291733fa91910a83bd0912d39177a2ebb8aa30b9da875d07992e2866"
+        }
+      ]
+    }
+  ]
+}

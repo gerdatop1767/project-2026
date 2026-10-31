@@ -135,3 +135,128 @@ describe('checkIntervalAnswer', () => {
     expect(checkIntervalAnswer(answer, answer)).toBe(true);
   });
 });
+
+describe('interval sets with isolated points and radical bounds (EGE-2027 №19, №16)', () => {
+  it('reads k√n, kπ/m and a√b/√c bounds', () => {
+    expect(parseBound('-2√2')).toBeCloseTo(-2 * Math.SQRT2, 12);
+    expect(parseBound('11π/2')).toBeCloseTo((11 * Math.PI) / 2, 12);
+    expect(parseBound('2√21/√103')).toBeCloseTo((2 * Math.sqrt(21)) / Math.sqrt(103), 12);
+    expect(parseBound('√3/9')).toBeCloseTo(Math.sqrt(3) / 9, 12);
+    expect(parseBound('2x')).toBeNull();
+  });
+
+  it('accepts a point written in braces, bare, or with a ";" between items', () => {
+    const key = '{-89/18} ∪ [-4.5;-2√2)';
+    expect(checkIntervalAnswer('{-89/18} ∪ [-4,5; -2√2)', key)).toBe(true);
+    expect(checkIntervalAnswer('[-4.5;-√8) ∪ {-89/18}', key)).toBe(true);
+    expect(checkIntervalAnswer('-89/18; [-4.5;-2√2)', key)).toBe(true);
+    expect(checkIntervalAnswer('a ∈ {-89/18} ∪ [-4.5;-2√2)', key)).toBe(true);
+    // A different point, a missing point or a wrong bracket is wrong.
+    expect(checkIntervalAnswer('{-4.9} ∪ [-4.5;-2√2)', key)).toBe(false);
+    expect(checkIntervalAnswer('[-4.5;-2√2)', key)).toBe(false);
+    expect(checkIntervalAnswer('{-89/18} ∪ [-4.5;-2√2]', key)).toBe(false);
+  });
+
+  it('treats the same set written in pieces as equal, but keeps a gap', () => {
+    expect(checkIntervalAnswer('{1} ∪ (1;2]', '[1;2]')).toBe(true);
+    expect(checkIntervalAnswer('[0;1] ∪ [1;3)', '[0;3)')).toBe(true);
+    expect(checkIntervalAnswer('(0;1) ∪ (1;3)', '(0;3)')).toBe(false);
+    expect(checkIntervalAnswer('[0;2.5) ∪ [16;81]', '[0;2,5) ∪ [16;81]')).toBe(true);
+  });
+
+  it('still rejects garbage and the semicolon inside a bracket is not a separator', () => {
+    expect(parseIntervalSet('{abc}')).toBeNull();
+    expect(parseIntervalSet('(1;2;3)')).toBeNull();
+    expect(parseIntervalSet('x ∈')).toBeNull();
+  });
+});
+
+describe('bracketed sums over a divisor (EGE-2027 №14, №19 boundary values)', () => {
+  it('reads (p ± q√r)/d and its negation', () => {
+    expect(parseBound('(3-√5)/2')).toBeCloseTo((3 - Math.sqrt(5)) / 2, 12);
+    expect(parseBound('-(18+4√69)/65')).toBeCloseTo(-(18 + 4 * Math.sqrt(69)) / 65, 12);
+    expect(parseBound('(1+√2)')).toBeCloseTo(1 + Math.SQRT2, 12);
+    expect(parseBound('(-1+3)/2')).toBe(1);
+  });
+
+  it('rejects anything outside that grammar', () => {
+    expect(parseBound('(3-)/2')).toBeNull();
+    expect(parseBound('(1+2+3)/2')).toBeNull();
+    expect(parseBound('((1+2))/2')).toBeNull();
+  });
+
+  // A single bracketed term over a divisor is just that quotient — needed
+  // for «(5√39)/3»; sums of three terms and nested brackets stay out.
+  it('reads a single bracketed term over a divisor', () => {
+    expect(parseBound('(3)/2')).toBe(1.5);
+    expect(parseBound('(5√39)/3')).toBeCloseTo((5 * Math.sqrt(39)) / 3, 12);
+    expect(parseBound('(5*√39)/3')).toBeCloseTo((5 * Math.sqrt(39)) / 3, 12);
+  });
+
+  it('works as an isolated point next to an interval', () => {
+    const key = '{-(18+4√69)/65} ∪ (-2/3;-0.4]';
+    expect(checkIntervalAnswer('(-2/3; -0,4] ∪ {-(18+4√69)/65}', key)).toBe(true);
+    expect(checkIntervalAnswer('(-2/3;-0,4]', key)).toBe(false);
+    expect(checkIntervalAnswer('{-0,788} ∪ (-2/3;-0,4]', key)).toBe(false);
+  });
+});
+
+describe('sums and inverse trig functions in a bound', () => {
+  it('reads two terms joined outside brackets, and arctg/arcsin/arccos of a number', () => {
+    expect(parseBound('arctg(1/2)-3π')).toBeCloseTo(Math.atan(0.5) - 3 * Math.PI, 12);
+    expect(parseBound('-3π+arctg(1/2)')).toBeCloseTo(Math.atan(0.5) - 3 * Math.PI, 12);
+    expect(parseBound('3-√5')).toBeCloseTo(3 - Math.sqrt(5), 12);
+    expect(parseBound('arcsin(√3/2)')).toBeCloseTo(Math.PI / 3, 12);
+    expect(parseBound('arccos 0,6')).toBeCloseTo(Math.acos(0.6), 12);
+  });
+
+  it('still rejects what it cannot read', () => {
+    expect(parseBound('arcsin(2)')).toBeNull();
+    expect(parseBound('arctg(x)')).toBeNull();
+    expect(parseBound('1+')).toBeNull();
+    expect(parseBound('3-abc')).toBeNull();
+  });
+});
+
+describe('a small natural power of a readable expression', () => {
+  it('reads (log_5(34))^2 and log_5(34)^2', () => {
+    const v = (Math.log(34) / Math.log(5)) ** 2;
+    expect(parseBound('(log_5(34))^2')).toBeCloseTo(v, 12);
+    expect(parseBound('log_5(34)^2')).toBeCloseTo(v, 12);
+    expect(parseBound('(√2)^2')).toBeCloseTo(2, 12);
+    expect(parseBound('2^x')).toBeNull();
+    expect(parseBound('(abc)^2')).toBeNull();
+  });
+});
+
+describe('parseBound — root of an expression', () => {
+  it('reads k√(expression) and √(expression)', () => {
+    expect(parseBound('3√(4-2√2)')).toBeCloseTo(3 * Math.sqrt(4 - 2 * Math.SQRT2), 12);
+    expect(parseBound('√(36-18√2)')).toBeCloseTo(3 * Math.sqrt(4 - 2 * Math.SQRT2), 12);
+    expect(parseBound('sqrt(2)')).toBeCloseTo(Math.SQRT2, 12);
+  });
+
+  it('rejects a negative radicand and unbalanced brackets', () => {
+    expect(parseBound('√(1-2√2)')).toBeNull();
+    expect(parseBound('√(2)+(3)')).not.toBeCloseTo(Math.sqrt(2) * 1, 3);
+  });
+});
+
+describe('parseBound — a logarithm over a number', () => {
+  it('reads log_b(x)/d with or without brackets, and its negation', () => {
+    expect(parseBound('log_2(5)/5')).toBeCloseTo(Math.log2(5) / 5, 12);
+    expect(parseBound('-log_2(25)/10')).toBeCloseTo(-Math.log2(5) / 5, 12);
+    expect(parseBound('(log_2(25))/10')).toBeCloseTo(Math.log2(5) / 5, 12);
+    expect(parseBound('log_2(5)/0')).toBeNull();
+  });
+});
+
+describe('parseBound — inverse trig over an expression', () => {
+  it('reads arccos(x)/(kπ) and sums with it', () => {
+    const t = Math.acos(0.6) / (6 * Math.PI);
+    expect(parseBound('arccos(0.6)/(6π)')).toBeCloseTo(t, 12);
+    expect(parseBound('2-arccos(0.6)/(6π)')).toBeCloseTo(2 - t, 12);
+    expect(parseBound('-2-arccos(0.6)/(6π)')).toBeCloseTo(-2 - t, 12);
+    expect(parseBound('arctg(1/2)/2')).toBeCloseTo(Math.atan(0.5) / 2, 12);
+  });
+});

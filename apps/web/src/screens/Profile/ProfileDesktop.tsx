@@ -13,6 +13,7 @@ import { FadeIn } from '../../ui/motion/motion.js';
 import { ProfileIdentityCard } from './account/ProfileIdentityCard.js';
 import { useIdentities } from './account/useIdentities.js';
 import { SignInMethodsSection } from './account/SignInMethodsSection.js';
+import { GuestProfileCard } from '../../ui/AccountGate/GuestProfileCard.js';
 import styles from './ProfileDesktop.module.css';
 
 function subjectShortName(subjectId: string): string {
@@ -39,7 +40,22 @@ export interface ProfileDesktopProps {
   from?: Route;
 }
 
-export function ProfileDesktop({ from }: ProfileDesktopProps) {
+export function ProfileDesktop(props: ProfileDesktopProps) {
+  const { user } = useAuth();
+  if (user === null) {
+    return (
+      <FadeIn>
+        <h1 className="text-h1" style={{ marginBottom: 'var(--space-5)' }}>
+          Профиль
+        </h1>
+        <GuestProfileCard />
+      </FadeIn>
+    );
+  }
+  return <AccountProfileDesktop {...props} />;
+}
+
+function AccountProfileDesktop({ from }: ProfileDesktopProps) {
   const { navigate } = useNavigation();
   const { logout } = useAuth();
   const identities = useIdentities();
@@ -104,7 +120,7 @@ export function ProfileDesktop({ from }: ProfileDesktopProps) {
       id: 'notifications',
       icon: 'notifications',
       label: 'Уведомления',
-      value: 'Напоминания, серия, обновления',
+      value: 'Ежедневные напоминания в Telegram',
       onClick: () => navigate({ screen: 'notifications' }),
     },
     { id: 'language', icon: 'language', label: 'Язык', value: 'Русский' },

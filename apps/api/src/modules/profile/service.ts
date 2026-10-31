@@ -1,13 +1,15 @@
 import { createHash } from 'node:crypto';
-import type { Database } from '@zybrilka/db';
+import { pendingTelegramLink, type Database } from '@zybrilka/db';
 import {
   AVATAR_MAX_BYTES,
   displayNameProblem,
+  isWorkingSignInMethod,
   normalizeDisplayName,
   type IdentitiesResponse,
 } from '@zybrilka/shared';
 import type { Config } from '../../config.js';
 import { isTelegramConfigured } from '../auth/telegram.js';
+import { isYandexConfigured } from '../auth/yandex.js';
 import { isVkConfigured } from '../auth/vk.js';
 import { inspectImage, type ImageProblem } from './image.js';
 import * as repo from './repo.js';
@@ -28,32 +30,70 @@ export function localAvatarUrl(source: repo.AvatarSource, sha256: string): strin
   return `/api/v1/me/avatars/${source}?v=${sha256.slice(0, 12)}`;
 }
 
+/** Stored copies of provider photos, in the order they stand in for a
+ * missing one of the profile's own provider. */
+const PROVIDER_COPIES = ['vk', 'telegram', 'yandex'] as const;
+
+/**
+ * Which picture the profile shows (the single rule, also for what others
+ * see in the rating):
+ * 1. the image the user uploaded;
+ * 2. the photo of a connected provider — our copy of the profile
+ *    provider's photo, else that provider's own URL (the profile only),
+ *    else our copy of another connected provider's photo (VK, Telegram,
+ *    Yandex);
+ * 3. none (the generated avatar).
+ * `storedOnly` (the rating — what OTHER people load): never the
+ * provider's URL — those images are only shown to others from our own
+ * copy (no third-party requests from their browsers, no arbitrary URLs).
+ * Returns a stored image, `external` for the provider's URL, or null.
+ */
+export function chooseAvatar(
+  avatars: readonly repo.AvatarMeta[],
+  profileSource: repo.ProfileSource | null,
+  hasProviderUrl: boolean,
+  { storedOnly = false }: { storedOnly?: boolean } = {},
+): repo.AvatarMeta | 'external' | null {
+  const uploaded = avatars.find((a) => a.source === 'user');
+  if (uploaded) return uploaded;
+  // Our own copy of the photo of the provider the profile comes from.
+  const providerCopy = profileSource ? avatars.find((a) => a.source === profileSource) : undefined;
+  if (providerCopy) return providerCopy;
+  if (hasProviderUrl && !storedOnly) return 'external';
+  for (const source of PROVIDER_COPIES) {
+    const copy = avatars.find((a) => a.source === source);
+    if (copy) return copy;
+  }
+  return null;
+}
+
 /**
  * The single place that decides what name and picture to show, so the web
  * client never re-implements the priority rules:
  *
  * name:   the user's own name  >  provider first + last name  >  none
- * avatar: uploaded image  >  provider photo URL (VK / Telegram)  >
- *         image fetched through the Telegram bot  >  none
+ * avatar: `chooseAvatar`
  */
 export async function resolveProfile(db: Database, userId: string): Promise<ResolvedProfile> {
   const [row, avatars] = await Promise.all([
     repo.getProfileRow(db, userId),
     repo.listAvatarMeta(db, userId),
   ]);
-  const uploaded = avatars.find((a) => a.source === 'user');
-  const viaBot = avatars.find((a) => a.source === 'telegram');
   const providerName = [row.firstName, row.lastName].filter(Boolean).join(' ').trim() || null;
   const customName = row.displayName?.trim() || null;
+  const avatar = chooseAvatar(avatars, row.profileSource, Boolean(row.avatarUrl));
   return {
     firstName: row.firstName,
     lastName: row.lastName,
     customName,
     displayName: customName ?? providerName,
-    avatarUrl: uploaded
-      ? localAvatarUrl('user', uploaded.sha256)
-      : (row.avatarUrl ?? (viaBot ? localAvatarUrl('telegram', viaBot.sha256) : null)),
-    hasCustomAvatar: Boolean(uploaded),
+    avatarUrl:
+      avatar === 'external'
+        ? row.avatarUrl
+        : avatar
+          ? localAvatarUrl(avatar.source, avatar.sha256)
+          : null,
+    hasCustomAvatar: avatars.some((a) => a.source === 'user'),
   };
 }
 
@@ -123,12 +163,20 @@ export async function listIdentities(
   userId: string,
 ): Promise<IdentitiesResponse> {
   const rows = await repo.listIdentities(db, userId);
+  const pending = rows.some((row) => row.provider === 'telegram')
+    ? null
+    : await pendingTelegramLink(db, userId);
   return {
     identities: rows.map((row) => ({
       provider: row.provider,
       linkedAt: row.createdAt.toISOString(),
     })),
-    available: { vk: isVkConfigured(config), telegram: isTelegramConfigured(config) },
-    canUnlink: rows.length > 1,
+    available: {
+      vk: isVkConfigured(config),
+      telegram: isTelegramConfigured(config),
+      yandex: isYandexConfigured(config),
+    },
+    canUnlink: rows.filter((row) => isWorkingSignInMethod(row.provider)).length > 1,
+    telegramPendingLink: pending ? { name: pending.telegramName } : null,
   };
 }

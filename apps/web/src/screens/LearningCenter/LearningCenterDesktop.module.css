@@ -6,6 +6,10 @@
   margin-bottom: var(--space-6);
 }
 
+.signInWarning {
+  margin-bottom: var(--space-6);
+}
+
 .search {
   position: relative;
   flex-shrink: 0;
@@ -129,9 +133,38 @@
 }
 
 .subjectIcon {
+  position: relative;
+  isolation: isolate; /* keeps the halo below the icon, above the row */
   flex-shrink: 0;
   width: 2.25rem;
   height: 2.25rem;
+}
+
+/* A soft halo of the subject's own colour under its icon (the colour comes
+   from the icon itself, see SubjectIcon: --subject-glow on this row). */
+.subjectIcon::after {
+  content: '';
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -30%;
+  height: 55%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--subject-glow, transparent) 55%, transparent),
+    transparent
+  );
+  opacity: 0.55;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .subjectRow:hover .subjectIcon::after {
+    opacity: 0.95;
+  }
 }
 
 .subjectName {
@@ -154,64 +187,30 @@
   margin-bottom: var(--space-6);
 }
 
-.recommendGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.recommendEmpty {
+  display: flex;
+  align-items: center;
   gap: var(--space-4);
   margin-top: var(--space-4);
-}
-
-.recommendItem {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
+  padding: var(--space-5);
   border-radius: var(--radius-card);
   background: var(--color-bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
 }
 
-.recommendIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.recommendEmpty p {
+  margin: 0;
+}
+
+.recommendEmptyIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: var(--radius-card);
-  color: #fff;
-}
-
-.recommendBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.recommendBadge {
-  display: inline-block;
-  width: fit-content;
-  padding: 0.125rem var(--space-2);
-  border-radius: 999px;
-  background: var(--color-bg-surface);
-  font-size: 0.6875rem;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-}
-
-.recommendArrow {
-  position: absolute;
-  right: var(--space-3);
-  bottom: var(--space-3);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  border: none;
-  background: var(--color-bg-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
+  border-radius: var(--radius-input);
+  color: var(--color-accent-secondary);
+  background: color-mix(in srgb, var(--color-accent-secondary) 14%, transparent);
 }
 
 @media (max-width: 1180px) {
@@ -229,9 +228,5 @@
 
   .subjectsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .recommendGrid {
-    grid-template-columns: 1fr;
   }
 }

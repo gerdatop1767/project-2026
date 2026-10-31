@@ -1,24 +1,9 @@
+import { normalizeBotToken } from '@zybrilka/shared';
 import { z } from 'zod';
 
-/**
- * A bot token pasted from BotFather, a Bot API URL or an `.env` file often
- * drags along whitespace, a trailing newline, wrapping quotes or the `bot`
- * prefix of `https://api.telegram.org/bot<token>/…`. None of that is part of
- * the token, and any of it makes every signature check fail with no hint why
- * — so it is removed. Returns `undefined` for an effectively empty value.
- */
-export function normalizeBotToken(raw: string): string | undefined {
-  let token = raw.trim();
-  if (
-    token.length >= 2 &&
-    ((token.startsWith('"') && token.endsWith('"')) ||
-      (token.startsWith("'") && token.endsWith("'")))
-  ) {
-    token = token.slice(1, -1).trim();
-  }
-  token = token.replace(/^bot(?=\d+:)/i, '');
-  return token === '' ? undefined : token;
-}
+// Shared with the worker (which sends the bot's messages) — see
+// @zybrilka/shared telegramBot.ts.
+export { normalizeBotToken };
 
 const configSchema = z
   .object({
@@ -28,18 +13,8 @@ const configSchema = z
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     DATABASE_URL: z.url().optional(),
     APP_VERSION: z.string().default('dev'),
-    // Where the web app is served — used to build the magic-link URL
-    // emailed to the user and the post-login VK OAuth redirect target.
+    // Where the web app is served — the post-login OAuth redirect target.
     WEB_BASE_URL: z.url().default('http://localhost:5173'),
-    // Email (magic-link sign-in). All optional — when unset,
-    // `requestMagicLink` fails with a clear 'email_not_configured'
-    // error instead of silently pretending to send anything (see
-    // modules/auth/email.ts).
-    SMTP_HOST: z.string().optional(),
-    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
-    SMTP_USER: z.string().optional(),
-    SMTP_PASSWORD: z.string().optional(),
-    SMTP_FROM: z.string().default('Zybrilka <no-reply@zybrilka.ru>'),
     // VK ID OAuth. All optional — when unset, the VK routes answer
     // 'vk_not_configured' instead of a broken redirect (see
     // modules/auth/vk.ts). VK_CLIENT_SECRET is server-only, never sent
@@ -47,6 +22,13 @@ const configSchema = z
     VK_CLIENT_ID: z.string().optional(),
     VK_CLIENT_SECRET: z.string().optional(),
     VK_REDIRECT_URI: z.url().optional(),
+    // Yandex ID OAuth (docs/YANDEX_ID.md). All optional — when unset, the
+    // «Войти через Яндекс» routes send the browser back with
+    // `yandex=not_configured` instead of a broken redirect.
+    // YANDEX_CLIENT_SECRET is server-only, never sent to the client or logged.
+    YANDEX_CLIENT_ID: z.string().optional(),
+    YANDEX_CLIENT_SECRET: z.string().optional(),
+    YANDEX_REDIRECT_URI: z.url().optional(),
     // Telegram Mini App sign-in. The bot token is the HMAC key that proves
     // `initData` really came from Telegram — server-only, never sent to the
     // client. Unset => POST /auth/telegram answers 503 `telegram_not_configured`.
@@ -57,6 +39,23 @@ const configSchema = z
     // profile lookup) so a stalled VK endpoint can't leave the OAuth
     // callback hanging. Not an env the deploy has to set.
     VK_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(100).max(30000).default(5000),
+    // Same, for each call to Yandex ID (token exchange, user info).
+    YANDEX_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(100).max(30000).default(5000),
+    // Owner-only admin panel (docs/ADMIN.md). Comma-separated ids of EXISTING
+    // `users` rows that may open /api/v1/admin/*. Unset/empty = nobody is an
+    // admin (the safe default). Set only on the server (env / secret store),
+    // never derived from anything a client sends; a malformed id fails startup
+    // instead of being silently ignored.
+    ADMIN_OWNER_USER_IDS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((id) => id.trim().toLowerCase())
+          .filter((id) => id !== ''),
+      )
+      .pipe(z.array(z.uuid()).max(5)),
   })
   .refine((c) => c.NODE_ENV !== 'production' || c.DATABASE_URL, {
     message: 'DATABASE_URL is required in production',
@@ -72,7 +71,7 @@ export type Config = z.infer<typeof configSchema>;
  * key) for an unset variable, and a `z.url()`/`z.coerce.number()`
  * field would otherwise reject that empty string as invalid input
  * instead of falling back to its default (e.g. `WEB_BASE_URL` or
- * `SMTP_PORT`), crashing the whole app at startup over an *optional*
+ * `VK_REQUEST_TIMEOUT_MS`), crashing the whole app at startup over an *optional*
  * feature simply not being configured yet. */
 function stripEmptyStrings(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const result: NodeJS.ProcessEnv = {};

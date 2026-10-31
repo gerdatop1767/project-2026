@@ -1,9 +1,9 @@
 /*
- * Odometer digits. Each digit column is one line tall and clips a vertical
- * strip "0…9 0…9" drawn by `::before`; `--pos` (0–19) picks the line, and
- * the strip moves by transform only. A hidden `::after` copy of the final
- * digit gives the column its real width and baseline, so the number lines up
- * with the text around it exactly like plain text would.
+ * Count-up. The final value (`.sizer`, invisible) and the counting figure
+ * (`.figure`) share one grid cell, so the box is the final width from the
+ * first frame; tabular figures keep each digit the same width while it
+ * counts. Both are drawn by `::before` from a data attribute, so the
+ * element's text content is only the hidden final value.
  */
 
 .root {
@@ -24,49 +24,20 @@
 }
 
 .visual {
-  display: inline-block;
+  display: inline-grid;
 }
 
-.char {
+.sizer,
+.figure {
+  grid-area: 1 / 1;
   white-space: pre;
 }
 
-.char::before {
-  content: attr(data-char);
+.sizer::before,
+.figure::before {
+  content: attr(data-text);
 }
 
-.digit {
-  position: relative;
-  display: inline-block;
-  /* Clip to one line; a little room left/right for glyph overhang. */
-  clip-path: inset(0 -0.2em);
-}
-
-.digit::after {
-  content: attr(data-digit);
+.sizer {
   visibility: hidden;
-}
-
-.digit::before {
-  content: '0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  text-align: center;
-  white-space: pre;
-  /* 20 lines in the strip: one line = 5% of its height. */
-  transform: translateY(calc(var(--pos, 0) * -5%));
-  /* Fast spin, long soft settle; columns ripple in from the left. */
-  transition: transform 1150ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--col, 0) * 70ms);
-}
-
-.root[data-instant] .digit::before {
-  transition: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .digit::before {
-    transition: none;
-  }
 }

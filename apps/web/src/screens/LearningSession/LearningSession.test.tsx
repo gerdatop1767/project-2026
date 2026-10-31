@@ -9,9 +9,11 @@ import {
   useLearningSessionContext,
 } from '../../lib/learningSessionContext.js';
 import * as api from '../../lib/api.js';
+import { attemptDetail } from '../VariantAttempt/fixtures.js';
 
 vi.mock('../../lib/api.js', () => ({
   getLearningSession: vi.fn(),
+  getVariantAttempt: vi.fn(),
 }));
 
 const TASK = {
@@ -134,7 +136,7 @@ describe('LearningSession — refresh/direct-link recovery (Phase 10)', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('none');
   });
 
-  it('shows the Variant Completion heading and planned/solved count for a variant session, never the Smart Training heading', async () => {
+  it('a finished variant session shows that attempt’s detailed result, never the Smart Training summary', async () => {
     vi.mocked(api.getLearningSession).mockResolvedValue({
       sessionId: 'session-variant',
       subject: 'math',
@@ -151,17 +153,18 @@ describe('LearningSession — refresh/direct-link recovery (Phase 10)', () => {
       },
       variant: { variantId: 'v1', variantNumber: 1, variantTitle: 'Вариант 1' },
     });
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({ sessionId: 'session-variant' }),
+    );
     renderLearningSession('session-variant');
 
-    expect(await screen.findByText('Вариант 1 завершён')).toBeInTheDocument();
+    // A finished variant shows this attempt's full result.
+    expect(await screen.findByRole('heading', { name: 'Вариант 1' })).toBeInTheDocument();
+    expect(api.getVariantAttempt).toHaveBeenCalledWith('session-variant');
+    expect(screen.getByText('из 4 верно')).toBeInTheDocument();
     expect(screen.queryByText('Тренировка завершена')).not.toBeInTheDocument();
-    expect(screen.getByText('19 / 19')).toBeInTheDocument();
-    expect(screen.getByText('17')).toBeInTheDocument();
-    expect(screen.getByText('89%')).toBeInTheDocument();
-    // Variant completion shows only real attempt-based stats — never
-    // the Smart Training-only "Навыков затронуто"/"Новых ошибок" rows.
     expect(screen.queryByText('Навыков затронуто')).not.toBeInTheDocument();
-    expect(screen.queryByText('Новых ошибок')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Вернуться к тренировкам' })).toBeInTheDocument();
   });
 
   it('skips the extra fetch and redirects immediately when the context already holds this exact active session', async () => {

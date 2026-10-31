@@ -1,4 +1,8 @@
+import { sql } from 'drizzle-orm';
+import type { VariantScoringSnapshot } from '@zybrilka/shared';
 import {
+  type AnyPgColumn,
+  bigint,
   boolean,
   customType,
   date,
@@ -6,6 +10,8 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
+  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -29,7 +35,7 @@ export const appSettings = pgTable('app_settings', {
  * later (`auth_identities` etc.), added when S3 actually lands.
  */
 /** Providers that can supply a display profile (email carries none). */
-export const profileSources = ['vk', 'telegram'] as const;
+export const profileSources = ['vk', 'telegram', 'yandex'] as const;
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -60,7 +66,7 @@ export const users = pgTable('users', {
   profileSource: text('profile_source', { enum: profileSources }),
 });
 
-export const authProviders = ['email', 'vk', 'telegram'] as const;
+export const authProviders = ['email', 'vk', 'telegram', 'yandex'] as const;
 
 /**
  * Identity an authenticated user signs in with — email (magic link) or
@@ -93,13 +99,16 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 });
 
 /** Where a locally stored avatar image came from. */
-export const avatarSources = ['user', 'telegram'] as const;
+export const avatarSources = ['user', 'telegram', 'vk', 'yandex'] as const;
 
 /**
  * Locally stored avatar images — at most one per (user, source): an image
- * the user uploaded themselves (`user`, always wins) and one downloaded
- * through the Telegram bot as a fallback when Mini App data carried no
- * photo URL (`telegram`). Bytes live in Postgres on purpose: avatars are
+ * the user uploaded themselves (`user`, always wins), and local copies of
+ * the provider photo: `telegram` (from the Mini App photo URL, or through
+ * the bot when the launch data carried none), `vk` and `yandex` — copied at sign-in (or,
+ * for an account that has only the provider URL, when the rating needs it)
+ * so the picture is served from our own domain instead of the provider's
+ * CDN on every view (apps/api profile/providerAvatar.ts). Bytes live in Postgres on purpose: avatars are
  * small (the API caps uploads at 1 MiB), the stack has no object storage,
  * and a single database keeps backup/restore one step. Only the owner can
  * read them (apps/api serves them behind the session check).
@@ -126,20 +135,57 @@ export const userAvatars = pgTable(
 );
 
 /**
- * One-time magic-link sign-in tokens. Never stores the raw token —
+ * One-time emailed-link tokens (sign-in, registration, password reset).
+ * Never stores the raw token —
  * only its SHA-256 hash (service layer), so a leaked DB row alone
  * can't be replayed as a valid link. `email` is lowercased/trimmed
  * before insert. A token is single-use (`consumedAt` set on first
  * successful verify) and short-lived (`expiresAt`, enforced
  * server-side on verify, not just by the email client).
  */
-export const magicLinkTokens = pgTable('magic_link_tokens', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull(),
-  tokenHash: text('token_hash').notNull().unique(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+export const emailTokenPurposes = ['sign_in', 'register', 'reset_password'] as const;
+
+export const magicLinkTokens = pgTable(
+  'magic_link_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * What the emailed link does (docs/EMAIL_AUTH.md): `sign_in` — the
+     * original passwordless link; `register` — confirms a new email+password
+     * account (the account is created only when it is opened); `reset_password`
+     * — sets a new password. A token is only ever accepted for its own
+     * purpose. Existing rows are `sign_in` (column default).
+     */
+    purpose: text('purpose', { enum: emailTokenPurposes }).notNull().default('sign_in'),
+    /** `register` only: the scrypt hash of the chosen password, held until
+     * the address is confirmed. Never the password itself. */
+    passwordHash: text('password_hash'),
+    /** `reset_password` only: the account whose password it resets. */
+    userId: uuid('user_id').references(() => users.id),
+  },
+  (table) => [index('magic_link_tokens_email_purpose_idx').on(table.email, table.purpose)],
+);
+
+/**
+ * Password sign-in for an email account. The address itself lives in
+ * `auth_identities` (provider 'email') — one place, so one email can never
+ * belong to two accounts; this row only adds a password to that account.
+ * Created when a registration is confirmed or a password is set through a
+ * reset link (both prove the mailbox). `passwordHash` is a self-describing
+ * scrypt string (apps/api auth/password.ts), never the password.
+ */
+export const emailCredentials = pgTable('email_credentials', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id),
+  passwordHash: text('password_hash').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /**
@@ -154,6 +200,31 @@ export const authSessions = pgTable('auth_sessions', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One-time sign-in handoff from an external browser to the Telegram Mini
+ * App (VK ID can't run inside Telegram's WebView, and the WebView does
+ * not share cookies with Safari/Chrome). The Mini App creates a row and
+ * keeps the claim secret in its own httpOnly cookie; the external browser
+ * only gets a separate start token for /auth/vk/start. The VK callback
+ * marks the row `completed` with the signed-in user; the Mini App then
+ * claims it ONCE (atomic `completed → consumed`) and gets its own
+ * session. Only SHA-256 hashes of both tokens are stored; rows live
+ * 10 minutes. A start token alone can never yield a session — only the
+ * holder of the claim cookie (the Mini App that started it) can.
+ *
+ * status: pending → started (browser opened VK) → completed | cancelled
+ * | failed → consumed (claimed by the Mini App).
+ */
+export const authHandoffs = pgTable('auth_handoffs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  claimTokenHash: text('claim_token_hash').notNull().unique(),
+  startTokenHash: text('start_token_hash').notNull().unique(),
+  status: text('status').notNull().default('pending'),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -335,6 +406,20 @@ export const tasks = pgTable(
      * `conditionMd` back against what the document actually said.
      */
     rawStatement: text('raw_statement'),
+    /**
+     * The task's number exactly as the source prints it, when the import
+     * stores it under another `taskNumber`. Null: the same as `taskNumber`.
+     * Numbers are never rewritten to match another edition.
+     */
+    sourceTaskNumber: integer('source_task_number'),
+    /**
+     * The task's maximum primary score in its exam format (e.g. 1 for
+     * ЕГЭ-2027 profile math 1–13, 4 for №19–20), when known. Informational
+     * — a variant attempt scores from its own snapshot of the rules.
+     */
+    maxPrimaryScore: integer('max_primary_score'),
+    /** Why a task is `needs_review` (or what was checked), for reviewers. */
+    reviewNote: text('review_note'),
     /** Dedup fingerprint: hash(subjectId + taskNumber + normalized statement). */
     contentHash: text('content_hash'),
     tags: jsonb('tags').$type<readonly string[]>().notNull().default([]),
@@ -374,6 +459,22 @@ export const collections = pgTable(
     year: integer('year'),
     description: text('description'),
     status: text('status', { enum: contentStatuses }).notNull().default('published'),
+    /**
+     * Whether this source's tasks belong to the subject's default pool —
+     * «Все источники»: random/by-number/smart training, similar tasks,
+     * per-number statistics. False for an edition whose numbering is not
+     * the current exam's (ЕГЭ 2027 renumbered profile math): its tasks are
+     * reachable only when this collection is chosen explicitly, so a 2027
+     * «№13» never mixes with a 2026 «№13» (docs/imports/
+     * ege-2027-yashchenko-v1-v2-report.md).
+     */
+    inAllSources: boolean('in_all_sources').notNull().default(true),
+    /**
+     * The exam format its variants follow — the key of the primary-score
+     * rules (`@zybrilka/shared` examScoring), e.g. `ege-math-profile-2027`.
+     * Null: no scoring rules (a variant result shows no primary points).
+     */
+    examFormat: text('exam_format'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -445,15 +546,35 @@ export const attempts = pgTable(
     answerRaw: text('answer_raw').notNull(),
     isCorrect: boolean('is_correct').notNull(),
     timeSpentMs: integer('time_spent_ms'),
+    /**
+     * The learning session (a variant attempt or a smart training) this
+     * answer was given in — set by the server only when that session is
+     * the answering user's own, still active, and served this task. What
+     * makes per-attempt statistics exact: two attempts of one variant
+     * never share answers. Null for answers outside a session and for
+     * everything recorded before migration 0033.
+     */
+    learningSessionId: uuid('learning_session_id').references(
+      (): AnyPgColumn => learningSessions.id,
+    ),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('attempts_user_task_idx').on(table.userId, table.taskId),
+    index('attempts_learning_session_idx').on(table.learningSessionId),
     index('attempts_task_idx').on(table.taskId),
+    // Admin period aggregates (solves per day, DAU) scan by time.
+    index('attempts_created_idx').on(table.createdAt),
   ],
 );
 
-export const mistakeStatuses = ['open', 'resolved'] as const;
+/**
+ * `dismissed`: the user removed it from «Мои ошибки» by hand. The row and
+ * its history (timesWrong, attempts) stay; it is only hidden from the
+ * list and from mistake-driven training. A later wrong answer on the
+ * same task reopens it (`open`), exactly like a resolved one.
+ */
+export const mistakeStatuses = ['open', 'resolved', 'dismissed'] as const;
 
 /**
  * One row per (user, task) ever answered wrong — never deleted, only
@@ -822,6 +943,14 @@ export const learningSessions = pgTable(
      * own, not a recommendation) instead of Smart Training's scored
      * selection. Null for every Smart Training session. */
     plannedTaskIds: jsonb('planned_task_ids').$type<readonly string[]>(),
+    /**
+     * A variant session's scoring rules, copied when it starts (which
+     * format, rules version, each planned task's maximum and how it is
+     * scored, the conversion scale if any) — so a later change of the
+     * rules or the scale never rewrites an attempt already taken. Null:
+     * a Smart Training session, or a variant without scoring rules.
+     */
+    scoring: jsonb('scoring').$type<VariantScoringSnapshot>(),
     status: text('status', { enum: learningSessionStatuses }).notNull().default('active'),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     /** Set once, the moment `status` flips to 'completed'. */
@@ -869,5 +998,744 @@ export const userDailyActivity = pgTable(
   },
   (table) => [
     uniqueIndex('user_daily_activity_user_date_idx').on(table.userId, table.activityDate),
+  ],
+);
+
+/**
+ * Admin analytics (docs/ADMIN.md). A VISITOR is one browser (or one
+ * Telegram WebView) identified by a random id in the first-party httpOnly
+ * `zv` cookie — not a person and not personal data: no IP, no user agent,
+ * no fingerprint. It is what makes guests countable at all (a guest has
+ * no `users` row and must never get one). `userId` is set when a signed-in
+ * account is seen with this cookie (the latest one wins); `campaignId` is
+ * the first campaign link this browser arrived through (first touch), with
+ * its time so attribution can apply a window.
+ */
+export const analyticsVisitors = pgTable(
+  'analytics_visitors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    /** 'web' | 'telegram' — where this cookie jar lives (as first reported). */
+    client: text('client'),
+    campaignId: uuid('campaign_id').references(() => campaigns.id),
+    campaignTouchedAt: timestamp('campaign_touched_at', { withTimezone: true }),
+    userId: uuid('user_id').references(() => users.id),
+  },
+  (table) => [
+    index('analytics_visitors_created_idx').on(table.createdAt),
+    index('analytics_visitors_campaign_idx').on(table.campaignId),
+    index('analytics_visitors_user_idx').on(table.userId),
+  ],
+);
+
+/**
+ * Product events, append-only. Only what the metrics need: type, time,
+ * who (visitor and/or user), what (subject/task/campaign) and a few small
+ * attributes in `props` (e.g. `{ correct: true }`). Never an entered
+ * answer, an IP, a URL query string or a secret. `dedupKey` makes
+ * recording idempotent: a client event carries its own random id, a
+ * server event a natural key (e.g. the attempt id), so a retry can never
+ * count twice.
+ */
+export const analyticsEvents = pgTable(
+  'analytics_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: text('type').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+    visitorId: uuid('visitor_id'),
+    userId: uuid('user_id').references(() => users.id),
+    subjectId: text('subject_id'),
+    taskId: uuid('task_id'),
+    campaignId: uuid('campaign_id'),
+    props: jsonb('props').$type<Record<string, string | number | boolean>>(),
+    dedupKey: text('dedup_key').unique(),
+  },
+  (table) => [
+    index('analytics_events_type_time_idx').on(table.type, table.occurredAt),
+    index('analytics_events_visitor_idx').on(table.visitorId, table.occurredAt),
+    index('analytics_events_user_idx').on(table.userId, table.occurredAt),
+    index('analytics_events_campaign_idx').on(table.campaignId, table.occurredAt),
+  ],
+);
+
+export const campaignStatuses = ['active', 'disabled', 'archived'] as const;
+
+/**
+ * A tracked link (docs/ADMIN.md §Кампании). The public link is
+ * `/api/v1/go/<slug>`; it records a click and redirects to `targetPath`,
+ * which is always a path inside this site (validated against an allow
+ * list on write and resolved against WEB_BASE_URL on redirect — never an
+ * arbitrary URL, so the link can't be an open redirect).
+ */
+export const campaigns = pgTable(
+  'campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    source: text('source').notNull(),
+    channel: text('channel').notNull(),
+    creative: text('creative'),
+    targetPath: text('target_path').notNull().default('/'),
+    status: text('status', { enum: campaignStatuses }).notNull().default('active'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('campaigns_slug_idx').on(table.slug)],
+);
+
+/**
+ * How an account came to be: written once, at registration, from the
+ * visitor cookie of the request that created it. `campaignId` only when
+ * that visitor arrived through a campaign link within the attribution
+ * window — otherwise null ("неизвестный/прямой источник"), never guessed.
+ */
+export const userAttributions = pgTable(
+  'user_attributions',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    visitorId: uuid('visitor_id'),
+    campaignId: uuid('campaign_id').references(() => campaigns.id),
+    method: text('method').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('user_attributions_campaign_idx').on(table.campaignId)],
+);
+
+/**
+ * Complaint categories. A plain `text` column (no DB enum/CHECK), so this
+ * list can grow without a migration. `typo` is legacy: no longer offered in
+ * the form, but kept so older complaints still read correctly. The form's
+ * own list and labels live in @zybrilka/shared (complaints.ts).
+ */
+export const complaintReasons = [
+  'wrong_answer',
+  'condition_error',
+  'typo',
+  'bad_explanation',
+  'display_problem',
+  'answer_check',
+  'wrong_topic',
+  'duplicate',
+  'other',
+] as const;
+export const complaintStatuses = ['new', 'in_progress', 'fixed', 'rejected'] as const;
+
+/** Where in the app a complaint was sent from (validated, small). */
+export interface ComplaintContext {
+  screen: string;
+  path?: string;
+  variantId?: string;
+}
+
+/**
+ * What a task looked like when someone complained about it: condition,
+ * answer and explanation as they were, so a complaint stays readable after
+ * the task is edited. One row per task VERSION (`task_updated_at`), shared
+ * by every complaint about that version — the big fields are never copied
+ * into each complaint.
+ */
+export const taskSnapshots = pgTable(
+  'task_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    taskUpdatedAt: timestamp('task_updated_at', { withTimezone: true }).notNull(),
+    content: jsonb('content')
+      .$type<{
+        conditionMd: string;
+        imageUrl: string | null;
+        answerOptions: readonly string[] | null;
+        correctAnswer: string;
+        correctAnswerDisplay: string | null;
+        explanationMd: string;
+        topicId: string | null;
+        contentHash: string | null;
+      }>()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('task_snapshots_task_version_idx').on(table.taskId, table.taskUpdatedAt)],
+);
+
+/** «Пожаловаться на задание» — one row per submitted complaint. */
+export const taskComplaints = pgTable(
+  'task_complaints',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Human-readable number, shown as `RPT-<n>`. */
+    reportNumber: serial('report_number').notNull(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    reason: text('reason', { enum: complaintReasons }).notNull(),
+    comment: text('comment'),
+    status: text('status', { enum: complaintStatuses }).notNull().default('new'),
+    /** Visible to admins only. */
+    internalComment: text('internal_comment'),
+    /** Screen/path the complaint was sent from; null for older complaints. */
+    context: jsonb('context').$type<ComplaintContext>(),
+    /** The task as it was when reported; null for older complaints. */
+    snapshotId: uuid('snapshot_id').references(() => taskSnapshots.id),
+    /** Marked by an admin as a duplicate of this earlier complaint. */
+    duplicateOfId: uuid('duplicate_of_id').references((): AnyPgColumn => taskComplaints.id),
+    /** The admin who last changed the status. */
+    handledByUserId: uuid('handled_by_user_id').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('task_complaints_report_number_idx').on(table.reportNumber),
+    index('task_complaints_created_idx').on(table.createdAt),
+    index('task_complaints_status_created_idx').on(table.status, table.createdAt),
+    index('task_complaints_task_idx').on(table.taskId),
+    index('task_complaints_user_idx').on(table.userId),
+  ],
+);
+
+/**
+ * Every admin action (and every refused attempt to reach the admin API by
+ * a signed-in non-admin). Append-only: the migration installs a trigger
+ * that rejects UPDATE and DELETE, so not even the API can rewrite it.
+ * `details` holds safe, small context (old → new status etc.), never a
+ * secret, token or full personal record.
+ */
+export const adminAuditLog = pgTable(
+  'admin_audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    action: text('action').notNull(),
+    objectType: text('object_type'),
+    objectId: text('object_id'),
+    result: text('result').notNull(),
+    details: jsonb('details').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('admin_audit_log_created_idx').on(table.createdAt),
+    index('admin_audit_log_object_idx').on(table.objectType, table.objectId),
+  ],
+);
+
+/**
+ * Private chats that started the Telegram bot (/start). The only audience a
+ * bot may write to on its own: Telegram refuses to message someone who
+ * never started it, and broadcasts go to these rows only. `userId` links the
+ * chat to an account when that Telegram user has signed in (auth_identities
+ * provider 'telegram'); the bot never creates accounts itself. No username
+ * or name is stored. `blockedAt` is set when Telegram says the user blocked
+ * the bot (403) and cleared by their next /start.
+ */
+export const telegramBotChats = pgTable(
+  'telegram_bot_chats',
+  {
+    chatId: bigint('chat_id', { mode: 'number' }).primaryKey(),
+    userId: uuid('user_id').references(() => users.id),
+    startCount: integer('start_count').notNull().default(1),
+    firstStartedAt: timestamp('first_started_at', { withTimezone: true }).notNull().defaultNow(),
+    lastStartedAt: timestamp('last_started_at', { withTimezone: true }).notNull().defaultNow(),
+    blockedAt: timestamp('blocked_at', { withTimezone: true }),
+    /** «💬 Поддержка» was pressed: the next plain message (within a day)
+     * opens a support thread instead of getting the default reply. */
+    supportRequestedAt: timestamp('support_requested_at', { withTimezone: true }),
+  },
+  (table) => [index('telegram_bot_chats_user_idx').on(table.userId)],
+);
+
+export const outboxStatuses = ['pending', 'sending', 'sent', 'skipped', 'failed'] as const;
+
+/**
+ * Owner notifications waiting for the worker to send them to Telegram
+ * (docs/TELEGRAM_BOT.md). The API only inserts a row — never talks to
+ * Telegram inside a request — so a Telegram outage can't break a sign-up or
+ * a complaint. `dedupKey` makes an event notify at most once (e.g.
+ * `registration:<userId>`). `payload` holds ids and short texts only.
+ */
+export const telegramOutbox = pgTable(
+  'telegram_outbox',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    dedupKey: text('dedup_key'),
+    status: text('status', { enum: outboxStatuses }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Short failure code (e.g. `network`, `no_recipients`) — never message text. */
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('telegram_outbox_dedup_idx').on(table.dedupKey),
+    index('telegram_outbox_status_next_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
+export const broadcastStatuses = [
+  'draft',
+  'awaiting_confirmation',
+  'sending',
+  'completed',
+  'completed_with_errors',
+  'cancelled',
+] as const;
+/** One image with the text as its caption, or images then the text separately. */
+export const broadcastMediaModes = ['caption', 'separate'] as const;
+export const broadcastTestStatuses = ['pending', 'sent', 'failed', 'no_recipients'] as const;
+
+/**
+ * A message to every Telegram chat that started the bot (docs/TELEGRAM_BOT.md).
+ * Created and confirmed in the admin panel; sent by the worker only after
+ * the explicit confirmation (`awaiting_confirmation` → `sending` is one
+ * conditional update, so it can't be started twice). Counters are kept here
+ * so history needs no per-recipient scan.
+ */
+export const broadcasts = pgTable(
+  'broadcasts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    authorUserId: uuid('author_user_id')
+      .notNull()
+      .references(() => users.id),
+    status: text('status', { enum: broadcastStatuses }).notNull().default('draft'),
+    /** Telegram HTML subset (validated by @zybrilka/shared telegramHtml). */
+    text: text('text').notNull().default(''),
+    mediaMode: text('media_mode', { enum: broadcastMediaModes }).notNull().default('caption'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    confirmedByUserId: uuid('confirmed_by_user_id').references(() => users.id),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** Snapshot taken when sending starts; null before. */
+    recipientsTotal: integer('recipients_total'),
+    sentCount: integer('sent_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    blockedCount: integer('blocked_count').notNull().default(0),
+    /** «Отправить себе»: requested → the worker sends the content to the owners. */
+    testRequestedAt: timestamp('test_requested_at', { withTimezone: true }),
+    testStatus: text('test_status', { enum: broadcastTestStatuses }),
+  },
+  (table) => [index('broadcasts_status_created_idx').on(table.status, table.createdAt)],
+);
+
+/** Images of a broadcast, in the order they were added (`position`). */
+export const broadcastAttachments = pgTable(
+  'broadcast_attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    broadcastId: uuid('broadcast_id')
+      .notNull()
+      .references(() => broadcasts.id),
+    position: integer('position').notNull(),
+    contentType: text('content_type').notNull(),
+    data: bytea('data').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    /** Telegram's id after the first upload; reused for every other recipient. */
+    telegramFileId: text('telegram_file_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('broadcast_attachments_position_idx').on(table.broadcastId, table.position),
+  ],
+);
+
+export const broadcastDeliveryStatuses = [
+  'pending',
+  'in_flight',
+  'sent',
+  'failed',
+  'blocked',
+] as const;
+
+/**
+ * One row per (broadcast, chat), created in one INSERT … SELECT when sending
+ * starts — the audience is never loaded into memory. The primary key makes a
+ * chat get a broadcast at most once; `in_flight` rows found after a restart
+ * are closed as failed (`interrupted`), never sent again. Only the chat id
+ * and a short error code are kept — no names, no message text.
+ */
+export const broadcastDeliveries = pgTable(
+  'broadcast_deliveries',
+  {
+    broadcastId: uuid('broadcast_id')
+      .notNull()
+      .references(() => broadcasts.id),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    status: text('status', { enum: broadcastDeliveryStatuses }).notNull().default('pending'),
+    errorCode: text('error_code'),
+    /** The underlying error code (ECONNRESET, TIMEOUT, HTTP_502…) — never text. */
+    errorDetail: text('error_detail'),
+    /** Send passes made for this chat (a network outage puts it back in the queue). */
+    attempts: integer('attempts').notNull().default(0),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.broadcastId, table.chatId] }),
+    index('broadcast_deliveries_status_idx').on(table.broadcastId, table.status),
+  ],
+);
+
+/** What an XP event was for — mirrors `xpEventKinds` in @zybrilka/shared. */
+export const xpEventKinds = ['task_first_solve', 'task_review'] as const;
+
+/**
+ * XP ledger (docs/XP.md): one row per award, never updated or deleted.
+ * `dedupKey` names the result being rewarded (`task:<id>:first`,
+ * `task:<id>:review:<YYYY-MM-DD>`), and the unique (userId, dedupKey)
+ * index is what makes an award idempotent: a replayed or concurrent
+ * request for the same result inserts nothing. Written in the same
+ * transaction as the attempt that earned it and as `user_xp`, so the
+ * ledger and the total can never diverge.
+ */
+export const xpEvents = pgTable(
+  'xp_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    amount: integer('amount').notNull(),
+    kind: text('kind', { enum: xpEventKinds }).notNull(),
+    /** What kind of thing earned it ('task' for now). */
+    sourceType: text('source_type').notNull(),
+    sourceId: uuid('source_id'),
+    /** The graded attempt behind it; null for awards rebuilt from history. */
+    attemptId: uuid('attempt_id').references(() => attempts.id),
+    dedupKey: text('dedup_key').notNull(),
+    /** The rule inputs at award time (difficulty, rule version…). */
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('xp_events_user_dedup_idx').on(table.userId, table.dedupKey),
+    index('xp_events_user_created_idx').on(table.userId, table.createdAt),
+    index('xp_events_user_source_idx').on(table.userId, table.sourceId),
+    index('xp_events_created_idx').on(table.createdAt),
+  ],
+);
+
+/**
+ * Running XP total per user — always the sum of that user's `xp_events`
+ * (updated in the same transaction as each insert). The level is never
+ * stored: it is derived from `totalXp` by `levelForXp` in @zybrilka/shared.
+ * `historyImportedAt` marks that correct answers given before XP existed
+ * have been turned into events (done once, lazily — see apps/api xp/service.ts).
+ * Indexed by `totalXp` for a future rating.
+ */
+export const userXp = pgTable(
+  'user_xp',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    totalXp: integer('total_xp').notNull().default(0),
+    historyImportedAt: timestamp('history_imported_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('user_xp_total_idx').on(table.totalXp)],
+);
+
+/**
+ * Daily Telegram reminders (docs/REMINDERS.md). One row per account that
+ * ever opened the settings; `enabled` is the switch. The time is local to
+ * `timezone` (IANA), stored as minutes after midnight.
+ */
+export const reminderSettings = pgTable(
+  'reminder_settings',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    enabled: boolean('enabled').notNull().default(false),
+    minuteOfDay: integer('minute_of_day').notNull().default(1140),
+    timezone: text('timezone').notNull().default('Europe/Moscow'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('reminder_settings_enabled_idx').on(table.enabled)],
+);
+
+export const reminderDeliveryStatuses = [
+  'sending',
+  'sent',
+  'retry',
+  'failed',
+  'unreachable',
+  'uncertain',
+] as const;
+
+/**
+ * At most one reminder per account per local day: the worker claims the
+ * (user, local date) row BEFORE sending — a second worker, a restart or a
+ * repeated run finds the row and sends nothing. `uncertain` = Telegram may
+ * have shown it (timeout after sending): never sent again.
+ */
+export const reminderDeliveries = pgTable(
+  'reminder_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    localDate: date('local_date', { mode: 'string' }).notNull(),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    status: text('status', { enum: reminderDeliveryStatuses }).notNull().default('sending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    /** Short failure code (`network`, `rate_limited`…) — never message text. */
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('reminder_deliveries_user_date_idx').on(table.userId, table.localDate),
+    index('reminder_deliveries_status_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
+/**
+ * One-time links that attach a Telegram account to a site account through
+ * the bot (`t.me/<bot>?start=link_<token>`). Only the SHA-256 of the token
+ * is stored; a token lives a few minutes and is finished (`consumedAt`) by
+ * a confirmation, a refusal or a newer link. Linking needs BOTH sides: the
+ * Telegram user confirms in the bot (that records `claimed*`), then the
+ * account owner confirms on the site — a leaked link alone links nothing.
+ */
+export const telegramLinkTokens = pgTable(
+  'telegram_link_tokens',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    /** The Telegram user who confirmed in the bot (step 1 of 2). */
+    claimedTelegramId: bigint('claimed_telegram_id', { mode: 'number' }),
+    /** Their Telegram name, shown to the account owner for step 2. */
+    claimedName: text('claimed_name'),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('telegram_link_tokens_user_idx').on(table.userId)],
+);
+
+export const supportThreadStatuses = ['open', 'closed'] as const;
+
+/**
+ * Support conversations through the bot (docs/SUPPORT.md): one per Telegram
+ * private chat at a time (`open`); a closed one stays as history and a new
+ * message opens a new thread. `adminReadAt` older than `lastUserMessageAt`
+ * = unread for the admin panel.
+ */
+export const supportThreads = pgTable(
+  'support_threads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    userId: uuid('user_id').references(() => users.id),
+    status: text('status', { enum: supportThreadStatuses }).notNull().default('open'),
+    openedBy: text('opened_by', { enum: ['user', 'admin'] })
+      .notNull()
+      .default('user'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastMessageAt: timestamp('last_message_at', { withTimezone: true }).notNull().defaultNow(),
+    lastUserMessageAt: timestamp('last_user_message_at', { withTimezone: true }),
+    adminReadAt: timestamp('admin_read_at', { withTimezone: true }),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('support_threads_open_chat_idx')
+      .on(table.chatId)
+      .where(sql`${table.status} = 'open'`),
+    index('support_threads_status_last_idx').on(table.status, table.lastMessageAt),
+    index('support_threads_user_idx').on(table.userId),
+  ],
+);
+
+export interface SupportAttachment {
+  kind: 'photo' | 'document';
+  /** Telegram file_id — the file itself stays on Telegram's servers. */
+  fileId: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+}
+
+export const supportDeliveryStatuses = [
+  'pending',
+  'sending',
+  'sent',
+  'failed',
+  'uncertain',
+] as const;
+
+/**
+ * Messages of a support thread. A user's message is stored as received
+ * (deduplicated by its Telegram message id). An admin's reply is queued
+ * (`pending`) and sent by the worker with retries, so a Telegram outage
+ * never loses it; `uncertain` = may have been shown, never re-sent.
+ */
+export const supportMessages = pgTable(
+  'support_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => supportThreads.id),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    direction: text('direction', { enum: ['user', 'admin'] }).notNull(),
+    text: text('text').notNull().default(''),
+    attachments: jsonb('attachments').$type<SupportAttachment[]>().notNull().default([]),
+    authorUserId: uuid('author_user_id').references(() => users.id),
+    telegramMessageId: bigint('telegram_message_id', { mode: 'number' }),
+    deliveryStatus: text('delivery_status', { enum: supportDeliveryStatuses }),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('support_messages_thread_idx').on(table.threadId, table.createdAt),
+    index('support_messages_delivery_idx').on(table.deliveryStatus, table.nextAttemptAt),
+    uniqueIndex('support_messages_incoming_idx')
+      .on(table.chatId, table.telegramMessageId)
+      .where(sql`${table.direction} = 'user'`),
+  ],
+);
+
+// ---------------------------------------------------------------- mini-games
+
+/**
+ * Where a dictionary's data comes from (docs/MINI_GAMES.md). `kind`:
+ * `official` — a FIPI document; `reference` — a normative dictionary used
+ * to check stress; `secondary` — anything else (a teacher's site), only
+ * ever used as a pointer, never as the authority for an answer.
+ * `verification` says honestly how far the data was checked against it.
+ */
+export const stressSourceKinds = ['official', 'reference', 'secondary'] as const;
+export const stressSources = pgTable('stress_sources', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  kind: text('kind', { enum: stressSourceKinds }).notNull(),
+  url: text('url'),
+  verification: text('verification').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const stressListStatuses = [
+  /** In the FIPI orthoepic list as reproduced; not compared with the PDF. */
+  'fipi_unverified',
+  /** Compared line by line with the official FIPI file. */
+  'fipi_verified',
+  /** Reported (secondary source) as dropped from the current year's list. */
+  'reported_removed',
+] as const;
+export const stressCheckStatuses = [
+  /** One stress, the same in the normative dictionaries — playable. */
+  'confirmed',
+  /** Variants allowed or sources disagree — never asked in a game. */
+  'disputed',
+] as const;
+
+/**
+ * One word FORM of the stress dictionary — forms whose stress differs
+ * («зАнял», «занялА», «зАняли») are separate rows, never merged. `key` is
+ * the marked form plus its grammatical note: the stable identity the
+ * importer upserts by, so re-imports keep ids (and users' progress).
+ * Removed entries are deactivated, never deleted.
+ */
+export const stressWords = pgTable(
+  'stress_words',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    key: text('key').notNull(),
+    /** The form as written (lowercase, with ё): «свёкла». */
+    word: text('word').notNull(),
+    /** The stressed vowel as a capital: «свЁкла». */
+    marked: text('marked').notNull(),
+    /** 0-based index of the stressed vowel in `word`. */
+    stressIndex: integer('stress_index').notNull(),
+    partOfSpeech: text('part_of_speech').notNull(),
+    /** Which form it is when the stress depends on it: «прош. вр., ж. р.». */
+    formNote: text('form_note'),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => stressSources.id),
+    listStatus: text('list_status', { enum: stressListStatuses }).notNull(),
+    stressStatus: text('stress_status', { enum: stressCheckStatuses }).notNull(),
+    note: text('note'),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('stress_words_key_idx').on(table.key)],
+);
+
+/**
+ * Every answer in a mini-game, for any game (`gameId`) and item. Written
+ * only for signed-in players; `clientAnswerId` makes a re-sent answer
+ * (double tap, network retry) count once.
+ */
+export const miniGameAnswers = pgTable(
+  'mini_game_answers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    gameId: text('game_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    correct: boolean('correct').notNull(),
+    answer: text('answer').notNull(),
+    clientAnswerId: uuid('client_answer_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('mini_game_answers_client_idx').on(table.userId, table.clientAnswerId),
+    index('mini_game_answers_user_game_idx').on(table.userId, table.gameId, table.createdAt),
+  ],
+);
+
+/**
+ * Per (user, game, item) learning state, updated in the same transaction
+ * as the answer. `streak` = correct answers in a row; an item counts as
+ * learned at `MINI_GAME_LEARNED_STREAK` (packages/shared).
+ */
+export const miniGameItemProgress = pgTable(
+  'mini_game_item_progress',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    gameId: text('game_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    correctCount: integer('correct_count').notNull().default(0),
+    wrongCount: integer('wrong_count').notNull().default(0),
+    streak: integer('streak').notNull().default(0),
+    lastCorrect: boolean('last_correct').notNull(),
+    lastAnsweredAt: timestamp('last_answered_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.gameId, table.itemId] }),
+    index('mini_game_item_progress_user_game_idx').on(table.userId, table.gameId),
   ],
 );

@@ -3,18 +3,24 @@
  *
  * Every statement here was checked against the code, not written from a
  * template:
- * - sign-in: email magic link (15-minute link) and VK ID; Telegram Mini App
+ * - sign-in: VK ID and Yandex ID (nothing is emailed); email sign-in was
+ *   removed, but accounts created with it keep their rows (auth_identities
+ *   `email`, email_credentials' password hash, magic_link_tokens) — the
+ *   policy says so instead of claiming no email is held; Telegram Mini App
  *   sign-in exists in code but is not verified in production yet
  *   (docs/TELEGRAM_MINI_APP.md), so the FAQ does not promise it;
  * - stored data: packages/db/src/schema.ts (users, auth_identities,
- *   auth_sessions, magic_link_tokens, user_avatars, attempts, mistakes, …);
+ *   auth_sessions, email_credentials, magic_link_tokens, user_avatars,
+ *   attempts, mistakes, …);
  * - session: httpOnly cookie, 30 days (apps/api/src/modules/auth);
- * - no third-party analytics, ads or trackers anywhere in apps/web;
- * - "Пожаловаться на задание" is still a placeholder (lib/reportTask.ts),
- *   so nothing here tells users that complaints reach anyone.
+ * - no third-party analytics, ads or trackers anywhere in apps/web; the
+ *   only analytics is first-party (lib/analytics.ts, the `zv` cookie —
+ *   apps/api/src/modules/analytics), feeding the owner's admin panel;
+ * - «Сообщить об ошибке» stores the complaint (reason, comment,
+ *   account) for review in the admin panel (apps/api modules/complaints).
  *
  * `[Заполнить: …]` marks a fact only the owner can supply (operator,
- * contact, hosting, SMTP provider). The legal pages render those marks
+ * contact, hosting). The legal pages render those marks
  * highlighted and carry a "draft" notice until the owner replaces them.
  */
 
@@ -42,7 +48,7 @@ export const faq: readonly FaqItem[] = [
   {
     question: 'Нужно ли регистрироваться?',
     answer:
-      'Да, войти нужно до первого задания: ответы, ошибки и статистика сохраняются в вашем аккаунте. Пароль не нужен — войдите через VK ID или по ссылке, которая придёт на почту.',
+      'Да, войти нужно до первого задания: ответы, ошибки и статистика сохраняются в вашем аккаунте. Пароль не нужен — войдите через VK ID или Яндекс ID.',
   },
   {
     question: 'Как начать подготовку?',
@@ -90,12 +96,15 @@ export const privacyPolicy: LegalDocument = {
       heading: '2. Какие данные мы получаем',
       paragraphs: ['Только то, что нужно для входа и работы тренажёра:'],
       list: [
-        'При входе по почте — адрес электронной почты. Он используется как идентификатор аккаунта. Ссылка для входа действует 15 минут; в базе хранится не сама ссылка, а её хеш.',
         'При входе через VK ID — идентификатор пользователя VK, имя, фамилия и ссылка на фото профиля, если VK их передаёт.',
         'При входе через Telegram — идентификатор пользователя Telegram, имя и фото профиля, если Telegram их передаёт.',
+        'При входе через Яндекс ID — идентификатор пользователя Яндекса, имя, фамилия и фото профиля, если Яндекс их передаёт. Адрес почты из Яндекса не запрашивается и не хранится.',
+        'Если аккаунт был создан раньше через вход по почте: адрес почты и защищённый хеш пароля (сам пароль не хранится). Вход и регистрация по почте отключены — новые адреса больше не собираются, а уже сохранённые остаются в аккаунте, пока он существует или пока вы не попросите их удалить.',
         'Данные профиля, которые вы указываете сами: отображаемое имя и загруженное фото.',
         'Учебные данные: ваши ответы на задания, ошибки, избранные задания, выбранные предметы и ответы на вопросы при первом входе, статистика по номерам и темам, дни занятий.',
         'Технические данные: дата регистрации и последнего визита, запись о сессии входа.',
+        'Обезличенная статистика использования: открытие приложения, выбор предмета, открытие и проверка задания, переход по нашей рекламной ссылке — с привязкой к случайному идентификатору браузера (без IP-адреса и без сохранения введённых ответов гостя).',
+        'Жалобы на задания: причина и комментарий, которые вы отправили.',
       ],
     },
     {
@@ -104,14 +113,17 @@ export const privacyPolicy: LegalDocument = {
         'чтобы вы могли войти и пользоваться аккаунтом на разных устройствах;',
         'чтобы проверять ответы, сохранять ошибки и показывать статистику;',
         'чтобы подбирать задания по слабым темам;',
-        'чтобы отвечать на обращения в поддержку.',
+        'чтобы отвечать на обращения в поддержку и исправлять задания по жалобам;',
+        'чтобы понимать, как пользуются тренажёром, и улучшать его (собственная статистика, без сторонних сервисов).',
       ],
     },
     {
       heading: '4. Cookie и хранилище браузера',
       paragraphs: [
         'Для входа используется одна служебная cookie сессии. Она недоступна скриптам страницы (httpOnly) и действует 30 дней.',
-        'В хранилище браузера (localStorage и sessionStorage) сохраняются служебные значения, нужные для работы приложения. Рекламных cookie и сторонних систем аналитики на сайте нет.',
+        'Для собственной статистики используется cookie со случайным идентификатором браузера. Она устанавливается только если вы нажали «Принять» в окне о cookie: она недоступна скриптам страницы (httpOnly), не содержит имени и хранится до 400 дней. Если вы выбрали «Отклонить необязательные», эта cookie не создаётся, а ранее созданная удаляется.',
+        'Ваш выбор хранится в cookie «zc» до 1 года, чтобы не спрашивать о нём при каждом посещении. Изменить его можно в любой момент кнопкой «Изменить настройки cookie» внизу этой страницы.',
+        'В хранилище браузера (localStorage и sessionStorage) сохраняются служебные значения, нужные для работы приложения: тема, ваш выбор по cookie, скрытие кнопки Telegram на сутки. Рекламных cookie и сторонних систем аналитики на сайте нет.',
       ],
     },
     {
@@ -120,8 +132,7 @@ export const privacyPolicy: LegalDocument = {
         'Данные не продаются и не передаются для рекламы. Они обрабатываются только сервисами, без которых тренажёр не работает:',
       ],
       list: [
-        'VK ID и Telegram — если вы выбрали вход через них;',
-        'почтовый сервис для отправки ссылки входа: [Заполнить: провайдер SMTP];',
+        'VK ID, Яндекс ID и Telegram — если вы выбрали вход через них;',
         'хостинг, на котором работает сайт и база данных: [Заполнить: хостинг-провайдер и страна размещения].',
       ],
     },
@@ -162,7 +173,7 @@ export const termsOfUse: LegalDocument = {
     {
       heading: '2. Аккаунт',
       list: [
-        'Для решения заданий нужен аккаунт. Войти можно по ссылке на почту, через VK ID или через Telegram.',
+        'Для решения заданий нужен аккаунт. Войти можно через VK ID, Яндекс ID или Telegram.',
         'Не передавайте доступ к своему аккаунту другим людям.',
         'Используя сервис, вы соглашаетесь с Политикой конфиденциальности.',
       ],

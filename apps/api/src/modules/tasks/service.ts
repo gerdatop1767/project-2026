@@ -17,6 +17,7 @@ import {
   type TaskWithSolution,
 } from '@zybrilka/shared';
 import * as repo from './repo.js';
+import * as xpService from '../xp/service.js';
 import { getCanonicalSolutionForTask } from './canonicalSolution.js';
 import { updateSkillStatisticsForTaskAttempt } from '../learning/service.js';
 import { updateTaskStatistics } from '../learning/taskStatistics/service.js';
@@ -203,10 +204,18 @@ export async function getRandomTask(
   return row && toPublicTask(row);
 }
 
+/**
+ * Grades an answer and — for a signed-in user — records it. A guest
+ * (`userId === null`) gets exactly the same grading and explanation but
+ * NOTHING is written: no attempt, mistake, streak day, skill or task
+ * statistics. A guest has no account, and an id a client could claim
+ * (like the old `x-anon-id`) must never let their answers land in
+ * someone else's profile or skew everyone's task statistics.
+ */
 export async function submitAttempt(
   db: Database,
   taskId: string,
-  userId: string,
+  userId: string | null,
   input: AttemptRequest,
 ): Promise<AttemptResult | undefined> {
   const row = await repo.getTaskById(db, taskId);
@@ -221,7 +230,14 @@ export async function submitAttempt(
   // before anything is written.
   if (answerType === 'multi_part') {
     if (typeof input.answer !== 'object') throw new InvalidAnswerShapeError();
-    return submitMultiPartAttempt(db, row, userId, input.answer, input.timeSpentMs);
+    return submitMultiPartAttempt(
+      db,
+      row,
+      userId,
+      input.answer,
+      input.timeSpentMs,
+      input.sessionId,
+    );
   }
   if (typeof input.answer !== 'string') throw new InvalidAnswerShapeError();
   const answerRaw = input.answer;
@@ -233,16 +249,31 @@ export async function submitAttempt(
           digitSetOrderInsensitive: row.task.digitSetOrderInsensitive,
         });
 
+  if (userId === null) {
+    return {
+      correct,
+      correctAnswer: row.task.correctAnswer,
+      correctAnswerDisplay: row.task.correctAnswerDisplay,
+      explanation: row.task.explanationMd,
+      attemptId: null,
+      mistakeId: null,
+    };
+  }
+
   // One transaction: the attempt, its mistakes update, and the skill
   // statistics it feeds (ZUBRILKA LEARNING INTELLIGENCE Phase 3) must
   // never diverge — either all three are written, or none are.
-  const { attempt, mistakeId } = await db.transaction(async (tx) => {
+  const { attempt, mistakeId, xp } = await db.transaction(async (tx) => {
+    // XP first takes this account's ledger lock (and imports pre-XP
+    // history once) so the award below sees a settled total.
+    const totalBefore = await xpService.prepareForAward(tx, userId);
     const attempt = await repo.createAttempt(tx, {
       userId,
       taskId,
       answerRaw,
       isCorrect: correct,
       timeSpentMs: input.timeSpentMs,
+      sessionId: input.sessionId,
     });
     const mistakeId = await repo.applyAttemptToMistakes(tx, {
       userId,
@@ -269,7 +300,17 @@ export async function submitAttempt(
       },
       attempt.createdAt,
     );
-    return { attempt, mistakeId };
+    // XP is decided here, from this server-graded attempt, in the same
+    // transaction: no XP without the attempt, no attempt without its XP.
+    const xp = await xpService.awardForAttempt(tx, {
+      userId,
+      task: row.task,
+      attemptId: attempt.id,
+      correct,
+      at: attempt.createdAt,
+      totalBefore,
+    });
+    return { attempt, mistakeId, xp };
   });
 
   return {
@@ -279,15 +320,17 @@ export async function submitAttempt(
     explanation: row.task.explanationMd,
     attemptId: attempt.id,
     mistakeId,
+    xp,
   };
 }
 
 async function submitMultiPartAttempt(
   db: Database,
   row: repo.TaskWithTopic,
-  userId: string,
+  userId: string | null,
   answer: Readonly<Record<string, string>>,
   timeSpentMs: number | undefined,
+  sessionId: string | undefined,
 ): Promise<AttemptResult> {
   const spec = parseMultiPartSpec(row.task.correctAnswer);
   // A malformed spec is a data problem on our side, not the user's —
@@ -296,14 +339,29 @@ async function submitMultiPartAttempt(
     ? gradeMultiPart(spec, answer)
     : { parts: [], correctParts: 0, totalParts: 0, status: 'all_incorrect' as const };
 
+  const graded = {
+    correct: grading.status === 'all_correct',
+    correctAnswer: row.task.correctAnswer,
+    correctAnswerDisplay: row.task.correctAnswerDisplay,
+    explanation: row.task.explanationMd,
+    parts: [...grading.parts],
+    correctParts: grading.correctParts,
+    totalParts: grading.totalParts,
+    partStatus: grading.status,
+  };
+  // A guest: graded, never recorded (see submitAttempt).
+  if (userId === null) return { ...graded, attemptId: null, mistakeId: null };
+
   const wrongParts = grading.parts.filter((p) => !p.correct).map((p) => p.id);
-  const { attempt, mistakeId } = await db.transaction(async (tx) => {
+  const { attempt, mistakeId, xp } = await db.transaction(async (tx) => {
+    const totalBefore = await xpService.prepareForAward(tx, userId);
     const attempt = await repo.createAttempt(tx, {
       userId,
       taskId: row.task.id,
       answerRaw: serializeMultiPartUserAnswer(answer),
       isCorrect: grading.status === 'all_correct',
       timeSpentMs,
+      sessionId,
     });
     const mistakeId = await repo.applyAttemptToMistakes(tx, {
       userId,
@@ -327,19 +385,17 @@ async function submitMultiPartAttempt(
       },
       attempt.createdAt,
     );
-    return { attempt, mistakeId };
+    // Only an all-parts-correct answer counts as correct for XP.
+    const xp = await xpService.awardForAttempt(tx, {
+      userId,
+      task: row.task,
+      attemptId: attempt.id,
+      correct: grading.status === 'all_correct',
+      at: attempt.createdAt,
+      totalBefore,
+    });
+    return { attempt, mistakeId, xp };
   });
 
-  return {
-    correct: grading.status === 'all_correct',
-    correctAnswer: row.task.correctAnswer,
-    correctAnswerDisplay: row.task.correctAnswerDisplay,
-    explanation: row.task.explanationMd,
-    attemptId: attempt.id,
-    mistakeId,
-    parts: [...grading.parts],
-    correctParts: grading.correctParts,
-    totalParts: grading.totalParts,
-    partStatus: grading.status,
-  };
+  return { ...graded, attemptId: attempt.id, mistakeId, xp };
 }

@@ -9,7 +9,7 @@
  */
 
 .fadeIn {
-  animation: fadeIn 320ms var(--easing-out) backwards;
+  animation: fadeIn 260ms var(--easing-out) backwards;
 }
 
 @keyframes fadeIn {
@@ -42,13 +42,13 @@
 }
 
 /*
- * Stagger: every direct child rises in turn (~45 ms apart, capped so a long
- * list never makes the user wait). Decorative only — nothing is blocked
+ * Stagger: every direct child rises in turn (~28 ms apart, capped at the
+ * 7th child so a long list never makes the user wait). Decorative only — nothing is blocked
  * while it plays.
  */
 .stagger > * {
   animation: slideUp var(--duration-enter) var(--easing-out) backwards;
-  animation-delay: calc(min(var(--stagger-index, 0), 8) * var(--stagger-step));
+  animation-delay: calc(min(var(--stagger-index, 0), 6) * var(--stagger-step));
 }
 
 .stagger > :nth-child(2) {
@@ -79,32 +79,29 @@
 /*
  * Screen enter (DesktopShell / MobileShell wrap each screen in this, keyed by
  * screen). The wrapper itself is `display: contents`, so it adds no box and
- * the screens' own layout (e.g. `min-height: 100%` against the scroll area)
- * is exactly what it was. Its children fade in — opacity only: a transform
- * would re-anchor fixed-position children for the duration — unless they
- * already play one of the entrances above. The screen's title and its lead
- * line rise into place just behind.
+ * the screens' own layout is exactly what it was.
+ *
+ * The whole screen fades in while settling 8px into place — one movement
+ * for the page, opacity + transform only (compositor work). It replaces the
+ * screen root's own SlideUp on purpose (same element, higher specificity):
+ * earlier the two fought, leaving only a 6px nudge with no fade, while the
+ * nested per-card cascades still played — pages looked abrupt and then
+ * "dripped" in top to bottom. Children no longer run their own long
+ * cascades (see `staggerDelay`), so the page arrives as one piece.
  */
 .screen {
   display: contents;
 }
 
-.screen > :not(.fadeIn, .slideUp, .scaleIn) {
-  animation: screenFade 280ms var(--easing-out) backwards;
+.screen > * {
+  animation: screenIn 260ms var(--easing-out) backwards;
 }
 
-@keyframes screenFade {
+@keyframes screenIn {
   from {
     opacity: 0;
+    transform: translateY(8px);
   }
-}
-
-.screen :where(h1) {
-  animation: slideUp var(--duration-enter) var(--easing-out) 40ms backwards;
-}
-
-.screen :where(h1 + p) {
-  animation: slideUp var(--duration-enter) var(--easing-out) 110ms backwards;
 }
 
 .collapse {
@@ -122,6 +119,27 @@
   min-height: 0;
 }
 
+/*
+ * Content swap: new content replacing old in place (another task, another
+ * tab's panel). `display: contents` adds no box, so the parent's own layout
+ * (flex gaps, grids) is untouched; its children fade in with a short rise.
+ * Quick on purpose — it never holds back what the user just asked for.
+ */
+.contentSwap {
+  display: contents;
+}
+
+.contentSwap > * {
+  animation: contentIn 240ms var(--easing-out) backwards;
+}
+
+@keyframes contentIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* Reduced motion: no movement at all; content simply is there. */
 @media (prefers-reduced-motion: reduce) {
   .fadeIn,
@@ -129,8 +147,7 @@
   .scaleIn,
   .stagger > *,
   .screen > *,
-  .screen :where(h1),
-  .screen :where(h1 + p) {
+  .contentSwap > * {
     animation: none;
   }
 

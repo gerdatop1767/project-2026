@@ -14,6 +14,11 @@ export const collectionPublicSchema = z.object({
   publisher: z.string().nullable(),
   year: z.number().int().nullable(),
   description: z.string().nullable(),
+  /** False: an edition with its own task numbering (ЕГЭ 2027) — not in
+   * «Все источники», trained only when chosen explicitly. */
+  inAllSources: z.boolean().optional(),
+  /** Exam format of its variants (scoring rules), or null. */
+  examFormat: z.string().nullable().optional(),
 });
 export type CollectionPublic = z.infer<typeof collectionPublicSchema>;
 

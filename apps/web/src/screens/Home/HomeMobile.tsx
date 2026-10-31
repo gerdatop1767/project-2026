@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { StatRow } from '../../ui/StatRow/StatRow.js';
+import { HomeStats, type HomeStat } from './HomeStats.js';
 import { startRealTask } from '../../lib/startTraining.js';
 import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
+import { useStreakContext } from '../../lib/streakContext.js';
 import type { ProgressSummary } from '@zybrilka/shared';
-import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { SignInMethodWarning } from '../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import styles from './HomeMobile.module.css';
 
 /**
@@ -29,7 +31,10 @@ export function HomeMobile() {
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
   // Until the summary arrives the stats read "···" (a real 0 would be a
   // claim), and "—" if it could not be loaded at all.
-  const [progressFailed, setProgressFailed] = useState(false);
+  const [progressFailedState, setProgressFailed] = useState(false);
+  const { isGuest } = useAccountGate();
+  const progressFailed = progressFailedState || isGuest;
+  const ratingStat = useRatingStat(isGuest);
   // Real published-task counts per subject (one request) — replaces the
   // static `subject.taskCount` demo numbers. null until loaded; a
   // subject absent from the response has 0 published tasks.
@@ -37,13 +42,15 @@ export function HomeMobile() {
 
   useEffect(() => {
     let cancelled = false;
-    void getProgressSummary()
-      .then((data) => {
-        if (!cancelled) setProgress(data);
-      })
-      .catch(() => {
-        if (!cancelled) setProgressFailed(true);
-      });
+    // A guest has no saved progress: the stats honestly read "—".
+    if (!isGuest)
+      void getProgressSummary()
+        .then((data) => {
+          if (!cancelled) setProgress(data);
+        })
+        .catch(() => {
+          if (!cancelled) setProgressFailed(true);
+        });
     void getTaskCountsBySubject()
       .then((res) => {
         if (cancelled) return;
@@ -57,10 +64,11 @@ export function HomeMobile() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   return (
     <SlideUp className={styles.stack}>
+      <SignInMethodWarning />
       <div className={styles.hero}>
         <div className={styles.heroTiles} aria-hidden="true">
           <span className={styles.heroTilePi}>
@@ -85,51 +93,52 @@ export function HomeMobile() {
           className={styles.heroCta}
           onClick={() => navigate({ screen: 'subjectCatalog' })}
         >
-          Начать тренировку <Icon name="arrowRight" size={18} />
+          <span className={styles.heroCtaLabel}>
+            Начать тренировку <Icon name="arrowRight" size={18} className={styles.heroCtaArrow} />
+          </span>
         </Button>
       </div>
 
-      <div className={styles.progressCard}>
-        <StatRow
-          items={[
-            {
-              id: 'streak',
-              value: <span className={styles.statValue}>—</span>,
-              label: 'Серия',
-            },
-            {
-              id: 'solved',
-              value: (
-                <span className={styles.statValue}>
-                  <Icon name="success" size={16} className={styles.statIconSuccess} />
-                  <AnimatedNumber
-                    value={progress ? progress.solvedTotal : progressFailed ? '—' : '···'}
-                  />
-                </span>
-              ),
-              label: 'Решено',
-            },
-            {
-              id: 'accuracy',
-              value: (
-                <span className={styles.statValue}>
-                  <Icon name="star" size={16} className={styles.statIconGold} />
-                  <AnimatedNumber
-                    value={
-                      progress
-                        ? `${Math.round(progress.accuracyPercent)}%`
-                        : progressFailed
-                          ? '—'
-                          : '···'
-                    }
-                  />
-                </span>
-              ),
-              label: 'Правильно',
-            },
-          ]}
-        />
-      </div>
+      <HomeStats
+        items={[
+          // The weekly rating place (all subjects), opening the rating page.
+          ratingStat,
+          {
+            id: 'solved',
+            tone: 'green',
+            icon: 'checklist',
+            value: progress ? String(progress.uniqueSolvedTotal) : progressFailed ? '—' : '···',
+            label: 'Решено',
+            ready: progress !== null || progressFailed,
+          },
+          {
+            id: 'accuracy',
+            tone: 'purple',
+            icon: 'target',
+            value: progress
+              ? `${Math.round(progress.accuracyPercent)}%`
+              : progressFailed
+                ? '—'
+                : '···',
+            label: 'Правильно',
+            ready: progress !== null || progressFailed,
+          },
+        ]}
+      />
+
+      {isGuest && (
+        <button
+          type="button"
+          className={styles.guestHint}
+          onClick={() => navigate({ screen: 'login' })}
+        >
+          <Icon name="profile" size={18} className={styles.guestHintIcon} />
+          <span className={styles.guestHintText}>
+            Ты занимаешься как гость — прогресс не сохраняется.{' '}
+            <span className={styles.guestHintLink}>Войти</span>
+          </span>
+        </button>
+      )}
 
       <div>
         <div className={styles.sectionHeader}>
@@ -205,4 +214,26 @@ export function HomeMobile() {
       </div>
     </SlideUp>
   );
+}
+
+/** «#6» in the weekly rating (all subjects), opening the rating page; «—»
+ * for a guest, before the first points of the week, or if loading failed. */
+function useRatingStat(isGuest: boolean): HomeStat {
+  const { navigate } = useNavigation();
+  const { rating, ratingFailed } = useStreakContext();
+  const base = { id: 'rating', tone: 'gold', icon: 'achievements', label: 'Место' } as const;
+  if (isGuest) return { ...base, value: '—', ready: true };
+  const rank = rating?.me.rank ?? null;
+  return {
+    ...base,
+    value: rating ? (rank === null ? '—' : `#${rank}`) : ratingFailed ? '—' : '···',
+    ready: rating !== null || ratingFailed,
+    onClick: () => navigate({ screen: 'rating' }),
+    ariaLabel:
+      rating === null
+        ? 'Рейтинг. Открыть'
+        : rank === null
+          ? 'На этой неделе ещё нет места в рейтинге. Открыть рейтинг'
+          : `Место в рейтинге за неделю: ${rank} из ${rating.participants}. Открыть рейтинг`,
+  };
 }

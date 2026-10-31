@@ -1,7 +1,6 @@
 import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
 import type { StatsPeriod } from '../../data/sampleStatistics.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
 import {
@@ -22,27 +21,28 @@ import type {
 } from '@zybrilka/shared';
 import { Card } from '../../ui/Card/Card.js';
 import { VariantHistoryCard } from '../../ui/Statistics/VariantHistoryCard.js';
-import { Select } from '../../ui/Select/Select.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { StatTile } from '../../ui/Statistics/StatTile.js';
 import { TaskNumberGrid } from '../../ui/Statistics/TaskNumberGrid.js';
+import { TaskNumberBars } from '../../ui/Statistics/TaskNumberBars.js';
 import { TaskNumberDetailPanel } from '../../ui/Statistics/TaskNumberDetailPanel.js';
 import { BarChart } from '../../ui/Charts/BarChart.js';
 import { LineChart } from '../../ui/Charts/LineChart.js';
 import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { RankedBarList } from '../../ui/Charts/RankedBarList.js';
 import { FadeIn } from '../../ui/motion/motion.js';
+import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
+import {
+  accuracyLinePoints,
+  labelEveryFor,
+  periodCaption,
+  periodDays,
+  periodTabs,
+  solvedBarPoints,
+} from '../../ui/Statistics/dailyCharts.js';
 import styles from './StatisticsDesktop.module.css';
-
-const periodTabs = [
-  { id: '7d', label: '7 дней' },
-  { id: '30d', label: '30 дней' },
-  { id: 'all', label: 'Все время' },
-] as const;
-
-const periodDays: Record<StatsPeriod, number> = { '7d': 7, '30d': 30, all: 90 };
 
 /**
  * Desktop Statistics (S1 Block 6, approved design —
@@ -68,6 +68,12 @@ export function StatisticsDesktop() {
     Awaited<ReturnType<typeof getProgressByTaskNumber>>['items']
   >([]);
   const [selectedTaskNumber, setSelectedTaskNumber] = useState<number | null>(null);
+  // The number last opened stays marked after "Назад к статистике".
+  const [lastOpenedTaskNumber, setLastOpenedTaskNumber] = useState<number | null>(null);
+  function openTaskNumber(taskNumber: number) {
+    setSelectedTaskNumber(taskNumber);
+    setLastOpenedTaskNumber(taskNumber);
+  }
   const [detail, setDetail] = useState<TaskNumberStatisticsDetail | null | undefined>(undefined);
   const [variantHistory, setVariantHistory] = useState<readonly VariantProgressItem[]>([]);
 
@@ -168,7 +174,10 @@ export function StatisticsDesktop() {
   const subjectTime = realProgress?.timeBySubject.find((s) => s.subjectId === subjectId) ?? null;
   // null while `realProgress` hasn't loaded yet — never a fake `0`
   // (same mobile-flash bug fixed in Subject/Profile/StatisticsMobile).
-  const solvedTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
+  // «Решено» = distinct tasks solved correctly; «Правильных ответов X из Y»
+  // stays answer-based (attempt rows), as accuracy is everywhere.
+  const solvedTotal = realProgress ? (subjectRow?.uniqueSolved ?? 0) : null;
+  const answersTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
   const correctTotal = subjectRow?.correct ?? 0;
   const correctPercent = subjectRow
     ? Math.round(subjectRow.accuracyPercent)
@@ -191,9 +200,9 @@ export function StatisticsDesktop() {
     [mistakesSummary],
   );
   const points = useMemo(() => toDailyPoints(dailyItems, days), [dailyItems, days]);
-  const showEvery = points.length > 40 ? 10 : points.length > 14 ? 4 : 3;
-
-  const subjectOptions = subjects.map((s) => ({ value: s.id, label: s.shortName }));
+  const showEvery = labelEveryFor(points.length);
+  const solvedBars = useMemo(() => solvedBarPoints(points), [points]);
+  const accuracyLine = useMemo(() => accuracyLinePoints(points), [points]);
 
   return (
     <FadeIn className={styles.page}>
@@ -206,7 +215,7 @@ export function StatisticsDesktop() {
         </div>
         <div className={styles.controls}>
           <div className={styles.subjectSelect}>
-            <Select options={subjectOptions} value={subjectId} onChange={selectSubject} />
+            <SubjectSelect value={subjectId} onChange={selectSubject} />
           </div>
           <Tabs
             items={periodTabs}
@@ -220,20 +229,23 @@ export function StatisticsDesktop() {
 
       <div className={styles.statsRow}>
         <StatTile
+          animate
           icon="variant"
           iconColor="var(--color-accent-primary-end)"
           label="Решено заданий"
           value={solvedTotal ?? '···'}
         />
         <StatTile
+          animate
           icon="success"
           iconColor="var(--color-success)"
           label="Правильных ответов"
           value={correctPercent ?? '···'}
           suffix={correctPercent !== null ? '%' : undefined}
-          deltaLabel={`${correctTotal} из ${solvedTotal ?? '···'}`}
+          deltaLabel={`${correctTotal} из ${answersTotal ?? '···'}`}
         />
         <StatTile
+          animate
           icon="time"
           iconColor="var(--color-warning)"
           label="Среднее время"
@@ -241,6 +253,7 @@ export function StatisticsDesktop() {
           deltaLabel={subjectTime ? `медиана ${formatDuration(subjectTime.medianTimeMs)}` : 'скоро'}
         />
         <StatTile
+          animate
           icon="progress"
           iconColor="var(--color-accent-secondary)"
           label="Текущий уровень"
@@ -254,13 +267,16 @@ export function StatisticsDesktop() {
           <div className={styles.chartHeader}>
             <div className={styles.chartHeaderText}>
               <p className="text-h3">Активность по дням</p>
-              <p className="text-body-sm text-secondary">Количество решённых заданий</p>
+              <p className="text-body-sm text-secondary">
+                Решённые задания · {periodCaption(period).toLowerCase()}
+              </p>
             </div>
-            <span className={styles.metricLabel}>Решённые задания</span>
+            <span className={styles.metricLabel}>Нажми на столбец</span>
           </div>
           <BarChart
-            points={points.map((p) => ({ label: p.label, value: p.solved }))}
+            points={solvedBars}
             labelEvery={showEvery}
+            ariaLabel="Решённые задания по дням"
           />
         </Card>
 
@@ -295,12 +311,16 @@ export function StatisticsDesktop() {
           <div className={styles.chartHeader}>
             <div className={styles.chartHeaderText}>
               <p className="text-h3">Динамика правильных ответов</p>
+              <p className="text-body-sm text-secondary">
+                Процент правильных · {periodCaption(period).toLowerCase()}
+              </p>
             </div>
-            <span className={styles.metricLabel}>Процент правильных ответов</span>
+            <span className={styles.metricLabel}>Нажми на точку</span>
           </div>
           <LineChart
-            points={points.map((p) => ({ label: p.label, value: p.accuracyPercent }))}
+            points={accuracyLine}
             labelEvery={showEvery}
+            ariaLabel="Процент правильных ответов по дням"
           />
         </Card>
 
@@ -364,7 +384,18 @@ export function StatisticsDesktop() {
               <p className="text-body-sm text-secondary" style={{ marginBottom: 'var(--space-2)' }}>
                 Нажми на номер задания, чтобы посмотреть подробную статистику
               </p>
-              <TaskNumberGrid rows={taskNumberProgress} onSelect={setSelectedTaskNumber} compact />
+              <div className={styles.numbersWaves}>
+                <TaskNumberBars
+                  rows={taskNumberProgress}
+                  onSelect={openTaskNumber}
+                  activeNumber={lastOpenedTaskNumber}
+                />
+              </div>
+              <TaskNumberGrid
+                rows={taskNumberProgress}
+                onSelect={openTaskNumber}
+                activeNumber={lastOpenedTaskNumber}
+              />
             </>
           )}
         </Card>

@@ -21,10 +21,13 @@ const SOURCE_DOCUMENT = 'ЕГЭ 2026 Ященко варианты 6-10';
 const SOURCE_YEAR = 2026;
 const VARIANT = 9;
 const IMPORT_TAG = 'ege-2026-variant-9';
+const IMAGE_BASE = '/tasks/imports/ege-2026-variant-9';
 
 const COLLECTION_SLUG = 'ege-2026-yashchenko';
 const COLLECTION_TITLE = 'ЕГЭ 2026 Ященко';
 const COLLECTION_PUBLISHER = 'Ященко';
+/** Scoring rules of this edition (`@zybrilka/shared` examScoring). */
+const EXAM_FORMAT = 'ege-math-profile-2026';
 const VARIANT_TITLE = 'ЕГЭ 2026 — Ященко — Вариант 9';
 const SOURCE_FILE = 'variant6_10.pdf';
 const SOURCE_PAGE_START = 1;
@@ -93,7 +96,9 @@ const importTasks: readonly ImportTask[] = [
       'На координатной плоскости изображены векторы a и b, координаты у которых — целые числа. Найдите длину вектора 1,5b-a. [график: вектор a из точки (3;1) в точку (2;-2); вектор b из точки (-1;-1) в точку (-5;5), координаты считаны попиксельно по сетке и подтверждены через crosshair-оверлей]',
     conditionMd:
       'На координатной плоскости изображены векторы $\\vec a$ и $\\vec b$, координаты у которых — целые числа. Найдите длину вектора $1.5\\vec b-\\vec a$.',
-    imageUrl: null,
+    // Exact crop of the original figure: «ЕГЭ 2026 Ященко, первые 20
+    // вариантов» PDF, page 34 (docs/imports/ege-2026-v2-v10-figures-audit.md).
+    imageUrl: `${IMAGE_BASE}/task-02-vectors.png`,
     correctAnswer: '13',
     explanationMd:
       'Что дано: по рисунку (координаты считаны попиксельно по сетке и подтверждены crosshair-оверлеем на чистом 300dpi рендере PDF) вектор a⃗ идёт из точки (3;1) в точку (2;−2), то есть a⃗=(2−3;−2−1)=(−1;−3). Вектор b⃗ идёт из точки (−1;−1) в точку (−5;5), то есть b⃗=(−5−(−1);5−(−1))=(−4;6).\n\nШаг 1. 1.5b⃗=1.5·(−4;6)=(−6;9).\n\nШаг 2. 1.5b⃗−a⃗=(−6−(−1);9−(−3))=(−5;12).\n\nШаг 3. |1.5b⃗−a⃗|=√(25+144)=√169=13.\n\nОтвет: 13.',
@@ -317,7 +322,9 @@ const importTasks: readonly ImportTask[] = [
     rawStatement:
       'На рисунке изображён график функции f(x)=a^(x+b). Найдите f(-3). [график: убывающая показательная кривая, отмеченные точки (0;4) и (2;1), координаты подтверждены пиксельным анализом и crosshair-оверлеем]',
     conditionMd: 'На рисунке изображён график функции $f(x)=a^{x+b}$. Найдите $f(-3)$.',
-    imageUrl: null,
+    // Exact crop of the original figure: «ЕГЭ 2026 Ященко, первые 20
+    // вариантов» PDF, page 36 (docs/imports/ege-2026-v2-v10-figures-audit.md).
+    imageUrl: `${IMAGE_BASE}/task-11-graph.png`,
     correctAnswer: '32',
     explanationMd:
       'Что дано: по рисунку (точки считаны попиксельно и подтверждены crosshair-оверлеем) график проходит через (0;4) и (2;1).\n\nШаг 1. f(0)=a^b=4.\n\nШаг 2. f(2)=a^(2+b)=1.\n\nШаг 3. Деля: a^(2+b)/a^b=a²=1/4 → a=1/2 (основание показательной функции положительно и меньше 1, так как график убывает).\n\nШаг 4. Из a^b=4: (1/2)^b=4 → b=−2.\n\nШаг 5. f(−3)=a^(−3+b)=(1/2)^(−3−2)=(1/2)^(−5)=2⁵=32.\n\nОтвет: 32.',
@@ -677,10 +684,16 @@ export async function importVariant9(db: Database) {
       publisher: COLLECTION_PUBLISHER,
       year: SOURCE_YEAR,
       status: 'published',
+      examFormat: EXAM_FORMAT,
     })
     .onConflictDoUpdate({
       target: schema.collections.slug,
-      set: { title: COLLECTION_TITLE, publisher: COLLECTION_PUBLISHER, year: SOURCE_YEAR },
+      set: {
+        title: COLLECTION_TITLE,
+        publisher: COLLECTION_PUBLISHER,
+        year: SOURCE_YEAR,
+        examFormat: EXAM_FORMAT,
+      },
     })
     .returning();
 

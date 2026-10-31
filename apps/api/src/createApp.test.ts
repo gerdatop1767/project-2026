@@ -71,12 +71,12 @@ describe('createApp (production wiring)', () => {
     const post = (ip: string) =>
       app.inject({
         method: 'POST',
-        url: '/api/v1/auth/magic-link',
+        url: '/api/v1/auth/telegram',
         remoteAddress: '172.18.0.5', // the proxy, same for everyone
         headers: { 'x-forwarded-for': ip },
-        payload: { email: 'not-an-email' },
+        payload: {},
       });
-    for (let i = 0; i < 10; i++) expect((await post('203.0.113.1')).statusCode).toBe(400);
+    for (let i = 0; i < 30; i++) expect((await post('203.0.113.1')).statusCode).toBe(400);
     expect((await post('203.0.113.1')).statusCode).toBe(429);
     // A different real client behind the same proxy is NOT throttled.
     expect((await post('203.0.113.2')).statusCode).toBe(400);

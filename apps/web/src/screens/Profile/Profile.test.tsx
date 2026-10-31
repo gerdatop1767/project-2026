@@ -5,6 +5,7 @@ import { Profile } from './Profile.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { ToastProvider } from '../../ui/Toast/ToastProvider.js';
 import * as api from '../../lib/api.js';
+import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
   getProgressSummary: vi.fn(),
@@ -37,6 +38,7 @@ function renderProfile() {
 beforeEach(() => {
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -69,6 +71,7 @@ describe('Profile', () => {
     // Resolve so this test doesn't leak a pending promise into the next one.
     resolveProgress({
       solvedTotal: 0,
+      uniqueSolvedTotal: 0,
       correctTotal: 0,
       incorrectTotal: 0,
       accuracyPercent: 0,
@@ -88,6 +91,7 @@ describe('Profile', () => {
   it('renders real solved/accuracy numbers from /progress/summary', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 42,
+      uniqueSolvedTotal: 42,
       correctTotal: 30,
       incorrectTotal: 12,
       accuracyPercent: 71,
@@ -154,6 +158,7 @@ describe('Profile', () => {
     });
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 12,
+      uniqueSolvedTotal: 12,
       correctTotal: 9,
       incorrectTotal: 3,
       accuracyPercent: 75,
@@ -168,6 +173,8 @@ describe('Profile', () => {
     // The overall "Точность" tile also reads 75% here; this is about the row.
     const row = (await screen.findByText('Математика')).closest('button')!;
     await waitFor(() => expect(within(row).getByText('75%')).toBeInTheDocument());
+    // The profile's numbers are simply shown — no rolling digits here.
+    expect(document.querySelector('[data-animated-number]')).toBeNull();
   });
 
   it('shows an honest "—" (not 0%) for a subject with no solved attempts yet', async () => {
@@ -205,10 +212,29 @@ describe('Profile', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('notifications');
   });
 
-  it('opens the Menu drawer (Рейтинг/Настройки/Помощь…) via the header gear button', async () => {
+  it('has no gear / menu drawer any more: «Ещё» reaches theory, help and sign-out', async () => {
     const user = userEvent.setup();
     renderProfile();
-    await user.click(screen.getByRole('button', { name: 'Меню' }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('menu');
+    expect(screen.queryByRole('button', { name: 'Меню' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Помощь' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('help');
+    expect(screen.getByRole('button', { name: 'Выйти из аккаунта' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Тёмная тема' })).toBeInTheDocument();
+  });
+
+  it('shows «Админ-панель» to nobody but the owner (the server checks /admin anyway)', () => {
+    const { unmount } = renderProfile();
+    expect(screen.queryByRole('link', { name: 'Админ-панель' })).not.toBeInTheDocument();
+    unmount();
+    render(
+      <TestAuthProvider user={makeAuthUser()} isOwner>
+        <NavigationProvider>
+          <ToastProvider>
+            <Profile />
+          </ToastProvider>
+        </NavigationProvider>
+      </TestAuthProvider>,
+    );
+    expect(screen.getByRole('link', { name: 'Админ-панель' })).toHaveAttribute('href', '/admin');
   });
 });

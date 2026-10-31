@@ -34,7 +34,7 @@ describe('importRussianVariant10', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks all 27 tasks published, 0 needs_review', async () => {
+  it('marks 26 of 27 tasks published, 1 needs_review (4 — audit of task 4)', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -44,8 +44,8 @@ describe('importRussianVariant10', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(27);
+    expect(needsReviewNumbers).toEqual([4]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(26);
   });
 
   it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {

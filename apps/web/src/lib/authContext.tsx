@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { startAnalytics } from './analytics.js';
 import type { AuthUser } from '@zybrilka/shared';
 import { getCurrentUser, loginWithTelegram, logout as apiLogout, onUnauthorized } from './api.js';
 import { telegramErrorCode } from './telegramErrors.js';
@@ -15,8 +16,8 @@ import { getTelegramInitData, prepareTelegramApp } from './telegramMiniApp.js';
 import { resetPrivateCaches } from './privateCaches.js';
 
 /**
- * The one real source of "is anyone signed in" (S3 auth — magic-link +
- * VK ID). `undefined` means "not checked yet" (callers must not assume
+ * The one real source of "is anyone signed in" (VK ID, Yandex ID, and
+ * Telegram inside the Mini App). `undefined` means "not checked yet" (callers must not assume
  * signed-out before this resolves — the app shows a neutral loading
  * state instead of flashing the login screen at a signed-in user);
  * `null` is a real, resolved "signed out". One provider at the app root,
@@ -29,8 +30,8 @@ import { resetPrivateCaches } from './privateCaches.js';
  */
 interface AuthContextValue {
   readonly user: AuthUser | null | undefined;
-  /** Re-checks `/auth/me` — call after a successful magic-link verify,
-   * a VK callback redirect, or finishing onboarding, so the app picks up
+  /** Re-checks `/auth/me` — call after a Mini App handoff sign-in,
+   * a VK / Yandex callback redirect, or finishing onboarding, so the app picks up
    * the new server state without a full page reload. Resolves once the
    * state is updated. */
   readonly refresh: () => Promise<void>;
@@ -46,6 +47,14 @@ interface AuthContextValue {
   /** Why the automatic Telegram sign-in failed (`null` = not attempted or
    * fine). A short server code such as `telegram_data_expired`. */
   readonly telegramError: string | null;
+  /** The server says the signed-in user is the project owner (from
+   * `/auth/me`). Only decides whether the «Админ-панель» link shows — the
+   * admin API checks access itself on every request. */
+  readonly isOwner: boolean;
+  /** The server says the signed-in account has no working sign-in method
+   * (VK, Yandex ID, Telegram) — a legacy email account. The app then asks
+   * the user to connect VK or Yandex before this session runs out. */
+  readonly needsSignInMethod: boolean;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
@@ -54,6 +63,8 @@ export const AuthContext = createContext<AuthContextValue>({
   logout: async () => {},
   updateUser: () => {},
   telegramError: null,
+  isOwner: false,
+  needsSignInMethod: false,
 });
 
 /** After an explicit sign-out inside Telegram, don't sign straight back in
@@ -77,19 +88,19 @@ function setTelegramOptOut(value: boolean) {
 
 /** After a real logout, replace the whole document: it drops every
  * in-memory cache (progress, streak, learning session, favorites, open
- * task…) that belonged to the previous account in one go, and leaves
- * the browser history pointing at the login page. */
-function hardRedirectToLogin() {
-  window.location.replace('/login');
+ * task…) that belonged to the previous account in one go, and lands on
+ * the public landing — signing out is leaving, not asking to sign in. */
+function hardRedirectToLanding() {
+  window.location.replace('/');
 }
 
 export function AuthProvider({
   children,
-  onSignedOut = hardRedirectToLogin,
+  onSignedOut = hardRedirectToLanding,
 }: {
   children: ReactNode;
   /** Runs after a successful logout (tests pass a spy; production
-   * reloads to /login). */
+   * reloads to the landing at /). */
   onSignedOut?: () => void;
 }) {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
@@ -98,6 +109,11 @@ export function AuthProvider({
   // "signed out / switched account".
   const currentUserId = useRef<string | null | undefined>(undefined);
   const [telegramError, setTelegramError] = useState<string | null>(null);
+  // Which account the server last confirmed as the owner (null = none).
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  // Same pattern as `ownerId`: the account the server flagged, so a stale
+  // flag can never apply to another account after switching.
+  const [needsMethodId, setNeedsMethodId] = useState<string | null>(null);
 
   const applyUser = useCallback((next: AuthUser | null) => {
     const previousId = currentUserId.current;
@@ -137,7 +153,25 @@ export function AuthProvider({
   const refresh = useCallback(
     () =>
       getCurrentUser()
-        .then(async (res) => applyUser(res.user ?? (await signInWithTelegram())))
+        .then(async (res) => {
+          if (res.user) {
+            setOwnerId(res.isOwner ? res.user.id : null);
+            setNeedsMethodId(res.needsSignInMethod ? res.user.id : null);
+            applyUser(res.user);
+            return;
+          }
+          // A Telegram sign-in always has a working method (Telegram).
+          setNeedsMethodId(null);
+          const viaTelegram = await signInWithTelegram();
+          applyUser(viaTelegram);
+          // A fresh Mini App sign-in: ask once more for the owner hint.
+          if (viaTelegram) {
+            const again = await getCurrentUser();
+            setOwnerId(again.user && again.isOwner ? again.user.id : null);
+          } else {
+            setOwnerId(null);
+          }
+        })
         .catch(() => {
           // No backend / offline — treat as signed out rather than
           // leaving the UI stuck on "checking". Private data is
@@ -149,6 +183,7 @@ export function AuthProvider({
 
   useEffect(() => {
     prepareTelegramApp();
+    startAnalytics();
   }, []);
 
   useEffect(() => {
@@ -177,8 +212,16 @@ export function AuthProvider({
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, refresh, logout, updateUser, telegramError }),
-    [user, refresh, logout, updateUser, telegramError],
+    () => ({
+      user,
+      refresh,
+      logout,
+      updateUser,
+      telegramError,
+      isOwner: Boolean(user && ownerId === user.id),
+      needsSignInMethod: Boolean(user && needsMethodId === user.id),
+    }),
+    [user, refresh, logout, updateUser, telegramError, ownerId, needsMethodId],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

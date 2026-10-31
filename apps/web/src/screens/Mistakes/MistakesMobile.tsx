@@ -1,19 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
-import { subjects } from '../../data/subjects.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
-import { getMistakes, getSimilarTasks } from '../../lib/api.js';
-import { toSampleMistake } from '../../lib/mistakeAdapter.js';
+import { getSimilarTasks } from '../../lib/api.js';
+import { useMistakes } from '../../lib/useMistakes.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { SubjectHeaderMobile } from '../../ui/SubjectHeader/SubjectHeaderMobile.js';
-import { StatTile } from '../../ui/Statistics/StatTile.js';
+import { SubjectPickerDialog } from '../../ui/SubjectPicker/SubjectPicker.js';
 import { MistakeCardMobile } from '../../ui/Mistakes/MistakeCardMobile.js';
 import { MistakeNumberGroup } from '../../ui/Mistakes/MistakeNumberGroup.js';
+import { MistakeStats } from '../../ui/Mistakes/MistakeStats.js';
 import { FeedbackState } from '../../ui/FeedbackState/FeedbackState.js';
 import { useToast } from '../../ui/Toast/ToastProvider.js';
-import { SlideUp } from '../../ui/motion/motion.js';
+import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
 import styles from './MistakesMobile.module.css';
 
 const viewTabs = [
@@ -23,46 +23,34 @@ const viewTabs = [
 ];
 
 /**
- * Mobile "Мои ошибки" (S1 Block 6, approved design —
- * mobile/08_mistakes.png): the unsolved-mistakes repeat list, driven
- * by the same `mistakes` seed and summary the desktop screen uses.
- * Selecting mistakes and tapping "Начать" opens the real Task screen
- * for the first selected item — a genuine repeat-training entry
- * point, not a decorative button.
+ * Mobile «Мои ошибки»: the real mistakes of the chosen subject (the header
+ * is a real subject picker now — it used to be hard-coded to math, so
+ * picking another subject changed nothing). «Начать» runs through the
+ * ticked mistakes, or all unsolved ones when none is ticked; every card
+ * can be removed from the list with its ×, which the server confirms
+ * before the card goes, with a «Вернуть» undo.
  */
 export function MistakesMobile() {
   const { navigate, back } = useNavigation();
   const { show: showToast } = useToast();
-  const subject = subjects.find((s) => s.id === 'math') ?? subjects[0]!;
+  const data = useMistakes();
+  const { subject, mistakes } = data;
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [view, setView] = useState('all');
-  const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  const [mistakes, setMistakes] = useState<readonly Mistake[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Only one card's "Решить похожее" can be in flight at a time — the
-  // button's own `loading`/disabled state (via Button) is the double-
-  // tap guard, this id is just which card to show it on.
+  // Only one card's "Решить похожее" can be in flight at a time.
   const [solvingSimilarId, setSolvingSimilarId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getMistakes()
-      .then((items) => {
-        if (cancelled) return;
-        setMistakes(items.map(toSampleMistake));
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const summary = useMemo(() => computeMistakesSummary(mistakes), [mistakes]);
   const unsolved = useMemo(() => mistakes.filter((m) => m.status === 'unsolved'), [mistakes]);
   const groups = useMemo(() => buildGroups(unsolved, view), [unsolved, view]);
+  // Ticks belong to the subject on screen: another subject's ids never count.
+  const picked = unsolved.filter((m) => selected.has(m.id));
+
+  function selectSubject(id: string) {
+    data.selectSubject(id);
+    setSelected(new Set());
+  }
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -83,37 +71,59 @@ export function MistakesMobile() {
     });
   }
 
+  /** Repeat run: the ticked mistakes, else every unsolved one, in list order. */
   function startRepeat() {
-    const firstId = [...selected][0];
-    const target = unsolved.find((m) => m.id === firstId) ?? unsolved[0];
-    if (target) openMistake(target);
+    const run = groups
+      .flatMap((g) => g.items)
+      .filter((m) => picked.length === 0 || selected.has(m.id));
+    const first = run[0];
+    if (!first) return;
+    navigate({
+      screen: 'task',
+      subjectId: first.subjectId,
+      taskNumber: first.taskNumber,
+      taskId: first.taskId,
+      customOrderedTasks: run.map((m) => ({ taskId: m.taskId, taskNumber: m.taskNumber })),
+      returnTo: { screen: 'mistakes' },
+    });
+  }
+
+  async function removeMistake(m: Mistake) {
+    const ok = await data.dismiss(m.id);
+    if (!ok) {
+      showToast({ variant: 'error', message: 'Не удалось убрать задание. Попробуй ещё раз.' });
+      return;
+    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(m.id);
+      return next;
+    });
+    showToast({
+      variant: 'success',
+      message: `Задание №${m.taskNumber} убрано из ошибок`,
+      actionLabel: 'Вернуть',
+      durationMs: 6000,
+      onAction: () => {
+        void data.restore(m.id).then((restored) => {
+          if (!restored) showToast({ variant: 'error', message: 'Не удалось вернуть задание.' });
+        });
+      },
+    });
   }
 
   /**
-   * "Решить похожее" — the existing deterministic Phase 6 similarity
-   * engine (`GET /tasks/:taskId/similar`), never a new AI/ML system.
-   * The backend hard-filters candidates to the SAME taskNumber as the
-   * mistake before scoring (see
-   * apps/api/src/modules/learning/taskSimilarity/repo.ts) — a mistake
-   * in №5 only ever surfaces other №5 tasks, never a different number
-   * that merely scores well on skills/topic. On a real candidate list,
-   * this is the exact same `customOrderedTasks` ad-hoc training-list
-   * mechanism startCustomVariant/Training's "По номерам" already use —
-   * not a second parallel session system. An empty result is real
-   * (small catalog today, or genuinely no other task of this exact
-   * number yet) and must never silently open an empty/fake session or
-   * substitute a different number — only a toast telling the user why.
+   * "Решить похожее" — the deterministic similarity engine
+   * (`GET /tasks/:taskId/similar`, same task number only). An empty result
+   * is real and only shows a toast; it never opens an empty session.
    */
   function solveSimilar(mistake: Mistake) {
-    if (solvingSimilarId) return; // one in-flight request at a time
+    if (solvingSimilarId) return;
     setSolvingSimilarId(mistake.id);
     void getSimilarTasks(mistake.taskId)
       .then((items) => {
         if (items.length === 0) {
-          showToast({
-            variant: 'info',
-            message: 'Похожих заданий этого номера пока нет.',
-          });
+          showToast({ variant: 'info', message: 'Похожих заданий этого номера пока нет.' });
           return;
         }
         const first = items[0]!;
@@ -134,113 +144,129 @@ export function MistakesMobile() {
 
   return (
     <SlideUp className={styles.stack}>
-      <SubjectHeaderMobile subject={subject} title="Мои ошибки" onBack={back} />
+      <SubjectHeaderMobile
+        subject={subject}
+        title="Мои ошибки"
+        onBack={back}
+        onSelectSubject={() => setPickerOpen(true)}
+      />
+      <SubjectPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={subject.id}
+        onSelect={selectSubject}
+        subtitle="Покажем ошибки по выбранному предмету"
+      />
 
       <Tabs items={viewTabs} activeId={view} onChange={setView} aria-label="Вид списка ошибок" />
 
-      <div className={styles.statsGrid}>
-        <StatTile
-          className={styles.statTile}
-          icon="variant"
-          iconColor="var(--color-accent-primary-end)"
-          label="всего ошибок"
-          value={summary.total}
-        />
-        <StatTile
-          className={styles.statTile}
-          icon="target"
-          iconColor="var(--color-accent-secondary)"
-          label="повторяются"
-          value={summary.repeatedPercent}
-          suffix="%"
-        />
-        <StatTile
-          className={styles.statTile}
-          icon="xp"
-          iconColor="var(--color-success)"
-          label="улучшение"
-          value={summary.improvementPercent}
-          suffix="%"
-        />
-        <StatTile
-          className={styles.statTile}
-          icon="calendar"
-          iconColor="var(--color-warning)"
-          label="решено повторно"
-          value={summary.reviewedAgainCount}
-        />
-      </div>
-
-      <div>
-        <div className={styles.sectionHeaderRow}>
-          <p className="text-h3">Повторить ошибки</p>
-          <div className={styles.sectionActions}>
-            <button
-              type="button"
-              className={styles.selectButton}
-              aria-pressed={selectMode}
-              onClick={() => setSelectMode((v) => !v)}
-            >
-              <Icon name="checklist" size={16} /> Выбрать
-            </button>
-            <Button
-              variant="primary"
-              disabled={selectMode && selected.size === 0}
-              onClick={startRepeat}
-            >
-              <Icon name="play" size={16} /> Начать
-            </Button>
-          </div>
-        </div>
-
-        {loading ? (
-          <p className="text-body-sm text-secondary">Загрузка ошибок…</p>
-        ) : groups.length === 0 ? (
+      {data.state === 'error' ? (
+        <div className={styles.errorBox} role="alert">
           <FeedbackState
-            variant="success"
-            title="Все ошибки разобраны!"
-            description="Отличная работа — продолжай в том же духе."
+            variant="error"
+            title="Не удалось загрузить ошибки"
+            description="Проверь соединение и попробуй ещё раз."
           />
-        ) : (
-          <div className={styles.list}>
-            {groups.map((group) => {
-              const cards = group.items.map((m) => (
-                <MistakeCardMobile
-                  key={m.id}
-                  mistake={m}
-                  selected={selected.has(m.id)}
-                  onToggleSelect={() => toggleSelect(m.id)}
-                  onRetry={() => openMistake(m)}
-                  onOpen={() => openMistake(m)}
-                  onSolveSimilar={() => solveSimilar(m)}
-                  solvingSimilar={solvingSimilarId === m.id}
-                />
-              ));
-              if (group.taskNumber !== null) {
-                return (
-                  <MistakeNumberGroup
-                    key={group.taskNumber}
-                    taskNumber={group.taskNumber}
-                    count={group.items.length}
-                  >
-                    {cards}
-                  </MistakeNumberGroup>
-                );
-              }
-              return (
-                <div key={group.label ?? 'all'}>
-                  {group.label && (
-                    <p className={`text-body-sm text-secondary ${styles.groupLabel}`}>
-                      {group.label}
-                    </p>
-                  )}
-                  <div className={styles.list}>{cards}</div>
+          <Button variant="secondary" onClick={data.reload}>
+            Повторить
+          </Button>
+        </div>
+      ) : data.state === 'loading' && mistakes.length === 0 ? (
+        <p className="text-body-sm text-secondary" role="status">
+          Загрузка ошибок…
+        </p>
+      ) : (
+        <ContentSwap key={subject.id}>
+          <MistakeStats
+            total={summary.total}
+            repeatedPercent={summary.repeatedPercent}
+            improvementPercent={summary.improvementPercent}
+            reviewedAgainCount={summary.reviewedAgainCount}
+          />
+
+          <section className={styles.section} aria-labelledby="mistakes-repeat-title">
+            <div className={styles.sectionHeaderRow}>
+              <h2 id="mistakes-repeat-title" className={`text-h3 ${styles.sectionTitle}`}>
+                Повторить ошибки
+              </h2>
+              {unsolved.length > 0 && (
+                <Button variant="primary" className={styles.startButton} onClick={startRepeat}>
+                  <Icon name="play" size={16} />
+                  {picked.length > 0 ? `Начать (${picked.length})` : 'Начать'}
+                </Button>
+              )}
+            </div>
+            {picked.length > 0 && (
+              <p className={styles.selectionHint}>
+                Выбрано: {picked.length}.{' '}
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  onClick={() => setSelected(new Set())}
+                >
+                  Снять выбор
+                </button>
+              </p>
+            )}
+
+            {mistakes.length === 0 ? (
+              <FeedbackState
+                variant="info"
+                title={`По предмету «${subject.shortName}» ошибок нет`}
+                description="Когда ответ окажется неверным, задание появится здесь."
+              />
+            ) : groups.length === 0 ? (
+              <FeedbackState
+                variant="success"
+                title="Все ошибки разобраны!"
+                description="Отличная работа — продолжай в том же духе."
+              />
+            ) : (
+              <ContentSwap key={view}>
+                <div className={styles.list}>
+                  {groups.map((group) => {
+                    const cards = group.items.map((m) => (
+                      <MistakeCardMobile
+                        key={m.id}
+                        mistake={m}
+                        selected={selected.has(m.id)}
+                        onToggleSelect={() => toggleSelect(m.id)}
+                        onRetry={() => openMistake(m)}
+                        onOpen={() => openMistake(m)}
+                        onSolveSimilar={() => solveSimilar(m)}
+                        solvingSimilar={solvingSimilarId === m.id}
+                        onDismiss={() => void removeMistake(m)}
+                        dismissing={data.isPending(m.id)}
+                      />
+                    ));
+                    if (group.taskNumber !== null) {
+                      return (
+                        <MistakeNumberGroup
+                          key={group.taskNumber}
+                          taskNumber={group.taskNumber}
+                          count={group.items.length}
+                        >
+                          {cards}
+                        </MistakeNumberGroup>
+                      );
+                    }
+                    return (
+                      <div key={group.label ?? 'all'}>
+                        {group.label && (
+                          <p className={`text-body-sm text-secondary ${styles.groupLabel}`}>
+                            {group.label}
+                          </p>
+                        )}
+                        <div className={styles.list}>{cards}</div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              </ContentSwap>
+            )}
+          </section>
+        </ContentSwap>
+      )}
 
       <button
         type="button"

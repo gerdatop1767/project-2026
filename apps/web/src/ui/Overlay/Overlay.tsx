@@ -106,11 +106,24 @@ function OverlayContent({
   );
 }
 
-/** Autofocuses the panel on open so focus moves into the dialog/sheet. */
+/**
+ * Autofocuses the panel on open so focus moves into the dialog/sheet, and
+ * on close hands it back to whatever opened it — a keyboard user keeps
+ * their place. Skipped when the opener is gone (the screen changed) or
+ * focus has already moved somewhere else on purpose (e.g. another dialog).
+ */
 export function usePanelFocus(open: boolean) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (open) ref.current?.focus();
+    if (!open) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const panel = ref.current;
+    panel?.focus();
+    return () => {
+      const active = document.activeElement;
+      const focusLeftInPanel = !active || active === document.body || panel?.contains(active);
+      if (opener?.isConnected && focusLeftInPanel) opener.focus({ preventScroll: true });
+    };
   }, [open]);
   return ref;
 }

@@ -21,6 +21,7 @@ beforeEach(() => {
   vi.mocked(api.getProgressByTopic).mockResolvedValue({ items: [] });
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -96,6 +97,7 @@ describe('SubjectDesktop — honest loading state (mobile page flash regression)
 
     resolveProgress({
       solvedTotal: 12,
+      uniqueSolvedTotal: 12,
       correctTotal: 9,
       incorrectTotal: 3,
       accuracyPercent: 0,
@@ -393,14 +395,16 @@ describe('SubjectDesktop — Задания по номерам tab (audit: the 
     expect(screen.getByText('Выбрать конкретное задание')).toBeInTheDocument();
   });
 
-  it('navigates to the dedicated TrainingByNumber screen, carrying subject/collection/from — not an inline block', async () => {
+  it('opens in place, like Темы/Варианты — same page, no new screen or history entry', async () => {
     mockCollections();
     const user = userEvent.setup();
     renderSubject();
+    const before = screen.getByTestId('overlay').textContent;
+    const historyLength = window.history.length;
     await user.click(screen.getByText('Задания по номерам'));
-    await waitFor(() =>
-      expect(screen.getByTestId('overlay')).toHaveTextContent('trainingByNumber'),
-    );
+    expect(await screen.findByRole('button', { name: '№1' })).toBeInTheDocument();
+    expect(screen.getByTestId('overlay').textContent).toBe(before);
+    expect(window.history.length).toBe(historyLength);
   });
 });
 

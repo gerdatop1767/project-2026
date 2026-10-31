@@ -72,3 +72,11 @@
 .statusPending {
   box-shadow: inset 0 0 0 1.5px var(--color-border-subtle);
 }
+
+.statusDraft {
+  box-shadow: inset 0 0 0 2px var(--color-accent-primary);
+}
+
+.statusOpened {
+  box-shadow: inset 0 0 0 1.5px var(--color-text-disabled);
+}

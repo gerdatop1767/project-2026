@@ -1,27 +1,12 @@
-import { BackRow } from '../../ui/BackRow/BackRow.js';
-import { WipPlaceholder } from '../../ui/WipPlaceholder/WipPlaceholder.js';
 import { FadeIn } from '../../ui/motion/motion.js';
+import { RatingBoard } from './RatingBoard.js';
 import styles from './RatingDesktop.module.css';
 
-/**
- * Desktop Рейтинг — no leaderboard backend exists yet (ranking
- * aggregation, persistent user profiles/names), so this stays a
- * neutral placeholder rather than rendering `data/sampleLeaderboard.ts`
- * as if it were a real ranking.
- */
+/** Desktop «Рейтинг»: the board with its side column (RatingBoard). */
 export function RatingDesktop() {
   return (
     <FadeIn className={styles.page}>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
-      <div className={styles.headerRow}>
-        <div>
-          <h1 className="text-h1">Рейтинг</h1>
-          <p className="text-body-sm text-secondary">
-            Соревнуйся с другими и мотивируй себя учиться!
-          </p>
-        </div>
-      </div>
-      <WipPlaceholder title="Рейтинг" note="Экран в разработке — следующий блок." />
+      <RatingBoard />
     </FadeIn>
   );
 }

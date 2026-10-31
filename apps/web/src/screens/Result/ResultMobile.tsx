@@ -1,5 +1,12 @@
+import { withRevealedAnswer } from '../../lib/revealedAnswer.js';
+import { useTaskExit } from '../../ui/LearningSession/useTaskExit.js';
 import { useEffect, useState } from 'react';
-import { trainingByNumberRouteFor, useNavigation, type Route } from '../../lib/navigation.js';
+import {
+  trainingByNumberRouteFor,
+  useNavigation,
+  type Route,
+  type RevealedAnswer,
+} from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
 import { getTask, listTasksByNumber } from '../../lib/api.js';
 import {
@@ -17,6 +24,7 @@ import { LearningSessionResultAction } from '../../ui/LearningSession/LearningSe
 import type { SampleTask, TaskVariant } from '../../data/sampleTask.js';
 import { subjects } from '../../data/subjects.js';
 import { getProgressSummary } from '../../lib/api.js';
+import { useAccountGate } from '../../lib/accountGate.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Calculator } from '../../ui/Calculator/Calculator.js';
 import { CanvasWorkspaceMobile } from '../../ui/CanvasWorkspace/CanvasWorkspaceMobile.js';
@@ -54,9 +62,11 @@ export interface ResultMobileProps {
    * `useSolvingTimer`) — absent when the timer was never started, in
    * which case no time chip is shown at all rather than a fabricated one. */
   timeSpentMs?: number;
+  /** XP the server awarded for this attempt; absent for a guest. */
+  xpAwarded?: number;
+  /** A guest's check — see the `result` route's `revealed`. */
+  revealed?: RevealedAnswer;
 }
-
-const XP_REWARD = 20;
 
 /**
  * Mobile Result screen (S1 Block 6, approved design —
@@ -76,8 +86,10 @@ export function ResultMobile({
   customOrderedTasks,
   returnTo,
   timeSpentMs,
+  xpAwarded,
+  revealed,
 }: ResultMobileProps) {
-  const { navigate, back } = useNavigation();
+  const { navigate } = useNavigation();
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const taskNav = useTaskNavigation({
     subjectId,
@@ -87,7 +99,10 @@ export function ResultMobile({
     customOrderedTasks,
     returnTo,
   });
-  const goBack = returnTo ? () => navigate(returnTo) : back;
+  // The task/result has no address of its own, so the current history
+  // entry IS the page underneath it: replace it with the exact place to
+  // return to instead of pushing a duplicate stop onto the Back stack.
+  const { goBack, exitSheet } = useTaskExit(taskId, returnTo);
   const learningSession = useActiveLearningSessionForTask(taskId);
   // The router remounts this component (key={taskId}) whenever the task
   // or its correctness changes, so state starts fresh here.
@@ -99,14 +114,20 @@ export function ResultMobile({
   const [otherOpen, setOtherOpen] = useState(false);
   const [solutionOpen, setSolutionOpen] = useState(false);
   const [accuracyPercent, setAccuracyPercent] = useState<number | null>(null);
-  const xp = useCountUp(correct ? XP_REWARD : 0, 500);
+  // The real award, never a fixed number: 15/25 for a first solve, 0 for a
+  // repeat or a wrong answer, nothing for a guest.
+  const xp = useCountUp(xpAwarded ?? 0, 500);
+  const showXp = correct && (xpAwarded ?? 0) > 0;
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
+    void Promise.all([
+      getTask(taskId),
+      listTasksByNumber(subjectId, taskNumber, undefined, undefined, taskId),
+    ])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
-        setTask(toSampleTask(fetchedTask, siblings));
+        setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -114,10 +135,13 @@ export function ResultMobile({
     return () => {
       cancelled = true;
     };
-  }, [taskId, subjectId, taskNumber]);
+  }, [taskId, subjectId, taskNumber, revealed]);
 
+  const { isGuest } = useAccountGate();
   useEffect(() => {
     let cancelled = false;
+    // A guest's answers aren't recorded, so there is no accuracy to show.
+    if (isGuest) return;
     void getProgressSummary()
       .then((data) => {
         if (!cancelled) setAccuracyPercent(Math.round(data.accuracyPercent));
@@ -129,7 +153,7 @@ export function ResultMobile({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   if (loadError) {
     return (
@@ -138,6 +162,7 @@ export function ResultMobile({
         <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
+        {exitSheet}
       </SlideUp>
     );
   }
@@ -194,21 +219,25 @@ export function ResultMobile({
     navigate(trainingByNumberRouteFor(task.subjectId, task.number));
   }
 
-  const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks);
+  const sessionProgress = buildSessionProgress(task.id, taskNav.orderedTasks, taskNav.marks);
 
   return (
     <SlideUp key={`${taskId}-${correct}`} className={styles.stack}>
       <TaskChrome
         subject={subject}
-        task={task}
+        taskId={task.id}
+        taskNumber={task.number}
         onBack={goBack}
         numberStripRange={taskNav.orderedTasks}
         onSelectNumber={taskNav.goTo}
+        marks={taskNav.marks}
         previous={taskNav.previous}
         next={taskNav.next}
         onGoTo={taskNav.goTo}
         indexInSession={sessionProgress.indexInSession}
         totalInSession={sessionProgress.totalInSession}
+        reportScreen="result"
+        variantId={taskNav.variantId ?? variantId}
       />
 
       <div
@@ -234,11 +263,15 @@ export function ResultMobile({
         <TaskExamIllustration
           subjectId={task.subjectId}
           taskNumber={task.number}
+          tags={task.tags}
+          imageUrl={task.imageUrl}
+          conditionMd={task.condition}
           className={styles.taskImage}
         />
         <TaskSolutionIllustration
           subjectId={task.subjectId}
           taskNumber={task.number}
+          tags={task.tags}
           className={styles.taskImage}
         />
 
@@ -253,9 +286,11 @@ export function ResultMobile({
         </p>
 
         <div className={styles.statRow}>
-          <span className={styles.statChip}>
-            <Icon name="xp" size={16} className={styles.statIconGold} />+{Math.round(xp)} XP
-          </span>
+          {showXp && (
+            <span className={styles.statChip}>
+              <Icon name="xp" size={16} className={styles.statIconGold} />+{Math.round(xp)} XP
+            </span>
+          )}
           {timeSpentMs !== undefined && (
             <span className={styles.statChip}>
               <Icon name="progress" size={16} className={styles.statIconBlue} />
@@ -412,6 +447,7 @@ export function ResultMobile({
         taskId={task.id}
         task={task}
       />
+      {exitSheet}
     </SlideUp>
   );
 }

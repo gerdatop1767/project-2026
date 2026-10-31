@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { StatisticsMobile } from './StatisticsMobile.js';
 import { NavigationProvider } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
+import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
   getProgressSummary: vi.fn(),
@@ -13,6 +14,11 @@ vi.mock('../../lib/api.js', () => ({
   getRandomTask: vi.fn(() => new Promise(() => {})),
   getTaskNumberStatisticsDetail: vi.fn(() => new Promise(() => {})),
   getVariantProgress: vi.fn(() => Promise.resolve({ items: [] })),
+  getProgressDaily: vi.fn(() => Promise.resolve({ items: [] })),
+  getLeaderboard: vi.fn(),
+  getTaskCountsBySubject: vi.fn(() =>
+    Promise.resolve({ items: [{ subjectId: 'math', count: 190, countAllSources: 678 }] }),
+  ),
 }));
 
 function renderWithNav() {
@@ -26,6 +32,7 @@ function renderWithNav() {
 beforeEach(() => {
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -43,6 +50,7 @@ describe('StatisticsMobile — subject filter', () => {
   it('opens a real subject picker from the header and refilters every real metric', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 20,
+      uniqueSolvedTotal: 20,
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
@@ -62,7 +70,12 @@ describe('StatisticsMobile — subject filter', () => {
     expect(vi.mocked(api.getProgressByTaskNumber)).toHaveBeenLastCalledWith({ subject: 'math' });
 
     await user.click(screen.getByRole('button', { name: /Математика/ }));
-    await user.click(screen.getByRole('option', { name: /Русский язык/ }));
+    // The shared subject picker: a card per subject, the current one checked.
+    expect(screen.getByRole('radio', { name: /Математика/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await user.click(screen.getByRole('radio', { name: /Русский язык/ }));
 
     // Switching subjects refetches the subject-scoped endpoints with the
     // new subject, and the headline figure switches to that subject's
@@ -76,7 +89,9 @@ describe('StatisticsMobile — subject filter', () => {
     // /progress/summary and /mistakes are fetched once, not re-requested
     // per subject switch — they're filtered client-side instead.
     expect(vi.mocked(api.getProgressSummary)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(api.getMistakes)).toHaveBeenCalledTimes(1);
+    // The mistakes feed only serves the "По темам" donut — not fetched for
+    // the overview at all.
+    expect(vi.mocked(api.getMistakes)).not.toHaveBeenCalled();
   });
 });
 
@@ -239,6 +254,7 @@ describe('StatisticsMobile — real progress data', () => {
   it('the solvedTotal/accuracy headline tiles use real /progress/summary data for the selected subject', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 20,
+      uniqueSolvedTotal: 20,
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
@@ -272,6 +288,7 @@ describe('StatisticsMobile — real progress data', () => {
 
     resolveProgress({
       solvedTotal: 20,
+      uniqueSolvedTotal: 20,
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
@@ -440,5 +457,136 @@ describe('StatisticsMobile — Общая tab cleanup (no navigational clutter)'
     expect(screen.queryByText('Мои ошибки')).not.toBeInTheDocument();
     expect(screen.queryByText('О проекте')).not.toBeInTheDocument();
     expect(screen.queryByText('0 пробников решено')).not.toBeInTheDocument();
+  });
+});
+
+describe('StatisticsMobile — activity charts', () => {
+  it('shows the real daily charts with 7 / 30 days / Всё время, re-fetching for the period', async () => {
+    const user = userEvent.setup();
+    renderWithNav();
+    expect(await screen.findByText('Активность')).toBeInTheDocument();
+    expect(vi.mocked(api.getProgressDaily)).toHaveBeenCalledWith({ days: 7, subject: 'math' });
+    await user.click(screen.getByRole('tab', { name: 'Всё время' }));
+    expect(vi.mocked(api.getProgressDaily)).toHaveBeenCalledWith({ days: 90, subject: 'math' });
+    expect(screen.getByText('За последние 90 дней')).toBeInTheDocument();
+  });
+});
+
+describe('StatisticsMobile — subject switch never shows the previous subject', () => {
+  it('replaces the columns with the new subject only once its own data has arrived', async () => {
+    const row = (subjectId: string, taskNumber: number) => ({
+      subjectId,
+      taskNumber,
+      total: 4,
+      completed: 4,
+      attempted: 4,
+      correct: 4,
+      incorrect: 0,
+      accuracyPercent: 100,
+    });
+    let resolveRussian: (v: { items: ReturnType<typeof row>[] }) => void = () => {};
+    vi.mocked(api.getProgressByTaskNumber).mockImplementation(({ subject }) =>
+      subject === 'russian'
+        ? new Promise((resolve) => {
+            resolveRussian = resolve;
+          })
+        : Promise.resolve({ items: [row('math', 19)] }),
+    );
+    const user = userEvent.setup();
+    renderWithNav();
+    expect(await screen.findByRole('listitem', { name: 'Задание 19: 100%' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Математика/ }));
+    await user.click(screen.getByRole('radio', { name: /Русский язык/ }));
+
+    // Russian still loading: math's №19 must not be shown under "Русский язык".
+    expect(screen.queryByRole('listitem', { name: 'Задание 19: 100%' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Загрузка прогресса' })).toBeInTheDocument();
+
+    resolveRussian({ items: [row('russian', 26)] });
+    expect(await screen.findByRole('listitem', { name: 'Задание 26: 100%' })).toBeInTheDocument();
+  });
+});
+
+describe('StatisticsMobile — «Рейтинг»', () => {
+  const board = (period: 'today' | 'week' | 'all') => ({
+    period,
+    subjectId: null,
+    since: '2026-10-17T12:00:00.000Z',
+    participants: 1,
+    entries: [
+      {
+        rank: 1,
+        name: 'Анна С.',
+        level: 3,
+        points: 950,
+        solved: 30,
+        accuracyPercent: 80,
+        isMe: false,
+        avatarHue: 200,
+        avatarVariant: 3,
+        avatarUrl: null,
+      },
+    ],
+    me: { rank: null, level: 1, points: 0, solved: 0, accuracyPercent: null },
+  });
+
+  function renderSignedIn() {
+    return render(
+      <TestAuthProvider user={makeAuthUser()}>
+        <NavigationProvider>
+          <StatisticsMobile />
+        </NavigationProvider>
+      </TestAuthProvider>,
+    );
+  }
+
+  it('shows the real leaderboard and keeps the tab and filters when coming back', async () => {
+    vi.mocked(api.getLeaderboard).mockImplementation(async ({ period }) => board(period));
+    const user = userEvent.setup();
+    const first = renderSignedIn();
+    await user.click(screen.getByRole('tab', { name: 'Рейтинг' }));
+    expect(await screen.findByRole('list', { name: 'Тройка лидеров' })).toBeInTheDocument();
+    expect(api.getLeaderboard).toHaveBeenCalledWith({ period: 'week', subject: null });
+    // One page title: the board steps down to h2 inside Статистика.
+    expect(screen.getByRole('heading', { level: 2, name: /Соревнуйся/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Сегодня' }));
+    await waitFor(() =>
+      expect(api.getLeaderboard).toHaveBeenLastCalledWith({ period: 'today', subject: null }),
+    );
+
+    // Leave the screen and come back: still on «Рейтинг», still «Сегодня».
+    first.unmount();
+    renderSignedIn();
+    expect(screen.getByRole('tab', { name: 'Рейтинг' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Сегодня' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+// «Решено заданий 3 из 190» used to count answer rows against a
+// «Все источники»-only total: one task answered three times read as 3,
+// and ЕГЭ-2027 work could overtake a total that ignored it.
+describe('StatisticsMobile — «Решено N из M» counts tasks, out of every source', () => {
+  it('uses distinct solved tasks and the all-sources total', async () => {
+    vi.mocked(api.getProgressSummary).mockResolvedValue({
+      solvedTotal: 5,
+      uniqueSolvedTotal: 2,
+      correctTotal: 3,
+      incorrectTotal: 2,
+      accuracyPercent: 60,
+      bySubject: [
+        { subjectId: 'math', solved: 5, correct: 3, accuracyPercent: 60, uniqueSolved: 2 },
+      ],
+      byTaskNumber: [],
+      byTopic: [],
+      timeBySubject: [],
+    });
+    renderWithNav();
+    await waitFor(() => expect(screen.getByText('из 678')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('tab', { name: 'По заданиям' }));
+    await waitFor(() => expect(screen.getByText('2 из 678')).toBeInTheDocument());
+    expect(screen.queryByText('5 из 678')).not.toBeInTheDocument();
+    expect(screen.queryByText(/из 190/)).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
 import { and, eq, inArray, ne } from 'drizzle-orm';
+import { outsideSourcesOf, sourceScope } from '../../tasks/repo.js';
 
 export interface TaskSimilarityMetadata {
   readonly taskId: string;
@@ -84,6 +85,10 @@ export async function getCandidateTasksForSimilarity(
   taskNumber: number,
   excludeTaskId: string,
 ): Promise<TaskSimilarityMetadata[]> {
+  // Same number means the same kind of task only within one numbering:
+  // a task of an edition outside «Все источники» (ЕГЭ 2027) is compared
+  // with its own edition only, every other task with the default pool.
+  const [ownSource] = await outsideSourcesOf(db, excludeTaskId);
   const rows = await db
     .select(baseColumns)
     .from(schema.tasks)
@@ -94,6 +99,7 @@ export async function getCandidateTasksForSimilarity(
         eq(schema.tasks.taskNumber, taskNumber),
         eq(schema.tasks.status, 'published'),
         ne(schema.tasks.id, excludeTaskId),
+        sourceScope(db, { collection: ownSource }),
       ),
     );
   return attachSkillIds(db, rows);

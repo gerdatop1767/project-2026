@@ -22,8 +22,8 @@
       color-mix(in srgb, var(--color-accent-primary) 20%, transparent),
       transparent 70%
     ),
-    color-mix(in srgb, #fff 4%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 9%, transparent);
+    color-mix(in srgb, var(--color-tint) 4%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-tint) 9%, transparent);
   transition: box-shadow 220ms ease;
 }
 
@@ -42,7 +42,7 @@
 }
 
 .accent {
-  color: color-mix(in srgb, var(--color-accent-primary-end) 78%, #fff);
+  color: color-mix(in srgb, var(--color-accent-primary-end) 78%, var(--color-tint));
   stroke: currentColor;
   transition:
     stroke-dashoffset 700ms var(--easing-out) calc(var(--reveal-delay, 0ms) + 420ms),

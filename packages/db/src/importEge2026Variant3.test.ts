@@ -66,15 +66,19 @@ describe('importVariant3', () => {
     }
   });
 
-  it('attaches an image to the two graph-dependent tasks (8 and 11) and no others', async () => {
+  it('attaches an image only to the figure tasks №2, №8, №11, each from its own variant folder', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
       .from(schema.tasks)
       .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.sourceVariant, 3)));
     for (const row of rows) {
-      if (row.taskNumber === 8 || row.taskNumber === 11) {
-        expect(row.imageUrl).toMatch(/^\/tasks\/imports\/ege-2026-variant-3\//);
+      if (row.taskNumber === 2 || row.taskNumber === 8 || row.taskNumber === 11) {
+        expect(row.imageUrl).toMatch(
+          new RegExp(
+            `^/tasks/imports/ege-2026-variant-3/task-${String(row.taskNumber).padStart(2, '0')}-`,
+          ),
+        );
       } else {
         expect(row.imageUrl).toBeNull();
       }

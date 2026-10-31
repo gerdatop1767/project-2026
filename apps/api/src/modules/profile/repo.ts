@@ -1,6 +1,7 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
-import { and, asc, eq } from 'drizzle-orm';
+import { isWorkingSignInMethod, type LinkableProvider } from '@zybrilka/shared';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 export type AvatarSource = (typeof schema.avatarSources)[number];
 export type Provider = (typeof schema.authProviders)[number];
@@ -88,15 +89,51 @@ export async function applyProviderProfile(
 // ---------------------------------------------------------------- avatars
 
 export interface AvatarMeta {
+  id: string;
   source: AvatarSource;
   sha256: string;
 }
 
 export async function listAvatarMeta(db: Database, userId: string): Promise<AvatarMeta[]> {
   return db
-    .select({ source: schema.userAvatars.source, sha256: schema.userAvatars.sha256 })
+    .select({
+      id: schema.userAvatars.id,
+      source: schema.userAvatars.source,
+      sha256: schema.userAvatars.sha256,
+    })
     .from(schema.userAvatars)
     .where(eq(schema.userAvatars.userId, userId));
+}
+
+/** The stored avatar images of several users at once (no bytes). */
+export async function listAvatarMetaOf(
+  db: Database,
+  userIds: string[],
+): Promise<(AvatarMeta & { userId: string })[]> {
+  if (userIds.length === 0) return [];
+  return db
+    .select({
+      userId: schema.userAvatars.userId,
+      id: schema.userAvatars.id,
+      source: schema.userAvatars.source,
+      sha256: schema.userAvatars.sha256,
+    })
+    .from(schema.userAvatars)
+    .where(inArray(schema.userAvatars.userId, userIds));
+}
+
+/** One stored image by its own id, with whose it is. */
+export async function getAvatarById(db: Database, avatarId: string) {
+  const [row] = await db
+    .select({
+      userId: schema.userAvatars.userId,
+      contentType: schema.userAvatars.contentType,
+      data: schema.userAvatars.data,
+      sha256: schema.userAvatars.sha256,
+    })
+    .from(schema.userAvatars)
+    .where(eq(schema.userAvatars.id, avatarId));
+  return row ?? null;
 }
 
 export async function getAvatar(db: Database, userId: string, source: AvatarSource) {
@@ -168,82 +205,25 @@ export async function listIdentities(db: Database, userId: string): Promise<Iden
     .orderBy(asc(schema.authIdentities.createdAt));
 }
 
-export type AddIdentityOutcome = 'linked' | 'already_linked' | 'taken' | 'provider_already_used';
-
-/**
- * Attaches (provider, providerUserId) to `userId` — and ONLY ever to that
- * user; an identity owned by someone else is never moved.
- * - 'linked': new row for this user;
- * - 'already_linked': this exact identity already belongs to this user;
- * - 'taken': it belongs to a different account;
- * - 'provider_already_used': this user already holds a DIFFERENT account of
- *   the same provider (one VK / one Telegram per account).
- * The unique (provider, providerUserId) index is the final arbiter under
- * concurrency: the loser of a race re-reads the owner and reports 'taken'.
- */
-export async function addIdentity(
-  db: Database,
-  userId: string,
-  provider: Provider,
-  providerUserId: string,
-): Promise<AddIdentityOutcome> {
-  return db.transaction(async (tx) => {
-    const owned = await tx
-      .select({
-        userId: schema.authIdentities.userId,
-        providerUserId: schema.authIdentities.providerUserId,
-      })
-      .from(schema.authIdentities)
-      .where(
-        and(
-          eq(schema.authIdentities.provider, provider),
-          eq(schema.authIdentities.providerUserId, providerUserId),
-        ),
-      );
-    if (owned[0]) return owned[0].userId === userId ? 'already_linked' : 'taken';
-
-    const mine = await tx
-      .select({ id: schema.authIdentities.id })
-      .from(schema.authIdentities)
-      .where(
-        and(eq(schema.authIdentities.userId, userId), eq(schema.authIdentities.provider, provider)),
-      );
-    if (mine.length > 0) return 'provider_already_used';
-
-    const inserted = await tx
-      .insert(schema.authIdentities)
-      .values({ userId, provider, providerUserId })
-      .onConflictDoNothing({
-        target: [schema.authIdentities.provider, schema.authIdentities.providerUserId],
-      })
-      .returning({ id: schema.authIdentities.id });
-    if (inserted.length > 0) return 'linked';
-
-    // Lost a race against another request linking the same identity.
-    const [winner] = await tx
-      .select({ userId: schema.authIdentities.userId })
-      .from(schema.authIdentities)
-      .where(
-        and(
-          eq(schema.authIdentities.provider, provider),
-          eq(schema.authIdentities.providerUserId, providerUserId),
-        ),
-      );
-    return winner?.userId === userId ? 'already_linked' : 'taken';
-  });
-}
+// The linking rules live in @zybrilka/db so the bot (worker) links through
+// the very same code (packages/db identities.ts).
+export { addIdentity, type AddIdentityOutcome } from '@zybrilka/db';
 
 export type RemoveIdentityOutcome = 'removed' | 'not_linked' | 'last_identity';
 
 /**
- * Detaches one sign-in method, but never the last one: an account with no
- * way to sign in is unreachable. The user row is locked first so two
- * concurrent unlinks can't each see "two left" and remove both.
+ * Detaches one sign-in method, but never the last WORKING one (VK, Yandex,
+ * Telegram): an account with no way to sign in is unreachable. A legacy
+ * `email` row is not a way in any more (email sign-in was removed), so it
+ * does not count, and it is never removed here — its data stays as it was.
+ * The user row is locked first so two concurrent unlinks can't each see
+ * "two left" and remove both. The provider's stored photo copy is removed
+ * with it.
  */
 export async function removeIdentity(
   db: Database,
   userId: string,
-  provider: Provider,
+  provider: LinkableProvider,
 ): Promise<RemoveIdentityOutcome> {
   return db.transaction(async (tx) => {
     await tx
@@ -257,8 +237,16 @@ export async function removeIdentity(
       .where(eq(schema.authIdentities.userId, userId));
     const target = all.find((row) => row.provider === provider);
     if (!target) return 'not_linked';
-    if (all.length <= 1) return 'last_identity';
+    if (all.filter((row) => isWorkingSignInMethod(row.provider)).length <= 1) {
+      return 'last_identity';
+    }
     await tx.delete(schema.authIdentities).where(eq(schema.authIdentities.id, target.id));
+    // Its photo goes with it: others must not keep seeing a picture from
+    // an account that is no longer connected (chooseAvatar falls back to
+    // the copies of connected providers).
+    await tx
+      .delete(schema.userAvatars)
+      .where(and(eq(schema.userAvatars.userId, userId), eq(schema.userAvatars.source, provider)));
     return 'removed';
   });
 }

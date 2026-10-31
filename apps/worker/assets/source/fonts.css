@@ -1,0 +1,73 @@
+/* The site's own fonts (apps/web/node_modules/@fontsource), so the bot images match the app. */
+@font-face {
+  font-family: Inter;
+  font-weight: 400;
+  src: url('../../../web/node_modules/@fontsource/inter/files/inter-cyrillic-400-normal.woff2')
+    format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: Inter;
+  font-weight: 400;
+  src: url('../../../web/node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: Inter;
+  font-weight: 600;
+  src: url('../../../web/node_modules/@fontsource/inter/files/inter-cyrillic-600-normal.woff2')
+    format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: Inter;
+  font-weight: 600;
+  src: url('../../../web/node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: Inter;
+  font-weight: 700;
+  src: url('../../../web/node_modules/@fontsource/inter/files/inter-cyrillic-700-normal.woff2')
+    format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: Inter;
+  font-weight: 700;
+  src: url('../../../web/node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: Unbounded;
+  font-weight: 800;
+  src: url('../../../web/node_modules/@fontsource/unbounded/files/unbounded-cyrillic-800-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: Unbounded;
+  font-weight: 700;
+  src: url('../../../web/node_modules/@fontsource/unbounded/files/unbounded-cyrillic-700-normal.woff2')
+    format('woff2');
+}
+
+:root {
+  --bg: #05070f;
+  --surface: #0d1226;
+  --violet: #8b14f5;
+  --violet-end: #ce3dfd;
+  --blue: #4da3ff;
+  --text: #f4f5fb;
+  --muted: #9aa6bf;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}

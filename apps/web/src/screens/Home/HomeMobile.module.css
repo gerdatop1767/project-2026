@@ -9,20 +9,29 @@
 .hero {
   position: relative;
   overflow: hidden;
+  isolation: isolate;
   border-radius: var(--radius-card);
   padding: var(--space-5);
-  background: var(--color-bg-surface);
-  box-shadow: var(--shadow-e1);
+  background:
+    radial-gradient(
+      90% 70% at 100% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 22%, transparent),
+      transparent 70%
+    ),
+    var(--color-bg-surface);
+  box-shadow:
+    var(--shadow-e1),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 16%, transparent);
 }
 
 .heroHeading {
-  max-width: 10rem;
+  max-width: 11rem;
   position: relative;
   z-index: 1;
 }
 
 .heroSubtitle {
-  max-width: 13rem;
+  max-width: 13.5rem;
   position: relative;
   z-index: 1;
 }
@@ -34,22 +43,16 @@
   color: transparent;
 }
 
-/* Tucked into the top-right corner, fully inside .hero's rounded card.
- * QA v3 Block 5: the previous 4px offset put this cluster right inside
- * the card's own 20px border-radius arc — .hero's overflow:hidden then
- * clipped whichever tile's rotated corner reached furthest into that
- * arc (heroTileAa sat flush at right:0 with no margin of its own,
- * so it was the one visibly cut off). The fix is geometric, not a
- * random nudge: offset the whole cluster far enough from the card's
- * outer edge to clear the radius, and give every individual tile a
- * real inset from the cluster's own edges too, so no tile's rotated
- * footprint is ever flush against a boundary. */
+/* Three real subject tiles in an even triangle, top-right, kept clear of
+ * the card's rounded corner (the cluster is inset by more than the
+ * radius) and of the heading (which is width-capped above). Each tile
+ * bobs gently, out of step with the others. */
 .heroTiles {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 4.5rem;
-  height: 3.5rem;
+  top: 1rem;
+  right: 1rem;
+  width: 7.25rem;
+  height: 6.5rem;
   pointer-events: none;
 }
 
@@ -58,82 +61,151 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 3.25rem;
+  height: 3.25rem;
+  /* Two gentle bobs, then still — not a forever-running loop on Home. */
+  animation: heroFloat 5.2s ease-in-out 2;
+}
+
+.heroTiles img {
+  width: 100%;
+  height: 100%;
 }
 
 .heroTilePi {
-  top: 0.25rem;
-  right: 1.75rem;
-  transform: rotate(-8deg);
+  top: 0;
+  left: 0.6rem;
+  rotate: -8deg;
 }
 
 .heroTileAa {
-  top: 1.25rem;
-  right: 0.25rem;
-  transform: rotate(6deg);
+  top: 1.1rem;
+  right: 0;
+  rotate: 7deg;
 }
 
 .heroTileM {
-  top: 1.75rem;
-  right: 2rem;
-  transform: rotate(10deg);
+  bottom: 0;
+  left: 1.6rem;
+  rotate: 4deg;
 }
 
+.heroTiles > .heroTileAa {
+  animation-delay: -1.7s;
+}
+
+.heroTiles > .heroTileM {
+  animation-delay: -3.4s;
+}
+
+/* Narrow phones: the third heading line spans the card, so the cluster
+ * shrinks to stay beside the two short first lines only. */
+@media (max-width: 374px) {
+  .heroTiles {
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 5.25rem;
+    height: 4rem;
+  }
+
+  .heroTiles > span {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .heroTilePi {
+    left: 0.4rem;
+  }
+
+  .heroTileAa {
+    top: 0.6rem;
+  }
+
+  .heroTileM {
+    left: 1.25rem;
+  }
+}
+
+@keyframes heroFloat {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -4px;
+  }
+}
+
+/* Glass CTA: the accent gradient with a light rim, an inner sheen and a
+ * soft glow; presses down a touch. */
 .heroCta {
+  position: relative;
   margin-top: var(--space-4);
+  overflow: hidden;
+  min-height: 3.25rem;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-on-accent) 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-on-accent) 35%, transparent),
+    0 10px 28px -10px color-mix(in srgb, var(--color-accent-primary-end) 80%, transparent);
+  transition:
+    transform 140ms var(--easing-out),
+    box-shadow 200ms ease,
+    filter 200ms ease;
 }
 
-/* ---- Progress card ---- */
-
-.progressCard {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  border-radius: var(--radius-card);
-  padding: var(--space-4);
-  background: var(--color-bg-surface);
+.heroCta::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 50% 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-on-accent) 18%, transparent),
+    transparent
+  );
+  pointer-events: none;
 }
 
-.progressHeader {
-  display: flex;
+.heroCta:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-on-accent) 28%, transparent),
+    0 4px 14px -8px color-mix(in srgb, var(--color-accent-primary-end) 80%, transparent);
+}
+
+.heroCtaLabel {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.levelBadge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 2.75rem;
-  height: 2.75rem;
+.heroCtaArrow {
+  transition: transform 200ms var(--easing-out);
 }
 
-.progressHeaderText {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.heroCta:active .heroCtaArrow {
+  transform: translateX(3px);
 }
 
-.statValue {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .heroCta:hover .heroCtaArrow {
+    transform: translateX(3px);
+  }
 }
 
-.statIconGold {
-  color: var(--color-gold);
-}
+@media (prefers-reduced-motion: reduce) {
+  .heroTiles > span {
+    animation: none;
+  }
 
-.statIconSuccess {
-  color: var(--color-success);
+  .heroCta,
+  .heroCtaArrow {
+    transition: none;
+  }
+
+  .heroCta:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* ---- Section header ---- */
@@ -315,4 +387,43 @@
   border-radius: 50%;
   background: var(--gradient-primary);
   color: #fff;
+}
+
+/* Guest mode: a quiet one-line way into an account, never a nag. */
+.guestHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent-primary) 10%, var(--color-bg-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 22%, transparent);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.guestHintIcon {
+  flex-shrink: 0;
+  color: var(--color-accent-primary-end);
+}
+
+.guestHintText {
+  min-width: 0;
+}
+
+.guestHintLink {
+  color: var(--color-accent-primary-end);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.guestHint:focus-visible {
+  outline: 2px solid var(--color-accent-primary-end);
+  outline-offset: 2px;
 }

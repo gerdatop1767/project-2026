@@ -595,6 +595,9 @@ export function CanvasBoard({ state, onChangeState, task }: CanvasBoardProps) {
               <TaskExamIllustration
                 subjectId={task.subjectId}
                 taskNumber={task.number}
+                tags={task.tags}
+                imageUrl={task.imageUrl}
+                conditionMd={task.condition}
                 className={styles.taskImage}
               />
             </div>

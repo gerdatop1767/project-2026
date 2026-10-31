@@ -1,10 +1,8 @@
-import { useNavigation } from '../../lib/navigation.js';
+import { useNavigation, type Route } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
 import { subjects } from '../../data/subjects.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import type { IconName } from '../../ui/Icon/icons.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import {
   FeatureIcon,
@@ -12,66 +10,42 @@ import {
   type FeatureIconName,
 } from '../../ui/FeatureIcon/FeatureIcon.js';
 import { staggerClassName } from '../../ui/motion/motion.js';
+import { SignInMethodWarning } from '../../ui/SignInMethodWarning/SignInMethodWarning.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
   icon: FeatureIconName;
   title: string;
   description: string;
+  /** Where the card leads: the theory catalog for Теория / Полезные
+   * материалы (real Russian content), the subjects for the rest. */
+  route: Route;
 }
 
 const sections: readonly LearningSection[] = [
   {
     icon: 'theory',
     title: 'Теория',
-    description: 'Краткие и понятные конспекты по всем темам ЕГЭ',
+    description: 'Конспекты правил по номерам заданий ЕГЭ — пока по русскому языку',
+    route: { screen: 'theory', section: 'rules' },
   },
   {
     icon: 'practice',
     title: 'Практика',
     description: 'Разборы заданий и примеры решений',
+    route: { screen: 'subjectCatalog' },
   },
   {
     icon: 'strategy',
     title: 'Стратегии',
     description: 'Советы, лайфхаки и эффективные методики',
+    route: { screen: 'subjectCatalog' },
   },
   {
     icon: 'materials',
     title: 'Полезные материалы',
-    description: 'Сборники, файлы и дополнительные ресурсы',
-  },
-];
-
-interface Recommendation {
-  icon: IconName;
-  color: string;
-  badge: string;
-  title: string;
-  description: string;
-}
-
-const recommendations: readonly Recommendation[] = [
-  {
-    icon: 'topic',
-    color: 'var(--color-accent-primary)',
-    badge: 'Популярное',
-    title: 'Основные темы ЕГЭ',
-    description: 'Самые важные темы, которые встречаются в экзамене',
-  },
-  {
-    icon: 'variant',
-    color: 'var(--color-accent-secondary)',
-    badge: 'Новое',
-    title: 'Типовые задания',
-    description: 'Разбор сложных заданий с примерами решений',
-  },
-  {
-    icon: 'hint',
-    color: 'var(--color-gold)',
-    badge: 'Советы',
-    title: 'Как эффективно готовиться',
-    description: 'Методики, планирование и полезные лайфхаки',
+    description: 'Справочные списки и практика с ответами — пока по русскому языку',
+    route: { screen: 'theory', section: 'materials' },
   },
 ];
 
@@ -79,15 +53,12 @@ const recommendations: readonly Recommendation[] = [
  * Desktop "Учебный центр" (approved reference screenshot): a hub of
  * theory/practice/strategy/resource sections, a subject picker and
  * personalized recommendations — not a dashboard, a materials index.
- * `root` = shown as a signed-in visitor's `/` (no back row).
  */
-export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
+export function LearningCenterDesktop() {
   const { navigate } = useNavigation();
 
   return (
     <div>
-      {/* At the root (`/`) there is no "Главная" to go back to — this IS it. */}
-      {!root && <BackRow to={{ screen: 'home' }} label="Главная" />}
       <div className={styles.headRow}>
         <div>
           <h1 className="text-h1">Учебный центр</h1>
@@ -105,6 +76,8 @@ export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
           />
         </div>
       </div>
+
+      <SignInMethodWarning className={styles.signInWarning} />
 
       <div className={clsx(styles.sectionsGrid, staggerClassName)}>
         {sections.map((section) => (
@@ -127,7 +100,7 @@ export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
               type="button"
               className={styles.sectionArrow}
               aria-label={section.title}
-              onClick={() => navigate({ screen: 'subjectCatalog' })}
+              onClick={() => navigate(section.route)}
             >
               <Icon name="arrowRight" size={18} />
             </button>
@@ -161,30 +134,20 @@ export function LearningCenterDesktop({ root = false }: { root?: boolean }) {
 
       <Card className={styles.recommendCard}>
         <p className="text-h3">Рекомендации для тебя</p>
-        <p className="text-body-sm text-secondary">На основе твоей активности</p>
-        <div className={styles.recommendGrid}>
-          {recommendations.map((item) => (
-            <div key={item.title} className={styles.recommendItem}>
-              <span className={styles.recommendIcon} style={{ background: item.color }}>
-                <Icon name={item.icon} size={22} />
-              </span>
-              <div className={styles.recommendBody}>
-                <span className={styles.recommendBadge}>{item.badge}</span>
-                <p className="text-body-sm" style={{ fontWeight: 700 }}>
-                  {item.title}
-                </p>
-                <p className="text-body-sm text-secondary">{item.description}</p>
-              </div>
-              <button
-                type="button"
-                className={styles.recommendArrow}
-                aria-label={item.title}
-                onClick={() => navigate({ screen: 'subjectCatalog' })}
-              >
-                <Icon name="arrowRight" size={16} />
-              </button>
-            </div>
-          ))}
+        {/* No recommendation engine behind this block yet: an honest
+            placeholder — no invented «personal» picks, no API requests. */}
+        <div className={styles.recommendEmpty} role="status">
+          <span className={styles.recommendEmptyIcon} aria-hidden="true">
+            <Icon name="smart" size={22} />
+          </span>
+          <div>
+            <p className="text-body" style={{ fontWeight: 700 }}>
+              Рекомендации появятся позже
+            </p>
+            <p className="text-body-sm text-secondary">
+              Решай задания — по ним мы подберём, что повторить и чем заняться дальше.
+            </p>
+          </div>
         </div>
       </Card>
     </div>

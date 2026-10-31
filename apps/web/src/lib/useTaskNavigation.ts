@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
-import { getVariant, getVariantForTask } from './api.js';
+import { getVariant, getVariantForTask, openLearningSessionTask } from './api.js';
+import {
+  applyLearningSessionResponse,
+  useActiveLearningSessionForTask,
+  useLearningSessionContext,
+} from './learningSessionContext.js';
 import { useNavigation, type Route } from './navigation.js';
+import { registerPrivateCacheReset } from './privateCaches.js';
+import { useVariantTaskMarks, type TaskMark } from './useVariantTaskMarks.js';
 
 export interface TaskNavigationEntry {
   taskId: string;
@@ -30,6 +37,9 @@ export interface TaskNavigationContext {
   /** Navigates to a specific entry from `orderedTasks`, preserving the
    * current subject/collection/resolved-variant context. */
   goTo: (entry: TaskNavigationEntry) => void;
+  /** Inside a variant attempt: what really happened to each task (by task
+   * id) — see `useVariantTaskMarks`. Empty outside one. */
+  marks: Readonly<Record<string, TaskMark>>;
 }
 
 /**
@@ -60,6 +70,30 @@ export interface TaskNavigationContext {
  *    context (just the current number, no strip/arrows) rather than
  *    inventing an ordering that doesn't exist.
  */
+interface ResolvedList {
+  orderedTasks: readonly TaskNavigationEntry[];
+  resolvedVariantId: string | null;
+}
+
+/**
+ * Resolved task orders, remembered for this visit. A variant's order never
+ * changes while it is being solved, and the task screen is remounted for
+ * every task (key={taskId}): without this, picking another number dropped
+ * the strip / task list until the variant was fetched AGAIN, so the newly
+ * picked number lit up only after a network round-trip. Keyed by request
+ * (task + context) and by variant id — `goTo()` always carries the resolved
+ * variant id forward, so the next task hits the cache.
+ */
+const resolvedLists = new Map<string, ResolvedList>();
+registerPrivateCacheReset(() => resolvedLists.clear());
+
+function cachedList(requestKey: string, variantId: string | undefined): ResolvedList | null {
+  return (
+    resolvedLists.get(requestKey) ??
+    (variantId ? (resolvedLists.get(`variant:${variantId}`) ?? null) : null)
+  );
+}
+
 export function useTaskNavigation(params: {
   subjectId: string;
   taskId: string;
@@ -72,8 +106,15 @@ export function useTaskNavigation(params: {
    * resetting on every step. */
   returnTo?: Route;
 }): TaskNavigationContext {
-  const { subjectId, taskId, collectionSlug, variantId, customOrderedTasks, returnTo } = params;
+  const { subjectId, taskId, collectionSlug, customOrderedTasks, returnTo } = params;
   const { navigate } = useNavigation();
+  // Inside a variant attempt the route carries no variant id: the session
+  // knows it, and every number is opened THROUGH the session (so answers
+  // to it count in this attempt).
+  const variantSession = useActiveLearningSessionForTask(params.taskId);
+  const { setSession } = useLearningSessionContext();
+  const sessionVariant = variantSession?.variant ? variantSession : null;
+  const variantId = params.variantId ?? sessionVariant?.variant?.variantId;
   const hasCustomList = Boolean(customOrderedTasks && customOrderedTasks.length > 0);
   const hasContext = !hasCustomList && Boolean(collectionSlug || variantId);
   // Identifies "which request this is for" — resolution depends on all
@@ -92,21 +133,24 @@ export function useTaskNavigation(params: {
   useEffect(() => {
     if (!hasContext) return;
 
-    let cancelled = false;
     const key = `${taskId}|${collectionSlug ?? ''}|${variantId ?? ''}`;
+    if (cachedList(key, variantId)) return;
+    let cancelled = false;
     const request = variantId ? getVariant(variantId) : getVariantForTask(taskId, collectionSlug);
 
     void request
       .then((detail) => {
         if (cancelled) return;
-        setFetched({
-          key,
+        const list: ResolvedList = {
           orderedTasks: detail.tasks
             .slice()
             .sort((a, b) => a.position - b.position)
             .map((t) => ({ taskId: t.task.id, taskNumber: t.task.taskNumber })),
           resolvedVariantId: detail.variant.id,
-        });
+        };
+        resolvedLists.set(key, list);
+        resolvedLists.set(`variant:${detail.variant.id}`, list);
+        setFetched({ key, ...list });
       })
       .catch(() => {
         if (!cancelled) setFetched({ key, orderedTasks: [], resolvedVariantId: null });
@@ -117,7 +161,11 @@ export function useTaskNavigation(params: {
     };
   }, [taskId, collectionSlug, variantId, hasContext]);
 
-  const resolved = hasContext && fetched && fetched.key === requestKey ? fetched : null;
+  const resolved = hasContext
+    ? fetched && fetched.key === requestKey
+      ? fetched
+      : cachedList(requestKey, variantId)
+    : null;
   const loading = hasContext && resolved === null;
   const orderedTasks = hasCustomList ? customOrderedTasks! : (resolved?.orderedTasks ?? []);
   const resolvedVariantId = hasCustomList ? null : (resolved?.resolvedVariantId ?? null);
@@ -129,7 +177,22 @@ export function useTaskNavigation(params: {
       ? (orderedTasks[currentIndex + 1] ?? null)
       : null;
 
+  const marks = useVariantTaskMarks(
+    sessionVariant?.sessionId ?? null,
+    taskId,
+    orderedTasks.map((t) => t.taskId),
+  );
+
   function goTo(entry: TaskNavigationEntry) {
+    if (sessionVariant) {
+      if (entry.taskId === taskId) return;
+      void openLearningSessionTask(sessionVariant.sessionId, entry.taskId)
+        .then((response) => applyLearningSessionResponse(response, setSession, navigate))
+        .catch(() => {
+          // Stays on the current task; the number can be tapped again.
+        });
+      return;
+    }
     navigate({
       screen: 'task',
       subjectId,
@@ -149,5 +212,6 @@ export function useTaskNavigation(params: {
     next,
     variantId: resolvedVariantId,
     goTo,
+    marks,
   };
 }

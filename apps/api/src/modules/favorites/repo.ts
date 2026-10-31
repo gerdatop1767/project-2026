@@ -1,12 +1,14 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 
+/** A task put back on review drops out until it is checked. */
 export async function listFavoriteTaskIds(db: Database, userId: string): Promise<string[]> {
   const rows = await db
     .select({ taskId: schema.favorites.taskId })
     .from(schema.favorites)
-    .where(eq(schema.favorites.userId, userId));
+    .innerJoin(schema.tasks, eq(schema.favorites.taskId, schema.tasks.id))
+    .where(and(eq(schema.favorites.userId, userId), ne(schema.tasks.status, 'needs_review')));
   return rows.map((r) => r.taskId);
 }
 

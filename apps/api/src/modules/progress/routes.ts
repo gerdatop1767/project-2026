@@ -8,6 +8,7 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import * as service from './service.js';
+import * as xpService from '../xp/service.js';
 
 const taskNumberParamsSchema = z.object({ taskNumber: z.coerce.number().int().positive() });
 
@@ -17,7 +18,34 @@ export interface ProgressRoutesOptions {
   db: Database;
 }
 
+const xpHistoryQuerySchema = z.object({ cursor: z.string().max(200).optional() });
+
 export const progressRoutes: FastifyPluginAsync<ProgressRoutesOptions> = async (app, { db }) => {
+  // Level and XP (docs/XP.md): the header chip and the «Уровень» page both
+  // read this, so they always show the same server-computed numbers.
+  app.get('/progress/xp', async (request, reply) => {
+    if (!request.userId) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+    return xpService.getXpSummary(db, request.userId);
+  });
+
+  app.get('/progress/xp/history', async (request, reply) => {
+    if (!request.userId) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+    const query = xpHistoryQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    try {
+      return await xpService.getXpHistory(db, request.userId, query.data.cursor);
+    } catch (error) {
+      if (error instanceof xpService.InvalidCursorError) {
+        return reply.code(400).send({ error: 'invalid_cursor' });
+      }
+      throw error;
+    }
+  });
+
   app.get('/progress/summary', async (request, reply) => {
     if (!request.userId) {
       return reply.code(400).send({ error: 'missing_anon_id' });
@@ -105,5 +133,25 @@ export const progressRoutes: FastifyPluginAsync<ProgressRoutesOptions> = async (
       query.data.subject,
       params.data.taskNumber,
     );
+  });
+};
+
+/**
+ * The public topic list (names + how many published tasks each has) for
+ * Тренировка → «По теме» and a subject's «Темы» — open to guests. Same
+ * shape as /progress/by-topic, but `completed` is always 0 here: nothing
+ * personal is read, whoever asks. Signed-in screens keep using
+ * /progress/by-topic for their real progress.
+ */
+export const publicTopicsRoutes: FastifyPluginAsync<ProgressRoutesOptions> = async (
+  app,
+  { db },
+) => {
+  app.get('/topics', async (request, reply) => {
+    const query = progressByTopicQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.code(400).send({ error: 'invalid_query', issues: query.error.issues });
+    }
+    return service.getByTopicWithTotals(db, null, query.data);
   });
 };

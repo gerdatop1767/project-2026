@@ -6,60 +6,743 @@ import {
   illustrationReconstructsOriginal,
   listIllustratedTasks,
 } from './illustrations.js';
+import {
+  EGE_2026_V7_T8_WAYPOINTS,
+  EGE_2026_VECTORS,
+  ege2026V10T11,
+  ege2026V7T11,
+  ege2026V9T11,
+} from './Ege2026Figures.js';
+import {
+  EGE_2027_V2_T9_WAYPOINTS,
+  EGE_2027_VECTORS,
+  ege2027V2T12,
+  ege2027V3T12,
+  ege2027V4T12,
+  EGE_2027_V5_T9_WAYPOINTS,
+  ege2027V5T12,
+  EGE_2027_V6_T9_WAYPOINTS,
+  ege2027V6T12,
+  EGE_2027_V7_T9_TANGENT,
+  EGE_2027_V7_T9_WAYPOINTS,
+  ege2027V7T12,
+  EGE_2027_V8_T9_TANGENT,
+  EGE_2027_V8_T9_WAYPOINTS,
+  ege2027V8T12,
+  ege2027V9T12,
+  ege2027V10T12,
+  EGE_2027_V11_T9_WAYPOINTS,
+  ege2027V11T12,
+  EGE_2027_V12_T9_WAYPOINTS,
+  ege2027V12T12,
+  ege2027V13T12,
+  ege2027V14T12,
+  ege2027V15T12,
+  ege2027V16T12,
+  ege2027V17T12,
+  ege2027V18T12,
+  ege2027V19T12,
+  ege2027V20T12,
+  ege2027V21T12,
+  EGE_2027_V21_T9_WAYPOINTS,
+  ege2027V22T12,
+  EGE_2027_V22_T9_WAYPOINTS,
+  ege2027V23T12,
+  ege2027V24T12,
+  ege2027V25T12a,
+  ege2027V25T12b,
+  EGE_2027_V25_T9_WAYPOINTS,
+} from './Ege2027Figures.js';
+import { curveY } from './TracedGraphSVG.js';
+
+const V1 = ['ege-2026-variant-1'];
+const tag = (v: number) => [`ege-2026-variant-${v}`];
 
 describe('illustration registry', () => {
-  it('lists exactly the tasks that have a custom illustration', () => {
+  it('lists exactly the tasks that have a custom illustration — keyed by import tag and number', () => {
     expect([...listIllustratedTasks()].sort()).toEqual(
-      ['math:1', 'math:2', 'math:3', 'math:8', 'math:11', 'math:14', 'math:17'].sort(),
+      [
+        ...[1, 2, 3, 8, 11, 14, 17].map((n) => `ege-2026-variant-1:${n}`),
+        'ege-2026-variant-3:2',
+        'ege-2026-variant-4:2',
+        'ege-2026-variant-6:2',
+        'ege-2026-variant-9:2',
+        'ege-2026-variant-10:2',
+        'ege-2026-variant-7:8',
+        'ege-2026-variant-7:11',
+        'ege-2026-variant-9:11',
+        'ege-2026-variant-10:11',
+        'ege-2027-variant-2:9',
+        'ege-2027-variant-2:12',
+        'ege-2027-variant-3:2',
+        'ege-2027-variant-3:12',
+        'ege-2027-variant-4:2',
+        'ege-2027-variant-4:12',
+        'ege-2027-variant-5:9',
+        'ege-2027-variant-5:12',
+        'ege-2027-variant-6:9',
+        'ege-2027-variant-6:12',
+        'ege-2027-variant-7:2',
+        'ege-2027-variant-7:9',
+        'ege-2027-variant-7:12',
+        'ege-2027-variant-8:2',
+        'ege-2027-variant-8:9',
+        'ege-2027-variant-8:12',
+        'ege-2027-variant-9:12',
+        'ege-2027-variant-10:12',
+        'ege-2027-variant-11:9',
+        'ege-2027-variant-11:12',
+        'ege-2027-variant-12:9',
+        'ege-2027-variant-12:12',
+        'ege-2027-variant-13:2',
+        'ege-2027-variant-13:12',
+        'ege-2027-variant-14:2',
+        'ege-2027-variant-14:12',
+        'ege-2027-variant-15:12',
+        'ege-2027-variant-16:2',
+        'ege-2027-variant-16:12',
+        'ege-2027-variant-17:12',
+        'ege-2027-variant-18:12',
+        'ege-2027-variant-19:2',
+        'ege-2027-variant-19:12',
+        'ege-2027-variant-20:2',
+        'ege-2027-variant-20:12',
+        'ege-2027-variant-21:9',
+        'ege-2027-variant-21:12',
+        'ege-2027-variant-22:9',
+        'ege-2027-variant-22:12',
+        'ege-2027-variant-23:12',
+        'ege-2027-variant-24:12',
+        'ege-2027-variant-25:9',
+        'ege-2027-variant-25:12',
+      ].sort(),
     );
   });
 
-  it('returns null for a task with no custom illustration', () => {
-    expect(getCustomIllustration('math', 6)).toBeNull();
-    expect(getIllustrationKind('math', 6)).toBeNull();
-    expect(illustrationReconstructsOriginal('math', 6)).toBe(false);
-    // A different subject with the same task number must not collide.
-    expect(getCustomIllustration('russian', 1)).toBeNull();
+  it('returns null for a task with no custom illustration, or for the same number in another source', () => {
+    expect(getCustomIllustration(V1, 6)).toBeNull();
+    expect(getIllustrationKind(V1, 6)).toBeNull();
+    expect(illustrationReconstructsOriginal(V1, 6)).toBe(false);
+    expect(getCustomIllustration(undefined, 8)).toBeNull();
+    expect(getCustomIllustration(['ege-2027-variant-1'], 1)).toBeNull();
+    // В8 №8/№11: held back until the recorded answers are reviewed.
+    expect(getCustomIllustration(tag(8), 8)).toBeNull();
+    expect(getCustomIllustration(tag(8), 11)).toBeNull();
+    // Вариант 1's figures never land on another variant's task.
+    for (let v = 2; v <= 25; v++) {
+      for (const n of [1, 3, 14, 17]) expect(getCustomIllustration(tag(v), n)).toBeNull();
+    }
+    expect(getCustomIllustration(tag(5), 2)).toBeNull();
+    expect(getCustomIllustration(tag(2), 11)).toBeNull();
   });
 
   it.each([
-    ['math', 1, 'geometry_2d', true],
-    ['math', 2, 'coordinate_plane', false],
-    ['math', 3, 'geometry_3d', true],
-    ['math', 8, 'function_graph', true],
-    ['math', 11, 'function_graph', true],
-    ['math', 14, 'geometry_3d', false],
-    ['math', 17, 'geometry_2d', false],
-  ] as const)(
-    'math:%i has kind %s (reconstructsOriginal=%s)',
-    (subjectId, taskNumber, kind, reconstructsOriginal) => {
-      expect(getIllustrationKind(subjectId, taskNumber)).toBe(kind);
-      expect(getCustomIllustration(subjectId, taskNumber)).not.toBeNull();
-      expect(illustrationReconstructsOriginal(subjectId, taskNumber)).toBe(reconstructsOriginal);
-    },
-  );
+    [1, 'geometry_2d', true],
+    [2, 'coordinate_plane', false],
+    [3, 'geometry_3d', true],
+    [8, 'function_graph', true],
+    [11, 'function_graph', true],
+    [14, 'geometry_3d', false],
+    [17, 'geometry_2d', false],
+  ] as const)('В1 №%i has kind %s (reconstructsOriginal=%s)', (n, kind, reconstructsOriginal) => {
+    expect(getIllustrationKind(V1, n)).toBe(kind);
+    expect(getCustomIllustration(V1, n)).not.toBeNull();
+    expect(illustrationReconstructsOriginal(V1, n)).toBe(reconstructsOriginal);
+  });
 
-  it.each([1, 2, 3, 8, 11, 14, 17] as const)(
-    'math:%i renders a labelled <svg role="img"> with no errors',
-    (taskNumber) => {
-      const node = getCustomIllustration('math', taskNumber);
-      const { container } = render(<>{node}</>);
+  it.each([
+    [1, 1],
+    [1, 2],
+    [1, 3],
+    [1, 8],
+    [1, 11],
+    [1, 14],
+    [1, 17],
+    [3, 2],
+    [4, 2],
+    [6, 2],
+    [9, 2],
+    [10, 2],
+    [7, 8],
+    [7, 11],
+    [9, 11],
+    [10, 11],
+  ] as const)('В%i №%i renders a labelled <svg role="img">', (v, n) => {
+    const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+    expect(svg).toHaveAttribute('role', 'img');
+    expect(svg?.getAttribute('aria-label')?.length ?? 0).toBeGreaterThan(0);
+    expect(svg).toHaveAttribute('viewBox');
+    expect(container.querySelector('img')).toBeNull();
+  });
+});
+
+describe('ЕГЭ 2026 figures drawn from the original — the geometry gives the recorded answers', () => {
+  const vec = (v: keyof typeof EGE_2026_VECTORS, i: 0 | 1) => {
+    const p = EGE_2026_VECTORS[v][i];
+    return [p.x - p.fromX, p.y - p.fromY] as const;
+  };
+  const len = ([x, y]: readonly [number, number]) => Math.hypot(x, y);
+
+  it('vector figures: a and b read off the grid give each task its answer', () => {
+    const [a3, b3] = [vec(3, 0), vec(3, 1)];
+    expect([a3, b3]).toEqual([
+      [4, -6],
+      [5, 6],
+    ]);
+    expect(a3[0] * 2 * b3[0] + a3[1] * 2 * b3[1]).toBe(-32); // a·2b
+    const [a4, b4] = [vec(4, 0), vec(4, 1)];
+    expect(0.5 * a4[0] * b4[0] + 0.5 * a4[1] * b4[1]).toBe(4); // 0,5a·b
+    const [a6, b6] = [vec(6, 0), vec(6, 1)];
+    expect((a6[0] * b6[0] + a6[1] * b6[1]) / (len(a6) * len(b6))).toBeCloseTo(0.28, 12);
+    const [a9, b9] = [vec(9, 0), vec(9, 1)];
+    expect(len([1.5 * b9[0] - a9[0], 1.5 * b9[1] - a9[1]])).toBe(13);
+    const [a10, b10] = [vec(10, 0), vec(10, 1)];
+    expect(len([b10[0] - 3 * a10[0], b10[1] - 3 * a10[1]])).toBe(41);
+  });
+
+  it('every vector lies on grid nodes inside the printed −6…6 grid', () => {
+    for (const vectors of Object.values(EGE_2026_VECTORS)) {
+      for (const v of vectors) {
+        for (const c of [v.x, v.y, v.fromX, v.fromY]) {
+          expect(Number.isInteger(c)).toBe(true);
+          expect(Math.abs(c)).toBeLessThanOrEqual(6);
+        }
+      }
+    }
+  });
+
+  it('vector names sit clear of both vectors and of the axes, as in the original', () => {
+    // Distance from a point to a segment, in grid cells.
+    const toSegment = (
+      [px, py]: readonly [number, number],
+      v: { fromX: number; fromY: number; x: number; y: number },
+    ) => {
+      const [dx, dy] = [v.x - v.fromX, v.y - v.fromY];
+      const t = Math.max(
+        0,
+        Math.min(1, ((px - v.fromX) * dx + (py - v.fromY) * dy) / (dx * dx + dy * dy)),
+      );
+      return Math.hypot(px - v.fromX - t * dx, py - v.fromY - t * dy);
+    };
+    for (const vectors of Object.values(EGE_2026_VECTORS)) {
+      for (const { labelAt } of vectors) {
+        const p = [labelAt.x, labelAt.y] as const;
+        // The letter is ~0.5 cell tall with its arrow drawn above it.
+        for (const v of vectors) expect(toSegment(p, v)).toBeGreaterThanOrEqual(0.35);
+        expect(Math.abs(labelAt.x)).toBeGreaterThanOrEqual(0.45);
+        expect(Math.abs(labelAt.y)).toBeGreaterThanOrEqual(0.45);
+      }
+    }
+  });
+
+  it('В7 №11: parabola through (−4;0), (−2;4), (0;0), line through (2;5); they meet again at −6,5', () => {
+    const { f, g } = ege2026V7T11;
+    for (const [x, y] of [
+      [-4, 0],
+      [-2, 4],
+      [0, 0],
+    ] as const)
+      expect(g(x)).toBeCloseTo(y, 12);
+    expect(f(0)).toBeCloseTo(0, 12);
+    expect(f(2)).toBeCloseTo(5, 12);
+    expect(f(-6.5)).toBeCloseTo(g(-6.5), 12);
+  });
+
+  it('В18 №12: g = 2x² − 4x through (0; 0), (1; −2), (2; 0); f = 3,5x through (2; 7); A at x = 3,75', () => {
+    const { f, g } = ege2027V18T12;
+    expect([g(0) + 0, g(1), g(2), f(2)]).toEqual([0, -2, 0, 7]);
+    expect(f(3.75)).toBeCloseTo(g(3.75), 12);
+  });
+
+  it('В19 №2: a = (−1; −3), b = (−4; 6), |1,5b − a| = 13', () => {
+    const [a, b] = EGE_2027_VECTORS[19].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [-1, -3],
+      [-4, 6],
+    ]);
+    expect(Math.hypot(1.5 * b![0]! - a![0]!, 1.5 * b![1]! - a![1]!)).toBe(13);
+  });
+
+  it('В19 №12: f(x) = 2^(2−x) through (0; 4) and (2; 1), f(−3) = 32', () => {
+    expect([ege2027V19T12(0), ege2027V19T12(2), ege2027V19T12(-3)]).toEqual([4, 1, 32]);
+  });
+
+  it('В20 №2: a = (4; −11), b = (3; 7), |b − 3a| = 41', () => {
+    const [a, b] = EGE_2027_VECTORS[20].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [4, -11],
+      [3, 7],
+    ]);
+    expect(Math.hypot(b![0]! - 3 * a![0]!, b![1]! - 3 * a![1]!)).toBe(41);
+  });
+
+  it('В20 №12: f(x) = 2·log₂(x+3) through (−2; 0) and (1; 4), f(29) = 10', () => {
+    expect([ege2027V20T12(-2), ege2027V20T12(1), ege2027V20T12(29)]).toEqual([0, 4, 10]);
+  });
+
+  it('В21 №9: f′ on (−22; 2); minima of f at −16, −9, −1 in [−18; 1]', () => {
+    const w = EGE_2027_V21_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-22, -2]);
+    expect(w[w.length - 1]).toEqual([2, 1]);
+    const minima: number[] = [];
+    for (let i = 0; i + 1 < w.length; i++) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 < 0 && y1 >= 0) minima.push(x0 + (-y0 * (x1 - x0)) / (y1 - y0));
+    }
+    expect(minima).toEqual([-21, -16, -9, -1]);
+    expect(minima.filter((x) => x >= -18 && x <= 1)).toHaveLength(3);
+  });
+
+  it('В21 №12: f(x) = 4/(x+1) through (0; 4) and (−3; −2), f(−0,8) = 20', () => {
+    expect([ege2027V21T12(0), ege2027V21T12(-3)]).toEqual([4, -2]);
+    expect(ege2027V21T12(-0.8)).toBeCloseTo(20, 12);
+  });
+
+  it('В22 №9: f′ on (−5; 12); minima of f at −2 and 5, both in [−4; 9]', () => {
+    const w = EGE_2027_V22_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-5, -2.2]);
+    expect(w[w.length - 1]).toEqual([12, -1.2]);
+    const minima: number[] = [];
+    const maxima: number[] = [];
+    for (let i = 0; i + 1 < w.length; i++) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 < 0 && y1 >= 0) minima.push(x0 + (-y0 * (x1 - x0)) / (y1 - y0));
+      if (y0 > 0 && y1 <= 0) maxima.push(x0 + (y0 * (x1 - x0)) / (y0 - y1));
+    }
+    expect(minima).toEqual([-2, 5]);
+    expect(maxima).toEqual([2, 10]);
+  });
+
+  it('В22 №12: f(x) = −3/(x−3) through (0; 1) and (2; 3), f(18) = −0,2', () => {
+    expect([ege2027V22T12(0), ege2027V22T12(2)]).toEqual([1, 3]);
+    expect(ege2027V22T12(18)).toBeCloseTo(-0.2, 12);
+  });
+
+  it('В23 №12: f(x) = 3^x − 5 through (0; −4) and (1; −2), f(4) = 76', () => {
+    expect([ege2027V23T12(0), ege2027V23T12(1), ege2027V23T12(4)]).toEqual([-4, -2, 76]);
+  });
+
+  it('В24 №12: f(x) = (1/2)^x + 2 through (−2; 6) and (0; 3), f(−4) = 18', () => {
+    expect([ege2027V24T12(-2), ege2027V24T12(0), ege2027V24T12(-4)]).toEqual([6, 3, 18]);
+  });
+
+  it('В25 №9: f on (−8; 6) decreases at the integer points −6, −5, 2, 3 only', () => {
+    const w = EGE_2027_V25_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-8, 2.8]);
+    expect(w[w.length - 1]).toEqual([6, -3]);
+    const y = (x: number) => w.find(([wx]) => wx === x)![1];
+    const decreasing = [];
+    for (let k = -7; k <= 5; k++) {
+      if (y(k - 0.25) > y(k) && y(k) > y(k + 0.25)) decreasing.push(k);
+    }
+    expect(decreasing).toEqual([-6, -5, 2, 3]);
+    expect([y(-7), y(1)]).toEqual([4, 4]);
+  });
+
+  it('В25 №12: lines y = 1,4x + 2,2 and y = 0,8x − 3,8 meet at (−10; −11,8)', () => {
+    expect([ege2027V25T12a(-3), ege2027V25T12a(2)].map((v) => +v.toFixed(10))).toEqual([-2, 5]);
+    expect([ege2027V25T12b(1), ege2027V25T12b(6)].map((v) => +v.toFixed(10))).toEqual([-3, 1]);
+    expect(+ege2027V25T12a(-10).toFixed(10)).toBe(-11.8);
+    expect(+ege2027V25T12b(-10).toFixed(10)).toBe(-11.8);
+  });
+
+  it('В9 №11: through (0;4) and (2;1), f(−3) = 32', () => {
+    expect([ege2026V9T11(0), ege2026V9T11(2), ege2026V9T11(-3)]).toEqual([4, 1, 32]);
+  });
+
+  it('В10 №11: through (−2;0) and (1;4), f(29) = 10', () => {
+    expect([ege2026V10T11(-2), ege2026V10T11(1), ege2026V10T11(29)]).toEqual([0, 4, 10]);
+    expect(Number.isNaN(ege2026V10T11(-3))).toBe(true);
+  });
+
+  it('В7 №8: the traced curve has its least slope at the marked point 1 (the recorded answer)', () => {
+    const slope = (x: number) =>
+      (curveY(EGE_2026_V7_T8_WAYPOINTS, x + 0.1) - curveY(EGE_2026_V7_T8_WAYPOINTS, x - 0.1)) / 0.2;
+    const s = Object.fromEntries([-1, 1, 3, 4].map((x) => [x, slope(x)]));
+    expect(Math.abs(s[-1]!)).toBeLessThan(0.5); // peak
+    expect(Math.abs(s[3]!)).toBeLessThan(0.5); // peak
+    expect(s[4]!).toBeGreaterThan(1); // rising
+    expect(s[1]!).toBeLessThan(-1.5); // steep fall
+    expect(Math.min(...Object.values(s))).toBe(s[1]);
+  });
+});
+
+describe('ЕГЭ 2027 Ященко, Вариант 2 — figures drawn from the scan', () => {
+  const V2 = ['ege-2027-variant-2'];
+
+  it('only В2 №9 and №12 get an SVG; В1, other numbers and 2026 never get it', () => {
+    for (const n of [9, 12]) {
+      const { container } = render(<>{getCustomIllustration(V2, n)}</>);
       const svg = container.querySelector('svg');
-      expect(svg).toBeInTheDocument();
       expect(svg).toHaveAttribute('role', 'img');
-      expect(svg?.getAttribute('aria-label')?.length ?? 0).toBeGreaterThan(0);
-      expect(svg).toHaveAttribute('viewBox');
-    },
-  );
+      expect(svg?.getAttribute('aria-label')).toContain(`вариант 2, задание ${n})`);
+      expect(container.querySelector('img')).toBeNull();
+      expect(illustrationReconstructsOriginal(V2, n)).toBe(true);
+      expect(getCustomIllustration(['ege-2027-variant-1'], n)).toBeNull();
+    }
+    for (const n of [1, 3]) expect(getCustomIllustration(V2, n)).toBeNull();
+    expect(getCustomIllustration(['ege-2026-variant-2'], 9)).toBeNull();
+  });
 
-  it('reconstructsOriginal=true only for the tasks the source PDF actually prints a diagram for (1, 3, 8, 11)', () => {
-    for (const key of ['math:1', 'math:3', 'math:8', 'math:11']) {
-      const [subjectId, taskNumber] = key.split(':');
-      expect(illustrationReconstructsOriginal(subjectId!, Number(taskNumber))).toBe(true);
+  it('№9: f′ changes sign − → + on [−5; 3] only at −2 (the recorded answer), + → − at 2', () => {
+    const w = EGE_2027_V2_T9_WAYPOINTS;
+    expect(w[0]![0]).toBe(-7);
+    expect(w[w.length - 1]![0]).toBe(7);
+    const zeros: { x: number; rising: boolean }[] = [];
+    for (let i = 0; i < w.length - 1; i += 1) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 * y1 < 0) zeros.push({ x: x0 - (y0 * (x1 - x0)) / (y1 - y0), rising: y1 > y0 });
     }
-    for (const key of ['math:2', 'math:14', 'math:17']) {
-      const [subjectId, taskNumber] = key.split(':');
-      expect(illustrationReconstructsOriginal(subjectId!, Number(taskNumber))).toBe(false);
+    expect(zeros.map((z) => Math.round(z.x))).toEqual([-6, -2, 2]);
+    for (const z of zeros) expect(Math.abs(z.x - Math.round(z.x))).toBeLessThan(0.1);
+    const minima = zeros.filter((z) => z.rising && z.x >= -5 && z.x <= 3);
+    expect(minima.map((z) => Math.round(z.x))).toEqual([-2]);
+    expect(curveY(w, -1)).toBeCloseTo(3, 1); // the printed peak sits on the grid node
+  });
+
+  it('№12: through (1;0), (3;2), (9;4), and f(x) = 6 at x = 27', () => {
+    expect(ege2027V2T12(1)).toBeCloseTo(0, 12);
+    expect(ege2027V2T12(3)).toBeCloseTo(2, 12);
+    expect(ege2027V2T12(9)).toBeCloseTo(4, 12);
+    expect(ege2027V2T12(27)).toBeCloseTo(6, 12);
+    expect(Number.isNaN(ege2027V2T12(0))).toBe(true);
+  });
+});
+
+describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn from the scan', () => {
+  const tag = (v: number) => [`ege-2027-variant-${v}`];
+  const vec = (v: keyof typeof EGE_2027_VECTORS, i: 0 | 1) => {
+    const p = EGE_2027_VECTORS[v][i];
+    return [p.x - p.fromX, p.y - p.fromY] as const;
+  };
+
+  it.each([
+    [3, 2],
+    [3, 12],
+    [4, 2],
+    [4, 12],
+    [5, 9],
+    [5, 12],
+    [6, 9],
+    [6, 12],
+    [7, 2],
+    [7, 9],
+    [7, 12],
+    [8, 2],
+    [8, 9],
+    [8, 12],
+    [9, 12],
+    [10, 12],
+    [11, 9],
+    [11, 12],
+    [12, 9],
+    [12, 12],
+    [13, 2],
+    [13, 12],
+    [14, 2],
+    [14, 12],
+    [15, 12],
+    [16, 2],
+    [16, 12],
+    [17, 12],
+    [18, 12],
+    [19, 2],
+    [19, 12],
+  ] as const)('В%i №%i renders its own labelled SVG', (v, n) => {
+    const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
+    const svg = container.querySelector('svg');
+    expect(svg).toHaveAttribute('role', 'img');
+    expect(svg?.getAttribute('aria-label')).toContain(`вариант ${v}, задание ${n})`);
+    expect(container.querySelector('img')).toBeNull();
+    expect(illustrationReconstructsOriginal(tag(v), n)).toBe(true);
+    // The 2026 task with the same variant and number is a different figure.
+    const other = render(<>{getCustomIllustration([`ege-2026-variant-${v}`], n)}</>);
+    expect(other.container.innerHTML).not.toBe(container.innerHTML);
+    // Another 2027 variant with the same number never shows this figure.
+    for (const w of Array.from({ length: 23 }, (_, i) => i + 3).filter((w) => w !== v)) {
+      const r = render(<>{getCustomIllustration(tag(w), n)}</>);
+      expect(r.container.innerHTML).not.toBe(container.innerHTML);
+      r.unmount();
     }
+  });
+
+  it('every vector lies on grid nodes', () => {
+    for (const vectors of Object.values(EGE_2027_VECTORS))
+      for (const v of vectors)
+        for (const c of [v.x, v.y, v.fromX, v.fromY]) expect(Number.isInteger(c)).toBe(true);
+  });
+
+  it('В3 №2: a = (7; −4), b = (−1; −4), |a + 2b| = 13', () => {
+    const [a, b] = [vec(3, 0), vec(3, 1)];
+    expect([a, b]).toEqual([
+      [7, -4],
+      [-1, -4],
+    ]);
+    expect(Math.hypot(a[0] + 2 * b[0], a[1] + 2 * b[1])).toBe(13);
+  });
+
+  it('В3 №12: both graphs pass the marked points and meet again at x = −10', () => {
+    const { f, g } = ege2027V3T12;
+    expect(f(-2)).toBe(2);
+    expect(f(1)).toBe(-4);
+    expect(g(-4)).toBeCloseTo(-2, 12);
+    expect(g(1)).toBeCloseTo(-4, 12);
+    expect(f(-10)).toBeCloseTo(g(-10), 12);
+  });
+
+  it('В4 №2: a = (−11; −7), b = (4; −10), |a + 0,5b| = 15', () => {
+    const [a, b] = [vec(4, 0), vec(4, 1)];
+    expect([a, b]).toEqual([
+      [-11, -7],
+      [4, -10],
+    ]);
+    expect(Math.hypot(a[0] + 0.5 * b[0], a[1] + 0.5 * b[1])).toBe(15);
+  });
+
+  it('В4 №12: both graphs pass the marked points and meet again at x = 10', () => {
+    const { f, g } = ege2027V4T12;
+    expect(f(1)).toBe(2);
+    expect(f(-2)).toBe(-1);
+    expect(g(-4)).toBeCloseTo(3, 12);
+    expect(g(1)).toBeCloseTo(2, 12);
+    expect(f(10)).toBeCloseTo(g(10), 12);
+  });
+
+  it('В5 №9: f′ changes sign + → − at −14, −6, 1, 6 — two maxima on [−9; 3]', () => {
+    const w = EGE_2027_V5_T9_WAYPOINTS;
+    expect([w[0], w[w.length - 1]]).toEqual([
+      [-17, 1],
+      [7, -2],
+    ]);
+    const falls: number[] = [];
+    for (let i = 0; i < w.length - 1; i += 1) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 > 0 && y1 < 0) falls.push(x0 - (y0 * (x1 - x0)) / (y1 - y0));
+    }
+    expect(falls.map(Math.round)).toEqual([-14, -6, 1, 6]);
+    for (const x of falls) expect(Math.abs(x - Math.round(x))).toBeLessThan(0.1);
+    expect(falls.filter((x) => x >= -9 && x <= 3)).toHaveLength(2);
+  });
+
+  it('В5 №12: √(4x/3) and √(x+5) pass the marked points and meet at x = 15', () => {
+    const { f, g } = ege2027V5T12;
+    expect(f(0)).toBe(0);
+    expect(f(3)).toBeCloseTo(2, 12);
+    expect([g(-5), g(-4), g(-1)]).toEqual([0, 1, 2]);
+    expect(f(15)).toBeCloseTo(g(15), 12);
+  });
+
+  it('В6 №9: f′ crosses the axis 5 times, 4 of them on [−7; 7], none near the ends', () => {
+    const w = EGE_2027_V6_T9_WAYPOINTS;
+    const zeros: number[] = [];
+    for (let i = 0; i < w.length - 1; i += 1) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 * y1 < 0) zeros.push(x0 - (y0 * (x1 - x0)) / (y1 - y0));
+    }
+    expect(zeros).toHaveLength(5);
+    const inside = zeros.filter((x) => x >= -7 && x <= 7);
+    expect(inside).toHaveLength(4);
+    for (const x of zeros) expect(Math.min(Math.abs(x + 7), Math.abs(x - 7))).toBeGreaterThan(0.5);
+  });
+
+  it('В6 №12: √(9x/7) and √(x+3) pass the marked points and meet at x = 10,5', () => {
+    const { f, g } = ege2027V6T12;
+    expect(f(0)).toBe(0);
+    expect(f(7)).toBeCloseTo(3, 12);
+    expect([g(-3), g(-2), g(1), g(6)]).toEqual([0, 1, 2, 3]);
+    expect(f(10.5)).toBeCloseTo(g(10.5), 12);
+  });
+
+  it('В7 №2: a = (−6; −3), b = (5; 8), 2a·b = −108', () => {
+    const [a, b] = [vec(7, 0), vec(7, 1)];
+    expect([a, b]).toEqual([
+      [-6, -3],
+      [5, 8],
+    ]);
+    expect(2 * a[0] * b[0] + 2 * a[1] * b[1]).toBe(-108);
+  });
+
+  it('В7 №9: the tangent through (−6; −1) and (−1; −3) has slope −0,4 and touches the curve at x₀', () => {
+    const { x0, through } = EGE_2027_V7_T9_TANGENT;
+    const [[x1, y1], [x2, y2]] = through;
+    const k = (y2 - y1) / (x2 - x1);
+    expect(k).toBeCloseTo(-0.4, 12);
+    const line = (x: number) => y1 + k * (x - x1);
+    const w = EGE_2027_V7_T9_WAYPOINTS;
+    expect(curveY(w, x0)).toBeCloseTo(line(x0), 2);
+    // The curve stays on one side of its tangent around x₀.
+    for (const [x, y] of w)
+      if (Math.abs(x - x0) <= 1.5 && x !== x0) expect(y).toBeGreaterThan(line(x));
+  });
+
+  it('В7 №12: through (0; −2) and (2; −2), f(−5) = 12', () => {
+    expect(ege2027V7T12(0)).toBeCloseTo(-2, 12);
+    expect(ege2027V7T12(2)).toBeCloseTo(-2, 12);
+    expect(ege2027V7T12(-3)).toBeCloseTo(4, 12);
+    expect(ege2027V7T12(-5)).toBeCloseTo(12, 12);
+  });
+
+  it('В8 №2: a = (−8; 10), b = (5; 4), 0,5a·b = 0', () => {
+    const [a, b] = [vec(8, 0), vec(8, 1)];
+    expect([a, b]).toEqual([
+      [-8, 10],
+      [5, 4],
+    ]);
+    expect(0.5 * a[0] * b[0] + 0.5 * a[1] * b[1]).toBe(0);
+  });
+
+  it('В8 №9: the tangent through (−6; 3) and (−1; −4) has slope −1,4 and touches the curve at x₀', () => {
+    const { x0, through } = EGE_2027_V8_T9_TANGENT;
+    const [[x1, y1], [x2, y2]] = through;
+    const k = (y2 - y1) / (x2 - x1);
+    expect(k).toBeCloseTo(-1.4, 12);
+    const line = (x: number) => y1 + k * (x - x1);
+    const w = EGE_2027_V8_T9_WAYPOINTS;
+    expect(curveY(w, x0)).toBeCloseTo(line(x0), 2);
+    for (const [x, y] of w)
+      if (Math.abs(x - x0) <= 1.5 && x !== x0) expect(y).toBeGreaterThan(line(x));
+  });
+
+  it('В8 №12: through (0; −2) and (4; −2), f(−10) = −30', () => {
+    expect(ege2027V8T12(0)).toBeCloseTo(-2, 12);
+    expect(ege2027V8T12(4)).toBeCloseTo(-2, 12);
+    expect(ege2027V8T12(-10)).toBeCloseTo(-30, 12);
+  });
+
+  it('В9 №12: f(x) = 3^(−x/2) through (−2; 3) and (0; 1), f(−6) = 27', () => {
+    expect(ege2027V9T12(-2)).toBeCloseTo(3, 12);
+    expect(ege2027V9T12(0)).toBeCloseTo(1, 12);
+    expect(ege2027V9T12(-6)).toBeCloseTo(27, 12);
+  });
+
+  it('В10 №12: f(x) = 5^(x/2) through (0; 1) and (2; 5), f(−1)/f(−5) = 25', () => {
+    expect(ege2027V10T12(0)).toBeCloseTo(1, 12);
+    expect(ege2027V10T12(2)).toBeCloseTo(5, 12);
+    expect(ege2027V10T12(-1) / ege2027V10T12(-5)).toBeCloseTo(25, 10);
+  });
+});
+
+describe('ЕГЭ 2027 Ященко, Варианты 11–25 — figures drawn from the scan', () => {
+  /** x where f′ changes sign from + to − (maxima of f), linear between waypoints. */
+  const maxima = (w: readonly (readonly [number, number])[]) => {
+    const out: number[] = [];
+    for (let i = 0; i + 1 < w.length; i++) {
+      const [x0, y0] = w[i]!;
+      const [x1, y1] = w[i + 1]!;
+      if (y0 > 0 && y1 <= 0) out.push(x0 + (y0 * (x1 - x0)) / (y0 - y1));
+    }
+    return out;
+  };
+
+  it('В11 №9: f′ on (−22; 2) with open ends; two maxima of f lie in [−18; 1]', () => {
+    const w = EGE_2027_V11_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-22, -2]);
+    expect(w[w.length - 1]).toEqual([2, 1]);
+    const m = maxima(w);
+    expect(m).toHaveLength(3);
+    expect(m.filter((x) => x >= -18 && x <= 1)).toHaveLength(2);
+    expect(m[0]).toBeLessThan(-18.5); // the first one, near −19, is outside the segment
+  });
+
+  it('В11 №12: f(x) = x² + 5x + 4 through (−4; 0), (−1; 0), (0; 4), f(3) = 28', () => {
+    expect([ege2027V11T12(-4), ege2027V11T12(-1), ege2027V11T12(0)]).toEqual([0, 0, 4]);
+    expect(ege2027V11T12(3)).toBe(28);
+  });
+
+  it('В12 №9: f′ on (−1; 17); maxima of f at x ≈ 3 and x ≈ 10, both in [1; 15]', () => {
+    const w = EGE_2027_V12_T9_WAYPOINTS;
+    expect(w[0]).toEqual([-1, -1]);
+    const m = maxima(w);
+    expect(m).toHaveLength(2);
+    expect(m[0]).toBeCloseTo(3, 0);
+    expect(m[1]).toBeCloseTo(10, 0);
+    expect(m.every((x) => x >= 1 && x <= 15)).toBe(true);
+  });
+
+  it('В12 №12: f(x) = −x² + 3x + 4 through (−1; 0), (4; 0), (0; 4), f(−3) = −14', () => {
+    expect([ege2027V12T12(-1), ege2027V12T12(4), ege2027V12T12(0)]).toEqual([0, 0, 4]);
+    expect(ege2027V12T12(-3)).toBe(-14);
+  });
+
+  it('В13 №2: a = (4; −6), b = (5; 6), a·2b = −32', () => {
+    const [a, b] = EGE_2027_VECTORS[13].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [4, -6],
+      [5, 6],
+    ]);
+    expect(2 * (a![0]! * b![0]! + a![1]! * b![1]!)).toBe(-32);
+  });
+
+  it('В13 №12: f(x) = −3/x − 3 through (−1; 0) and (3; −4), f(−15) = −2,8', () => {
+    expect(ege2027V13T12(-1)).toBe(0);
+    expect(ege2027V13T12(3)).toBe(-4);
+    expect(ege2027V13T12(-15)).toBeCloseTo(-2.8, 12);
+    // The asymptote y = −3 is dashed, as in the scan.
+    const { container } = render(<>{getCustomIllustration(['ege-2027-variant-13'], 12)}</>);
+    expect(container.querySelectorAll('line[stroke-dasharray="6 4"]')).toHaveLength(1);
+  });
+
+  it('В14 №2: a = (6; 4), b = (6; −7), 0,5a·b = 4', () => {
+    const [a, b] = EGE_2027_VECTORS[14].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [6, 4],
+      [6, -7],
+    ]);
+    expect(0.5 * (a![0]! * b![0]! + a![1]! * b![1]!)).toBe(4);
+  });
+
+  it('В14 №12: f(x) = 2/x + 2 through (−1; 0) and (1; 4), f(−20) = 1,9', () => {
+    expect([ege2027V14T12(-1), ege2027V14T12(1)]).toEqual([0, 4]);
+    expect(ege2027V14T12(-20)).toBeCloseTo(1.9, 12);
+  });
+
+  it('В15 №12: g = 2√x through (4; 4), f = x/3 through (3; 1); they meet again at x = 36', () => {
+    const { f, g } = ege2027V15T12;
+    expect([g(4), f(3), f(0), g(0)]).toEqual([4, 1, 0, 0]);
+    expect(f(36)).toBeCloseTo(g(36), 12);
+  });
+
+  it('В16 №2: a = (3; 6), b = (11; −2), cos = 0,28', () => {
+    const [a, b] = EGE_2027_VECTORS[16].map((v) => [v.x - v.fromX, v.y - v.fromY]);
+    expect([a, b]).toEqual([
+      [3, 6],
+      [11, -2],
+    ]);
+    const dot = a![0]! * b![0]! + a![1]! * b![1]!;
+    expect(dot / (Math.hypot(a![0]!, a![1]!) * Math.hypot(b![0]!, b![1]!))).toBeCloseTo(0.28, 12);
+  });
+
+  it('В16 №12: g = 3√x through (1; 3), f = 0,75x through (4; 3); they meet again at x = 16', () => {
+    const { f, g } = ege2027V16T12;
+    expect([g(1), f(4), f(0), g(0)]).toEqual([3, 3, 0, 0]);
+    expect(f(16)).toBeCloseTo(g(16), 12);
+  });
+
+  it('В17 №12: g = −x² − 4x through (−4; 0), (−2; 4), (0; 0); f = 2,5x through (2; 5); A at x = −6,5', () => {
+    const { f, g } = ege2027V17T12;
+    expect([g(-4), g(-2), g(0) + 0, f(2)]).toEqual([0, 4, 0, 5]);
+    expect(f(-6.5)).toBeCloseTo(g(-6.5), 12);
+  });
+
+  // Each open end is labelled by the figure itself; listing it again as a
+  // tick printed it twice (above and below the axis) — the scan prints it once.
+  it.each([
+    ['ege-2027-variant-11', 9, ['−22', '2']],
+    ['ege-2027-variant-12', 9, ['−1', '17']],
+    ['ege-2027-variant-21', 9, ['−22', '2']],
+    ['ege-2027-variant-22', 9, ['−5', '12']],
+  ] as const)('%s №%i: each end of the interval is labelled once', (tag, n, ends) => {
+    const { container } = render(<>{getCustomIllustration([tag], n)}</>);
+    const labels = [...container.querySelectorAll('text')].map((t) =>
+      t.textContent!.replace('-', '−'),
+    );
+    for (const end of ends) expect(labels.filter((l) => l === end)).toHaveLength(1);
   });
 });

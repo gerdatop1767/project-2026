@@ -28,6 +28,8 @@ const IMPORT_TAG = 'ege-2026-variant-4';
 const COLLECTION_SLUG = 'ege-2026-yashchenko';
 const COLLECTION_TITLE = 'ЕГЭ 2026 Ященко';
 const COLLECTION_PUBLISHER = 'Ященко';
+/** Scoring rules of this edition (`@zybrilka/shared` examScoring). */
+const EXAM_FORMAT = 'ege-math-profile-2026';
 const VARIANT_TITLE = 'ЕГЭ 2026 — Ященко — Вариант 4';
 const SOURCE_FILE = 'ЕГЭ_2026_Ященко_варианты_2-5.pdf';
 const SOURCE_PAGE_START = 9;
@@ -109,7 +111,9 @@ const importTasks: readonly ImportTask[] = [
       'На координатной плоскости изображены векторы a⃗ и b⃗, координаты у которых — целые числа. Найдите скалярное произведение векторов 0,5a⃗ и b⃗. [по рисунку: a⃗=(6;4), b⃗=(6;-7)]',
     conditionMd:
       'На координатной плоскости изображены векторы $\\vec a$ и $\\vec b$, координаты у которых — целые числа. Найдите скалярное произведение векторов $0.5\\vec a$ и $\\vec b$.',
-    imageUrl: null,
+    // Exact crop of the original figure: «ЕГЭ 2026 Ященко, первые 20
+    // вариантов» PDF, page 14 (docs/imports/ege-2026-v2-v10-figures-audit.md).
+    imageUrl: `${IMAGE_BASE}/task-02-vectors.png`,
     correctAnswer: '4',
     explanationMd:
       'Что дано: по клеткам графика a⃗=(6;4), b⃗=(6;−7) (координаты считаны по отмеченным на графике концам векторов — хвост a⃗ в (−4;1), остриё в (2;5); хвост b⃗ в (−1;4), остриё в (5;−3)).\n\nИдея: (0.5a⃗,b⃗)=0.5·(a⃗,b⃗).\n\nШаг 1. a⃗·b⃗ = 6·6+4·(−7)=36−28=8.\n\nШаг 2. 0.5·8=4.\n\nОтвет: 4.',
@@ -733,10 +737,16 @@ export async function importVariant4(db: Database) {
       publisher: COLLECTION_PUBLISHER,
       year: SOURCE_YEAR,
       status: 'published',
+      examFormat: EXAM_FORMAT,
     })
     .onConflictDoUpdate({
       target: schema.collections.slug,
-      set: { title: COLLECTION_TITLE, publisher: COLLECTION_PUBLISHER, year: SOURCE_YEAR },
+      set: {
+        title: COLLECTION_TITLE,
+        publisher: COLLECTION_PUBLISHER,
+        year: SOURCE_YEAR,
+        examFormat: EXAM_FORMAT,
+      },
     })
     .returning();
 

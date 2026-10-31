@@ -1,11 +1,9 @@
 import { useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
-import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
-import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import {
   FeatureIcon,
   featureIconGlow,
@@ -50,8 +48,6 @@ export function SubjectCatalogDesktop() {
 
   return (
     <div>
-      <BackRow to={{ screen: 'home' }} label="Главная" />
-
       <div className={styles.hero}>
         <img
           src="/branding/v2/hero-mascot-desktop.webp"
@@ -78,9 +74,7 @@ export function SubjectCatalogDesktop() {
               <FeatureIcon name={stat.icon} />
             </span>
             <span>
-              <strong className={styles.statValue}>
-                <AnimatedNumber value={stat.value} />
-              </strong>
+              <strong className={styles.statValue}>{stat.value}</strong>
               <br />
               <span className="text-body-sm text-secondary">{stat.label}</span>
             </span>

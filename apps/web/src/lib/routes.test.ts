@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
+import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { Route } from './navigation.js';
 
 describe('pathForRoute', () => {
@@ -29,11 +29,11 @@ describe('pathForRoute', () => {
     expect(pathForRoute({ screen: 'profile' })).toBe('/profile');
     expect(pathForRoute({ screen: 'help' })).toBe('/help');
     expect(pathForRoute({ screen: 'rating' })).toBe('/rating');
+    expect(pathForRoute({ screen: 'level' })).toBe('/level');
     expect(pathForRoute({ screen: 'mistakes' })).toBe('/training/mistakes');
   });
 
-  it('returns null for routes with no URL (menu/task/result)', () => {
-    expect(pathForRoute({ screen: 'menu' })).toBeNull();
+  it('returns null for routes with no URL (task/result)', () => {
     expect(
       pathForRoute({ screen: 'task', subjectId: 'math', taskNumber: 1, taskId: 't1' }),
     ).toBeNull();
@@ -62,6 +62,7 @@ describe('routeFromPath', () => {
       { screen: 'subject', subjectId: 'social' },
       { screen: 'mistakes' },
       { screen: 'rating' },
+      { screen: 'level' },
       { screen: 'profile' },
       { screen: 'help' },
     ];
@@ -110,5 +111,43 @@ describe('routeFromPath', () => {
       subjectId: 'math',
       from: 'subjectCatalog',
     });
+  });
+});
+
+describe('По номерам — a mode of the subject page', () => {
+  it('round-trips mode and the pre-selected number through the URL', () => {
+    const route: Route = {
+      screen: 'subject',
+      subjectId: 'math',
+      initialMode: 'byNumber',
+      initialTaskNumber: 13,
+    };
+    const path = pathForRoute(route)!;
+    expect(path).toBe('/subjects/math?mode=byNumber&n=13');
+    expect(routeFromPath(path)).toEqual({ ...route, from: 'subjectCatalog' });
+  });
+
+  it('ignores a bad number', () => {
+    expect(routeFromPath('/subjects/math?mode=byNumber&n=abc')).not.toHaveProperty(
+      'initialTaskNumber',
+    );
+  });
+
+  it('old /training/by-number links land on the subject page in that mode', () => {
+    expect(isLegacyPath('/training/by-number')).toBe(true);
+    expect(routeFromPath('/training/by-number')).toEqual({
+      screen: 'subject',
+      subjectId: 'math',
+      from: 'subjectCatalog',
+      initialMode: 'byNumber',
+    });
+  });
+
+  it('a variant attempt has its own address, and only a real id opens it', () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const route = { screen: 'variantAttempt' as const, sessionId: id };
+    expect(pathForRoute(route)).toBe(`/statistics/variants/${id}`);
+    expect(routeFromPath(`/statistics/variants/${id}`)).toEqual(route);
+    expect(routeFromPath('/statistics/variants/../../x')).toEqual({ screen: 'home' });
   });
 });

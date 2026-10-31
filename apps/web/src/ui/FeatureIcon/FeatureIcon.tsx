@@ -1,11 +1,14 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import {
+  BookOpen,
   BookOpenText,
   ChartNoAxesCombined,
   ClipboardCheck,
   Compass,
+  FileText,
   FolderOpen,
   LibraryBig,
+  Lightbulb,
   NotebookPen,
   type LucideIcon,
 } from 'lucide-react';
@@ -14,7 +17,16 @@ import { useRevealOnScroll } from '../SubjectIcon/useSubjectIconMotion.js';
 import styles from './FeatureIcon.module.css';
 
 export type FeatureIconName =
-  'subjects' | 'tasks' | 'statistics' | 'theory' | 'practice' | 'strategy' | 'materials';
+  | 'subjects'
+  | 'tasks'
+  | 'statistics'
+  | 'theory'
+  | 'practice'
+  | 'strategy'
+  | 'materials'
+  | 'topics'
+  | 'typical'
+  | 'tips';
 
 interface FeatureIconSpec {
   /** The glyph — from Lucide, the icon set the whole app already uses. */
@@ -31,6 +43,10 @@ const specs: Record<FeatureIconName, FeatureIconSpec> = {
   practice: { glyph: NotebookPen, accent: '#4dd6e8' },
   strategy: { glyph: Compass, accent: '#ffc04d' },
   materials: { glyph: FolderOpen, accent: '#ff7a8a' },
+  // Учебный центр — «Рекомендации для тебя».
+  topics: { glyph: BookOpen, accent: '#b16cff' },
+  typical: { glyph: FileText, accent: '#4da3ff' },
+  tips: { glyph: Lightbulb, accent: '#f5b83d' },
 };
 
 /** The icon's accent colour, for a card that wants to light up in it. */
@@ -39,7 +55,7 @@ export function featureIconGlow(name: FeatureIconName): string {
 }
 
 /** The whole first reveal, delays included — see FeatureIcon.module.css. */
-const SCENE_MS = 1300;
+const SCENE_MS = 900;
 
 export interface FeatureIconProps {
   name: FeatureIconName;
@@ -110,8 +126,8 @@ export function FeatureIcon({ name, reveal = true, className }: FeatureIconProps
           x2="20"
           y2="21"
         >
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.5" stopColor="#ffffff" />
+          <stop offset="0" style={{ stopColor: 'var(--glyph-light, #ffffff)' }} />
+          <stop offset="0.5" style={{ stopColor: 'var(--glyph-light, #ffffff)' }} />
           <stop offset="1" stopColor={accent} />
         </linearGradient>
       </svg>

@@ -18,14 +18,17 @@ import { createTestDb } from './testing.js';
  * only variant 15's tasks 6 and 8, and variant 17's task 8, remain
  * `needs_review` within this 6-variant slice, each with its own
  * documented, unresolved reason (three independent audit passes each
- * found no confirmable answer). 159 of 162 tasks in this slice are
+ * found no confirmable answer); the task 4 audit
+ * (docs/imports/task-4-audit-2027.md) added 15:4 and 16:4, whose keys
+ * contradict FIPI's orthoepic list and wait for a scan check. 157 of 162
+ * tasks in this slice are
  * `published`. A "why does it say N" question was raised during a UI
  * audit; this test establishes, against the real import pipeline (not a
  * guess), that this count is correct for exactly this reason, not a
  * counting bug — so a future change to this number is a real signal, not
  * noise.
  */
-describe('Russian ЕГЭ task counts (162 total / 159 published / 3 needs_review)', () => {
+describe('Russian ЕГЭ task counts (162 total / 157 published / 5 needs_review)', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
 
   beforeAll(async () => {
@@ -57,17 +60,17 @@ describe('Russian ЕГЭ task counts (162 total / 159 published / 3 needs_review
     }
   });
 
-  it('159 published + 3 needs_review = 162', async () => {
+  it('157 published + 5 needs_review = 162', async () => {
     const { db } = testDb;
     const rows = await db.select().from(schema.tasks).where(eq(schema.tasks.subjectId, 'russian'));
     const published = rows.filter((r) => r.status === 'published');
     const needsReview = rows.filter((r) => r.status === 'needs_review');
-    expect(published).toHaveLength(159);
-    expect(needsReview).toHaveLength(3);
+    expect(published).toHaveLength(157);
+    expect(needsReview).toHaveLength(5);
     expect(published.length + needsReview.length).toBe(rows.length);
   });
 
-  it('every needs_review task is one of the 3 documented, audited ones — nothing unexpectedly unpublished', async () => {
+  it('every needs_review task is one of the 5 documented, audited ones — nothing unexpectedly unpublished', async () => {
     const { db } = testDb;
     const rows = await db.select().from(schema.tasks).where(eq(schema.tasks.subjectId, 'russian'));
     const needsReview = rows
@@ -75,8 +78,8 @@ describe('Russian ЕГЭ task counts (162 total / 159 published / 3 needs_review
       .map((r) => `${r.sourceVariant}:${r.taskNumber}`)
       .sort();
     // Essay task 27 publishes with a sample in every variant now, so
-    // none of it shows up here — exactly the 3 non-essay items.
-    const expected = ['15:6', '15:8', '17:8'].sort();
+    // none of it shows up here — exactly the 5 non-essay items.
+    const expected = ['15:4', '15:6', '15:8', '16:4', '17:8'].sort();
     expect(needsReview).toEqual(expected);
   });
 });

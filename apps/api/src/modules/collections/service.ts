@@ -11,6 +11,8 @@ function toCollectionPublic(row: repo.CollectionRow): CollectionPublic {
     publisher: row.publisher,
     year: row.year,
     description: row.description,
+    inAllSources: row.inAllSources,
+    examFormat: row.examFormat,
   };
 }
 
