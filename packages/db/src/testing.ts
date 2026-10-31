@@ -13,6 +13,31 @@ import { importVariant7 } from './importEge2026Variant7.js';
 import { importVariant8 } from './importEge2026Variant8.js';
 import { importVariant9 } from './importEge2026Variant9.js';
 import { importVariant10 } from './importEge2026Variant10.js';
+import { importVariant1 as importYashchenko2027Variant1 } from './importEge2027YashchenkoVariant1.js';
+import { importVariant2 as importYashchenko2027Variant2 } from './importEge2027YashchenkoVariant2.js';
+import { importVariant3 as importYashchenko2027Variant3 } from './importEge2027YashchenkoVariant3.js';
+import { importVariant4 as importYashchenko2027Variant4 } from './importEge2027YashchenkoVariant4.js';
+import { importVariant5 as importYashchenko2027Variant5 } from './importEge2027YashchenkoVariant5.js';
+import { importVariant6 as importYashchenko2027Variant6 } from './importEge2027YashchenkoVariant6.js';
+import { importVariant7 as importYashchenko2027Variant7 } from './importEge2027YashchenkoVariant7.js';
+import { importVariant8 as importYashchenko2027Variant8 } from './importEge2027YashchenkoVariant8.js';
+import { importVariant9 as importYashchenko2027Variant9 } from './importEge2027YashchenkoVariant9.js';
+import { importVariant10 as importYashchenko2027Variant10 } from './importEge2027YashchenkoVariant10.js';
+import { importVariant11 as importYashchenko2027Variant11 } from './importEge2027YashchenkoVariant11.js';
+import { importVariant12 as importYashchenko2027Variant12 } from './importEge2027YashchenkoVariant12.js';
+import { importVariant13 as importYashchenko2027Variant13 } from './importEge2027YashchenkoVariant13.js';
+import { importVariant14 as importYashchenko2027Variant14 } from './importEge2027YashchenkoVariant14.js';
+import { importVariant15 as importYashchenko2027Variant15 } from './importEge2027YashchenkoVariant15.js';
+import { importVariant16 as importYashchenko2027Variant16 } from './importEge2027YashchenkoVariant16.js';
+import { importVariant17 as importYashchenko2027Variant17 } from './importEge2027YashchenkoVariant17.js';
+import { importVariant18 as importYashchenko2027Variant18 } from './importEge2027YashchenkoVariant18.js';
+import { importVariant19 as importYashchenko2027Variant19 } from './importEge2027YashchenkoVariant19.js';
+import { importVariant20 as importYashchenko2027Variant20 } from './importEge2027YashchenkoVariant20.js';
+import { importVariant21 as importYashchenko2027Variant21 } from './importEge2027YashchenkoVariant21.js';
+import { importVariant22 as importYashchenko2027Variant22 } from './importEge2027YashchenkoVariant22.js';
+import { importVariant23 as importYashchenko2027Variant23 } from './importEge2027YashchenkoVariant23.js';
+import { importVariant24 as importYashchenko2027Variant24 } from './importEge2027YashchenkoVariant24.js';
+import { importVariant25 as importYashchenko2027Variant25 } from './importEge2027YashchenkoVariant25.js';
 import * as schema from './schema.js';
 
 // In-memory Postgres (PGlite) with all migrations applied. Tests only.
@@ -56,5 +81,38 @@ export async function createImportedVariantsTestDb() {
   await importVariant8(testDb.db);
   await importVariant9(testDb.db);
   await importVariant10(testDb.db);
+  return testDb;
+}
+
+// Вариант 1 of 2026 next to the separate «ЕГЭ 2027 Ященко» source
+// (Вариант 1-2, kept out of «Все источники») — for tests of the
+// edition separation: filters, counts, similar tasks, scoring.
+export async function createImported2027TestDb() {
+  const testDb = await createImportedTestDb();
+  await importYashchenko2027Variant1(testDb.db);
+  await importYashchenko2027Variant2(testDb.db);
+  await importYashchenko2027Variant3(testDb.db);
+  await importYashchenko2027Variant4(testDb.db);
+  await importYashchenko2027Variant5(testDb.db);
+  await importYashchenko2027Variant6(testDb.db);
+  await importYashchenko2027Variant7(testDb.db);
+  await importYashchenko2027Variant8(testDb.db);
+  await importYashchenko2027Variant9(testDb.db);
+  await importYashchenko2027Variant10(testDb.db);
+  await importYashchenko2027Variant11(testDb.db);
+  await importYashchenko2027Variant12(testDb.db);
+  await importYashchenko2027Variant13(testDb.db);
+  await importYashchenko2027Variant14(testDb.db);
+  await importYashchenko2027Variant15(testDb.db);
+  await importYashchenko2027Variant16(testDb.db);
+  await importYashchenko2027Variant17(testDb.db);
+  await importYashchenko2027Variant18(testDb.db);
+  await importYashchenko2027Variant19(testDb.db);
+  await importYashchenko2027Variant20(testDb.db);
+  await importYashchenko2027Variant21(testDb.db);
+  await importYashchenko2027Variant22(testDb.db);
+  await importYashchenko2027Variant23(testDb.db);
+  await importYashchenko2027Variant24(testDb.db);
+  await importYashchenko2027Variant25(testDb.db);
   return testDb;
 }

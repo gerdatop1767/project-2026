@@ -24,6 +24,38 @@ describe('GET /api/v1/progress/summary', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  // «Решено» counted answer rows: one task answered three times read as
+  // «Решено 3». uniqueSolvedTotal counts the task once, and only when correct.
+  it('uniqueSolvedTotal counts distinct correctly solved tasks, not answers', async () => {
+    const [task] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(eq(schema.tasks.taskNumber, 2));
+    const anonId = randomUUID();
+    const answer = async (value: string) =>
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/tasks/${task!.id}/attempt`,
+        headers: { 'x-anon-id': anonId },
+        payload: { answer: value },
+      });
+    const summary = async () =>
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/v1/progress/summary',
+          headers: { 'x-anon-id': anonId },
+        })
+      ).json();
+
+    await answer('wrong');
+    await answer('wrong');
+    expect(await summary()).toMatchObject({ solvedTotal: 2, uniqueSolvedTotal: 0 });
+    await answer(task!.correctAnswer);
+    await answer(task!.correctAnswer);
+    expect(await summary()).toMatchObject({ solvedTotal: 4, uniqueSolvedTotal: 1 });
+  });
+
   it('is computed from real attempts, not hardcoded', async () => {
     const tasks = await testDb.db.select().from(schema.tasks).where(eq(schema.tasks.taskNumber, 1));
     const anonId = randomUUID();

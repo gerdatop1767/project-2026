@@ -16,6 +16,9 @@ vi.mock('../../lib/api.js', () => ({
   getVariantProgress: vi.fn(() => Promise.resolve({ items: [] })),
   getProgressDaily: vi.fn(() => Promise.resolve({ items: [] })),
   getLeaderboard: vi.fn(),
+  getTaskCountsBySubject: vi.fn(() =>
+    Promise.resolve({ items: [{ subjectId: 'math', count: 190, countAllSources: 678 }] }),
+  ),
 }));
 
 function renderWithNav() {
@@ -29,6 +32,7 @@ function renderWithNav() {
 beforeEach(() => {
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -46,6 +50,7 @@ describe('StatisticsMobile — subject filter', () => {
   it('opens a real subject picker from the header and refilters every real metric', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 20,
+      uniqueSolvedTotal: 20,
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
@@ -249,6 +254,7 @@ describe('StatisticsMobile — real progress data', () => {
   it('the solvedTotal/accuracy headline tiles use real /progress/summary data for the selected subject', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 20,
+      uniqueSolvedTotal: 20,
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
@@ -282,6 +288,7 @@ describe('StatisticsMobile — real progress data', () => {
 
     resolveProgress({
       solvedTotal: 20,
+      uniqueSolvedTotal: 20,
       correctTotal: 15,
       incorrectTotal: 5,
       accuracyPercent: 75,
@@ -554,5 +561,32 @@ describe('StatisticsMobile — «Рейтинг»', () => {
     renderSignedIn();
     expect(screen.getByRole('tab', { name: 'Рейтинг' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Сегодня' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+// «Решено заданий 3 из 190» used to count answer rows against a
+// «Все источники»-only total: one task answered three times read as 3,
+// and ЕГЭ-2027 work could overtake a total that ignored it.
+describe('StatisticsMobile — «Решено N из M» counts tasks, out of every source', () => {
+  it('uses distinct solved tasks and the all-sources total', async () => {
+    vi.mocked(api.getProgressSummary).mockResolvedValue({
+      solvedTotal: 5,
+      uniqueSolvedTotal: 2,
+      correctTotal: 3,
+      incorrectTotal: 2,
+      accuracyPercent: 60,
+      bySubject: [
+        { subjectId: 'math', solved: 5, correct: 3, accuracyPercent: 60, uniqueSolved: 2 },
+      ],
+      byTaskNumber: [],
+      byTopic: [],
+      timeBySubject: [],
+    });
+    renderWithNav();
+    await waitFor(() => expect(screen.getByText('из 678')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('tab', { name: 'По заданиям' }));
+    await waitFor(() => expect(screen.getByText('2 из 678')).toBeInTheDocument());
+    expect(screen.queryByText('5 из 678')).not.toBeInTheDocument();
+    expect(screen.queryByText(/из 190/)).not.toBeInTheDocument();
   });
 });

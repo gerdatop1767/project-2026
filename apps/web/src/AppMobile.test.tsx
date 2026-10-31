@@ -202,6 +202,7 @@ describe('AppMobile — Достижения/Рейтинг moved inside Ста�
     const user = userEvent.setup();
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 0,
+      uniqueSolvedTotal: 0,
       correctTotal: 0,
       incorrectTotal: 0,
       accuracyPercent: 0,

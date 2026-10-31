@@ -25,6 +25,7 @@ function renderStatistics() {
 beforeEach(() => {
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -82,6 +83,7 @@ describe('StatisticsDesktop — real progress data', () => {
   it('uses the real solved/correct counts once the API responds, not the hardcoded demo profile', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 3,
+      uniqueSolvedTotal: 3,
       correctTotal: 2,
       incorrectTotal: 1,
       accuracyPercent: 66.7,
@@ -114,6 +116,7 @@ describe('StatisticsDesktop — real progress data', () => {
 
     resolveProgress({
       solvedTotal: 3,
+      uniqueSolvedTotal: 3,
       correctTotal: 2,
       incorrectTotal: 1,
       accuracyPercent: 66.7,

@@ -79,14 +79,22 @@ describe('importVariant7', () => {
     }
   });
 
-  it('has no image-attached tasks (no graph required image fallback)', async () => {
+  it('attaches an image only to the figure tasks №8, №11, each from its own variant folder', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
       .from(schema.tasks)
       .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.sourceVariant, 7)));
     for (const row of rows) {
-      expect(row.imageUrl).toBeNull();
+      if (row.taskNumber === 8 || row.taskNumber === 11) {
+        expect(row.imageUrl).toMatch(
+          new RegExp(
+            `^/tasks/imports/ege-2026-variant-7/task-${String(row.taskNumber).padStart(2, '0')}-`,
+          ),
+        );
+      } else {
+        expect(row.imageUrl).toBeNull();
+      }
     }
   });
 

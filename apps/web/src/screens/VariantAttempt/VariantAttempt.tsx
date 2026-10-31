@@ -17,6 +17,7 @@ import { Icon } from '../../ui/Icon/Icon.js';
 import { InlineMathText, MathText } from '../../ui/MathText/MathText.js';
 import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { Collapse, SlideUp } from '../../ui/motion/motion.js';
+import { PrimaryPoints } from './PrimaryPoints.js';
 import styles from './VariantAttempt.module.css';
 
 export interface VariantAttemptProps {
@@ -40,9 +41,10 @@ const outcomeLabel: Record<VariantTaskOutcome, string> = {
 
 /**
  * The full result of ONE attempt of a variant (GET /progress/variants/:id):
- * score, every task with the user's answer, the right one and its
- * explanation, results by task number and topic, and what to go over
- * again. Only what the server recorded — nothing estimated.
+ * score, primary ЕГЭ points (when the source has exam scoring rules —
+ * Part 2 is marked as scored by the answer only), every task with the
+ * user's answer, the right one and its explanation, results by task
+ * number and topic, and what to go over again.
  */
 export function VariantAttempt({ sessionId, embedded = false }: VariantAttemptProps) {
   const { navigate } = useNavigation();
@@ -152,6 +154,23 @@ export function VariantAttempt({ sessionId, embedded = false }: VariantAttemptPr
           </Button>
         )}
       </Card>
+
+      {d.scoring && (
+        <PrimaryPoints
+          scoring={d.scoring}
+          onReviewMistakes={
+            d.toRepeat.length > 0
+              ? () => {
+                  // Open the first wrong/skipped task's explanation right here.
+                  setOpen(d.toRepeat[0]!.taskId);
+                  document
+                    .getElementById('tasks-title')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              : null
+          }
+        />
+      )}
 
       {d.attribution === 'time_window' && (
         <p className={styles.note} role="note">

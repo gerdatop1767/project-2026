@@ -107,7 +107,7 @@ export function HomeMobile() {
             id: 'solved',
             tone: 'green',
             icon: 'checklist',
-            value: progress ? String(progress.solvedTotal) : progressFailed ? '—' : '···',
+            value: progress ? String(progress.uniqueSolvedTotal) : progressFailed ? '—' : '···',
             label: 'Решено',
             ready: progress !== null || progressFailed,
           },

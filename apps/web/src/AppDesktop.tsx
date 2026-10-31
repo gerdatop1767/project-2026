@@ -75,6 +75,7 @@ export function AppDesktop() {
             customOrderedTasks={overlay.customOrderedTasks}
             returnTo={overlay.returnTo}
             timeSpentMs={overlay.timeSpentMs}
+            xpAwarded={overlay.xpAwarded}
             revealed={overlay.revealed}
           />
         )}

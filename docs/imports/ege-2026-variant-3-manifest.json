@@ -18,7 +18,7 @@
       "taskNumber": 2,
       "part": 1,
       "sourcePage": 5,
-      "hasImage": false,
+      "hasImage": true,
       "answerType": "short_answer",
       "status": "published",
       "contentHash": "08e8b02fc064453dbeb5598a1b778719e19f0b4391e4071b8a7b1be7b2c92c3f"

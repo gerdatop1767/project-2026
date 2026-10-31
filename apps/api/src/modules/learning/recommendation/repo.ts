@@ -1,6 +1,7 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
 import { and, eq } from 'drizzle-orm';
+import { inAllSourcesPool } from '../../tasks/repo.js';
 
 export interface RecommendationCandidateTask {
   readonly taskId: string;
@@ -33,7 +34,15 @@ export async function getCandidateTasksForSubject(
     })
     .from(schema.tasks)
     .leftJoin(schema.taskStatistics, eq(schema.taskStatistics.taskId, schema.tasks.id))
-    .where(and(eq(schema.tasks.subjectId, subjectId), eq(schema.tasks.status, 'published')));
+    // Smart training picks from «Все источники» only: an edition with its
+    // own numbering (ЕГЭ 2027) is trained by choosing it explicitly.
+    .where(
+      and(
+        eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.status, 'published'),
+        inAllSourcesPool(db),
+      ),
+    );
 
   if (rows.length === 0) return [];
 
@@ -41,7 +50,13 @@ export async function getCandidateTasksForSubject(
     .select({ taskId: schema.taskSkills.taskId, skillId: schema.taskSkills.skillId })
     .from(schema.taskSkills)
     .innerJoin(schema.tasks, eq(schema.tasks.id, schema.taskSkills.taskId))
-    .where(and(eq(schema.tasks.subjectId, subjectId), eq(schema.tasks.status, 'published')));
+    .where(
+      and(
+        eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.status, 'published'),
+        inAllSourcesPool(db),
+      ),
+    );
 
   const skillIdsByTask = new Map<string, string[]>();
   for (const link of linkRows) {
@@ -99,7 +114,13 @@ export async function subjectHasPublishedTasks(db: Database, subjectId: string):
   const [row] = await db
     .select({ taskId: schema.tasks.id })
     .from(schema.tasks)
-    .where(and(eq(schema.tasks.subjectId, subjectId), eq(schema.tasks.status, 'published')))
+    .where(
+      and(
+        eq(schema.tasks.subjectId, subjectId),
+        eq(schema.tasks.status, 'published'),
+        inAllSourcesPool(db),
+      ),
+    )
     .limit(1);
   return row !== undefined;
 }

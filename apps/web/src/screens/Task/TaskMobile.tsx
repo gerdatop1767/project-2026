@@ -99,7 +99,10 @@ export function TaskMobile({
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
+    void Promise.all([
+      getTask(taskId),
+      listTasksByNumber(subjectId, taskNumber, undefined, undefined, taskId),
+    ])
       .then(([fetchedTask, siblings]) => {
         if (cancelled) return;
         setTask(toSampleTask(fetchedTask, siblings));
@@ -165,6 +168,7 @@ export function TaskMobile({
           customOrderedTasks,
           returnTo,
           timeSpentMs,
+          xpAwarded: result.xp?.awarded,
           // A guest's answer was checked but not recorded (attemptId null).
           revealed:
             result.attemptId === null
@@ -282,6 +286,9 @@ export function TaskMobile({
           <TaskExamIllustration
             subjectId={task.subjectId}
             taskNumber={task.number}
+            tags={task.tags}
+            imageUrl={task.imageUrl}
+            conditionMd={task.condition}
             className={styles.taskImage}
           />
           <RuleButton

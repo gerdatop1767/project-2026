@@ -1,9 +1,15 @@
 import type { Database } from '@zybrilka/db';
 import {
+  buildScoringSnapshot,
   detectErrorSignatures,
+  gradeMultiPart,
   parseMultiPartSpec,
   parseMultiPartUserAnswer,
+  scoreVariantAttempt,
+  type FirstAnswer,
   type MultiPartSpec,
+  type VariantAttemptScoring,
+  type VariantScoringSnapshot,
   type VariantAttemptDetail,
   type VariantAttemptGroup,
   type VariantAttemptTask,
@@ -109,6 +115,12 @@ export async function startVariantSession(
   const orderedTasks = [...detail.tasks].sort((a, b) => a.position - b.position);
   const plannedTaskIds = orderedTasks.map((t) => t.task.id);
   const firstTask = orderedTasks[0]!.task;
+  // The exam's scoring rules as they are NOW, frozen into the attempt:
+  // a later change of the rules (or of the variant) never re-scores it.
+  const scoring = buildScoringSnapshot(
+    detail.collection.examFormat ?? null,
+    orderedTasks.map((t) => ({ taskId: t.task.id, taskNumber: t.task.taskNumber })),
+  );
 
   const session = await repo.createSession(db, {
     userId,
@@ -117,6 +129,7 @@ export async function startVariantSession(
     firstTaskId: firstTask.id,
     variantId,
     plannedTaskIds,
+    scoring,
   });
 
   return {
@@ -562,6 +575,8 @@ export async function getVariantAttemptDetail(
     });
   });
 
+  const scoring = scoreAttempt(session, identity.examFormat, planned, first);
+
   const count = (outcome: VariantTaskOutcome) => tasks.filter((t) => t.outcome === outcome).length;
   const correctCount = count('correct');
   const incorrectCount = count('incorrect');
@@ -591,5 +606,62 @@ export async function getVariantAttemptDetail(
     toRepeat: tasks
       .filter((t) => t.outcome === 'incorrect' || t.outcome === 'skipped')
       .map((t) => ({ taskId: t.taskId, taskNumber: t.taskNumber, topic: t.topic })),
+    scoring,
   };
+}
+
+/**
+ * Primary points of one variant attempt, from its FIRST answers only
+ * (one per task — nothing counted twice, an empty task scores 0). Uses
+ * the rules frozen into the attempt; an attempt from before scoring
+ * existed gets today's rules of its exam format, labelled `current`.
+ * A multi-part task's parts are re-checked from the stored first answer
+ * so per-part credit (а/б/в) can be given.
+ */
+function scoreAttempt(
+  session: {
+    status: string;
+    scoring: VariantScoringSnapshot | null;
+    plannedTaskIds: readonly string[] | null;
+  },
+  examFormat: string | null,
+  planned: readonly { taskId: string; taskNumber: number }[],
+  first: ReadonlyMap<
+    string,
+    { isCorrect: boolean; answerRaw: string; answerType: string; correctAnswer: string }
+  >,
+): VariantAttemptScoring | null {
+  const snapshot =
+    session.scoring ??
+    buildScoringSnapshot(
+      examFormat,
+      (session.plannedTaskIds ?? [])
+        .map((id) => planned.find((p) => p.taskId === id))
+        .filter((p) => p !== undefined),
+    );
+  if (!snapshot) return null;
+  const answers = new Map<string, FirstAnswer>();
+  for (const [taskId, row] of first) {
+    answers.set(taskId, { correct: row.isCorrect, correctParts: partsOf(row) });
+  }
+  return {
+    ...scoreVariantAttempt(snapshot, answers),
+    preliminary: session.status !== 'completed',
+    rulesSource: session.scoring ? 'snapshot' : 'current',
+  };
+}
+
+function partsOf(row: {
+  isCorrect: boolean;
+  answerRaw: string;
+  answerType: string;
+  correctAnswer: string;
+}): Record<string, boolean> | undefined {
+  if (row.answerType !== 'multi_part') return undefined;
+  const spec = parseMultiPartSpec(row.correctAnswer);
+  const answer = parseMultiPartUserAnswer(row.answerRaw);
+  if (!spec || !answer) return undefined;
+  const graded = gradeMultiPart(spec, answer);
+  // The stored verdict wins when it says the whole answer was right.
+  return Object.fromEntries(graded.parts.map((p) => [p.id, row.isCorrect || p.correct]));
 }

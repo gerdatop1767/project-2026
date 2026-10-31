@@ -63,6 +63,7 @@ export function toSampleTask(
     condition: task.conditionMd,
     passage: task.passage,
     imageUrl: task.imageUrl,
+    tags: task.tags,
     answerType: task.answerType,
     answerParts: task.answerParts,
     correctAnswer: hasSolution ? task.correctAnswer : '',

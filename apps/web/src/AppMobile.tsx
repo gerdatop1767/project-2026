@@ -150,6 +150,7 @@ export function AppMobile() {
                 customOrderedTasks={contentOverlay.customOrderedTasks}
                 returnTo={contentOverlay.returnTo}
                 timeSpentMs={contentOverlay.timeSpentMs}
+                xpAwarded={contentOverlay.xpAwarded}
                 revealed={contentOverlay.revealed}
               />
             )}

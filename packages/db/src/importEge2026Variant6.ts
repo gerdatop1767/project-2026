@@ -26,6 +26,8 @@ const IMPORT_TAG = 'ege-2026-variant-6';
 const COLLECTION_SLUG = 'ege-2026-yashchenko';
 const COLLECTION_TITLE = 'ЕГЭ 2026 Ященко';
 const COLLECTION_PUBLISHER = 'Ященко';
+/** Scoring rules of this edition (`@zybrilka/shared` examScoring). */
+const EXAM_FORMAT = 'ege-math-profile-2026';
 const VARIANT_TITLE = 'ЕГЭ 2026 — Ященко — Вариант 6';
 const SOURCE_FILE = 'variant6_10.pdf';
 const SOURCE_PAGE_START = 1;
@@ -97,7 +99,9 @@ const importTasks: readonly ImportTask[] = [
       'На координатной плоскости изображены векторы a⃗ и b⃗, координаты у которых — целые числа. Найдите cos∠(a⃗;b⃗). По рисунку: a⃗ начинается в точке (-5;-4) и заканчивается в точке (-2;2); b⃗ начинается в точке (-6;4) и заканчивается в точке (5;2).',
     conditionMd:
       'На координатной плоскости изображены векторы $\\vec a$ и $\\vec b$, координаты у которых — целые числа. Найдите $\\cos\\angle(\\vec a;\\vec b)$.',
-    imageUrl: null,
+    // Exact crop of the original figure: «ЕГЭ 2026 Ященко, первые 20
+    // вариантов» PDF, page 22 (docs/imports/ege-2026-v2-v10-figures-audit.md).
+    imageUrl: `${IMAGE_BASE}/task-02-vectors.png`,
     correctAnswer: '0.28',
     explanationMd:
       'Что дано: по клеткам на рисунке $\\vec a=(-2-(-5);\\,2-(-4))=(3;6)$, $\\vec b=(5-(-6);\\,2-4)=(11;-2)$.\n\nШаг 1. $\\vec a\\cdot\\vec b=3\\cdot11+6\\cdot(-2)=33-12=21$.\n\nШаг 2. $|\\vec a|=\\sqrt{9+36}=\\sqrt{45}=3\\sqrt5$. $|\\vec b|=\\sqrt{121+4}=\\sqrt{125}=5\\sqrt5$.\n\nШаг 3. $|\\vec a||\\vec b|=3\\sqrt5\\cdot5\\sqrt5=15\\cdot5=75$.\n\nШаг 4. $\\cos\\varphi=\\dfrac{21}{75}=\\dfrac{7}{25}=0.28$.\n\nОтвет: 0.28.',
@@ -693,10 +697,16 @@ export async function importVariant6(db: Database) {
       publisher: COLLECTION_PUBLISHER,
       year: SOURCE_YEAR,
       status: 'published',
+      examFormat: EXAM_FORMAT,
     })
     .onConflictDoUpdate({
       target: schema.collections.slug,
-      set: { title: COLLECTION_TITLE, publisher: COLLECTION_PUBLISHER, year: SOURCE_YEAR },
+      set: {
+        title: COLLECTION_TITLE,
+        publisher: COLLECTION_PUBLISHER,
+        year: SOURCE_YEAR,
+        examFormat: EXAM_FORMAT,
+      },
     })
     .returning();
 

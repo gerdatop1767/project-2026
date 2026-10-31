@@ -247,10 +247,14 @@ export function listTasksByNumber(
   taskNumber: number,
   collection?: string,
   unsolved?: boolean,
+  /** A task's id: when that task's source is kept out of «Все источники»
+   * (e.g. «ЕГЭ 2027 Ященко»), list the number within that source only. */
+  sameSourceAs?: string,
 ): Promise<TaskPublic[]> {
   const query = new URLSearchParams({ subject, taskNumber: String(taskNumber) });
   if (collection) query.set('collection', collection);
   if (unsolved) query.set('unsolved', 'true');
+  if (sameSourceAs) query.set('sameSourceAs', sameSourceAs);
   return apiFetch<{ items: TaskPublic[] }>(`/tasks?${query.toString()}`).then((r) => r.items);
 }
 

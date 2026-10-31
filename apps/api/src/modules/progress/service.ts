@@ -62,6 +62,8 @@ export async function getSummary(db: Database, userId: string): Promise<Progress
 
   return {
     solvedTotal: totals.solved,
+    // A task belongs to one subject, so the per-subject distinct counts add up.
+    uniqueSolvedTotal: uniqueSolvedBySubject.reduce((sum, row) => sum + row.uniqueSolved, 0),
     correctTotal: totals.correct,
     incorrectTotal: totals.solved - totals.correct,
     accuracyPercent: accuracy(totals.solved, totals.correct),

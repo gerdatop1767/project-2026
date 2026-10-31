@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { InlineMathText, MathText } from './MathText.js';
+import { InlineMathText, MathText, scrollCue } from './MathText.js';
 
 describe('MathText / InlineMathText — real KaTeX typography', () => {
   it('renders a $...$ span as KaTeX, not plain text', () => {
@@ -152,5 +152,71 @@ describe('MathText — emphasis (**bold**/*italic*) composed with math and plain
     expect(document.querySelector('.katex')).toBeInTheDocument();
     const strong = screen.getByText('x', { selector: 'strong' });
     expect(strong).toBeInTheDocument();
+  });
+});
+
+// ЕГЭ-2027 solutions showed raw «### а)» and «_…_» to students.
+describe('MathText — markdown headings and _italic_ in imported solutions', () => {
+  const solution =
+    'Введём координаты.\n\n### а)\nПусть $CK=t\\cdot CS$, тогда $t=\\dfrac23$.\n\n### б)\nОтвет: б) 1,5.\n\n_Разбор подготовлен редакцией Зубрилки._';
+
+  it('renders ### lines as headings and _…_ as <em>, with no markers left in the text', () => {
+    const { container } = render(<MathText text={solution} />);
+    const headings = [...container.querySelectorAll('strong')].map((s) => s.textContent);
+    expect(headings).toEqual(['а)', 'б)']);
+    expect(container.querySelector('em')?.textContent).toBe(
+      'Разбор подготовлен редакцией Зубрилки.',
+    );
+    expect(container.textContent).not.toMatch(/###|(^|\s)_|_($|\s)/);
+    expect(container.querySelectorAll('.katex').length).toBeGreaterThan(0);
+  });
+
+  it('a # after a formula on the same line is not a heading, and math subscripts are untouched', () => {
+    const { container } = render(<MathText text="$a_1$ # не заголовок, точка A_1" />);
+    expect(container.querySelector('strong')).toBeNull();
+    expect(container.querySelector('em')).toBeNull();
+    expect(container.textContent).toContain('# не заголовок, точка A_1');
+  });
+});
+
+// «_В ответ запишите … в виде $a:b$ …_» kept its underscores: the formula
+// split the line, so no text token saw both markers.
+describe('MathText — a whole _italic_ line that contains a formula', () => {
+  it('renders the line as <em> with the formula inside, no underscores left', () => {
+    const { container } = render(
+      <MathText
+        text={
+          'Найдите отношение площадей.\n\n_В ответ запишите результат в виде $a:b$ — меньшая к большей._'
+        }
+      />,
+    );
+    const em = container.querySelector('em');
+    expect(em?.textContent).toContain('В ответ запишите результат в виде');
+    expect(em?.querySelector('.katex')).not.toBeNull();
+    expect(container.textContent).not.toMatch(/(^|\s)_|_($|\s)/);
+  });
+
+  it('keeps the lines around it and leaves an italic line without a formula to parseEmphasis', () => {
+    const { container } = render(
+      <MathText text={'Строка $x$\n_Курсив $y$ тут_\nЕщё строка\n_просто курсив_'} />,
+    );
+    expect(container.querySelectorAll('br')).toHaveLength(3);
+    expect([...container.querySelectorAll('em')].map((e) => e.textContent?.trim())).toHaveLength(2);
+    expect(container.textContent).toContain('Ещё строка');
+  });
+});
+
+// Light theme showed a blue fade on every formula ending in a subscript:
+// KaTeX's 2 px glyph overhang counted as «more to scroll».
+describe('scrollCue — formula scroll fade', () => {
+  it('ignores the couple of pixels a subscript overhangs', () => {
+    expect(scrollCue(102, 100, 0)).toMatchObject({ scrollable: false });
+    expect(scrollCue(104, 100, 0)).toMatchObject({ scrollable: false });
+  });
+
+  it('still marks a formula that is really wider than its box, and where it can scroll', () => {
+    expect(scrollCue(160, 100, 0)).toEqual({ scrollable: true, atStart: true, atEnd: false });
+    expect(scrollCue(160, 100, 30)).toEqual({ scrollable: true, atStart: false, atEnd: false });
+    expect(scrollCue(160, 100, 60)).toEqual({ scrollable: true, atStart: false, atEnd: true });
   });
 });

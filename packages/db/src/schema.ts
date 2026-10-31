@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { VariantScoringSnapshot } from '@zybrilka/shared';
 import {
   type AnyPgColumn,
   bigint,
@@ -405,6 +406,20 @@ export const tasks = pgTable(
      * `conditionMd` back against what the document actually said.
      */
     rawStatement: text('raw_statement'),
+    /**
+     * The task's number exactly as the source prints it, when the import
+     * stores it under another `taskNumber`. Null: the same as `taskNumber`.
+     * Numbers are never rewritten to match another edition.
+     */
+    sourceTaskNumber: integer('source_task_number'),
+    /**
+     * The task's maximum primary score in its exam format (e.g. 1 for
+     * ЕГЭ-2027 profile math 1–13, 4 for №19–20), when known. Informational
+     * — a variant attempt scores from its own snapshot of the rules.
+     */
+    maxPrimaryScore: integer('max_primary_score'),
+    /** Why a task is `needs_review` (or what was checked), for reviewers. */
+    reviewNote: text('review_note'),
     /** Dedup fingerprint: hash(subjectId + taskNumber + normalized statement). */
     contentHash: text('content_hash'),
     tags: jsonb('tags').$type<readonly string[]>().notNull().default([]),
@@ -444,6 +459,22 @@ export const collections = pgTable(
     year: integer('year'),
     description: text('description'),
     status: text('status', { enum: contentStatuses }).notNull().default('published'),
+    /**
+     * Whether this source's tasks belong to the subject's default pool —
+     * «Все источники»: random/by-number/smart training, similar tasks,
+     * per-number statistics. False for an edition whose numbering is not
+     * the current exam's (ЕГЭ 2027 renumbered profile math): its tasks are
+     * reachable only when this collection is chosen explicitly, so a 2027
+     * «№13» never mixes with a 2026 «№13» (docs/imports/
+     * ege-2027-yashchenko-v1-v2-report.md).
+     */
+    inAllSources: boolean('in_all_sources').notNull().default(true),
+    /**
+     * The exam format its variants follow — the key of the primary-score
+     * rules (`@zybrilka/shared` examScoring), e.g. `ege-math-profile-2027`.
+     * Null: no scoring rules (a variant result shows no primary points).
+     */
+    examFormat: text('exam_format'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -912,6 +943,14 @@ export const learningSessions = pgTable(
      * own, not a recommendation) instead of Smart Training's scored
      * selection. Null for every Smart Training session. */
     plannedTaskIds: jsonb('planned_task_ids').$type<readonly string[]>(),
+    /**
+     * A variant session's scoring rules, copied when it starts (which
+     * format, rules version, each planned task's maximum and how it is
+     * scored, the conversion scale if any) — so a later change of the
+     * rules or the scale never rewrites an attempt already taken. Null:
+     * a Smart Training session, or a variant without scoring rules.
+     */
+    scoring: jsonb('scoring').$type<VariantScoringSnapshot>(),
     status: text('status', { enum: learningSessionStatuses }).notNull().default('active'),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     /** Set once, the moment `status` flips to 'completed'. */

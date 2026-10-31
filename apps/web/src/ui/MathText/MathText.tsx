@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import katex from 'katex';
 import { tokenizeMathText } from './mathTokenizer.js';
-import { parseEmphasis } from './emphasis.js';
+import { parseEmphasis, parseHeading, splitItalicMathLines } from './emphasis.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MathText.module.css';
 
@@ -61,7 +61,31 @@ export function InlineMathText({ text }: { text: string }) {
   return <MathLine text={text} />;
 }
 
+/** Splits off whole `_…_` lines that hold a formula: the formula would
+ * otherwise cut the line into separate text tokens, and neither half
+ * would see both underscores (see `splitItalicMathLines`). */
 function MathLine({ text }: { text: string }) {
+  const segments = useMemo(() => splitItalicMathLines(text), [text]);
+  if (segments.length === 1 && !segments[0]!.italic) return <MathTokens text={text} />;
+  return (
+    <>
+      {segments.map((segment, i) => (
+        <Fragment key={i}>
+          {segment.italic ? (
+            <em>
+              <MathTokens text={segment.text} />
+            </em>
+          ) : (
+            <MathTokens text={segment.text} />
+          )}
+          {i < segments.length - 1 && <br />}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+function MathTokens({ text }: { text: string }) {
   const tokens = useMemo(() => tokenizeMathText(text), [text]);
   return (
     <>
@@ -70,14 +94,26 @@ function MathLine({ text }: { text: string }) {
           return <KatexSpan key={i} tex={token.value} block={token.block ?? false} />;
         }
         const lines = token.value.split('\n');
+        // A heading is a whole line of its own: the first line of a text
+        // token only counts when nothing (a formula) precedes it on that line.
+        const startsLine = i === 0 || /\n$/.test(tokens[i - 1]?.value ?? '');
         return (
           <Fragment key={i}>
-            {lines.map((line, j) => (
-              <Fragment key={j}>
-                <EmphasisLine text={line} />
-                {j < lines.length - 1 && <br />}
-              </Fragment>
-            ))}
+            {lines.map((line, j) => {
+              const heading = j > 0 || startsLine ? parseHeading(line) : null;
+              return (
+                <Fragment key={j}>
+                  {heading !== null ? (
+                    <strong className={styles.heading}>
+                      <EmphasisLine text={heading} />
+                    </strong>
+                  ) : (
+                    <EmphasisLine text={line} />
+                  )}
+                  {j < lines.length - 1 && <br />}
+                </Fragment>
+              );
+            })}
           </Fragment>
         );
       })}
@@ -85,7 +121,7 @@ function MathLine({ text }: { text: string }) {
   );
 }
 
-/** Renders one plain-text line with `**bold**`/`*italic*` spans as real `<strong>`/`<em>` — see `parseEmphasis`'s doc comment. */
+/** Renders one plain-text line with `**bold**`/`*italic*`/`_italic_` spans as real `<strong>`/`<em>` — see `parseEmphasis`'s doc comment. */
 function EmphasisLine({ text }: { text: string }) {
   const tokens = useMemo(() => parseEmphasis(text), [text]);
   return (
@@ -97,6 +133,20 @@ function EmphasisLine({ text }: { text: string }) {
       })}
     </>
   );
+}
+
+/** KaTeX glyphs (a subscript after a letter, «a₂») overhang their box by
+ * a couple of pixels; that is not content to scroll to, and treating it as
+ * such lit the edge fade on every formula ending in a subscript. */
+export const SCROLL_SLACK_PX = 4;
+
+/** Whether a formula's box has more to scroll to, and on which side. */
+export function scrollCue(scrollWidth: number, clientWidth: number, scrollLeft: number) {
+  return {
+    scrollable: scrollWidth > clientWidth + SCROLL_SLACK_PX,
+    atStart: scrollLeft <= SCROLL_SLACK_PX,
+    atEnd: scrollLeft + clientWidth >= scrollWidth - SCROLL_SLACK_PX,
+  };
 }
 
 function KatexSpan({ tex, block }: { tex: string; block: boolean }) {
@@ -126,11 +176,7 @@ function KatexSpan({ tex, block }: { tex: string; block: boolean }) {
     if (!el) return;
     function update() {
       if (!el) return;
-      setOverflow({
-        scrollable: el.scrollWidth > el.clientWidth + 1,
-        atStart: el.scrollLeft <= 1,
-        atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1,
-      });
+      setOverflow(scrollCue(el.scrollWidth, el.clientWidth, el.scrollLeft));
     }
     update();
     el.addEventListener('scroll', update, { passive: true });

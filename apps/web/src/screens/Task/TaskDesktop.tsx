@@ -108,7 +108,10 @@ export function TaskDesktop({
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([getTask(taskId), listTasksByNumber(subjectId, taskNumber)])
+    void Promise.all([
+      getTask(taskId),
+      listTasksByNumber(subjectId, taskNumber, undefined, undefined, taskId),
+    ])
       .then(([fetchedTask, fetchedSiblings]) => {
         if (cancelled) return;
         setTask(toSampleTask(fetchedTask, fetchedSiblings));
@@ -216,6 +219,7 @@ export function TaskDesktop({
           customOrderedTasks,
           returnTo,
           timeSpentMs,
+          xpAwarded: result.xp?.awarded,
           // A guest's answer was checked but not recorded (attemptId null).
           revealed:
             result.attemptId === null
@@ -336,6 +340,9 @@ export function TaskDesktop({
                 <TaskExamIllustration
                   subjectId={task.subjectId}
                   taskNumber={task.number}
+                  tags={task.tags}
+                  imageUrl={task.imageUrl}
+                  conditionMd={task.condition}
                   className={styles.taskImage}
                 />
                 <RuleButton

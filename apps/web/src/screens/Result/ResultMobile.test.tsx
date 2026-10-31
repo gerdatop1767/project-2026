@@ -88,6 +88,7 @@ beforeEach(() => {
   vi.mocked(api.listTasksByNumber).mockResolvedValue(siblings);
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 42,
+    uniqueSolvedTotal: 42,
     correctTotal: 30,
     incorrectTotal: 12,
     accuracyPercent: 71.4,
@@ -448,7 +449,8 @@ describe('ResultMobile — "К списку заданий"', () => {
 
 describe('ResultMobile — solution-only illustration (QA v2 Block H)', () => {
   it('shows task 14\'s "Иллюстрация к решению" pyramid diagram once the result screen loads', async () => {
-    const task14 = { ...taskWithSolution, taskNumber: 14 };
+    // The SVG belongs to ЕГЭ 2026 Вариант 1's №14 — the real task carries its tag.
+    const task14 = { ...taskWithSolution, taskNumber: 14, tags: ['ege-2026-variant-1'] };
     vi.mocked(api.getTask).mockResolvedValue(task14);
     vi.mocked(api.listTasksByNumber).mockResolvedValue([task14]);
 
@@ -664,5 +666,42 @@ describe('ResultMobile — "К списку заданий №N" (navigation to 
     expect(screen.getByTestId('by-number')).toHaveTextContent(
       `byNumber:${baseTask.subjectId}:${baseTask.taskNumber}`,
     );
+  });
+});
+
+// The result screen showed a fixed «+20 XP» for every correct answer —
+// a first solve gives 15/25, a repeat 0, a guest nothing.
+describe('ResultMobile — XP chip shows what the server awarded', () => {
+  function renderWithXp(xpAwarded: number | undefined) {
+    return render(
+      <NavigationProvider>
+        <ResultMobile
+          subjectId={baseTask.subjectId}
+          taskNumber={baseTask.taskNumber}
+          taskId={TASK_ID}
+          correct
+          userAnswer={CORRECT_ANSWER}
+          xpAwarded={xpAwarded}
+        />
+      </NavigationProvider>,
+    );
+  }
+
+  it('shows the real award', async () => {
+    renderWithXp(25);
+    expect(await screen.findByText(/\+25 XP/, {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(screen.queryByText(/\+20 XP/)).not.toBeInTheDocument();
+  });
+
+  it('shows no XP chip for a repeat solve (0) or a guest (no award)', async () => {
+    renderWithXp(0);
+    await screen.findByText('Правильно!');
+    expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
+  });
+
+  it('shows no XP chip for a guest', async () => {
+    renderWithXp(undefined);
+    await screen.findByText('Правильно!');
+    expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
   });
 });

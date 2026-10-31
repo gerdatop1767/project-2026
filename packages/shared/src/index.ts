@@ -40,3 +40,4 @@ export * from './leaderboard.js';
 export * from './reminders.js';
 export * from './support.js';
 export * from './miniGames.js';
+export * from './examScoring.js';

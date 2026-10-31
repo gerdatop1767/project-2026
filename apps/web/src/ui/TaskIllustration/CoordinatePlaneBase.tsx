@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 export const PLANE_PADDING = 28;
 export const PLANE_VIEW_W = 400;
@@ -7,6 +7,8 @@ export const PLANE_VIEW_H = 280;
 export interface CoordinateTransform {
   toSvgX: (x: number) => number;
   toSvgY: (y: number) => number;
+  /** Clips to the plotted area — for curves that leave the grid. */
+  clipPathUrl: string;
 }
 
 export interface CoordinatePlaneBaseProps {
@@ -22,7 +24,24 @@ export interface CoordinatePlaneBaseProps {
    * labels just 0 and the first unit tick on each axis — for tasks whose
    * printed original only marks the unit length, not a numbered grid.
    */
-  tickLabels?: 'all' | 'unitOnly';
+  tickLabels?:
+    'all' | 'unitOnly' | { readonly x: readonly number[]; readonly y: readonly number[] };
+  /**
+   * Square grid cells (the printed ЕГЭ grids are square): the view's
+   * height follows from the x/y ranges instead of the fixed 400×280, and
+   * the drawing is capped at `maxWidth` px so a tall grid stays a
+   * sensible size on a wide screen.
+   */
+  squareCells?: boolean;
+  maxWidth?: number;
+  /**
+   * Which side of the y-axis the origin's «0» sits on. 'left' is for a
+   * grid with narrow cells, where «0» to the right would run into the
+   * «1» tick one cell away (as the printed original places it).
+   */
+  originLabel?: 'right' | 'left';
+  /** Which side of the y-axis its tick numbers sit on (the curve may run along the other). */
+  yTickSide?: 'left' | 'right';
   ariaLabel: string;
   /** Anything plotted on top of the grid/axes — a curve, vectors, points. */
   children: (transform: CoordinateTransform) => ReactNode;
@@ -42,11 +61,26 @@ export function CoordinatePlaneBase({
   yMax,
   gridStep = 1,
   tickLabels = 'all',
+  squareCells = false,
+  maxWidth,
+  originLabel = 'right',
+  yTickSide = 'left',
   ariaLabel,
   children,
 }: CoordinatePlaneBaseProps) {
   const plotW = PLANE_VIEW_W - 2 * PLANE_PADDING;
-  const plotH = PLANE_VIEW_H - 2 * PLANE_PADDING;
+  const plotH = squareCells
+    ? (plotW / (xMax - xMin)) * (yMax - yMin)
+    : PLANE_VIEW_H - 2 * PLANE_PADDING;
+  const viewH = plotH + 2 * PLANE_PADDING;
+  const clipId = `cp-clip-${useId().replace(/:/g, '')}`;
+  // The ЕГЭ grids are read cell by cell, at phone width: a visible grid
+  // and labels that stay legible once the 400-wide view is scaled down.
+  const gridStroke = squareCells
+    ? 'color-mix(in srgb, var(--color-text-secondary) 38%, transparent)'
+    : 'var(--color-border-subtle)';
+  const tickFont = squareCells ? 14 : 11;
+  const axisFont = squareCells ? 16 : 13;
 
   const toSvgX = (x: number) => PLANE_PADDING + ((x - xMin) / (xMax - xMin)) * plotW;
   const toSvgY = (y: number) => PLANE_PADDING + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
@@ -62,10 +96,15 @@ export function CoordinatePlaneBase({
 
   return (
     <svg
-      viewBox={`0 0 ${PLANE_VIEW_W} ${PLANE_VIEW_H}`}
+      viewBox={`0 0 ${PLANE_VIEW_W} ${viewH}`}
       role="img"
       aria-label={ariaLabel}
-      style={{ width: '100%', height: 'auto', display: 'block' }}
+      style={{
+        width: '100%',
+        height: 'auto',
+        display: 'block',
+        ...(maxWidth ? { maxWidth, marginInline: 'auto' } : {}),
+      }}
     >
       {verticalGridLines.map((x) => (
         <line
@@ -73,8 +112,8 @@ export function CoordinatePlaneBase({
           x1={toSvgX(x)}
           y1={PLANE_PADDING}
           x2={toSvgX(x)}
-          y2={PLANE_VIEW_H - PLANE_PADDING}
-          stroke="var(--color-border-subtle)"
+          y2={viewH - PLANE_PADDING}
+          style={{ stroke: gridStroke }}
           strokeWidth={1}
         />
       ))}
@@ -85,7 +124,7 @@ export function CoordinatePlaneBase({
           y1={toSvgY(y)}
           x2={PLANE_VIEW_W - PLANE_PADDING}
           y2={toSvgY(y)}
-          stroke="var(--color-border-subtle)"
+          style={{ stroke: gridStroke }}
           strokeWidth={1}
         />
       ))}
@@ -107,7 +146,7 @@ export function CoordinatePlaneBase({
       />
       <line
         x1={toSvgX(0)}
-        y1={PLANE_VIEW_H - PLANE_PADDING}
+        y1={viewH - PLANE_PADDING}
         x2={toSvgX(0)}
         y2={PLANE_PADDING}
         stroke="var(--color-text-primary)"
@@ -118,7 +157,7 @@ export function CoordinatePlaneBase({
       <text
         x={PLANE_VIEW_W - PLANE_PADDING + 10}
         y={toSvgY(0) + 4}
-        fontSize={13}
+        fontSize={axisFont}
         fontStyle="italic"
         fill="var(--color-text-secondary)"
       >
@@ -127,25 +166,31 @@ export function CoordinatePlaneBase({
       <text
         x={toSvgX(0) - 14}
         y={PLANE_PADDING - 8}
-        fontSize={13}
+        fontSize={axisFont}
         fontStyle="italic"
         fill="var(--color-text-secondary)"
       >
         y
       </text>
-      <text x={toSvgX(0) + 4} y={toSvgY(0) + 14} fontSize={11} fill="var(--color-text-secondary)">
+      <text
+        x={originLabel === 'left' ? toSvgX(0) - 4 : toSvgX(0) + 4}
+        y={toSvgY(0) + 14}
+        fontSize={tickFont}
+        textAnchor={originLabel === 'left' ? 'end' : 'start'}
+        fill="var(--color-text-secondary)"
+      >
         0
       </text>
 
       {(tickLabels === 'all'
         ? verticalGridLines.filter((x) => x !== 0)
-        : [1].filter((x) => x >= xMin && x <= xMax)
+        : (tickLabels === 'unitOnly' ? [1] : tickLabels.x).filter((x) => x >= xMin && x <= xMax)
       ).map((x) => (
         <text
           key={`vx${x}`}
           x={toSvgX(x)}
           y={toSvgY(0) + 14}
-          fontSize={11}
+          fontSize={tickFont}
           textAnchor="middle"
           fill="var(--color-text-secondary)"
         >
@@ -154,21 +199,24 @@ export function CoordinatePlaneBase({
       ))}
       {(tickLabels === 'all'
         ? horizontalGridLines.filter((y) => y !== 0)
-        : [1].filter((y) => y >= yMin && y <= yMax)
+        : (tickLabels === 'unitOnly' ? [1] : tickLabels.y).filter((y) => y >= yMin && y <= yMax)
       ).map((y) => (
         <text
           key={`hy${y}`}
-          x={toSvgX(0) - 8}
+          x={yTickSide === 'right' ? toSvgX(0) + 8 : toSvgX(0) - 8}
           y={toSvgY(y) + 4}
-          fontSize={11}
-          textAnchor="end"
+          fontSize={tickFont}
+          textAnchor={yTickSide === 'right' ? 'start' : 'end'}
           fill="var(--color-text-secondary)"
         >
           {y}
         </text>
       ))}
 
-      {children({ toSvgX, toSvgY })}
+      <clipPath id={clipId}>
+        <rect x={PLANE_PADDING} y={PLANE_PADDING} width={plotW} height={plotH} />
+      </clipPath>
+      {children({ toSvgX, toSvgY, clipPathUrl: `url(#${clipId})` })}
     </svg>
   );
 }

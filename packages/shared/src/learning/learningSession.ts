@@ -1,3 +1,4 @@
+import type { VariantScore } from '../examScoring.js';
 import type { TaskPublic } from '../tasks.js';
 import type { RecommendationBreakdown } from './recommendation.js';
 
@@ -163,6 +164,21 @@ export interface VariantAttemptGroup {
 }
 
 /**
+ * Primary points of a variant attempt (see `examScoring.ts`): its first
+ * answers scored by the rules copied into the attempt when it started.
+ */
+export interface VariantAttemptScoring extends VariantScore {
+  /** The attempt is not finished: the result can still change. */
+  readonly preliminary: boolean;
+  /**
+   * `snapshot`: the rules saved with the attempt. `current`: an attempt
+   * started before scoring existed, scored by today's rules of its exam
+   * format (said so on screen).
+   */
+  readonly rulesSource: 'snapshot' | 'current';
+}
+
+/**
  * GET /progress/variants/:sessionId — one attempt of one variant, only
  * for its owner. Only what is actually recorded is reported.
  */
@@ -198,4 +214,6 @@ export interface VariantAttemptDetail {
   readonly tasks: readonly VariantAttemptTask[];
   /** Wrong or skipped tasks, in exam order — what to go over again. */
   readonly toRepeat: readonly { taskId: string; taskNumber: number; topic: string | null }[];
+  /** Null for a variant whose source has no exam scoring rules. */
+  readonly scoring: VariantAttemptScoring | null;
 }
