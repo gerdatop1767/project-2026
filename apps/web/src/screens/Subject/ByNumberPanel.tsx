@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigation, type Route } from '../../lib/navigation.js';
 import { useAccountGate } from '../../lib/accountGate.js';
-import { getSubjectContent } from '../../data/subjectContent.js';
+import { availableTaskNumbers } from '../../lib/taskNumbers.js';
+import { useTaskCountItems } from '../../lib/useTaskCounts.js';
 import {
   resolveSingleNumberSession,
   resolveTaskBatch,
@@ -62,12 +63,24 @@ export function ByNumberPanel({
   const [selectedCollectionSlug, setSelectedCollectionSlug] = useState<string | null>(
     collectionSlug ?? null,
   );
+  const countItems = useTaskCountItems();
+  // The numbers this Сборник (or «Все источники») really has, from the
+  // database — ЕГЭ 2027 Ященко: 1–20, the 2026 format: 1–19.
+  const numbers = availableTaskNumbers({
+    subjectId,
+    collection: collections.find((c) => c.collection.slug === selectedCollectionSlug) ?? null,
+    poolNumbers: countItems?.[subjectId]?.taskNumbers ?? null,
+  });
   const [selection, setSelection] = useState<Record<number, NumberSelection>>(() => {
-    if (!initialTaskNumber) return {};
-    const max = getSubjectContent(subjectId).taskNumberCount;
-    if (initialTaskNumber < 1 || initialTaskNumber > max) return {};
+    if (!initialTaskNumber || initialTaskNumber < 1) return {};
     return { [initialTaskNumber]: { random: false, unseen: false } };
   });
+  // A number the chosen source doesn't have is never part of the pick
+  // (e.g. №20 chosen in ЕГЭ 2027, then the source switched to 2026).
+  const offered = new Set(numbers);
+  const activeSelection = Object.fromEntries(
+    Object.entries(selection).filter(([number]) => offered.has(Number(number))),
+  ) as Record<number, NumberSelection>;
   const [shuffleOrder, setShuffleOrder] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -99,10 +112,10 @@ export function ByNumberPanel({
 
   async function handleStart() {
     setStartError(null);
-    const numbers = Object.keys(selection)
+    const picked = Object.keys(activeSelection)
       .map(Number)
       .sort((a, b) => a - b);
-    if (numbers.length === 0) {
+    if (picked.length === 0) {
       setStartError('Выбери хотя бы один номер задания.');
       return;
     }
@@ -115,14 +128,14 @@ export function ByNumberPanel({
       // resolveSingleNumberSession's doc comment for why
       // `resolveTaskBatch` (one random task per DISTINCT number) is the
       // wrong tool here.
-      if (numbers.length === 1) {
-        const number = numbers[0]!;
+      if (picked.length === 1) {
+        const number = picked[0]!;
         const filter: TaskPickFilter = {
           subject: subjectId,
           taskNumber: number,
           collection: selectedCollectionSlug ?? undefined,
-          random: selection[number]!.random,
-          unseen: selection[number]!.unseen,
+          random: activeSelection[number]!.random,
+          unseen: activeSelection[number]!.unseen,
         };
         const result = await resolveSingleNumberSession(filter, { shuffleOrder });
         if ('error' in result) {
@@ -148,12 +161,12 @@ export function ByNumberPanel({
         return;
       }
 
-      const filters: TaskPickFilter[] = numbers.map((n) => ({
+      const filters: TaskPickFilter[] = picked.map((n) => ({
         subject: subjectId,
         taskNumber: n,
         collection: selectedCollectionSlug ?? undefined,
-        random: selection[n]!.random,
-        unseen: selection[n]!.unseen,
+        random: activeSelection[n]!.random,
+        unseen: activeSelection[n]!.unseen,
       }));
 
       const result = await resolveTaskBatch(filters, { shuffleOrder });
@@ -182,7 +195,7 @@ export function ByNumberPanel({
     }
   }
 
-  const sortedSelected = Object.keys(selection)
+  const sortedSelected = Object.keys(activeSelection)
     .map(Number)
     .sort((a, b) => a - b);
 
@@ -215,11 +228,12 @@ export function ByNumberPanel({
       <div>
         <SectionHeader title="Номера заданий" />
         <div className={styles.chipRow}>
-          {Array.from(
-            { length: getSubjectContent(subjectId).taskNumberCount },
-            (_, i) => i + 1,
-          ).map((number) => (
-            <Chip key={number} selected={number in selection} onClick={() => toggleNumber(number)}>
+          {numbers.map((number) => (
+            <Chip
+              key={number}
+              selected={number in activeSelection}
+              onClick={() => toggleNumber(number)}
+            >
               №{number}
             </Chip>
           ))}
@@ -231,7 +245,7 @@ export function ByNumberPanel({
           <SectionHeader title="Режим для каждого номера" />
           <div className={styles.modeList}>
             {sortedSelected.map((number) => {
-              const flags = selection[number]!;
+              const flags = activeSelection[number]!;
               return (
                 <div key={number} className={styles.modeRow}>
                   <span className="text-body-sm" style={{ fontWeight: 700 }}>

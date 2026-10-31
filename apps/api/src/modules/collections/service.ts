@@ -16,13 +16,14 @@ function toCollectionPublic(row: repo.CollectionRow): CollectionPublic {
   };
 }
 
-function toVariantPublic(row: repo.VariantRow): VariantPublic {
+function toVariantPublic(row: repo.VariantRow & { taskCount: number }): VariantPublic {
   return {
     id: row.id,
     collectionId: row.collectionId,
     variantNumber: row.variantNumber,
     title: row.title,
     year: row.year,
+    taskCount: row.taskCount,
   };
 }
 
@@ -32,6 +33,9 @@ export async function listCollections(db: Database): Promise<CollectionListRespo
     items: rows.map((row) => ({
       collection: toCollectionPublic(row.collection),
       variants: row.variants.map(toVariantPublic),
+      taskCount: row.taskCount,
+      variantTaskCount: row.variantTaskCount,
+      taskNumbers: row.taskNumbers,
     })),
   };
 }

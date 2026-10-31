@@ -189,12 +189,18 @@ export const taskCountsBySubjectResponseSchema = z.object({
   items: z.array(
     z.object({
       subjectId: z.string(),
-      /** Tasks in «Все источники» — the catalog a subject card advertises. */
+      /** Distinct tasks in «Все источники» (the subject's default pool,
+       * without editions such as ЕГЭ 2027 that have their own numbering). */
       count: z.number().int().nonnegative(),
-      /** Every published task of the subject, other editions (ЕГЭ 2027)
-       * included — the honest «из N» for progress, whose «Решено» counts
-       * tasks from any source. */
+      /** Distinct tasks a student can open in this subject from any
+       * source — the subject's total everywhere it is advertised (cards,
+       * catalog, «из N»). Published only; a task linked into several
+       * variants is counted once. */
       countAllSources: z.number().int().nonnegative(),
+      /** The exam numbers present in «Все источники», ascending — the
+       * «По номерам» grid when no Сборник is chosen. A chosen Сборник has
+       * its own list (GET /collections). Absent from an older API. */
+      taskNumbers: z.array(z.number().int().positive()).optional(),
     }),
   ),
 });

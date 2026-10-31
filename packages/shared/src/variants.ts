@@ -28,6 +28,8 @@ export const variantPublicSchema = z.object({
   variantNumber: z.number().int().positive(),
   title: z.string(),
   year: z.number().int().nullable(),
+  /** Published tasks in this variant (its slots a student can open). */
+  taskCount: z.number().int().nonnegative().optional(),
 });
 export type VariantPublic = z.infer<typeof variantPublicSchema>;
 
@@ -57,6 +59,14 @@ export type VariantDetail = z.infer<typeof variantDetailSchema>;
 export const collectionListItemSchema = z.object({
   collection: collectionPublicSchema,
   variants: z.array(variantPublicSchema),
+  /** Distinct published tasks across the collection's published
+   * variants — a task in two variants counts once. */
+  taskCount: z.number().int().nonnegative().optional(),
+  /** Sum of the variants' `taskCount` (slots, not distinct tasks). */
+  variantTaskCount: z.number().int().nonnegative().optional(),
+  /** The exam numbers its published tasks really have, ascending — the
+   * «По номерам» grid for this Сборник (ЕГЭ 2027 Ященко: 1–20). */
+  taskNumbers: z.array(z.number().int().positive()).optional(),
 });
 export type CollectionListItem = z.infer<typeof collectionListItemSchema>;
 

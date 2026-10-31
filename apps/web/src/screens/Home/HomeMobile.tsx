@@ -6,7 +6,8 @@ import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { HomeStats, type HomeStat } from './HomeStats.js';
 import { startRealTask } from '../../lib/startTraining.js';
-import { getProgressSummary, getTaskCountsBySubject } from '../../lib/api.js';
+import { getProgressSummary } from '../../lib/api.js';
+import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { useStreakContext } from '../../lib/streakContext.js';
 import type { ProgressSummary } from '@zybrilka/shared';
 import { SlideUp } from '../../ui/motion/motion.js';
@@ -35,10 +36,9 @@ export function HomeMobile() {
   const { isGuest } = useAccountGate();
   const progressFailed = progressFailedState || isGuest;
   const ratingStat = useRatingStat(isGuest);
-  // Real published-task counts per subject (one request) — replaces the
-  // static `subject.taskCount` demo numbers. null until loaded; a
-  // subject absent from the response has 0 published tasks.
-  const [taskCounts, setTaskCounts] = useState<Record<string, number> | null>(null);
+  // Distinct tasks a student can open per subject (GET /tasks/counts,
+  // shared hook). null until loaded; an absent subject has none.
+  const taskCounts = useTaskCountsBySubject();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,16 +51,6 @@ export function HomeMobile() {
         .catch(() => {
           if (!cancelled) setProgressFailed(true);
         });
-    void getTaskCountsBySubject()
-      .then((res) => {
-        if (cancelled) return;
-        const map: Record<string, number> = {};
-        for (const item of res.items) map[item.subjectId] = item.count;
-        setTaskCounts(map);
-      })
-      .catch(() => {
-        // Stays null — subject cards show a neutral placeholder below.
-      });
     return () => {
       cancelled = true;
     };

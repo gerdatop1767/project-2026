@@ -87,7 +87,7 @@ export function StatisticsMobile() {
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const [realProgress, setRealProgress] = useState<ProgressSummary | null>(null);
-  const allSourcesCounts = useTaskCountsBySubject('countAllSources');
+  const allSourcesCounts = useTaskCountsBySubject();
   // Per-subject data is stored WITH the subject it belongs to: right after
   // a subject switch the previous subject's numbers must never be shown
   // under the new subject's name (they used to, until the new response

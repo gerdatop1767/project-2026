@@ -20,6 +20,7 @@ vi.mock('../../lib/api.js', () => {
     listCollections: vi.fn(),
     getRandomTask: vi.fn(),
     listTasksByNumber: vi.fn(),
+    getTaskCountsBySubject: vi.fn(),
     ApiError: MockApiError,
   };
 });
@@ -98,12 +99,81 @@ function renderScreen(props: Partial<React.ComponentProps<typeof TrainingByNumbe
   );
 }
 
+const COLLECTION_2027 = {
+  collection: {
+    id: 'c27',
+    subjectId: 'math',
+    slug: 'ege-2027-yashchenko',
+    title: 'ЕГЭ 2027 Ященко',
+    publisher: 'Ященко',
+    year: 2027,
+    description: null,
+    inAllSources: false,
+  },
+  variants: [{ id: 'v27', collectionId: 'c27', variantNumber: 1, title: 'Вариант 1', year: 2027 }],
+  taskCount: 488,
+  variantTaskCount: 488,
+  taskNumbers: Array.from({ length: 20 }, (_, i) => i + 1),
+};
+
+const numberChips = () =>
+  screen
+    .getAllByRole('button', { name: /^№\d+$/ })
+    .map((b) => Number(b.textContent!.replace('№', '')));
+
 beforeEach(() => {
+  vi.mocked(api.getTaskCountsBySubject).mockResolvedValue({
+    items: [
+      {
+        subjectId: 'math',
+        count: 190,
+        countAllSources: 678,
+        taskNumbers: Array.from({ length: 19 }, (_, i) => i + 1),
+      },
+    ],
+  });
   vi.mocked(api.listCollections).mockResolvedValue([]);
   // Single-number "По номерам" default: a non-empty same-number list so
   // every test that doesn't care about its exact contents still
   // resolves — see resolveSingleNumberSession.
   vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
+});
+
+describe('ByNumberPanel: the numbers come from the chosen Сборник', () => {
+  it('ЕГЭ 2027 Ященко offers №1–20 — №20 included — and starts №20 in that Сборник', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listCollections).mockResolvedValue([COLLECTION, COLLECTION_2027]);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([{ ...RANDOM_TASK, taskNumber: 20 }]);
+    renderScreen({ collectionSlug: 'ege-2027-yashchenko' });
+    expect(await screen.findByRole('button', { name: '№20' })).toBeInTheDocument();
+    expect(numberChips()).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+    await user.click(screen.getByRole('button', { name: '№20' }));
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() => {
+      expect(api.listTasksByNumber).toHaveBeenCalledWith('math', 20, 'ege-2027-yashchenko', false);
+    });
+    await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:20'));
+  });
+
+  it('«Все источники» keeps the pool’s own №1–19', async () => {
+    vi.mocked(api.listCollections).mockResolvedValue([COLLECTION, COLLECTION_2027]);
+    renderScreen();
+    await waitFor(() => expect(api.getTaskCountsBySubject).toHaveBeenCalled());
+    expect(numberChips()).toEqual(Array.from({ length: 19 }, (_, i) => i + 1));
+    expect(screen.queryByRole('button', { name: '№20' })).not.toBeInTheDocument();
+  });
+
+  it('switching from 2027 to «Все источники» drops a picked №20 from the start', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listCollections).mockResolvedValue([COLLECTION, COLLECTION_2027]);
+    renderScreen({ collectionSlug: 'ege-2027-yashchenko' });
+    await user.click(await screen.findByRole('button', { name: '№20' }));
+    await user.click(screen.getByRole('button', { name: /ЕГЭ 2027 Ященко/ }));
+    await user.click(await screen.findByRole('option', { name: 'ЕГЭ 2027 Ященко' }));
+    expect(screen.queryByRole('button', { name: '№20' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    expect(await screen.findByText('Выбери хотя бы один номер задания.')).toBeInTheDocument();
+  });
 });
 
 describe('ByNumberPanel', () => {
