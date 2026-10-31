@@ -12,6 +12,8 @@ import {
 } from '../../lib/api.js';
 import { getSubjectContent, type SubjectModeId } from '../../data/subjectContent.js';
 import { ByNumberPanel } from './ByNumberPanel.js';
+import { availableTaskNumbers } from '../../lib/taskNumbers.js';
+import { useTaskCountItems } from '../../lib/useTaskCounts.js';
 import { useAccountGate } from '../../lib/accountGate.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Button } from '../../ui/Button/Button.js';
@@ -320,11 +322,7 @@ export function SubjectMobile({
           />
         )}
         {mode === 'variants' && (
-          <VariantBuilder
-            taskNumberCount={content.taskNumberCount}
-            collections={collections}
-            onStart={startVariant}
-          />
+          <VariantBuilder subjectId={subject.id} collections={collections} onStart={startVariant} />
         )}
         {mode === 'favorites' && (
           <Card>
@@ -500,17 +498,27 @@ function TopicDetail({
 }
 
 function VariantBuilder({
-  taskNumberCount,
+  subjectId,
   collections,
   onStart,
 }: {
-  taskNumberCount: number;
+  subjectId: string;
   collections: readonly CollectionListItem[];
   onStart: (taskNumbers: readonly number[], collection?: string) => void;
 }) {
-  const allNumbers = Array.from({ length: taskNumberCount }, (_, i) => i + 1);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const [selectedState, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const countItems = useTaskCountItems();
+  // The chosen source's real numbers (ЕГЭ 2027 Ященко: 1–20).
+  const allNumbers = availableTaskNumbers({
+    subjectId,
+    collection: collections.find((item) => item.collection.slug === selectedSlug) ?? null,
+    poolNumbers: countItems?.[subjectId]?.taskNumbers ?? null,
+  });
+  // Numbers the newly chosen source doesn't have drop out of the pick.
+  const selected: ReadonlySet<number> = new Set(
+    allNumbers.filter((number) => selectedState.has(number)),
+  );
   const activeSourceLabel =
     collections.find((item) => item.collection.slug === selectedSlug)?.collection.title ??
     'Общий банк';

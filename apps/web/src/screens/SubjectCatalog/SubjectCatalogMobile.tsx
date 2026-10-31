@@ -37,7 +37,7 @@ export function SubjectCatalogMobile() {
     {
       icon: 'tasks',
       label: 'заданий',
-      value: totalTasks !== null ? `${totalTasks.toLocaleString('ru-RU')}+` : '···',
+      value: totalTasks !== null ? totalTasks.toLocaleString('ru-RU') : '···',
     },
     {
       icon: 'statistics',

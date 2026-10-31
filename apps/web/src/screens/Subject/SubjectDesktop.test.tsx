@@ -309,6 +309,32 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
     expect(screen.getByText('Выбрано 19 заданий')).toBeInTheDocument();
   });
 
+  it('ЕГЭ 2027 Ященко as the source: its real №1–20, «Выбрать всё» picks 20', async () => {
+    mockCollections([
+      YASHCHENKO_COLLECTION,
+      {
+        collection: {
+          ...YASHCHENKO_COLLECTION.collection,
+          id: 'c27',
+          slug: 'ege-2027-yashchenko',
+          title: 'ЕГЭ 2027 Ященко',
+          year: 2027,
+        },
+        variants: [],
+        taskNumbers: Array.from({ length: 20 }, (_, i) => i + 1),
+      } as typeof YASHCHENKO_COLLECTION,
+    ]);
+    const user = userEvent.setup();
+    renderSubject();
+    await user.click(screen.getByText('Полные варианты ЕГЭ'));
+    expect(screen.queryByRole('button', { name: '20' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Общий банк' }));
+    await user.click(screen.getByRole('option', { name: 'ЕГЭ 2027 Ященко' }));
+    expect(screen.getByRole('button', { name: '20' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Выбрать всё/ }));
+    expect(screen.getByText('Выбрано 20 заданий')).toBeInTheDocument();
+  });
+
   it('reset clears the selection', async () => {
     mockCollections();
     const user = userEvent.setup();

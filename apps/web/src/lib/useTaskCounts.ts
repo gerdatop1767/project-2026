@@ -1,20 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { TaskCountsBySubjectResponse } from '@zybrilka/shared';
 import { getTaskCountsBySubject } from './api.js';
 
+type TaskCountItem = TaskCountsBySubjectResponse['items'][number];
+
 /**
- * Real published-task counts per subject (one request), shared by every
- * screen that needs to replace the static `subjects.ts` demo
- * `taskCount` field — Home's subject cards, Subject's hero, and the
- * Subject Catalog grid (Desktop + Mobile) all want the exact same data,
- * so this is the one place that fetches it instead of each screen
- * duplicating the same effect. `null` until loaded (or on failure) —
- * callers show a neutral placeholder rather than a fabricated number.
+ * GET /tasks/counts by subject id (one cached request shared by every
+ * caller). `null` until loaded or on failure — callers show a neutral
+ * placeholder rather than a fabricated number; a subject absent from the
+ * response has no available tasks.
  */
-export function useTaskCountsBySubject(
-  /** `countAllSources` for a progress «из N» (Решено counts every source). */
-  field: 'count' | 'countAllSources' = 'count',
-): Record<string, number> | null {
-  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+export function useTaskCountItems(): Record<string, TaskCountItem> | null {
+  const [items, setItems] = useState<Record<string, TaskCountItem> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,9 +21,9 @@ export function useTaskCountsBySubject(
       .then(() => getTaskCountsBySubject())
       .then((res) => {
         if (cancelled) return;
-        const map: Record<string, number> = {};
-        for (const item of res.items) map[item.subjectId] = item[field];
-        setCounts(map);
+        const map: Record<string, TaskCountItem> = {};
+        for (const item of res.items) map[item.subjectId] = item;
+        setItems(map);
       })
       .catch(() => {
         // Stays null — callers show a neutral placeholder.
@@ -34,7 +31,23 @@ export function useTaskCountsBySubject(
     return () => {
       cancelled = true;
     };
-  }, [field]);
+  }, []);
 
-  return counts;
+  return items;
+}
+
+/**
+ * Distinct tasks a student can open, per subject, from every source
+ * (`countAllSources`) — the one number Home, the subject catalog, the
+ * subject picker, Subject's «из N» and Statistics all show, so no two
+ * screens disagree about a subject's size.
+ */
+export function useTaskCountsBySubject(): Record<string, number> | null {
+  const items = useTaskCountItems();
+  return useMemo(() => {
+    if (!items) return null;
+    const counts: Record<string, number> = {};
+    for (const [subjectId, item] of Object.entries(items)) counts[subjectId] = item.countAllSources;
+    return counts;
+  }, [items]);
 }
