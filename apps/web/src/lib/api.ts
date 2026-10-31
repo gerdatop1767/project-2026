@@ -251,11 +251,40 @@ export function listTasksByNumber(
    * (e.g. «ЕГЭ 2027 Ященко»), list the number within that source only. */
   sameSourceAs?: string,
 ): Promise<TaskPublic[]> {
-  const query = new URLSearchParams({ subject, taskNumber: String(taskNumber) });
+  const query = new URLSearchParams({
+    subject,
+    taskNumber: String(taskNumber),
+    limit: String(TASK_LIST_PAGE_SIZE),
+  });
   if (collection) query.set('collection', collection);
   if (unsolved) query.set('unsolved', 'true');
   if (sameSourceAs) query.set('sameSourceAs', sameSourceAs);
-  return apiFetch<{ items: TaskPublic[] }>(`/tasks?${query.toString()}`).then((r) => r.items);
+  return listAllPages(query);
+}
+
+/** GET /tasks's largest page (its zod `limit` max). */
+const TASK_LIST_PAGE_SIZE = 100;
+/** A safety stop: 20 pages = 2000 copies of one number, far above any source. */
+const TASK_LIST_MAX_PAGES = 20;
+
+/**
+ * Every task of the query, following `nextCursor`. The API pages by 20
+ * by default, which silently cut a number's list short once a source
+ * had more variants than that (ЕГЭ 2027 Ященко: 25 copies of each №).
+ */
+async function listAllPages(query: URLSearchParams): Promise<TaskPublic[]> {
+  const items: TaskPublic[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < TASK_LIST_MAX_PAGES; page += 1) {
+    if (cursor) query.set('cursor', cursor);
+    const res: { items: TaskPublic[]; nextCursor?: string | null } = await apiFetch(
+      `/tasks?${query.toString()}`,
+    );
+    items.push(...res.items);
+    cursor = res.nextCursor ?? null;
+    if (!cursor) break;
+  }
+  return items;
 }
 
 /**
