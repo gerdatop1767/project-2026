@@ -21,6 +21,7 @@ beforeEach(() => {
   vi.mocked(api.getProgressByTopic).mockResolvedValue({ items: [] });
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -150,6 +151,7 @@ describe('SubjectMobile', () => {
 
     resolveProgress({
       solvedTotal: 12,
+      uniqueSolvedTotal: 12,
       correctTotal: 9,
       incorrectTotal: 3,
       accuracyPercent: 0,

@@ -88,6 +88,7 @@ beforeEach(() => {
   vi.mocked(api.listTasksByNumber).mockResolvedValue(siblings);
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 42,
+    uniqueSolvedTotal: 42,
     correctTotal: 30,
     incorrectTotal: 12,
     accuracyPercent: 71.4,

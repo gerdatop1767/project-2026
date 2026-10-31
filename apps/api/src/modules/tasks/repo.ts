@@ -127,11 +127,15 @@ export async function outsideSourcesOf(db: Database, taskId: string): Promise<st
  */
 export async function getCountsBySubject(
   db: Database,
-): Promise<{ subjectId: string; count: number }[]> {
+): Promise<{ subjectId: string; count: number; countAllSources: number }[]> {
   return db
-    .select({ subjectId: schema.tasks.subjectId, count: count() })
+    .select({
+      subjectId: schema.tasks.subjectId,
+      count: count(sql`case when ${inAllSourcesPool(db)} then 1 end`),
+      countAllSources: count(),
+    })
     .from(schema.tasks)
-    .where(and(eq(schema.tasks.status, 'published'), inAllSourcesPool(db)))
+    .where(eq(schema.tasks.status, 'published'))
     .groupBy(schema.tasks.subjectId);
 }
 

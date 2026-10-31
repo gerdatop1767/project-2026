@@ -74,7 +74,7 @@ describe('ЕГЭ 2027 kept apart from «Все источники»', () => {
 
   it('random tasks and subject counts ignore 2027 unless asked for', async () => {
     const counts = (await app.inject({ method: 'GET', url: '/api/v1/tasks/counts' })).json()
-      .items as { subjectId: string; count: number }[];
+      .items as { subjectId: string; count: number; countAllSources: number }[];
     const allPublishedMath = await testDb.db
       .select({ id: schema.tasks.id, source: schema.tasks.source })
       .from(schema.tasks)
@@ -84,6 +84,10 @@ describe('ЕГЭ 2027 kept apart from «Все источники»', () => {
     expect(outside).toBeGreaterThanOrEqual(38);
     expect(counts.find((c) => c.subjectId === 'math')!.count).toBe(
       allPublishedMath.length - outside,
+    );
+    // «Решено N из M» counts tasks from every source, so M must too.
+    expect(counts.find((c) => c.subjectId === 'math')!.countAllSources).toBe(
+      allPublishedMath.length,
     );
 
     for (let i = 0; i < 15; i++) {

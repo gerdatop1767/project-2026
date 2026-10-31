@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
 export const progressSummarySchema = z.object({
+  /** Attempt ROWS (answers), not tasks — see `uniqueSolvedTotal`. */
   solvedTotal: z.number().int().nonnegative(),
+  /** Distinct tasks with at least one correct attempt, all subjects —
+   * what «Решено» means to a student (re-solving a task counts once). */
+  uniqueSolvedTotal: z.number().int().nonnegative(),
   correctTotal: z.number().int().nonnegative(),
   incorrectTotal: z.number().int().nonnegative(),
   accuracyPercent: z.number().min(0).max(100),

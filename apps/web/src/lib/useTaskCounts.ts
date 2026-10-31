@@ -10,7 +10,10 @@ import { getTaskCountsBySubject } from './api.js';
  * duplicating the same effect. `null` until loaded (or on failure) —
  * callers show a neutral placeholder rather than a fabricated number.
  */
-export function useTaskCountsBySubject(): Record<string, number> | null {
+export function useTaskCountsBySubject(
+  /** `countAllSources` for a progress «из N» (Решено counts every source). */
+  field: 'count' | 'countAllSources' = 'count',
+): Record<string, number> | null {
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
@@ -22,7 +25,7 @@ export function useTaskCountsBySubject(): Record<string, number> | null {
       .then((res) => {
         if (cancelled) return;
         const map: Record<string, number> = {};
-        for (const item of res.items) map[item.subjectId] = item.count;
+        for (const item of res.items) map[item.subjectId] = item[field];
         setCounts(map);
       })
       .catch(() => {
@@ -31,7 +34,7 @@ export function useTaskCountsBySubject(): Record<string, number> | null {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [field]);
 
   return counts;
 }

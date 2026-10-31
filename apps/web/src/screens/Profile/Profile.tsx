@@ -92,7 +92,7 @@ function AccountProfile() {
           icon="target"
           iconColor="var(--color-accent-primary)"
           label="Решено"
-          value={progress ? progress.solvedTotal : '···'}
+          value={progress ? progress.uniqueSolvedTotal : '···'}
         />
         <StatTile
           className={styles.statTile}

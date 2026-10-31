@@ -62,6 +62,7 @@ beforeEach(() => {
   streakState.ratingFailed = false;
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -83,6 +84,7 @@ describe('HomeMobile', () => {
   it('renders real solved/accuracy numbers from /progress/summary, not the demo profile', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 248,
+      uniqueSolvedTotal: 248,
       correctTotal: 203,
       incorrectTotal: 45,
       accuracyPercent: 82,
@@ -96,6 +98,24 @@ describe('HomeMobile', () => {
     expect(screen.getByText('82%')).toBeInTheDocument();
     // Seen on every visit: plain numbers, no rolling digits.
     expect(document.querySelector('[data-animated-number]')).toBeNull();
+  });
+
+  // «Решено» showed answer rows: one task answered three times read as 3.
+  it('«Решено» shows distinct solved tasks (uniqueSolvedTotal), not the answer count', async () => {
+    vi.mocked(api.getProgressSummary).mockResolvedValue({
+      solvedTotal: 31,
+      uniqueSolvedTotal: 7,
+      correctTotal: 12,
+      incorrectTotal: 19,
+      accuracyPercent: 39,
+      bySubject: [],
+      byTaskNumber: [],
+      byTopic: [],
+      timeBySubject: [],
+    });
+    renderHome();
+    await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
+    expect(screen.queryByText('31')).not.toBeInTheDocument();
   });
 
   it('the rating place sits next to «Решено»; «Правильно» keeps its place', () => {

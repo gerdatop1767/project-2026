@@ -38,6 +38,7 @@ function renderProfile() {
 beforeEach(() => {
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
+    uniqueSolvedTotal: 0,
     correctTotal: 0,
     incorrectTotal: 0,
     accuracyPercent: 0,
@@ -70,6 +71,7 @@ describe('Profile', () => {
     // Resolve so this test doesn't leak a pending promise into the next one.
     resolveProgress({
       solvedTotal: 0,
+      uniqueSolvedTotal: 0,
       correctTotal: 0,
       incorrectTotal: 0,
       accuracyPercent: 0,
@@ -89,6 +91,7 @@ describe('Profile', () => {
   it('renders real solved/accuracy numbers from /progress/summary', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 42,
+      uniqueSolvedTotal: 42,
       correctTotal: 30,
       incorrectTotal: 12,
       accuracyPercent: 71,
@@ -155,6 +158,7 @@ describe('Profile', () => {
     });
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 12,
+      uniqueSolvedTotal: 12,
       correctTotal: 9,
       incorrectTotal: 3,
       accuracyPercent: 75,

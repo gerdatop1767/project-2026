@@ -15,6 +15,7 @@ import {
 } from '../../lib/api.js';
 import { toSampleMistake } from '../../lib/mistakeAdapter.js';
 import { toTaskNumberProgress } from '../../lib/progressAdapter.js';
+import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import type {
   ProgressByTopicResponse,
   ProgressSummary,
@@ -86,6 +87,7 @@ export function StatisticsMobile() {
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const [realProgress, setRealProgress] = useState<ProgressSummary | null>(null);
+  const allSourcesCounts = useTaskCountsBySubject('countAllSources');
   // Per-subject data is stored WITH the subject it belongs to: right after
   // a subject switch the previous subject's numbers must never be shown
   // under the new subject's name (they used to, until the new response
@@ -203,19 +205,18 @@ export function StatisticsMobile() {
   // (same mobile-flash bug fixed in Subject/Profile: `realProgress`
   // itself is correctly null-until-loaded, but collapsing it to 0 here
   // threw that honesty away for the UI).
-  const solvedTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
+  // «Решено» = distinct tasks solved correctly (`uniqueSolved`), never the
+  // attempt-row count `solved`: answering one task three times is not «3».
+  const solvedTotal = realProgress ? (subjectRow?.uniqueSolved ?? 0) : null;
   const accuracyPercent = subjectRow
     ? Math.round(subjectRow.accuracyPercent)
     : realProgress
       ? 0
       : null;
-  // Real published-task count for this subject — same `total` the
-  // by-task-number grid below is built from (never the static
-  // `subject.taskCount` demo field, which no longer reflects the real
-  // catalog). 0 while the by-task-number request hasn't resolved yet.
-  const subjectTotalTasks = taskNumberItems
-    ? taskNumberItems.reduce((sum, row) => sum + row.total, 0)
-    : null;
+  // «из N»: every published task of the subject, other editions (ЕГЭ
+  // 2027) included — `solvedTotal` counts tasks from any source, so a
+  // «Все источники»-only total could be overtaken by it.
+  const subjectTotalTasks = allSourcesCounts ? (allSourcesCounts[subject.id] ?? 0) : null;
   const totalLabel = subjectTotalTasks ?? '···';
 
   function selectSubject(id: string) {

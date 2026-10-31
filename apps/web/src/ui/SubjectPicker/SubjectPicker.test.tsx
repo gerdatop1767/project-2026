@@ -10,8 +10,8 @@ vi.mock('../../lib/api.js', () => ({
   getTaskCountsBySubject: vi.fn(() =>
     Promise.resolve({
       items: [
-        { subjectId: 'math', count: 67 },
-        { subjectId: 'russian', count: 1 },
+        { subjectId: 'math', count: 67, countAllSources: 67 },
+        { subjectId: 'russian', count: 1, countAllSources: 1 },
       ],
     }),
   ),

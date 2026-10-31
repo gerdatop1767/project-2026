@@ -140,7 +140,8 @@ export function SubjectDesktop({
       .then((res) => {
         if (cancelled) return;
         const entry = res.items.find((i) => i.subjectId === subject.id);
-        setTotalTasks(entry?.count ?? 0);
+        // «из N» for «Решено» (uniqueSolved, any source) — every published task.
+        setTotalTasks(entry?.countAllSources ?? 0);
       })
       .catch(() => {
         if (!cancelled) setTotalTasks(0);

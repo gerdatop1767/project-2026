@@ -174,7 +174,10 @@ export function StatisticsDesktop() {
   const subjectTime = realProgress?.timeBySubject.find((s) => s.subjectId === subjectId) ?? null;
   // null while `realProgress` hasn't loaded yet — never a fake `0`
   // (same mobile-flash bug fixed in Subject/Profile/StatisticsMobile).
-  const solvedTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
+  // «Решено» = distinct tasks solved correctly; «Правильных ответов X из Y»
+  // stays answer-based (attempt rows), as accuracy is everywhere.
+  const solvedTotal = realProgress ? (subjectRow?.uniqueSolved ?? 0) : null;
+  const answersTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
   const correctTotal = subjectRow?.correct ?? 0;
   const correctPercent = subjectRow
     ? Math.round(subjectRow.accuracyPercent)
@@ -239,7 +242,7 @@ export function StatisticsDesktop() {
           label="Правильных ответов"
           value={correctPercent ?? '···'}
           suffix={correctPercent !== null ? '%' : undefined}
-          deltaLabel={`${correctTotal} из ${solvedTotal ?? '···'}`}
+          deltaLabel={`${correctTotal} из ${answersTotal ?? '···'}`}
         />
         <StatTile
           animate
