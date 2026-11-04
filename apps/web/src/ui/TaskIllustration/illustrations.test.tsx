@@ -7,6 +7,11 @@ import {
   listIllustratedTasks,
 } from './illustrations.js';
 import {
+  EGE_2026_V3_T8_POINT,
+  EGE_2026_V3_T8_WAYPOINTS,
+  EGE_2026_V4_T8_POINT,
+  EGE_2026_V4_T8_WAYPOINTS,
+  EGE_2026_V8_T8_WAYPOINTS,
   EGE_2026_V7_T8_WAYPOINTS,
   EGE_2026_VECTORS,
   ege2026V10T11,
@@ -14,6 +19,9 @@ import {
   ege2026V9T11,
 } from './Ege2026Figures.js';
 import {
+  EGE_2027_AXIS_VECTORS,
+  EGE_2027_V1_T9_WAYPOINTS,
+  ege2027V1T12,
   EGE_2027_V2_T9_WAYPOINTS,
   EGE_2027_VECTORS,
   ege2027V2T12,
@@ -72,6 +80,12 @@ describe('illustration registry', () => {
         'ege-2026-variant-7:11',
         'ege-2026-variant-9:11',
         'ege-2026-variant-10:11',
+        ...['2:8', '2:11', '3:8', '3:11', '4:8', '4:11', '5:11', '6:11', '8:8', '8:11'].map(
+          (k) => `ege-2026-variant-${k}`,
+        ),
+        ...['1:9', '1:12', '13:9', '14:9', '17:9', '18:9', '23:2', '24:2'].map(
+          (k) => `ege-2027-variant-${k}`,
+        ),
         'ege-2027-variant-2:9',
         'ege-2027-variant-2:12',
         'ege-2027-variant-3:2',
@@ -125,15 +139,14 @@ describe('illustration registry', () => {
     expect(illustrationReconstructsOriginal(V1, 6)).toBe(false);
     expect(getCustomIllustration(undefined, 8)).toBeNull();
     expect(getCustomIllustration(['ege-2027-variant-1'], 1)).toBeNull();
-    // В8 №8/№11: held back until the recorded answers are reviewed.
-    expect(getCustomIllustration(tag(8), 8)).toBeNull();
-    expect(getCustomIllustration(tag(8), 11)).toBeNull();
+    // В8 №8/№11 now have their own figure, never Вариант 1's.
+    expect(getCustomIllustration(tag(8), 8)).not.toBeNull();
     // Вариант 1's figures never land on another variant's task.
     for (let v = 2; v <= 25; v++) {
       for (const n of [1, 3, 14, 17]) expect(getCustomIllustration(tag(v), n)).toBeNull();
     }
     expect(getCustomIllustration(tag(5), 2)).toBeNull();
-    expect(getCustomIllustration(tag(2), 11)).toBeNull();
+    expect(getCustomIllustration(tag(5), 8)).toBeNull();
   });
 
   it.each([
@@ -382,7 +395,10 @@ describe('ЕГЭ 2027 Ященко, Вариант 2 — figures drawn from the 
       expect(svg?.getAttribute('aria-label')).toContain(`вариант 2, задание ${n})`);
       expect(container.querySelector('img')).toBeNull();
       expect(illustrationReconstructsOriginal(V2, n)).toBe(true);
-      expect(getCustomIllustration(['ege-2027-variant-1'], n)).toBeNull();
+      // В1 №9/№12 have their own figures (graphs audit), never В2's.
+      expect(
+        render(<>{getCustomIllustration(['ege-2027-variant-1'], n)}</>).container.innerHTML,
+      ).not.toBe(container.innerHTML);
     }
     for (const n of [1, 3]) expect(getCustomIllustration(V2, n)).toBeNull();
     expect(getCustomIllustration(['ege-2026-variant-2'], 9)).toBeNull();
@@ -457,7 +473,12 @@ describe('ЕГЭ 2027 Ященко, Варианты 3–10 — figures drawn fr
     const { container } = render(<>{getCustomIllustration(tag(v), n)}</>);
     const svg = container.querySelector('svg');
     expect(svg).toHaveAttribute('role', 'img');
-    expect(svg?.getAttribute('aria-label')).toContain(`вариант ${v}, задание ${n})`);
+    // These print in 2026 too (В2–В8 №8/№11): one shared figure, no variant in its name.
+    const shared = ['12:9', '12:12', '13:12', '14:12', '15:12', '16:12', '18:12'].includes(
+      `${v}:${n}`,
+    );
+    if (shared) expect(svg?.getAttribute('aria-label')).not.toContain('вариант');
+    else expect(svg?.getAttribute('aria-label')).toContain(`вариант ${v}, задание ${n})`);
     expect(container.querySelector('img')).toBeNull();
     expect(illustrationReconstructsOriginal(tag(v), n)).toBe(true);
     // The 2026 task with the same variant and number is a different figure.
@@ -744,5 +765,128 @@ describe('ЕГЭ 2027 Ященко, Варианты 11–25 — figures drawn f
       t.textContent!.replace('-', '−'),
     );
     for (const end of ends) expect(labels.filter((l) => l === end)).toHaveLength(1);
+  });
+});
+
+describe('Графики: аудит 2026–2027 — scan crops replaced by figures drawn from the original', () => {
+  const t26 = (v: number) => [`ege-2026-variant-${v}`];
+  const t27 = (v: number) => [`ege-2027-variant-${v}`];
+  const markup = (tags: string[], n: number) =>
+    render(<>{getCustomIllustration(tags, n)}</>).container.innerHTML;
+
+  it('every graph that printed as a scan crop now has an SVG drawn from the original', () => {
+    const drawn = [
+      ...[
+        [2, 8],
+        [2, 11],
+        [3, 8],
+        [3, 11],
+        [4, 8],
+        [4, 11],
+        [5, 11],
+        [6, 11],
+        [8, 8],
+        [8, 11],
+      ].map(([v, n]) => [t26(v!), n!] as const),
+      ...[
+        [1, 9],
+        [1, 12],
+        [13, 9],
+        [14, 9],
+        [17, 9],
+        [18, 9],
+        [23, 2],
+        [24, 2],
+      ].map(([v, n]) => [t27(v!), n!] as const),
+    ];
+    for (const [tags, n] of drawn) {
+      expect(illustrationReconstructsOriginal(tags, n), `${tags[0]}:${n}`).toBe(true);
+      const html = markup([...tags], n);
+      expect(html, `${tags[0]}:${n}`).toContain('<svg');
+      expect(html).not.toContain('<img');
+    }
+  });
+
+  it('a figure printed in both books is one drawing: 2026 В(k) №8/№11 = 2027 В(k+10) №9/№12', () => {
+    const twins: [number, number, number, number][] = [
+      [2, 8, 12, 9],
+      [2, 11, 12, 12],
+      [3, 8, 13, 9],
+      [3, 11, 13, 12],
+      [4, 8, 14, 9],
+      [4, 11, 14, 12],
+      [5, 11, 15, 12],
+      [6, 11, 16, 12],
+      [7, 8, 17, 9],
+      [8, 8, 18, 9],
+      [8, 11, 18, 12],
+    ];
+    for (const [v26, n26, v27, n27] of twins) {
+      const strip = (html: string) => html.replace(/(id|clip-path|marker-end)="[^"]*"/g, '');
+      expect(strip(markup(t26(v26), n26)), `2026 В${v26} №${n26}`).toBe(
+        strip(markup(t27(v27), n27)),
+      );
+    }
+  });
+
+  it('2026 В3 №8 = 2027 В13 №9: the marked point (4; 5) lies on the curve, f′(4) = 5/4 = 1,25', () => {
+    const [x, y] = EGE_2026_V3_T8_POINT;
+    expect(curveY(EGE_2026_V3_T8_WAYPOINTS, x)).toBeCloseTo(y, 1);
+    expect(y / x).toBe(1.25);
+  });
+
+  it('2026 В4 №8 = 2027 В14 №9: the marked point (5; −2) lies on the curve, f′(5) = −2/5 = −0,4', () => {
+    const [x, y] = EGE_2026_V4_T8_POINT;
+    expect(curveY(EGE_2026_V4_T8_WAYPOINTS, x)).toBeCloseTo(y, 1);
+    expect(y / x).toBe(-0.4);
+  });
+
+  it('2026 В8 №8 = 2027 В18 №9: of −1, 1, 2, 3 the traced curve is steepest upward at 2', () => {
+    const slope = (x: number) =>
+      (curveY(EGE_2026_V8_T8_WAYPOINTS, x + 0.1) - curveY(EGE_2026_V8_T8_WAYPOINTS, x - 0.1)) / 0.2;
+    const slopes = [-1, 1, 2, 3].map((x) => [x, slope(x)] as const);
+    expect(slopes.find(([, k]) => k === Math.max(...slopes.map(([, s]) => s)))![0]).toBe(2);
+    expect(slope(-1)).toBeLessThan(0);
+    expect(slope(1)).toBeLessThan(0);
+    expect(slope(3)).toBeGreaterThan(0);
+  });
+
+  it('2027 В1 №9: f′ on (−6; 8) changes sign + → − on [−2; 6] only near −1 — the maximum of f', () => {
+    const wp = EGE_2027_V1_T9_WAYPOINTS;
+    expect(wp[0]![0]).toBe(-6);
+    expect(wp[wp.length - 1]![0]).toBe(8);
+    const changes: [number, string][] = [];
+    for (let i = 1; i < wp.length; i++) {
+      const [x0, y0] = wp[i - 1]!;
+      const [x1, y1] = wp[i]!;
+      if (y0 * y1 < 0) changes.push([x0 - (y0 * (x1 - x0)) / (y1 - y0), y0 > 0 ? '+-' : '-+']);
+    }
+    const inSegment = changes.filter(([x]) => x >= -2 && x <= 6);
+    const maxima = inSegment.filter(([, s]) => s === '+-').map(([x]) => x);
+    expect(maxima).toHaveLength(1);
+    expect(Math.round(maxima[0]!)).toBe(-1);
+  });
+
+  it('2027 В1 №12: f = 3·log₂x through (1; 0), (2; 3), (4; 6), and f(x) = −9 at x = 0,125', () => {
+    expect(ege2027V1T12(1)).toBe(0);
+    expect(ege2027V1T12(2)).toBe(3);
+    expect(ege2027V1T12(4)).toBe(6);
+    expect(ege2027V1T12(0.125)).toBe(-9);
+  });
+
+  it('2027 В23 и В24 №2: vectors read off the dashed projections give |5b − a| = 25 and |6a − b| = 25', () => {
+    const vec = (v: { fromX: number; fromY: number; x: number; y: number }) =>
+      [v.x - v.fromX, v.y - v.fromY] as const;
+    const [a23, b23] = EGE_2027_AXIS_VECTORS[23].map(vec);
+    expect(Math.hypot(5 * b23![0] - a23![0], 5 * b23![1] - a23![1])).toBe(25);
+    const [a24, b24] = EGE_2027_AXIS_VECTORS[24].map(vec);
+    expect(Math.hypot(6 * a24![0] - b24![0], 6 * a24![1] - b24![1])).toBe(25);
+  });
+
+  it('the gridless vector figures draw no grid and number only the projected coordinates', () => {
+    const html = markup(t27(23), 2);
+    expect(html).toContain('stroke-dasharray');
+    const ticks = [...html.matchAll(/<text[^>]*>(\d)<\/text>/g)].map((m) => m[1]).sort();
+    expect(ticks).toEqual(['0', '2', '2', '3', '3', '4', '5', '6'].sort());
   });
 });

@@ -1,6 +1,7 @@
+import { CoordinatePlaneBase } from './CoordinatePlaneBase.js';
 import { CoordinatePlaneSVG, type PlaneVector } from './CoordinatePlaneSVG.js';
 import { FunctionGraphSVG } from './FunctionGraphSVG.js';
-import { TracedGraphSVG } from './TracedGraphSVG.js';
+import { splinePath, TracedGraphSVG } from './TracedGraphSVG.js';
 
 /**
  * Figures of ЕГЭ 2026 Ященко, варианты 3–10, drawn from the original
@@ -182,7 +183,7 @@ export function Ege2026V7Task8() {
       xMax={5.6}
       yMin={-3.2}
       yMax={3.2}
-      ariaLabel="График функции y = f(x) с отмеченными на оси абсцисс точками −1, 1, 3, 4 (вариант 7, задание 8)"
+      ariaLabel="График функции y = f(x) с отмеченными на оси абсцисс точками −1, 1, 3, 4"
     />
   );
 }
@@ -258,6 +259,337 @@ export function Ege2026V10Task11() {
         { x: 1, y: 4 },
       ]}
       ariaLabel="График функции f(x) = logₐ(x + b) с двумя отмеченными точками (вариант 10, задание 11)"
+    />
+  );
+}
+
+// ── Варианты 3, 4 и 8 №8 (2026). The same figures print in ЕГЭ 2027 as
+// В13, В14 and В18 №9, word for word, so both tasks share one SVG
+// (docs/imports/math-graphs-audit-2026-2027.md). Traced on the 2026 pages,
+// whose scan resolution is about five times the 2027 one.
+
+/** 2026 В3 №8 = 2027 В13 №9: traced on the 2026 page at 133 px per cell. */
+export const EGE_2026_V3_T8_WAYPOINTS: readonly (readonly [number, number])[] = [
+  [-2.2, 6.16],
+  [-2, 5.67],
+  [-1.8, 5.11],
+  [-1.6, 4.56],
+  [-1.4, 4.02],
+  [-1.2, 3.53],
+  [-1, 3.04],
+  [-0.8, 2.57],
+  [-0.6, 2.12],
+  [-0.4, 1.73],
+  [-0.2, 1.4],
+  [0, 1.02],
+  [0.2, 0.7],
+  [0.4, 0.42],
+  [0.6, 0.11],
+  [0.8, -0.07],
+  [1, -0.3],
+  [1.2, -0.46],
+  [1.4, -0.57],
+  [1.6, -0.59],
+  [1.8, -0.53],
+  [2, -0.41],
+  [2.2, -0.23],
+  [2.4, -0.01],
+  [2.6, 0.26],
+  [2.8, 0.64],
+  [3, 1.1],
+  [3.2, 1.8],
+  [3.4, 2.77],
+  [3.6, 3.91],
+  [3.8, 4.67],
+  [4, 4.98],
+  [4.2, 5.1],
+  [4.4, 5.18],
+  [4.6, 5.21],
+  [4.8, 5.22],
+  [5, 5.21],
+  [5.2, 5.19],
+  [5.4, 5.16],
+  [5.6, 5.12],
+  [5.8, 5.04],
+  [6, 5.01],
+  [6.1, 4.99],
+];
+/** 2026 В4 №8 = 2027 В14 №9: traced on the 2026 page at 124×128 px per cell. */
+export const EGE_2026_V4_T8_WAYPOINTS: readonly (readonly [number, number])[] = [
+  [-1.9, -0.63],
+  [-1.8, -0.44],
+  [-1.6, -0.03],
+  [-1.4, 0.34],
+  [-1.2, 0.69],
+  [-1, 1.02],
+  [-0.8, 1.32],
+  [-0.6, 1.58],
+  [-0.4, 1.82],
+  [-0.2, 2.04],
+  [0, 2.23],
+  [0.2, 2.4],
+  [0.4, 2.52],
+  [0.6, 2.62],
+  [0.8, 2.68],
+  [1, 2.7],
+  [1.2, 2.69],
+  [1.4, 2.64],
+  [1.6, 2.56],
+  [1.8, 2.45],
+  [2, 2.31],
+  [2.2, 2.12],
+  [2.4, 1.94],
+  [2.6, 1.71],
+  [2.8, 1.45],
+  [3, 1.17],
+  [3.2, 0.87],
+  [3.4, 0.55],
+  [3.6, 0.19],
+  [3.8, -0.12],
+  [4, -0.48],
+  [4.2, -0.87],
+  [4.4, -1.21],
+  [4.6, -1.54],
+  [4.8, -1.81],
+  [5, -2],
+  [5.2, -1.98],
+  [5.4, -1.97],
+  [5.6, -1.94],
+  [5.8, -1.89],
+  [6, -1.83],
+  [6.2, -1.75],
+  [6.4, -1.68],
+  [6.6, -1.58],
+  [6.8, -1.48],
+  [7, -1.36],
+  [7.2, -1.17],
+];
+/** 2026 В8 №8 = 2027 В18 №9 (2026 стр. 31): no grid; x read through the printed marks. */
+export const EGE_2026_V8_T8_WAYPOINTS: readonly (readonly [number, number])[] = [
+  [-3, 0.88],
+  [-2.9, 1.03],
+  [-2.8, 1.07],
+  [-2.7, 0.85],
+  [-2.6, 0.32],
+  [-2.5, -0.54],
+  [-2.4, -1.15],
+  [-2.3, -1.45],
+  [-2.2, -1.51],
+  [-2.1, -1.43],
+  [-2, -1.27],
+  [-1.9, -1.02],
+  [-1.8, -0.66],
+  [-1.7, -0.13],
+  [-1.6, 0.69],
+  [-1.5, 1.47],
+  [-1.4, 2.04],
+  [-1.3, 2.34],
+  [-1.2, 2.41],
+  [-1.1, 2.33],
+  [-1, 2.15],
+  [-0.9, 1.91],
+  [-0.8, 1.6],
+  [-0.7, 1.27],
+  [-0.6, 0.93],
+  [-0.5, 0.62],
+  [-0.4, 0.42],
+  [-0.3, 0.38],
+  [-0.2, 0.46],
+  [-0.1, 0.59],
+  [0, 0.75],
+  [0.1, 0.94],
+  [0.2, 1.18],
+  [0.3, 1.44],
+  [0.4, 1.76],
+  [0.5, 2.13],
+  [0.6, 2.45],
+  [0.7, 2.65],
+  [0.8, 2.76],
+  [0.9, 2.78],
+  [1, 2.76],
+  [1.1, 2.67],
+  [1.2, 2.44],
+  [1.3, 1.85],
+  [1.4, 0.95],
+  [1.5, -0.51],
+  [1.6, -1.73],
+  [1.7, -2.36],
+  [1.8, -2.64],
+  [1.9, -2.66],
+  [2, -2.57],
+  [2.1, -2.35],
+  [2.2, -2.01],
+  [2.3, -1.56],
+  [2.4, -0.99],
+  [2.5, -0.37],
+  [2.6, 0.23],
+  [2.7, 0.67],
+  [2.8, 0.94],
+  [2.9, 1.12],
+  [3, 1.23],
+  [3.1, 1.29],
+  [3.2, 1.31],
+  [3.3, 1.28],
+  [3.4, 1.18],
+  [3.5, 0.86],
+  [3.6, 0.45],
+  [3.7, 0.05],
+  [3.8, -0.3],
+  [3.9, -0.59],
+  [4, -0.81],
+  [4.1, -0.93],
+  [4.2, -0.9],
+  [4.3, -0.69],
+  [4.4, -0.16],
+  [4.5, 0.72],
+  [4.6, 1.31],
+  [4.7, 1.66],
+  [4.8, 1.82],
+  [4.9, 1.85],
+];
+
+const LINE = 'var(--color-text-primary)';
+const MUTED = 'var(--color-text-secondary)';
+
+/**
+ * A printed curve y = f(x) on a square grid with one marked point and
+ * dashed lines from it to both axes — «касательная проходит через начало
+ * координат»: the tangent itself is not drawn, the student reads the point
+ * off the grid. Labels: «0» and «1» on both axes, the caption where the
+ * book prints it.
+ */
+function PointOnCurve({
+  waypoints,
+  point,
+  xMin,
+  xMax,
+  yMin,
+  yMax,
+  caption,
+  maxWidth,
+  ariaLabel,
+}: {
+  waypoints: readonly (readonly [number, number])[];
+  point: readonly [number, number];
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  caption: { x: number; y: number };
+  maxWidth: number;
+  ariaLabel: string;
+}) {
+  const [px, py] = point;
+  return (
+    <CoordinatePlaneBase
+      xMin={xMin}
+      xMax={xMax}
+      yMin={yMin}
+      yMax={yMax}
+      tickLabels={{ x: [1], y: [1] }}
+      squareCells
+      maxWidth={maxWidth}
+      originLabel="left"
+      ariaLabel={ariaLabel}
+    >
+      {({ toSvgX, toSvgY, clipPathUrl }) => (
+        <>
+          <line
+            x1={toSvgX(px)}
+            y1={toSvgY(0)}
+            x2={toSvgX(px)}
+            y2={toSvgY(py)}
+            stroke={MUTED}
+            strokeWidth={1.5}
+            strokeDasharray="6 4"
+          />
+          <line
+            x1={toSvgX(0)}
+            y1={toSvgY(py)}
+            x2={toSvgX(px)}
+            y2={toSvgY(py)}
+            stroke={MUTED}
+            strokeWidth={1.5}
+            strokeDasharray="6 4"
+          />
+          <path
+            d={splinePath(waypoints.map(([x, y]) => [toSvgX(x), toSvgY(y)] as const))}
+            fill="none"
+            stroke={LINE}
+            strokeWidth={2.25}
+            clipPath={clipPathUrl}
+          />
+          <circle cx={toSvgX(px)} cy={toSvgY(py)} r={4.5} fill={LINE} />
+          <text
+            x={toSvgX(caption.x)}
+            y={toSvgY(caption.y) + 5}
+            fontSize={14}
+            fontStyle="italic"
+            fill={LINE}
+            stroke="var(--color-bg-surface)"
+            strokeWidth={4}
+            paintOrder="stroke"
+          >
+            y = f(x)
+          </text>
+        </>
+      )}
+    </CoordinatePlaneBase>
+  );
+}
+
+/** 2026 В3 №8 = 2027 В13 №9: the point (4; 5) — f′(4) = 5/4 = 1,25. */
+export const EGE_2026_V3_T8_POINT = [4, 5] as const;
+/** 2026 В4 №8 = 2027 В14 №9: the point (5; −2) — f′(5) = −2/5 = −0,4. */
+export const EGE_2026_V4_T8_POINT = [5, -2] as const;
+
+export function Ege2026V3Task8() {
+  return (
+    <PointOnCurve
+      waypoints={EGE_2026_V3_T8_WAYPOINTS}
+      point={EGE_2026_V3_T8_POINT}
+      xMin={-2.5}
+      xMax={6.8}
+      yMin={-1}
+      yMax={6.5}
+      caption={{ x: 4.65, y: 4.35 }}
+      maxWidth={400}
+      ariaLabel="График функции y = f(x) с отмеченной точкой графика, абсцисса точки 4"
+    />
+  );
+}
+
+export function Ege2026V4Task8() {
+  return (
+    <PointOnCurve
+      waypoints={EGE_2026_V4_T8_WAYPOINTS}
+      point={EGE_2026_V4_T8_POINT}
+      xMin={-2.3}
+      xMax={7.5}
+      yMin={-2.6}
+      yMax={3.6}
+      caption={{ x: 2.65, y: 2.55 }}
+      maxWidth={420}
+      ariaLabel="График функции y = f(x) с отмеченной точкой графика, абсцисса точки 5"
+    />
+  );
+}
+
+export function Ege2026V8Task8() {
+  return (
+    <TracedGraphSVG
+      waypoints={EGE_2026_V8_T8_WAYPOINTS}
+      marks={[
+        { x: -1, label: '−1' },
+        { x: 1, label: '1' },
+        { x: 2, label: '2' },
+        { x: 3, label: '3' },
+      ]}
+      xMin={-3.3}
+      xMax={5.4}
+      yMin={-3.3}
+      yMax={3.4}
+      ariaLabel="График функции y = f(x) с отмеченными на оси абсцисс точками −1, 1, 2, 3"
     />
   );
 }

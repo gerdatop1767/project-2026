@@ -7,6 +7,9 @@ import { Task11ParabolaSVG } from './Task11ParabolaSVG.js';
 import { Task14PyramidSVG } from './Task14PyramidSVG.js';
 import { Task17TrapezoidSVG } from './Task17TrapezoidSVG.js';
 import {
+  Ege2026V3Task8,
+  Ege2026V4Task8,
+  Ege2026V8Task8,
   Ege2026V10Task11,
   Ege2026V10Task2,
   Ege2026V3Task2,
@@ -18,6 +21,10 @@ import {
   Ege2026V9Task2,
 } from './Ege2026Figures.js';
 import {
+  Ege2027V1Task12,
+  Ege2027V1Task9,
+  Ege2027V23Task2,
+  Ege2027V24Task2,
   Ege2027V2Task12,
   Ege2027V2Task9,
   Ege2027V3Task12,
@@ -99,6 +106,96 @@ interface IllustrationEntry {
  * (docs/imports/ege-2027-yashchenko-v1-v2-report.md).
  */
 const CUSTOM_ILLUSTRATIONS: Record<string, IllustrationEntry> = {
+  'ege-2026-variant-2:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V12Task9 />,
+  },
+  'ege-2026-variant-2:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V12Task12 />,
+  },
+  'ege-2026-variant-3:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V3Task8 />,
+  },
+  'ege-2026-variant-3:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V13Task12 />,
+  },
+  'ege-2026-variant-4:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V4Task8 />,
+  },
+  'ege-2026-variant-4:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V14Task12 />,
+  },
+  'ege-2026-variant-5:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V15Task12 />,
+  },
+  'ege-2026-variant-6:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V16Task12 />,
+  },
+  'ege-2026-variant-8:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V8Task8 />,
+  },
+  'ege-2026-variant-8:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V18Task12 />,
+  },
+  'ege-2027-variant-1:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V1Task9 />,
+  },
+  'ege-2027-variant-1:12': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V1Task12 />,
+  },
+  'ege-2027-variant-13:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V3Task8 />,
+  },
+  'ege-2027-variant-14:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V4Task8 />,
+  },
+  'ege-2027-variant-17:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V7Task8 />,
+  },
+  'ege-2027-variant-18:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V8Task8 />,
+  },
+  'ege-2027-variant-23:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V23Task2 />,
+  },
+  'ege-2027-variant-24:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V24Task2 />,
+  },
   'ege-2026-variant-1:1': {
     kind: 'geometry_2d',
     reconstructsOriginal: true,

@@ -29,6 +29,14 @@ export interface CoordinatePlaneSVGProps {
   squareCells?: boolean;
   maxWidth?: number;
   vectors: readonly PlaneVector[];
+  /** False: bare axes, no grid (an original printed without one). */
+  grid?: boolean;
+  /**
+   * Dashed lines from every vector end to both axes, and only those
+   * coordinates numbered — how a gridless original gives the coordinates.
+   */
+  projections?: boolean;
+  originLabel?: 'right' | 'left';
   ariaLabel: string;
 }
 
@@ -47,9 +55,18 @@ export function CoordinatePlaneSVG({
   squareCells,
   maxWidth,
   vectors,
+  grid = true,
+  projections = false,
+  originLabel,
   ariaLabel,
 }: CoordinatePlaneSVGProps) {
   const idPrefix = `cp-vec-${useId().replace(/:/g, '')}`;
+  const ends = vectors.flatMap((v) => [[v.fromX ?? 0, v.fromY ?? 0] as const, [v.x, v.y] as const]);
+  const numbered = (values: number[]) =>
+    [...new Set(values.filter((n) => n !== 0))].sort((a, b) => a - b);
+  const labels = projections
+    ? { x: numbered(ends.map(([x]) => x)), y: numbered(ends.map(([, y]) => y)) }
+    : tickLabels;
   return (
     <CoordinatePlaneBase
       xMin={xMin}
@@ -57,13 +74,42 @@ export function CoordinatePlaneSVG({
       yMin={yMin}
       yMax={yMax}
       gridStep={gridStep}
-      tickLabels={tickLabels}
+      tickLabels={labels}
       squareCells={squareCells}
       maxWidth={maxWidth}
+      grid={grid}
+      originLabel={originLabel}
       ariaLabel={ariaLabel}
     >
       {({ toSvgX, toSvgY }) => (
         <>
+          {projections &&
+            ends.map(([x, y]) => (
+              <g key={`p${x},${y}`}>
+                {y !== 0 && (
+                  <line
+                    x1={toSvgX(x)}
+                    y1={toSvgY(0)}
+                    x2={toSvgX(x)}
+                    y2={toSvgY(y)}
+                    stroke="var(--color-text-secondary)"
+                    strokeWidth={1.2}
+                    strokeDasharray="5 4"
+                  />
+                )}
+                {x !== 0 && (
+                  <line
+                    x1={toSvgX(0)}
+                    y1={toSvgY(y)}
+                    x2={toSvgX(x)}
+                    y2={toSvgY(y)}
+                    stroke="var(--color-text-secondary)"
+                    strokeWidth={1.2}
+                    strokeDasharray="5 4"
+                  />
+                )}
+              </g>
+            ))}
           <defs>
             {vectors.map((v, i) => (
               <marker
