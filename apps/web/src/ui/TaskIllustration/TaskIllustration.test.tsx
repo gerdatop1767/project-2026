@@ -167,6 +167,25 @@ describe('a condition that refers to a figure we do not have', () => {
     expect(conditionRefersToFigure('На координатной плоскости изображены векторы')).toBe(true);
     expect(conditionRefersToFigure('На рисунке изображён график')).toBe(true);
     expect(conditionRefersToFigure('Найдите значение выражения')).toBe(false);
+    expect(conditionRefersToFigure('На рисунке изображена трапеция')).toBe(true);
+    expect(conditionRefersToFigure('Изображено сечение')).toBe(true);
+  });
+
+  it('«изображение» is not a figure: 2027 В7/В8 №10 (a lens) get no «рисунок не добавлен» note', () => {
+    const lens =
+      'Для получения на экране увеличенного изображения лампочки в лаборатории используется собирающая линза с главным фокусным расстоянием $f=48$ см.';
+    expect(conditionRefersToFigure(lens)).toBe(false);
+    expect(conditionRefersToFigure('Найдите изображение точки')).toBe(false);
+    const { container } = render(
+      <TaskExamIllustration
+        subjectId="math"
+        tags={['ege-2027-variant-7']}
+        taskNumber={10}
+        imageUrl={null}
+        conditionMd={lens}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });
 
