@@ -1716,6 +1716,37 @@ export const miniGameAnswers = pgTable(
 );
 
 /**
+ * One launched round of a mini-game (docs/MINI_GAMES.md §Статистика).
+ * Created when the round is handed out — for guests too, with no user —
+ * and finished when the player reaches the round's summary. Counters are
+ * moved only by answers sent with this session's id (every answer, retries
+ * included); `firstTryCorrect` is the summary's own result. Rounds played before
+ * this table existed are not reconstructed: the admin report says from
+ * when it has launch data.
+ */
+export const miniGameSessions = pgTable(
+  'mini_game_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    gameId: text('game_id').notNull(),
+    mode: text('mode').notNull(),
+    userId: uuid('user_id').references(() => users.id),
+    questionCount: integer('question_count').notNull(),
+    answeredCount: integer('answered_count').notNull().default(0),
+    correctCount: integer('correct_count').notNull().default(0),
+    /** Words right on the first try — the round's result, as its summary shows it. */
+    firstTryCorrect: integer('first_try_correct'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    lastAnswerAt: timestamp('last_answer_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('mini_game_sessions_game_started_idx').on(table.gameId, table.startedAt),
+    index('mini_game_sessions_user_idx').on(table.userId, table.gameId),
+  ],
+);
+
+/**
  * Per (user, game, item) learning state, updated in the same transaction
  * as the answer. `streak` = correct answers in a row; an item counts as
  * learned at `MINI_GAME_LEARNED_STREAK` (packages/shared).

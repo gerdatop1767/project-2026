@@ -740,6 +740,14 @@ export function answerStress(request: StressAnswerRequest): Promise<StressAnswer
   return apiFetch('/games/stress/answer', { method: 'POST', body: JSON.stringify(request) });
 }
 
+/** The round reached its summary (admin statistics). Never blocks the game. */
+export function finishStressRound(sessionId: string, firstTryCorrect: number): Promise<void> {
+  return apiFetch<void>('/games/stress/finish', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, firstTryCorrect }),
+  }).catch(() => undefined);
+}
+
 export function getStressProgress(): Promise<StressProgressResponse> {
   return rawApiFetch('/games/stress/progress');
 }

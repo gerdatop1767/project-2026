@@ -5,7 +5,12 @@ import type {
   StressProgressResponse,
   StressQuestion,
 } from '@zybrilka/shared';
-import { answerStress, getStressProgress, getStressRound } from '../../lib/api.js';
+import {
+  answerStress,
+  finishStressRound,
+  getStressProgress,
+  getStressRound,
+} from '../../lib/api.js';
 import { useAccountGate } from '../../lib/accountGate.js';
 import { clsx } from '../../lib/clsx.js';
 import { useNavigation } from '../../lib/navigation.js';
@@ -66,6 +71,8 @@ export function StressGame() {
   /** One id per question attempt: a retry after a network error is the
    * same answer (counted once), «Повторить слово» is a new one. */
   const answerId = useRef(newAnswerId());
+  /** The round's launch record on the server (admin statistics). */
+  const sessionId = useRef<string | null>(null);
 
   const loadProgress = useCallback(() => {
     if (isGuest) return;
@@ -86,6 +93,7 @@ export function StressGame() {
         return;
       }
       setRound(startRound(data.questions));
+      sessionId.current = data.sessionId;
       answerId.current = newAnswerId();
       setPhase({ kind: 'playing', mode });
     } catch {
@@ -102,6 +110,7 @@ export function StressGame() {
         wordId: question.wordId,
         index,
         clientAnswerId: answerId.current,
+        ...(sessionId.current ? { sessionId: sessionId.current } : {}),
       });
       setMarkedOf((m) => new Map(m).set(question.wordId, result.marked));
       setChecked({ chosen: index, result });
@@ -124,7 +133,11 @@ export function StressGame() {
     setChecked(null);
     const moved = next(round);
     setRound(moved);
-    if (isFinished(moved)) loadProgress();
+    if (isFinished(moved)) {
+      if (sessionId.current) void finishStressRound(sessionId.current, roundScore(moved).correct);
+      sessionId.current = null;
+      loadProgress();
+    }
   }
 
   const back = <BackRow to={{ screen: 'miniGames' }} label="Мини-игры" />;

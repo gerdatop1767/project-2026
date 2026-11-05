@@ -253,6 +253,13 @@
       "when": 1793262103768,
       "tag": "0035_exam_sources_scoring",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793866848285,
+      "tag": "0036_mini_game_sessions",
+      "breakpoints": true
     }
   ]
 }

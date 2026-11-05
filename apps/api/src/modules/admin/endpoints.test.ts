@@ -82,6 +82,8 @@ describe('admin endpoints (as the owner)', () => {
     '/api/v1/admin/alerts',
     '/api/v1/admin/audit',
     '/api/v1/admin/settings',
+    '/api/v1/admin/mini-games?period=7d',
+    '/api/v1/admin/mini-games?period=custom&from=2026-01-01&to=2026-01-31&game=stress',
   ])('GET %s → 200 for the owner', async (url) => {
     const res = await get(url);
     expect(res.statusCode, res.body).toBe(200);
@@ -97,6 +99,7 @@ describe('admin endpoints (as the owner)', () => {
     ['/api/v1/admin/users/not-a-uuid', 'invalid_id'],
     ["/api/v1/admin/content/subjects/math';--", 'invalid_id'],
     ['/api/v1/admin/export/passwords', 'invalid_kind'],
+    ['/api/v1/admin/mini-games?game=chess', 'invalid_query'],
   ])('rejects invalid input %s', async (url, error) => {
     const res = await get(url);
     expect(res.statusCode).toBe(400);
