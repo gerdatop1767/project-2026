@@ -299,10 +299,11 @@ describe('TaskDesktop', () => {
   });
 
   it("shows another task №11 with its own source figure, never Вариант 1's graph", async () => {
+    // A variant with no drawn figure yet (not imported): only its own crop is shown.
     const other = {
       ...baseTask,
       taskNumber: 11,
-      tags: ['ege-2026-variant-3'],
+      tags: ['ege-2026-variant-15'],
       imageUrl: '/tasks/imports/ege-2026-variant-3/task-11-graph.png',
     };
     vi.mocked(api.getTask).mockResolvedValue(other);
@@ -314,6 +315,21 @@ describe('TaskDesktop', () => {
       'src',
       '/tasks/imports/ege-2026-variant-3/task-11-graph.png',
     );
+  });
+
+  it('В3 №11 shows its figure drawn from the original, not the scan crop kept in imageUrl', async () => {
+    const v3 = {
+      ...baseTask,
+      taskNumber: 11,
+      tags: ['ege-2026-variant-3'],
+      imageUrl: '/tasks/imports/ege-2026-variant-3/task-11-graph.png',
+    };
+    vi.mocked(api.getTask).mockResolvedValue(v3);
+    vi.mocked(api.listTasksByNumber).mockResolvedValue([v3]);
+    renderTask();
+    await screen.findByText(CONDITION);
+    expect(document.querySelector('svg[role="img"]')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Рисунок к заданию 11' })).not.toBeInTheDocument();
   });
 
   describe('calculator (Task Workspace block 3)', () => {

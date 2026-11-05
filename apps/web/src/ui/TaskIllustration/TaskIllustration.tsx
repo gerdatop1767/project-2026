@@ -27,7 +27,11 @@ export interface TaskExamIllustrationProps extends TaskFigureSource {
 
 /** The condition itself says a figure is printed with it. */
 export function conditionRefersToFigure(conditionMd: string | undefined): boolean {
-  return /на рисунке|изображ[её]н|по рисунку|на клетчатой бумаге/i.test(conditionMd ?? '');
+  // «изображён/-а/-о/-ы», never «изображение/изображения» — a lens task
+  // («увеличенного изображения лампочки») prints no figure.
+  return /на рисунке|изображ[её]н(?:а|о|ы)?(?![а-яё])|по рисунку|на клетчатой бумаге/i.test(
+    conditionMd ?? '',
+  );
 }
 
 /**

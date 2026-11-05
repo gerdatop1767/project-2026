@@ -42,6 +42,8 @@ export interface CoordinatePlaneBaseProps {
   originLabel?: 'right' | 'left';
   /** Which side of the y-axis its tick numbers sit on (the curve may run along the other). */
   yTickSide?: 'left' | 'right';
+  /** False: bare axes, no grid — for an original printed without one. */
+  grid?: boolean;
   ariaLabel: string;
   /** Anything plotted on top of the grid/axes — a curve, vectors, points. */
   children: (transform: CoordinateTransform) => ReactNode;
@@ -65,6 +67,7 @@ export function CoordinatePlaneBase({
   maxWidth,
   originLabel = 'right',
   yTickSide = 'left',
+  grid = true,
   ariaLabel,
   children,
 }: CoordinatePlaneBaseProps) {
@@ -106,28 +109,30 @@ export function CoordinatePlaneBase({
         ...(maxWidth ? { maxWidth, marginInline: 'auto' } : {}),
       }}
     >
-      {verticalGridLines.map((x) => (
-        <line
-          key={`v${x}`}
-          x1={toSvgX(x)}
-          y1={PLANE_PADDING}
-          x2={toSvgX(x)}
-          y2={viewH - PLANE_PADDING}
-          style={{ stroke: gridStroke }}
-          strokeWidth={1}
-        />
-      ))}
-      {horizontalGridLines.map((y) => (
-        <line
-          key={`h${y}`}
-          x1={PLANE_PADDING}
-          y1={toSvgY(y)}
-          x2={PLANE_VIEW_W - PLANE_PADDING}
-          y2={toSvgY(y)}
-          style={{ stroke: gridStroke }}
-          strokeWidth={1}
-        />
-      ))}
+      {grid &&
+        verticalGridLines.map((x) => (
+          <line
+            key={`v${x}`}
+            x1={toSvgX(x)}
+            y1={PLANE_PADDING}
+            x2={toSvgX(x)}
+            y2={viewH - PLANE_PADDING}
+            style={{ stroke: gridStroke }}
+            strokeWidth={1}
+          />
+        ))}
+      {grid &&
+        horizontalGridLines.map((y) => (
+          <line
+            key={`h${y}`}
+            x1={PLANE_PADDING}
+            y1={toSvgY(y)}
+            x2={PLANE_VIEW_W - PLANE_PADDING}
+            y2={toSvgY(y)}
+            style={{ stroke: gridStroke }}
+            strokeWidth={1}
+          />
+        ))}
 
       <defs>
         <marker id="cp-arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">

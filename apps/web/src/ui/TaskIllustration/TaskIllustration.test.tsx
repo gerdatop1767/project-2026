@@ -61,10 +61,18 @@ describe('TaskSolutionIllustration — our solving aid, never shown as the origi
 
 describe('figures are bound to the task, not just to its number', () => {
   it("another variant with the same number never gets Вариант 1's figure or solving aid", () => {
-    for (const tags of [['ege-2026-variant-3'], ['ege-2027-variant-1'], []]) {
-      for (const n of [1, 3, 8, 11, 14, 17]) {
+    const v1 = (n: number) =>
+      render(<TaskExamIllustration subjectId="math" tags={['ege-2026-variant-1']} taskNumber={n} />)
+        .container.innerHTML;
+    for (const [tags, numbers] of [
+      [['ege-2026-variant-3'], [1, 3, 14, 17]],
+      [['ege-2027-variant-1'], [1, 3, 8, 11, 14, 17]],
+      [[], [1, 3, 8, 11, 14, 17]],
+    ] as const) {
+      for (const n of numbers) {
+        // Its own figure (2026 В3 №1/№3, 2027 В1 №1/№3 print one) or none — never Вариант 1's.
         const exam = render(<TaskExamIllustration subjectId="math" tags={tags} taskNumber={n} />);
-        expect(exam.container).toBeEmptyDOMElement();
+        if (exam.container.innerHTML) expect(exam.container.innerHTML).not.toBe(v1(n));
         exam.unmount();
         const aid = render(
           <TaskSolutionIllustration subjectId="math" tags={tags} taskNumber={n} />,
@@ -79,7 +87,7 @@ describe('figures are bound to the task, not just to its number', () => {
     render(
       <TaskExamIllustration
         subjectId="math"
-        tags={['ege-2027-variant-2']}
+        tags={['ege-2027-variant-26']}
         taskNumber={1}
         imageUrl="/tasks/imports/ege-2027-variant-2/task-01-triangle.png"
       />,
@@ -116,7 +124,7 @@ describe('a condition that refers to a figure we do not have', () => {
     render(
       <TaskExamIllustration
         subjectId="math"
-        tags={['ege-2026-variant-8']}
+        tags={['ege-2026-variant-5']}
         taskNumber={8}
         conditionMd="На рисунке изображён график функции $y=f(x)$."
       />,
@@ -163,6 +171,25 @@ describe('a condition that refers to a figure we do not have', () => {
     expect(conditionRefersToFigure('На координатной плоскости изображены векторы')).toBe(true);
     expect(conditionRefersToFigure('На рисунке изображён график')).toBe(true);
     expect(conditionRefersToFigure('Найдите значение выражения')).toBe(false);
+    expect(conditionRefersToFigure('На рисунке изображена трапеция')).toBe(true);
+    expect(conditionRefersToFigure('Изображено сечение')).toBe(true);
+  });
+
+  it('«изображение» is not a figure: 2027 В7/В8 №10 (a lens) get no «рисунок не добавлен» note', () => {
+    const lens =
+      'Для получения на экране увеличенного изображения лампочки в лаборатории используется собирающая линза с главным фокусным расстоянием $f=48$ см.';
+    expect(conditionRefersToFigure(lens)).toBe(false);
+    expect(conditionRefersToFigure('Найдите изображение точки')).toBe(false);
+    const { container } = render(
+      <TaskExamIllustration
+        subjectId="math"
+        tags={['ege-2027-variant-7']}
+        taskNumber={10}
+        imageUrl={null}
+        conditionMd={lens}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });
 
@@ -192,7 +219,10 @@ describe('ЕГЭ 2026: the 11 tasks from the figures audit', () => {
       );
       const svg = container.querySelector('svg[role="img"]');
       expect(svg).not.toBeNull();
-      expect(svg!.getAttribute('aria-label')).toContain(`вариант ${v}, задание ${n}`);
+      const label = svg!.getAttribute('aria-label')!;
+      // В7 №8 prints in 2027 too (В17 №9): one shared figure, no variant in its name.
+      if (v === 7 && n === 8) expect(label).not.toContain('вариант');
+      else expect(label).toContain(`вариант ${v}, задание ${n}`);
       expect(container.querySelector('img')).toBeNull();
       expect(screen.queryByRole('note')).not.toBeInTheDocument();
       const aid = render(
@@ -210,17 +240,26 @@ describe('ЕГЭ 2026: the 11 tasks from the figures audit', () => {
   it.each([
     [8, 8],
     [8, 11],
-  ])('В%i №%i still says the figure is missing — never Вариант 1’s', (v, n) => {
-    const { container } = render(
-      <TaskExamIllustration
-        subjectId="math"
-        tags={[`ege-2026-variant-${v}`]}
-        taskNumber={n}
-        imageUrl={null}
-        conditionMd="На рисунке изображён график"
-      />,
-    );
-    expect(container.querySelector('svg, img')).toBeNull();
-    expect(screen.getByRole('note')).toHaveTextContent('Рисунок к этому заданию ещё не добавлен');
-  });
+  ])(
+    'В%i №%i shows its figure from the original (стр. 31) — no note, never Вариант 1’s',
+    (v, n) => {
+      const { container } = render(
+        <TaskExamIllustration
+          subjectId="math"
+          tags={[`ege-2026-variant-${v}`]}
+          taskNumber={n}
+          imageUrl={null}
+          conditionMd="На рисунке изображён график"
+        />,
+      );
+      expect(container.querySelector('svg[role="img"]')).not.toBeNull();
+      expect(container.querySelector('img')).toBeNull();
+      expect(screen.queryByRole('note')).toBeNull();
+      expect(container.innerHTML).not.toBe(
+        render(
+          <TaskExamIllustration subjectId="math" tags={['ege-2026-variant-1']} taskNumber={n} />,
+        ).container.innerHTML,
+      );
+    },
+  );
 });

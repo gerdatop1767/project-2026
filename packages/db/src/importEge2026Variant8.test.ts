@@ -6,6 +6,7 @@ import { seed } from './seed.js';
 import { importVariant1 } from './importEge2026Variant1.js';
 import { importVariant7 } from './importEge2026Variant7.js';
 import { importVariant8, partForTaskNumber } from './importEge2026Variant8.js';
+import { importVariant18 as importYashchenko2027Variant18 } from './importEge2027YashchenkoVariant18.js';
 import { createTestDb } from './testing.js';
 
 describe('importVariant8', () => {
@@ -35,6 +36,48 @@ describe('importVariant8', () => {
     const numbers = rows.map((r) => r.taskNumber).sort((a, b) => a - b);
     expect(numbers).toEqual(Array.from({ length: 19 }, (_, i) => i + 1));
     expect(rows.every((r) => r.status === 'published')).toBe(true);
+  });
+
+  it('№8 and №11 match the figure on стр. 31 — and its 2027 twin В18 №9/№12 — keeping their ids', async () => {
+    const { db } = testDb;
+    const byNumber = async () =>
+      new Map(
+        (
+          await db
+            .select()
+            .from(schema.tasks)
+            .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.sourceVariant, 8)))
+        )
+          .filter((r) => r.sourceYear === 2026)
+          .map((r) => [r.taskNumber, r]),
+      );
+    const before = await byNumber();
+    expect(before.get(8)!.correctAnswer).toBe('2');
+    expect(before.get(8)!.explanationMd).toMatch(/Ответ: 2\.$/);
+    expect(before.get(11)!.correctAnswer).toBe('3.75');
+    expect(before.get(11)!.explanationMd).toMatch(/Ответ: 3,75\.$/);
+    // The conditions themselves are unchanged.
+    expect(before.get(11)!.conditionMd).toBe(
+      'На рисунке изображены графики функций $f(x)=kx+b$ и $g(x)=ax^2+bx+c$, которые пересекаются в начале координат и в точке $A$. Найдите абсциссу точки $A$.',
+    );
+
+    await importYashchenko2027Variant18(db);
+    const twins = await db
+      .select()
+      .from(schema.tasks)
+      .where(and(eq(schema.tasks.sourceYear, 2027), eq(schema.tasks.sourceVariant, 18)));
+    const twin = (n: number) => twins.find((r) => r.taskNumber === n)!;
+    expect(twin(9).conditionMd).toBe(before.get(8)!.conditionMd);
+    expect(twin(9).correctAnswer).toBe(before.get(8)!.correctAnswer);
+    expect(twin(12).conditionMd).toBe(before.get(11)!.conditionMd);
+    expect(twin(12).correctAnswer).toBe(before.get(11)!.correctAnswer);
+
+    // Re-importing updates in place: same ids, no duplicate rows.
+    await importVariant8(db);
+    const after = await byNumber();
+    expect(after.size).toBe(19);
+    expect(after.get(8)!.id).toBe(before.get(8)!.id);
+    expect(after.get(11)!.id).toBe(before.get(11)!.id);
   });
 
   it('task 6 resolves to the single root valid in the domain', async () => {

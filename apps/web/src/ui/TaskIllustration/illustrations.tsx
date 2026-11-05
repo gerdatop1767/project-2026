@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { GeometryFigure } from './GeometryFigure.js';
+import { GEO_FIGURES, type GeoFigureId } from './geometryFigures.js';
 import { Task1TriangleSVG } from './Task1TriangleSVG.js';
 import { Task2VectorsSVG } from './Task2VectorsSVG.js';
 import { Task3CylindersSVG } from './Task3CylindersSVG.js';
@@ -7,6 +9,9 @@ import { Task11ParabolaSVG } from './Task11ParabolaSVG.js';
 import { Task14PyramidSVG } from './Task14PyramidSVG.js';
 import { Task17TrapezoidSVG } from './Task17TrapezoidSVG.js';
 import {
+  Ege2026V3Task8,
+  Ege2026V4Task8,
+  Ege2026V8Task8,
   Ege2026V10Task11,
   Ege2026V10Task2,
   Ege2026V3Task2,
@@ -18,6 +23,10 @@ import {
   Ege2026V9Task2,
 } from './Ege2026Figures.js';
 import {
+  Ege2027V1Task12,
+  Ege2027V1Task9,
+  Ege2027V23Task2,
+  Ege2027V24Task2,
   Ege2027V2Task12,
   Ege2027V2Task9,
   Ege2027V3Task12,
@@ -99,6 +108,96 @@ interface IllustrationEntry {
  * (docs/imports/ege-2027-yashchenko-v1-v2-report.md).
  */
 const CUSTOM_ILLUSTRATIONS: Record<string, IllustrationEntry> = {
+  'ege-2026-variant-2:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V12Task9 />,
+  },
+  'ege-2026-variant-2:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V12Task12 />,
+  },
+  'ege-2026-variant-3:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V3Task8 />,
+  },
+  'ege-2026-variant-3:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V13Task12 />,
+  },
+  'ege-2026-variant-4:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V4Task8 />,
+  },
+  'ege-2026-variant-4:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V14Task12 />,
+  },
+  'ege-2026-variant-5:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V15Task12 />,
+  },
+  'ege-2026-variant-6:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V16Task12 />,
+  },
+  'ege-2026-variant-8:8': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V8Task8 />,
+  },
+  'ege-2026-variant-8:11': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V18Task12 />,
+  },
+  'ege-2027-variant-1:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V1Task9 />,
+  },
+  'ege-2027-variant-1:12': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V1Task12 />,
+  },
+  'ege-2027-variant-13:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V3Task8 />,
+  },
+  'ege-2027-variant-14:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V4Task8 />,
+  },
+  'ege-2027-variant-17:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V7Task8 />,
+  },
+  'ege-2027-variant-18:9': {
+    kind: 'function_graph',
+    reconstructsOriginal: true,
+    render: () => <Ege2026V8Task8 />,
+  },
+  'ege-2027-variant-23:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V23Task2 />,
+  },
+  'ege-2027-variant-24:2': {
+    kind: 'coordinate_plane',
+    reconstructsOriginal: true,
+    render: () => <Ege2027V24Task2 />,
+  },
   'ege-2026-variant-1:1': {
     kind: 'geometry_2d',
     reconstructsOriginal: true,
@@ -395,6 +494,109 @@ const CUSTOM_ILLUSTRATIONS: Record<string, IllustrationEntry> = {
     render: () => <Ege2027V25Task12 />,
   },
 };
+
+/**
+ * Geometry drawings (№1, №3, №17) by task: `год:вариант:номер` → drawing.
+ * 2026 В(k) prints the same figures as 2027 В(k+10); identical drawings
+ * are shared. 2026 В1 №1 and №3 keep their earlier SVGs (above).
+ */
+export const GEOMETRY_TASKS: Readonly<Record<string, GeoFigureId>> = {
+  ...Object.fromEntries(
+    (
+      [
+        [1, 'v1-1'],
+        [2, 'v2-1'],
+        [3, 'v3-1'],
+        [4, 'v4-1'],
+        [5, 'v5-1'],
+        [6, 'v5-1'],
+        [7, 'v7-1'],
+        [8, 'v7-1'],
+        [9, 'v9-1'],
+        [10, 'v9-1'],
+        [11, 'v11-1'],
+        [12, 'v11-1'],
+        [13, 'v13-1'],
+        [14, 'v14-1'],
+        [15, 'v15-1'],
+        [16, 'v15-1'],
+        [17, 'v17-1'],
+        [18, 'v18-1'],
+        [19, 'v19-1'],
+        [20, 'v19-1'],
+        [21, 'v21-1'],
+        [22, 'v21-1'],
+        [23, 'v23-1'],
+        [24, 'v24-1'],
+        [25, 'v25-1'],
+      ] as const
+    ).map(([v, id]) => [`ege-2027-variant-${v}:1`, id]),
+  ),
+  ...Object.fromEntries(
+    (
+      [
+        [1, 'v1-3'],
+        [2, 'v1-3'],
+        [3, 'v3-3'],
+        [4, 'v4-3'],
+        [5, 'v5-3'],
+        [6, 'v5-3'],
+        [7, 'v7-3'],
+        [8, 'v7-3'],
+        [9, 'v9-3'],
+        [10, 'v10-3'],
+        [11, 'v11-3'],
+        [12, 'v12-3'],
+        [13, 'v13-3'],
+        [14, 'v13-3'],
+        [16, 'v16-3'],
+        [17, 'v17-3'],
+        [18, 'v17-3'],
+        [19, 'v19-3'],
+        [20, 'v20-3'],
+        [21, 'v21-3'],
+        [22, 'v21-3'],
+        [23, 'v23-3'],
+        [24, 'v24-3'],
+        [25, 'v25-3'],
+      ] as const
+    ).map(([v, id]) => [`ege-2027-variant-${v}:3`, id]),
+  ),
+  'ege-2027-variant-9:17': 'v9-17',
+  'ege-2027-variant-10:17': 'v9-17',
+  'ege-2027-variant-21:17': 'v21-17',
+  'ege-2027-variant-22:17': 'v21-17',
+  // 2026: the twin of 2027 В(k+10)
+  'ege-2026-variant-2:1': 'v11-1',
+  'ege-2026-variant-3:1': 'v13-1',
+  'ege-2026-variant-4:1': 'v14-1',
+  'ege-2026-variant-5:1': 'v15-1',
+  'ege-2026-variant-6:1': 'v15-1',
+  'ege-2026-variant-7:1': 'v17-1',
+  'ege-2026-variant-8:1': 'v18-1',
+  'ege-2026-variant-9:1': 'v19-1',
+  'ege-2026-variant-10:1': 'v19-1',
+  'ege-2026-variant-2:3': 'v12-3',
+  'ege-2026-variant-3:3': 'v13-3',
+  'ege-2026-variant-4:3': 'v13-3',
+  'ege-2026-variant-6:3': 'v16-3',
+  'ege-2026-variant-7:3': 'v17-3',
+  'ege-2026-variant-8:3': 'v17-3',
+  'ege-2026-variant-9:3': 'v19-3',
+  'ege-2026-variant-10:3': 'v20-3',
+};
+
+const SOLID_IDS = new Set<string>(Object.keys(GEO_FIGURES).filter((id) => id.endsWith('-3')));
+
+for (const [key, id] of Object.entries(GEOMETRY_TASKS)) {
+  if (CUSTOM_ILLUSTRATIONS[key]) throw new Error(`illustration registered twice: ${key}`);
+  const figure = GEO_FIGURES[id];
+  CUSTOM_ILLUSTRATIONS[key] = {
+    kind: SOLID_IDS.has(id) ? 'geometry_3d' : 'geometry_2d',
+    reconstructsOriginal: true,
+    render: () => <GeometryFigure figure={figure} />,
+  };
+}
 
 /** The illustration drawn for this very task (one of its tags + its number), or null. */
 function findEntry(tags: readonly string[] | undefined, taskNumber: number) {
