@@ -3,6 +3,8 @@ import { accountFeatureForRoute, useAccountGate } from '../../lib/accountGate.js
 import { Icon } from '../Icon/Icon.js';
 import type { IconName } from '../Icon/icons.js';
 import { clsx } from '../../lib/clsx.js';
+import { onLinkClick } from '../../lib/linkClick.js';
+import { pathForRoute } from '../../lib/routes.js';
 import styles from './DesktopShell.module.css';
 
 interface SidebarItem {
@@ -55,19 +57,19 @@ export function DesktopSidebar() {
         const isActive = item.id === currentId;
         const locked = isGuest && accountFeatureForRoute(item.route) !== null;
         return (
-          <button
+          <a
             key={item.id}
-            type="button"
+            href={pathForRoute(item.route) ?? '/'}
             className={clsx(styles.sidebarItem, isActive && styles.sidebarItemActive)}
             aria-current={isActive ? 'page' : undefined}
             aria-label={locked ? `${item.label} — нужен вход` : undefined}
             data-locked={locked || undefined}
-            onClick={() => navigateGuarded(item.route)}
+            onClick={(e) => onLinkClick(e, () => navigateGuarded(item.route))}
           >
             <Icon name={item.icon} size={20} filled={isActive} />
             {item.label}
             {locked && <Icon name="lock" size={14} className={styles.sidebarLock} />}
-          </button>
+          </a>
         );
       })}
     </nav>

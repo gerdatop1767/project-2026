@@ -1,0 +1,20 @@
+# zybrilka.ru — docs/seo/SEO-REPORT.md
+# Private and technical screens are also marked noindex in their <head>;
+# here only what crawlers have no reason to fetch at all.
+User-agent: *
+Disallow: /admin
+Disallow: /api/
+Disallow: /login
+Disallow: /onboarding
+Disallow: /telegram-return
+Disallow: /learning/session/
+Disallow: /statistics/variants/
+Allow: /
+
+# Yandex: query parameters that never change the page (canonical is the bare path).
+Clean-param: source&mode&n /subjects/
+Clean-param: n /theory
+Clean-param: n /materials
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&fbclid&ysclid
+
+Sitemap: https://zybrilka.ru/sitemap.xml

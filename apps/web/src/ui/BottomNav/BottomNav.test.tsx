@@ -9,15 +9,15 @@ import { defaultBottomNavItems } from './defaultItems.js';
 describe('BottomNav', () => {
   it('renders all 5 default items', () => {
     render(<BottomNav items={defaultBottomNavItems} activeId="home" onSelect={() => {}} />);
-    expect(screen.getAllByRole('button')).toHaveLength(5);
-    expect(screen.getByRole('button', { name: /Главная/ })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getByRole('link', { name: /Главная/ })).toHaveAttribute('aria-current', 'page');
   });
 
   it('calls onSelect with the tapped item id', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     render(<BottomNav items={defaultBottomNavItems} activeId="home" onSelect={onSelect} />);
-    await user.click(screen.getByRole('button', { name: /Профиль/ }));
+    await user.click(screen.getByRole('link', { name: /Профиль/ }));
     expect(onSelect).toHaveBeenCalledWith('profile');
   });
 
@@ -25,13 +25,13 @@ describe('BottomNav', () => {
     const { rerender } = render(
       <BottomNav items={defaultBottomNavItems} activeId="mistakes" onSelect={() => {}} />,
     );
-    expect(screen.getByRole('button', { name: /Мои ошибки/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Мои ошибки/ })).toHaveAttribute(
       'aria-current',
       'page',
     );
     rerender(<BottomNav items={defaultBottomNavItems} activeId="profile" onSelect={() => {}} />);
     const current = screen
-      .getAllByRole('button')
+      .getAllByRole('link')
       .filter((button) => button.getAttribute('aria-current') === 'page');
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveAccessibleName(/Профиль/);

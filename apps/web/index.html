@@ -4,10 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta
-      name="description"
-      content="Zybrilka (Зубрилка) — бесплатный онлайн-тренажёр ЕГЭ по профильной математике и русскому языку: задания из типовых вариантов, мгновенная проверка, пошаговые разборы и статистика."
-    />
     <meta name="theme-color" content="#05070f" />
     <script>
       // Theme before first paint (see src/lib/theme.ts): the saved choice, else dark.
@@ -25,12 +21,23 @@
       })();
     </script>
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Zybrilka — бесплатный тренажёр ЕГЭ" />
-    <meta
-      property="og:description"
-      content="Задания из типовых вариантов ЕГЭ, мгновенная проверка, пошаговые разборы и статистика. Бесплатно."
-    />
+    <meta property="og:site_name" content="Zybrilka" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:image" content="https://zybrilka.ru/branding/zybrilka-logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/png" href="/branding/v2/logo-icon-mobile.png" />
+    <!--
+      Per-page title, description, robots, canonical, OG and JSON-LD.
+      The build rewrites this block for every page (seo/prerender.ts,
+      src/lib/seo.ts); the client keeps it in sync on navigation.
+    -->
+    <!-- seo:start -->
     <title>Zybrilka — бесплатный тренажёр ЕГЭ</title>
+    <meta
+      name="description"
+      content="Zybrilka (Зубрилка) — бесплатный онлайн-тренажёр ЕГЭ по профильной математике и русскому языку: задания из типовых вариантов, мгновенная проверка, пошаговые разборы и статистика."
+    />
+    <!-- seo:end -->
     <!-- Yandex.Metrika counter -->
     <!--
       The counter code below is Yandex's own, unchanged. It runs only after the

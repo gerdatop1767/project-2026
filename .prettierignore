@@ -4,3 +4,5 @@ coverage/
 packages/db/migrations/
 CLAUDE.md
 *.md
+# Yandex.Webmaster verification: must stay byte for byte as issued.
+apps/web/public/yandex_*.html
