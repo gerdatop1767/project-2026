@@ -3,6 +3,7 @@ import { render } from '@testing-library/react';
 import {
   getCustomIllustration,
   getIllustrationKind,
+  GEOMETRY_TASKS,
   illustrationReconstructsOriginal,
   listIllustratedTasks,
 } from './illustrations.js';
@@ -129,6 +130,7 @@ describe('illustration registry', () => {
         'ege-2027-variant-24:12',
         'ege-2027-variant-25:9',
         'ege-2027-variant-25:12',
+        ...Object.keys(GEOMETRY_TASKS),
       ].sort(),
     );
   });
@@ -138,12 +140,18 @@ describe('illustration registry', () => {
     expect(getIllustrationKind(V1, 6)).toBeNull();
     expect(illustrationReconstructsOriginal(V1, 6)).toBe(false);
     expect(getCustomIllustration(undefined, 8)).toBeNull();
-    expect(getCustomIllustration(['ege-2027-variant-1'], 1)).toBeNull();
+    expect(getCustomIllustration(['ege-2027-variant-1'], 2)).toBeNull();
     // В8 №8/№11 now have their own figure, never Вариант 1's.
     expect(getCustomIllustration(tag(8), 8)).not.toBeNull();
     // Вариант 1's figures never land on another variant's task.
+    const v1Markup = (n: number) => render(<>{getCustomIllustration(V1, n)}</>).container.innerHTML;
     for (let v = 2; v <= 25; v++) {
-      for (const n of [1, 3, 14, 17]) expect(getCustomIllustration(tag(v), n)).toBeNull();
+      for (const n of [14, 17]) expect(getCustomIllustration(tag(v), n)).toBeNull();
+      // №1/№3 of В2–В10 have their own drawings (math visuals audit), never Вариант 1's.
+      for (const n of [1, 3]) {
+        const own = getCustomIllustration(tag(v), n);
+        if (own) expect(render(<>{own}</>).container.innerHTML).not.toBe(v1Markup(n));
+      }
     }
     expect(getCustomIllustration(tag(5), 2)).toBeNull();
     expect(getCustomIllustration(tag(5), 8)).toBeNull();
@@ -400,7 +408,8 @@ describe('ЕГЭ 2027 Ященко, Вариант 2 — figures drawn from the 
         render(<>{getCustomIllustration(['ege-2027-variant-1'], n)}</>).container.innerHTML,
       ).not.toBe(container.innerHTML);
     }
-    for (const n of [1, 3]) expect(getCustomIllustration(V2, n)).toBeNull();
+    // В2 №1/№3 are geometry drawings of their own (math visuals audit), not graphs.
+    for (const n of [1, 3]) expect(getIllustrationKind(V2, n)).toMatch(/^geometry_/);
     expect(getCustomIllustration(['ege-2026-variant-2'], 9)).toBeNull();
   });
 

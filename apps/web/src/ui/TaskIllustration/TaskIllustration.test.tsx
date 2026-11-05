@@ -61,14 +61,18 @@ describe('TaskSolutionIllustration — our solving aid, never shown as the origi
 
 describe('figures are bound to the task, not just to its number', () => {
   it("another variant with the same number never gets Вариант 1's figure or solving aid", () => {
+    const v1 = (n: number) =>
+      render(<TaskExamIllustration subjectId="math" tags={['ege-2026-variant-1']} taskNumber={n} />)
+        .container.innerHTML;
     for (const [tags, numbers] of [
       [['ege-2026-variant-3'], [1, 3, 14, 17]],
       [['ege-2027-variant-1'], [1, 3, 8, 11, 14, 17]],
       [[], [1, 3, 8, 11, 14, 17]],
     ] as const) {
       for (const n of numbers) {
+        // Its own figure (2026 В3 №1/№3, 2027 В1 №1/№3 print one) or none — never Вариант 1's.
         const exam = render(<TaskExamIllustration subjectId="math" tags={tags} taskNumber={n} />);
-        expect(exam.container).toBeEmptyDOMElement();
+        if (exam.container.innerHTML) expect(exam.container.innerHTML).not.toBe(v1(n));
         exam.unmount();
         const aid = render(
           <TaskSolutionIllustration subjectId="math" tags={tags} taskNumber={n} />,
@@ -83,7 +87,7 @@ describe('figures are bound to the task, not just to its number', () => {
     render(
       <TaskExamIllustration
         subjectId="math"
-        tags={['ege-2027-variant-2']}
+        tags={['ege-2027-variant-26']}
         taskNumber={1}
         imageUrl="/tasks/imports/ege-2027-variant-2/task-01-triangle.png"
       />,
