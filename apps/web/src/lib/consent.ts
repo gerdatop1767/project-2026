@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { startMetrika } from './metrika.js';
 
 /**
  * The visitor's cookie choice (docs/COOKIES.md).
@@ -68,6 +69,7 @@ export function setConsent(choice: ConsentChoice): void {
     // Storage unavailable (private mode, quota): remembered for this view only.
   }
   current = choice;
+  if (choice.analytics) startMetrika();
   for (const listener of listeners) listener();
 }
 

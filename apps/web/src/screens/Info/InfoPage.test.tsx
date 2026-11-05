@@ -55,6 +55,8 @@ describe('InfoPage', () => {
     expect(legacy).toHaveTextContent(/Вход и регистрация по почте отключены/);
     expect(within(main).queryByText(/почт\S* не хранится/)).not.toBeInTheDocument();
     expect(within(main).getByText(/действует 30 дней/)).toBeInTheDocument();
-    expect(within(main).getByText(/сторонних систем аналитики на сайте нет/)).toBeInTheDocument();
+    expect(within(main).getByText(/Рекламных cookie на сайте нет/)).toBeInTheDocument();
+    // Yandex.Metrika is named, and only with consent.
+    expect(within(main).getByText(/Без согласия счётчик не загружается/)).toBeInTheDocument();
   });
 });

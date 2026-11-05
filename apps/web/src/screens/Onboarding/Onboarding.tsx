@@ -1,3 +1,4 @@
+import { metrikaGoal } from '../../lib/metrika.js';
 import { useEffect, useState } from 'react';
 import type { SelfReportedScore, TargetScore } from '@zybrilka/shared';
 import { useNavigation } from '../../lib/navigation.js';
@@ -38,6 +39,8 @@ export function Onboarding() {
     let cancelled = false;
     getLearningProfile()
       .then((profile) => {
+        // No saved profile: a new account's first run of the onboarding.
+        if (profile.subjects.length === 0) metrikaGoal('registration', { oncePerPage: true });
         if (cancelled || profile.subjects.length === 0) return;
         setSelectedSubjects(profile.subjects.map((s) => s.subjectId));
         setLevels(
@@ -140,7 +143,10 @@ export function Onboarding() {
                 variant="primary"
                 fullWidth
                 className={styles.cta}
-                onClick={() => setStep(2)}
+                onClick={() => {
+                  metrikaGoal('diagnostic_start', { oncePerPage: true });
+                  setStep(2);
+                }}
                 disabled={loadingProfile}
               >
                 Начать <Icon name="arrowRight" size={18} />

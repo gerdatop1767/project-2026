@@ -1,3 +1,4 @@
+import { metrikaGoal } from './metrika.js';
 import type {
   ReminderSettingsRequest,
   ReminderSettingsResponse,
@@ -346,9 +347,12 @@ export function getLeaderboard(params: {
 }
 
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {
-  return apiFetch(`/tasks/${taskId}/attempt`, {
+  return apiFetch<AttemptResult>(`/tasks/${taskId}/attempt`, {
     method: 'POST',
     body: JSON.stringify(request),
+  }).then((result) => {
+    if (result.correct) metrikaGoal('task_solved');
+    return result;
   });
 }
 

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { trackRoute } from './analytics.js';
+import { metrikaHit } from './metrika.js';
 import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 
@@ -309,6 +310,7 @@ function writeHistory(mode: 'push' | 'replace', path: string, index: number, gat
   const state = { zybrilka: gate ? { index, gate } : { index } };
   if (mode === 'push') window.history.pushState(state, '', path);
   else window.history.replaceState(state, '', path);
+  metrikaHit();
 }
 
 const NavigationContext = createContext<NavigationContextValue | null>(null);
@@ -358,6 +360,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }
 
     function onPopState() {
+      metrikaHit();
       const route = routeFromPath(window.location.pathname + window.location.search);
       if (isTabRoute(route)) {
         setTab(route.screen);
