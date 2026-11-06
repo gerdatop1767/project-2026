@@ -4,10 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta
-      name="description"
-      content="Zybrilka (Зубрилка) — бесплатный онлайн-тренажёр ЕГЭ по профильной математике и русскому языку: задания из типовых вариантов, мгновенная проверка, пошаговые разборы и статистика."
-    />
     <meta name="theme-color" content="#05070f" />
     <script>
       // Theme before first paint (see src/lib/theme.ts): the saved choice, else dark.
@@ -25,12 +21,57 @@
       })();
     </script>
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Zybrilka — бесплатный тренажёр ЕГЭ" />
-    <meta
-      property="og:description"
-      content="Задания из типовых вариантов ЕГЭ, мгновенная проверка, пошаговые разборы и статистика. Бесплатно."
-    />
+    <meta property="og:site_name" content="Zybrilka" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:image" content="https://zybrilka.ru/branding/zybrilka-logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/png" href="/branding/v2/logo-icon-mobile.png" />
+    <!--
+      Per-page title, description, robots, canonical, OG and JSON-LD.
+      The build rewrites this block for every page (seo/prerender.ts,
+      src/lib/seo.ts); the client keeps it in sync on navigation.
+    -->
+    <!-- seo:start -->
     <title>Zybrilka — бесплатный тренажёр ЕГЭ</title>
+    <meta
+      name="description"
+      content="Zybrilka (Зубрилка) — бесплатный онлайн-тренажёр ЕГЭ по профильной математике и русскому языку: задания из типовых вариантов, мгновенная проверка, пошаговые разборы и статистика."
+    />
+    <!-- seo:end -->
+    <!-- Yandex.Metrika counter -->
+    <!--
+      The counter code below is Yandex's own, unchanged. It runs only after the
+      visitor accepted optional analytics (cookie «zc=a1», docs/COOKIES.md):
+      here on load when the choice was already made, otherwise when they accept
+      (src/lib/metrika.ts → window.__zybrilkaMetrika). It starts at most once.
+    -->
+    <!-- prettier-ignore -->
+    <script type="text/javascript">
+      (function () {
+        function zybrilkaMetrika() {
+          if (window.__zybrilkaMetrikaStarted) return;
+          window.__zybrilkaMetrikaStarted = true;
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=114059780', 'ym');
+
+    ym(114059780, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+        }
+        window.__zybrilkaMetrika = zybrilkaMetrika;
+        try {
+          if (
+            /(?:^|;\s*)zc=a1(?:;|$)/.test(document.cookie) ||
+            window.localStorage.getItem('zybrilka-cookie-consent') === 'a1'
+          ) {
+            zybrilkaMetrika();
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <!-- /Yandex.Metrika counter -->
   </head>
   <body>
     <div id="root"></div>

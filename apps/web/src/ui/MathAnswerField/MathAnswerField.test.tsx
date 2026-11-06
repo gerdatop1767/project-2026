@@ -151,4 +151,36 @@ describe('MathAnswerField', () => {
     );
     expect(screen.getByLabelText('Ответ')).toBeDisabled();
   });
+
+  describe('long answers (audit of every published answer)', () => {
+    const LONG = [
+      '(-4√65;-√290) ∪ (-12√2;-8√2) ∪ (8√2;12√2) ∪ (√290;4√65)',
+      'a∈(-2-arccos(0.6)/(6π);-2+arccos(0.6)/(6π)]∪[2-arccos(0.6)/(6π);2+arccos(0.6)/(6π))',
+      '-35π/12; -23π/8; -21π/8; -31π/12; -19π/8; -17π/8',
+      '30067/3661',
+      '-0,75',
+      'предпосылкой',
+    ];
+
+    it.each(LONG)('keeps the whole answer in one wrapping field: %s', async (answer) => {
+      render(<MathAnswerField value={answer} onChange={() => {}} ariaLabel="Ответ" />);
+      const field = screen.getByLabelText('Ответ');
+      // A growing textarea, not a one-line input that hides the rest.
+      expect(field.tagName).toBe('TEXTAREA');
+      expect(field).toHaveAttribute('rows', '1');
+      expect(field).toHaveValue(answer);
+    });
+
+    it('stays ONE answer line: Enter adds nothing, pasted line breaks become spaces', async () => {
+      const user = userEvent.setup();
+      render(<ControlledField />);
+      const field = screen.getByLabelText('Ответ');
+      await user.type(field, '1{Enter}2');
+      expect(field).toHaveValue('12');
+      await user.clear(field);
+      await user.click(field);
+      await user.paste('(1;2)\n∪ (3;4)');
+      expect(field).toHaveValue('(1;2) ∪ (3;4)');
+    });
+  });
 });

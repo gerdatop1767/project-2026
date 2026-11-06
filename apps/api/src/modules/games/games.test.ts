@@ -193,4 +193,103 @@ describe('mini-games — «Ударения»', () => {
     });
     expect(forged.statusCode).toBe(403);
   });
+
+  describe('round sessions (admin statistics)', () => {
+    const finish = (cookie: string | undefined, sessionId: string, firstTryCorrect?: number) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/games/stress/finish',
+        headers: cookie ? { cookie } : {},
+        payload: { sessionId, firstTryCorrect },
+      });
+    const sessionRow = async (id: string) =>
+      (
+        await testDb.db
+          .select()
+          .from(schema.miniGameSessions)
+          .where(eq(schema.miniGameSessions.id, id))
+      )[0]!;
+    const answerIn = (
+      cookie: string | undefined,
+      sessionId: string,
+      wordId: string,
+      right: boolean,
+      clientAnswerId = randomUUID(),
+    ) => {
+      const correct = stressIndexOf.get(wordId)!;
+      return app.inject({
+        method: 'POST',
+        url: '/api/v1/games/stress/answer',
+        headers: cookie ? { cookie } : {},
+        payload: {
+          wordId,
+          index: right ? correct : correct === 0 ? 1 : 0,
+          clientAnswerId,
+          sessionId,
+        },
+      });
+    };
+
+    it('a round is one launch; its answers move its counters once; the summary finishes it', async () => {
+      const me = await player();
+      const r = await round(me.cookie, 'mode=all&size=5');
+      expect(r.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+      const started = await sessionRow(r.sessionId!);
+      expect(started).toMatchObject({
+        gameId: 'stress',
+        mode: 'all',
+        userId: me.id,
+        questionCount: 5,
+        answeredCount: 0,
+        finishedAt: null,
+      });
+
+      const [q1, q2] = r.questions;
+      const id1 = randomUUID();
+      await answerIn(me.cookie, r.sessionId!, q1!.wordId, true, id1);
+      await answerIn(me.cookie, r.sessionId!, q1!.wordId, true, id1); // a retry: counted once
+      await answerIn(me.cookie, r.sessionId!, q2!.wordId, false);
+      expect(await sessionRow(r.sessionId!)).toMatchObject({ answeredCount: 2, correctCount: 1 });
+
+      expect((await finish(me.cookie, r.sessionId!, 1)).statusCode).toBe(204);
+      const done = await sessionRow(r.sessionId!);
+      expect(done.finishedAt).not.toBeNull();
+      expect(done.firstTryCorrect).toBe(1);
+      // Finishing again keeps the first end.
+      await finish(me.cookie, r.sessionId!, 5);
+      expect(await sessionRow(r.sessionId!)).toMatchObject({
+        finishedAt: done.finishedAt,
+        firstTryCorrect: 1,
+      });
+    });
+
+    it("nobody else can move or finish a player's round; a guest round is counted with no user", async () => {
+      const owner = await player();
+      const other = await player();
+      const r = await round(owner.cookie, 'mode=all&size=5');
+      await answerIn(other.cookie, r.sessionId!, r.questions[0]!.wordId, true);
+      await answerIn(undefined, r.sessionId!, r.questions[0]!.wordId, true);
+      expect((await finish(other.cookie, r.sessionId!)).statusCode).toBe(404);
+      expect((await finish(undefined, r.sessionId!)).statusCode).toBe(404);
+      expect(await sessionRow(r.sessionId!)).toMatchObject({ answeredCount: 0, finishedAt: null });
+
+      const g = await round(undefined, 'mode=all&size=5');
+      await answerIn(undefined, g.sessionId!, g.questions[0]!.wordId, true);
+      expect((await finish(undefined, g.sessionId!)).statusCode).toBe(204);
+      expect(await sessionRow(g.sessionId!)).toMatchObject({
+        userId: null,
+        answeredCount: 1,
+        correctCount: 1,
+      });
+      // …and a signed-in player cannot finish a guest round either.
+      expect((await finish(owner.cookie, g.sessionId!)).statusCode).toBe(404);
+    });
+
+    it('rejects a malformed finish; an answer without a session still works', async () => {
+      expect((await finish(undefined, 'nope')).statusCode).toBe(400);
+      expect((await finish(undefined, randomUUID(), -1)).statusCode).toBe(400);
+      const r = await round();
+      expect((await answer(undefined, r.questions[0]!.wordId, true)).statusCode).toBe(200);
+    });
+  });
 });

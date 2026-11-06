@@ -19,12 +19,27 @@ const broadcast = {
   failedCount: 0,
   blockedCount: 0,
   testStatus: null,
+  audience: null as Record<string, unknown> | null,
+  stage: null as string | null,
+  trackClicks: false,
+  buttonText: null as string | null,
+};
+const TOTALS = {
+  delivered: 0,
+  deliveredToUsers: 0,
+  clicked: 0,
+  returned: 0,
+  activeAfter: 0,
+  solvedAfter: 0,
+  conversionPercent: null,
 };
 const detail = (patch: Partial<typeof broadcast> = {}, extra: object = {}) => ({
   broadcast: { ...broadcast, ...patch },
   attachments: [],
   validation: { ok: true, parts: [{ kind: 'text' }] },
   recipientsEstimate: 1234,
+  audiencePreview: null,
+  reaction: null,
   deliveries: [],
   ...extra,
 });
@@ -59,6 +74,7 @@ describe('BroadcastsPage', () => {
       200,
       {
         recipientsEstimate: 1234,
+        totals: TOTALS,
         items: [
           {
             ...broadcast,
@@ -68,6 +84,9 @@ describe('BroadcastsPage', () => {
             failedCount: 1,
             blockedCount: 1,
             attachments: 1,
+            targeted: false,
+            authorName: 'Владелец',
+            reaction: null,
           },
         ],
       },
@@ -83,6 +102,7 @@ describe('BroadcastsPage', () => {
       200,
       {
         recipientsEstimate: 0,
+        totals: TOTALS,
         items: [],
         worker: {
           at: new Date().toISOString(),
@@ -99,7 +119,7 @@ describe('BroadcastsPage', () => {
   });
 
   it('shows an empty state', async () => {
-    mockFetch(() => [200, { recipientsEstimate: 0, items: [] }]);
+    mockFetch(() => [200, { recipientsEstimate: 0, totals: TOTALS, items: [] }]);
     renderAt('/admin/broadcasts', <BroadcastsPage />);
     expect(await screen.findByText(/Рассылок пока не было/)).toBeInTheDocument();
   });
@@ -191,5 +211,137 @@ describe('BroadcastPage', () => {
     await waitFor(() =>
       expect(posts(fetch)).toEqual([[`/api/v1/admin/broadcasts/${ID}/cancel`, {}]]),
     );
+  });
+});
+
+describe('«Возврат пользователей»', () => {
+  const PREVIEW = {
+    count: 2,
+    leftOut: { noBotChat: 3, notificationsOff: 1, stageAlreadySent: 4, excludedByHand: 0 },
+    sample: [
+      {
+        id: 'u-1',
+        name: 'Аня',
+        registeredAt: '2026-10-30 10:00:00+00',
+        lastActiveAt: null,
+        solved: 0,
+      },
+      {
+        id: 'u-2',
+        name: null,
+        registeredAt: '2026-10-31 10:00:00+00',
+        lastActiveAt: '2026-11-01 08:00:00+00',
+        solved: 5,
+      },
+    ],
+    excluded: [],
+  };
+
+  it('a stage preset fills the filters, shows the count, the reasons and the list; exclusions and save', async () => {
+    const fn = mockFetch((url, init) => {
+      if (url.pathname.endsWith('/audience/preview')) {
+        const body = JSON.parse(String(init.body));
+        const out = body.audience.excludeUserIds ?? [];
+        return [
+          200,
+          {
+            ...PREVIEW,
+            count: 2 - out.length,
+            sample: PREVIEW.sample.filter((u) => !out.includes(u.id)),
+            excluded: PREVIEW.sample.filter((u) => out.includes(u.id)),
+            leftOut: { ...PREVIEW.leftOut, excludedByHand: out.length },
+          },
+        ];
+      }
+      return [200, detail()];
+    });
+    renderAt(`/admin/broadcasts/${ID}`, <BroadcastPage id={ID} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Возврат пользователей' }));
+    fireEvent.click(screen.getByRole('button', { name: '3 дня после регистрации' }));
+    expect(screen.getByLabelText('Аккаунту дней: от')).toHaveValue(3);
+    expect(screen.getByLabelText('Аккаунту дней: до')).toHaveValue(6);
+    expect(await screen.findByText(/Получат сейчас/)).toHaveTextContent('2');
+    expect(screen.getByText(/уже получали этот этап: 4/)).toBeInTheDocument();
+    expect(screen.getByText(/отключили уведомления: 1/)).toBeInTheDocument();
+    const lastPreview = () =>
+      posts(fn)
+        .filter(([p]) => String(p).endsWith('/audience/preview'))
+        .at(-1)![1];
+    expect(lastPreview().audience).toMatchObject({
+      stage: 'd3',
+      accountAgeMinDays: 3,
+      accountAgeMaxDays: 6,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole('table', { name: 'Получатели' })).getAllByRole('button', {
+        name: 'Исключить',
+      })[0]!,
+    );
+    await waitFor(() => expect(screen.getByText(/Получат сейчас/)).toHaveTextContent('1'));
+    expect(lastPreview().audience.excludeUserIds).toEqual(['u-1']);
+    expect(screen.getByRole('table', { name: 'Исключены вручную' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/Кнопка со ссылкой/));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить аудиторию' }));
+    await waitFor(() => {
+      const patch = fn.mock.calls.find(([, i]) => i?.method === 'PATCH');
+      expect(patch).toBeTruthy();
+      expect(JSON.parse(String(patch![1]!.body))).toMatchObject({
+        audience: { stage: 'd3', excludeUserIds: ['u-1'] },
+        trackClicks: true,
+        buttonText: null,
+      });
+    });
+    // Nothing was sent: no prepare / confirm.
+    expect(posts(fn).some(([p]) => /prepare|confirm/.test(String(p)))).toBe(false);
+  });
+
+  it('confirmation names the filtered audience and who is left out', async () => {
+    mockFetch(() => [
+      200,
+      detail(
+        { status: 'awaiting_confirmation', audience: { stage: 'd7' }, stage: 'd7' },
+        { audiencePreview: PREVIEW, recipientsEstimate: 2 },
+      ),
+    ]);
+    renderAt(`/admin/broadcasts/${ID}`, <BroadcastPage id={ID} />);
+    expect(await screen.findByText(/пользователи по выбранным фильтрам/)).toBeInTheDocument();
+    expect(screen.getByText(/«7 дней после регистрации»/)).toBeInTheDocument();
+    expect(screen.getByText(/уже получали этап — 4/)).toBeInTheDocument();
+  });
+
+  it('a sent broadcast shows the reaction, never «read»', async () => {
+    mockFetch(() => [
+      200,
+      detail(
+        {
+          status: 'completed',
+          recipientsTotal: 10,
+          sentCount: 9,
+          trackClicks: true,
+          audience: { stage: 'd3' },
+          stage: 'd3',
+        },
+        {
+          reaction: {
+            delivered: 9,
+            deliveredToUsers: 9,
+            clicked: 3,
+            returned: 4,
+            returned1d: 2,
+            activeAfter: 3,
+            answersAfter: 40,
+            solvedAfter: 12,
+            conversionPercent: 44.4,
+          },
+        },
+      ),
+    ]);
+    renderAt(`/admin/broadcasts/${ID}`, <BroadcastPage id={ID} />);
+    expect(await screen.findByText('Перешли по кнопке')).toBeInTheDocument();
+    expect(screen.getByText('конверсия 44,4%')).toBeInTheDocument();
+    expect(screen.getByText(/прочитал ли его человек, Telegram не сообщает/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Прочитали/)).not.toBeInTheDocument();
   });
 });

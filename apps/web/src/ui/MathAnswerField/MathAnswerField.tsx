@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon/Icon.js';
 import { Collapse } from '../motion/motion.js';
 import { clsx } from '../../lib/clsx.js';
@@ -29,6 +29,12 @@ export interface MathAnswerFieldProps {
  * CSS-only (`MathAnswerField.module.css`), so there is no
  * `MobileAnswerInput`/`DesktopAnswerInput` split to keep in sync as
  * more tasks (№14-19) get wired up.
+ *
+ * The field is a one-row `<textarea>` that grows with its content: a long
+ * answer (an interval union of №15/№18, a list of roots of №13) wraps and
+ * stays fully visible instead of scrolling out of a one-line input. It is
+ * still ONE line of answer: Enter does not add a line break, and line
+ * breaks in pasted text become spaces.
  */
 export function MathAnswerField({
   value,
@@ -39,7 +45,16 @@ export function MathAnswerField({
   className,
 }: MathAnswerFieldProps) {
   const [panelOpen, setPanelOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Grow (and shrink) to the content; one row when short.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    // scrollHeight has no border; the box is border-box.
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  }, [value]);
 
   function handleKeyPress(insert: string, cursorOffsetFromEnd: number) {
     const el = inputRef.current;
@@ -59,15 +74,23 @@ export function MathAnswerField({
   return (
     <div className={clsx(styles.wrap, className)}>
       <div className={styles.row}>
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           className={styles.input}
           placeholder={placeholder}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(e.target.value.replace(/\r?\n/g, ' '))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.preventDefault();
+          }}
           disabled={disabled}
           aria-label={ariaLabel}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          enterKeyHint="done"
         />
         <button
           type="button"

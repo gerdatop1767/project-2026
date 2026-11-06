@@ -35,7 +35,9 @@ import { ToolsPanelMobile } from '../../ui/Training/ToolsPanelMobile.js';
 import { OtherVariantsSection } from '../../ui/Training/OtherVariantsSection.js';
 import { useCountUp } from '../../lib/useCountUp.js';
 import { Collapse, SlideUp } from '../../ui/motion/motion.js';
-import { InlineMathText, MathText } from '../../ui/MathText/MathText.js';
+import { InlineMathText, AnswerMathText, MathText } from '../../ui/MathText/MathText.js';
+import { SolutionText } from '../../ui/Solution/SolutionText.js';
+import { bindPlainFormulas } from '../../ui/Solution/solutionBlocks.js';
 import {
   TaskExamIllustration,
   TaskSolutionIllustration,
@@ -316,14 +318,18 @@ export function ResultMobile({
                     part.correct ? styles.answerBoxCorrect : styles.answerBoxWrong,
                   )}
                 >
-                  {multiPartUserAnswer[part.id] || '—'}
+                  <span className={styles.answerText}>{multiPartUserAnswer[part.id] || '—'}</span>
                   <Icon name={part.correct ? 'check' : 'close'} size={18} />
                 </p>
                 {!part.correct && (
                   <p className={clsx(styles.answerBox, styles.answerBoxReference)}>
-                    <InlineMathText
-                      text={multiPartSpec!.parts.find((p) => p.id === part.id)?.correctAnswer ?? ''}
-                    />
+                    <span className={styles.answerText}>
+                      <AnswerMathText
+                        text={
+                          multiPartSpec!.parts.find((p) => p.id === part.id)?.correctAnswer ?? ''
+                        }
+                      />
+                    </span>
                   </p>
                 )}
               </div>
@@ -338,14 +344,16 @@ export function ResultMobile({
                 correct ? styles.answerBoxCorrect : styles.answerBoxWrong,
               )}
             >
-              {userAnswer || '—'}
+              <span className={styles.answerText}>{userAnswer || '—'}</span>
               <Icon name={correct ? 'check' : 'close'} size={18} />
             </p>
             {!correct && (
               <>
                 <p className="text-body-sm text-secondary">Правильный ответ:</p>
                 <p className={clsx(styles.answerBox, styles.answerBoxReference)}>
-                  <InlineMathText text={task.correctAnswerDisplay ?? task.correctAnswer} />
+                  <span className={styles.answerText}>
+                    <AnswerMathText text={task.correctAnswerDisplay ?? task.correctAnswer} />
+                  </span>
                 </p>
               </>
             )}
@@ -363,16 +371,17 @@ export function ResultMobile({
                   <span className={styles.solutionStepIndex}>{i + 1}</span>
                   <p className={clsx('text-body-sm', styles.solutionStepBody)}>
                     <strong>{part.label}) </strong>
-                    <InlineMathText text={explanationForPart(explanationSections, part.label)} />
+                    <InlineMathText
+                      text={bindPlainFormulas(explanationForPart(explanationSections, part.label))}
+                    />
                   </p>
                 </div>
               ))
             ) : hasDetailedExplanation(task) ? (
-              <div className={styles.solutionStep}>
-                <div className={styles.solutionStepBody}>
-                  <MathText text={task.explanation} className="text-body-sm" />
-                </div>
-              </div>
+              <SolutionText text={task.explanation} className="text-body-sm" />
+            ) : task.steps.length === 1 && !task.steps[0]!.title ? (
+              // One untitled «step» is the whole solution, not step 1 of 1.
+              <SolutionText text={task.steps[0]!.text} className="text-body-sm" />
             ) : (
               task.steps.map((step, i) => (
                 <div key={i} className={styles.solutionStep}>
@@ -383,9 +392,7 @@ export function ResultMobile({
                         <InlineMathText text={step.title} />
                       </p>
                     )}
-                    <p className="text-body-sm">
-                      <InlineMathText text={step.text} />
-                    </p>
+                    <SolutionText text={step.text} className="text-body-sm" />
                   </div>
                 </div>
               ))

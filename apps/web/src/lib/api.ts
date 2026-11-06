@@ -1,3 +1,4 @@
+import { metrikaGoal } from './metrika.js';
 import type {
   ReminderSettingsRequest,
   ReminderSettingsResponse,
@@ -346,9 +347,12 @@ export function getLeaderboard(params: {
 }
 
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {
-  return apiFetch(`/tasks/${taskId}/attempt`, {
+  return apiFetch<AttemptResult>(`/tasks/${taskId}/attempt`, {
     method: 'POST',
     body: JSON.stringify(request),
+  }).then((result) => {
+    if (result.correct) metrikaGoal('task_solved');
+    return result;
   });
 }
 
@@ -734,6 +738,14 @@ export function getStressRound(mode: StressMode, size = 20): Promise<StressRound
 
 export function answerStress(request: StressAnswerRequest): Promise<StressAnswerResponse> {
   return apiFetch('/games/stress/answer', { method: 'POST', body: JSON.stringify(request) });
+}
+
+/** The round reached its summary (admin statistics). Never blocks the game. */
+export function finishStressRound(sessionId: string, firstTryCorrect: number): Promise<void> {
+  return apiFetch<void>('/games/stress/finish', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, firstTryCorrect }),
+  }).catch(() => undefined);
 }
 
 export function getStressProgress(): Promise<StressProgressResponse> {

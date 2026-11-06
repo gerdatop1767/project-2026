@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import { and, eq, gt, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { MINI_GAMES } from '@zybrilka/shared';
 import type { Config } from '../../config.js';
 import { rejectCrossSiteWrites } from '../../plugins/authSession.js';
 import type { RequestMetrics } from '../../plugins/requestMetrics.js';
@@ -42,6 +43,7 @@ import { healthReport } from './reports/health.js';
 import { overviewReport } from './reports/overview.js';
 import { qualityReport } from './reports/quality.js';
 import { streaksReport } from './reports/streaks.js';
+import { miniGamesReport } from './reports/miniGames.js';
 import {
   adminSettingsSchema,
   loadSettings,
@@ -261,6 +263,20 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   app.get('/admin/streaks', async (request) => {
     const period = periodOf(request);
     return { period: describePeriod(period), ...(await streaksReport(db, period)) };
+  });
+
+  // ── Мини-игры ────────────────────────────────────────────────────────
+  const miniGamesQuery = z.object({
+    game: z.enum(MINI_GAMES.map((g) => g.id) as [string, ...string[]]).default('stress'),
+  });
+  app.get('/admin/mini-games', async (request) => {
+    const period = periodOf(request);
+    const { game } = parse(miniGamesQuery, request.query);
+    return {
+      period: describePeriod(period),
+      games: MINI_GAMES.map((g) => ({ id: g.id, title: g.title })),
+      ...(await miniGamesReport(db, period, game)),
+    };
   });
 
   // ── Кампании и ссылки ────────────────────────────────────────────────

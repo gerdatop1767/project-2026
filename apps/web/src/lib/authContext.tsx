@@ -1,3 +1,4 @@
+import { noteVisitDay } from './metrika.js';
 import {
   createContext,
   useCallback,
@@ -184,6 +185,7 @@ export function AuthProvider({
   useEffect(() => {
     prepareTelegramApp();
     startAnalytics();
+    noteVisitDay();
   }, []);
 
   useEffect(() => {

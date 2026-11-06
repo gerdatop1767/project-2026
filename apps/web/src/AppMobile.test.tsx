@@ -59,11 +59,11 @@ function renderApp() {
 describe('AppMobile — bottom nav (Главная/Задания/Статистика/Мои ошибки/Профиль)', () => {
   it('renders all five real nav slots', () => {
     renderApp();
-    expect(screen.getByRole('button', { name: 'Главная' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Задания' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Статистика' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Мои ошибки' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Профиль' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Главная' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Задания' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Статистика' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Мои ошибки' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Профиль' })).toBeInTheDocument();
     // "Достижения" is no longer its own nav slot — it moved inside
     // Статистика (see the next describe block).
     expect(screen.queryByRole('button', { name: 'Достижения' })).not.toBeInTheDocument();
@@ -72,7 +72,7 @@ describe('AppMobile — bottom nav (Главная/Задания/Статист
   it('"Задания" opens the real Training setup screen directly, not a WIP placeholder', async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: 'Задания' }));
+    await user.click(screen.getByRole('link', { name: 'Задания' }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Начать тренировку/ })).toBeInTheDocument();
     });
@@ -81,26 +81,26 @@ describe('AppMobile — bottom nav (Главная/Задания/Статист
   it('"Профиль" opens the real Profile screen while keeping the bottom nav visible, Профиль highlighted', async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('link', { name: 'Профиль' }));
     expect(screen.getByTestId('overlay')).toHaveTextContent('profile');
-    const profileTab = screen.getByRole('button', { name: 'Профиль' });
+    const profileTab = screen.getByRole('link', { name: 'Профиль' });
     expect(profileTab).toHaveAttribute('aria-current', 'page');
     // The rest of the nav stays usable from inside Профиль — unlike
     // every other overlay, this one isn't a chrome-less takeover.
-    expect(screen.getByRole('button', { name: 'Главная' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Главная' })).toBeInTheDocument();
   });
 
   it('"Мои ошибки" opens the real Mistakes screen directly, with the bottom nav still visible', async () => {
     const user = userEvent.setup();
     vi.mocked(api.getMistakes).mockResolvedValue([]);
     renderApp();
-    await user.click(screen.getByRole('button', { name: 'Мои ошибки' }));
+    await user.click(screen.getByRole('link', { name: 'Мои ошибки' }));
     await waitFor(() => {
       expect(screen.getByTestId('overlay')).toHaveTextContent('mistakes');
     });
-    const mistakesTab = screen.getByRole('button', { name: 'Мои ошибки' });
+    const mistakesTab = screen.getByRole('link', { name: 'Мои ошибки' });
     expect(mistakesTab).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('button', { name: 'Главная' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Главная' })).toBeInTheDocument();
   });
 });
 
@@ -147,7 +147,7 @@ describe('AppMobile — MobileShell stays mounted across tab/overlay transitions
 
     // Training is a plain tab (no overlay) — header/nav render via the
     // tab branch.
-    await user.click(screen.getByRole('button', { name: 'Задания' }));
+    await user.click(screen.getByRole('link', { name: 'Задания' }));
     const headerBefore = container.querySelector('header');
     const navBefore = container.querySelector('nav[aria-label="Zybrilka"]');
     const shellBefore = container.querySelector('[class*="_shell_"]');
@@ -189,7 +189,7 @@ describe('AppMobile — MobileShell stays mounted across tab/overlay transitions
     expect(headerBefore).toBeTruthy();
     expect(navBefore).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('link', { name: 'Профиль' }));
     expect(screen.getByTestId('overlay')).toHaveTextContent('profile');
 
     expect(container.querySelector('header')).toBe(headerBefore);
@@ -212,7 +212,7 @@ describe('AppMobile — Достижения/Рейтинг moved inside Ста�
       timeBySubject: [],
     });
     renderApp();
-    await user.click(screen.getByRole('button', { name: 'Статистика' }));
+    await user.click(screen.getByRole('link', { name: 'Статистика' }));
     await user.click(await screen.findByRole('tab', { name: 'Достижения' }));
     expect(screen.getAllByText('Достижения').length).toBeGreaterThan(0);
     await user.click(screen.getByRole('tab', { name: 'Рейтинг' }));
@@ -263,7 +263,7 @@ describe('AppMobile — Subject → Задания по номерам → task 
     vi.mocked(api.listTasksByNumber).mockResolvedValue([RANDOM_TASK]);
 
     renderApp();
-    await user.click(screen.getByRole('button', { name: 'Главная' }));
+    await user.click(screen.getByRole('link', { name: 'Главная' }));
     // Subject itself is unit-tested for the tab; this covers the real
     // screen-swap + Back chain starting from inside По номерам.
     await user.click(await screen.findByRole('button', { name: /Все предметы/ }));
@@ -290,10 +290,10 @@ describe('AppMobile — Subject → Задания по номерам → task 
     const shell = container.querySelector('[class*="_shell_"]');
     expect(shell).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('link', { name: 'Профиль' }));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
-    await user.click(screen.getByRole('button', { name: 'Главная' }));
+    await user.click(screen.getByRole('link', { name: 'Главная' }));
     await user.click(await screen.findByRole('button', { name: /Все предметы/ }));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
@@ -314,7 +314,7 @@ describe('AppMobile — no gear menu: Профиль reaches the rest', () => {
   it('Профиль has no gear button and no menu drawer', async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('link', { name: 'Профиль' }));
     expect(await screen.findByRole('heading', { name: 'Профиль' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Меню' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
@@ -323,7 +323,7 @@ describe('AppMobile — no gear menu: Профиль reaches the rest', () => {
   it('«Помощь» and «Теория» open from Профиль → «Ещё»', async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('link', { name: 'Профиль' }));
     await user.click(await screen.findByRole('button', { name: 'Помощь' }));
     await waitFor(() => expect(window.location.pathname).toBe('/help'));
   });

@@ -26,6 +26,7 @@ const UsersPage = page(() => import('./pages/Users.js'), 'UsersPage');
 const UserPage = page(() => import('./pages/Users.js'), 'UserPage');
 const FunnelsPage = page(() => import('./pages/Funnels.js'), 'FunnelsPage');
 const StreaksPage = page(() => import('./pages/Streaks.js'), 'StreaksPage');
+const MiniGamesPage = page(() => import('./pages/MiniGames.js'), 'MiniGamesPage');
 const CampaignsPage = page(() => import('./pages/Campaigns.js'), 'CampaignsPage');
 const CampaignPage = page(() => import('./pages/Campaigns.js'), 'CampaignPage');
 const ComplaintsPage = page(() => import('./pages/Complaints.js'), 'ComplaintsPage');
@@ -49,6 +50,7 @@ const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin/users/:id', UserPage],
   ['/admin/funnels', FunnelsPage],
   ['/admin/streaks', StreaksPage],
+  ['/admin/mini-games', MiniGamesPage],
   ['/admin/campaigns', CampaignsPage],
   ['/admin/campaigns/:id', CampaignPage],
   ['/admin/complaints', ComplaintsPage],

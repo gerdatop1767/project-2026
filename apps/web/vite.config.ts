@@ -1,9 +1,10 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react';
 import { defaultClientConditions, defineConfig } from 'vite';
+import { seoPrerender } from './seo/prerender.js';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), seoPrerender()],
   resolve: {
     // Resolve workspace packages to their TypeScript source.
     conditions: ['@zybrilka/source', ...defaultClientConditions],

@@ -249,9 +249,9 @@ export function SubjectMobile({
         <button type="button" className={styles.backButton} aria-label="Назад" onClick={handleBack}>
           <Icon name="back" size={20} />
         </button>
-        <p className="text-body" style={{ fontWeight: 700 }}>
+        <h1 className="text-body" style={{ fontWeight: 700 }}>
           {headerTitle}
-        </p>
+        </h1>
       </div>
 
       {!selectedTopic && (

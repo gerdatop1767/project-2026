@@ -30,7 +30,7 @@ describe('DesktopSidebar', () => {
   it('has a "Друзья" entry that navigates to /friends', async () => {
     const user = userEvent.setup();
     renderWithNav(<DesktopSidebar />);
-    const link = screen.getByRole('button', { name: 'Друзья' });
+    const link = screen.getByRole('link', { name: 'Друзья' });
     expect(link).toBeInTheDocument();
     await user.click(link);
     expect(window.location.pathname).toBe('/friends');

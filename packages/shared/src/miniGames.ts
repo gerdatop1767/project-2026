@@ -177,6 +177,8 @@ export interface StressRoundResponse {
   readonly questions: readonly StressQuestion[];
   /** Words in the dictionary the game asks (confirmed, active). */
   readonly dictionarySize: number;
+  /** This round's launch record (admin statistics); null for an empty round. */
+  readonly sessionId: string | null;
 }
 
 export const stressAnswerRequestSchema = z.object({
@@ -184,8 +186,18 @@ export const stressAnswerRequestSchema = z.object({
   index: z.number().int().min(0).max(60),
   /** Makes a re-sent answer count once. */
   clientAnswerId: z.uuid(),
+  /** The round it belongs to (`StressRoundResponse.sessionId`), for statistics. */
+  sessionId: z.uuid().optional(),
 });
 export type StressAnswerRequest = z.infer<typeof stressAnswerRequestSchema>;
+
+/** The player reached the round's summary. */
+export const miniGameFinishRequestSchema = z.object({
+  sessionId: z.uuid(),
+  /** Words right on the first try (the summary's result); capped at the round's size. */
+  firstTryCorrect: z.number().int().min(0).max(100).optional(),
+});
+export type MiniGameFinishRequest = z.infer<typeof miniGameFinishRequestSchema>;
 
 export interface StressAnswerResponse {
   readonly correct: boolean;

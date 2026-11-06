@@ -5,6 +5,7 @@ import {
   parseTelegramHtml,
   TELEGRAM_CAPTION_MAX,
   TELEGRAM_TEXT_MAX,
+  type BroadcastAudienceInput,
   type BroadcastMediaMode,
   type BroadcastPart,
   type TelegramHtmlNode,
@@ -27,6 +28,12 @@ import { dateTime, num } from '../format.js';
 import { AdminLink, useAdminRouter } from '../router.js';
 import { useAdminQuery } from '../useAdminQuery.js';
 import s from '../admin.module.css';
+import {
+  AudienceEditor,
+  stageLabel,
+  type AudiencePreview,
+  type Reaction,
+} from './BroadcastAudience.js';
 
 type Status =
   | 'draft'
@@ -50,6 +57,10 @@ interface Broadcast {
   failedCount: number;
   blockedCount: number;
   testStatus: 'pending' | 'sent' | 'failed' | 'no_recipients' | null;
+  audience: Record<string, unknown> | null;
+  stage: string | null;
+  trackClicks: boolean;
+  buttonText: string | null;
 }
 
 interface Attachment {
@@ -66,6 +77,8 @@ interface Detail {
   attachments: Attachment[];
   validation: { ok: true; parts: BroadcastPart[] } | { ok: false; error: string };
   recipientsEstimate: number;
+  audiencePreview: AudiencePreview | null;
+  reaction: Reaction | null;
   deliveries: {
     status: string;
     errorCode: string | null;
@@ -75,9 +88,57 @@ interface Detail {
   worker: WorkerStatusInfo | null;
 }
 
-type ListItem = Omit<Broadcast, 'mediaMode' | 'testStatus' | 'confirmedAt' | 'startedAt'> & {
+type ListItem = Omit<
+  Broadcast,
+  'mediaMode' | 'testStatus' | 'confirmedAt' | 'startedAt' | 'audience' | 'buttonText'
+> & {
   attachments: number;
+  targeted: boolean;
+  authorName: string | null;
+  reaction: Reaction | null;
 };
+
+type Totals = Omit<Reaction, 'returned1d' | 'answersAfter'>;
+
+const pctText = (v: number | null | undefined) =>
+  v === null || v === undefined ? 'нет данных' : `${String(v).replace('.', ',')}%`;
+
+/** Reaction to a sent broadcast — never «read»: Telegram does not report it. */
+function ReactionKpis({ r, tracked }: { r: Reaction; tracked: boolean }) {
+  return (
+    <>
+      <div className={s.kpis}>
+        <Kpi
+          label="Доставлено пользователям"
+          value={r.deliveredToUsers}
+          hint={`всего доставлено ${num(r.delivered)}`}
+        />
+        <Kpi
+          label="Перешли по кнопке"
+          value={tracked ? r.clicked : null}
+          hint={tracked ? 'по своей ссылке' : 'кнопки не было'}
+        />
+        <Kpi label="Вернулись за сутки" value={r.returned1d} />
+        <Kpi
+          label="Вернулись за 7 дней"
+          value={r.returned}
+          hint={`конверсия ${pctText(r.conversionPercent)}`}
+        />
+        <Kpi
+          label="Занимались после"
+          value={r.activeAfter}
+          hint={`ответов ${num(r.answersAfter)}`}
+        />
+        <Kpi label="Решено заданий после" value={r.solvedAfter} hint="разных, верно, за 7 дней" />
+      </div>
+      <p className={s.small}>
+        «Доставлено» — Telegram принял сообщение; прочитал ли его человек, Telegram не сообщает,
+        поэтому прочтения здесь нет. «Вернулся» — в течение 7 дней после доставки перешёл по кнопке,
+        вошёл, ответил на задание или в мини-игре, либо открыл сайт с согласием на статистику.
+      </p>
+    </>
+  );
+}
 
 const statusText: Record<Status, string> = {
   draft: 'Черновик',
@@ -245,6 +306,7 @@ function AudienceNote({
 export function BroadcastsPage() {
   const query = useAdminQuery<{
     items: ListItem[];
+    totals: Totals;
     recipientsEstimate: number;
     worker: WorkerStatusInfo | null;
   }>('/broadcasts');
@@ -276,6 +338,16 @@ export function BroadcastsPage() {
     },
     { key: 'status', label: 'Статус', render: (r) => <StatusBadge status={r.status} /> },
     {
+      key: 'stage',
+      label: 'Кому',
+      render: (r) => (r.targeted ? (stageLabel(r.stage) ?? 'по фильтрам') : 'все подписчики'),
+    },
+    {
+      key: 'authorName',
+      label: 'Автор',
+      render: (r) => r.authorName ?? '—',
+    },
+    {
       key: 'text',
       label: 'Текст',
       render: (r) =>
@@ -301,6 +373,18 @@ export function BroadcastsPage() {
       label: 'Ошибки',
       numeric: true,
       render: (r) => num(r.failedCount + r.blockedCount),
+    },
+    {
+      key: 'clicked',
+      label: 'Переходы',
+      numeric: true,
+      render: (r) => (r.reaction && r.trackClicks ? num(r.reaction.clicked) : '—'),
+    },
+    {
+      key: 'returned',
+      label: 'Вернулись (7 дн.)',
+      numeric: true,
+      render: (r) => (r.reaction ? num(r.reaction.returned) : '—'),
     },
   ];
 
@@ -338,6 +422,14 @@ export function BroadcastsPage() {
             <>
               <div className={s.kpis}>
                 <Kpi label="Подписчиков бота сейчас" value={d.recipientsEstimate} />
+                <Kpi label="Доставлено пользователям, всего" value={d.totals.deliveredToUsers} />
+                <Kpi label="Переходы по кнопкам" value={d.totals.clicked} />
+                <Kpi
+                  label="Вернулись за 7 дней"
+                  value={d.totals.returned}
+                  hint={`конверсия ${pctText(d.totals.conversionPercent)}`}
+                />
+                <Kpi label="Решено заданий после рассылок" value={d.totals.solvedAfter} />
               </div>
               <Card>
                 <DataTable
@@ -618,13 +710,55 @@ export function BroadcastPage({ id = '' }: Record<string, string>) {
                   </Card>
                 </div>
 
+                {b.status === 'draft' ? (
+                  <AudienceEditor
+                    key={b.id}
+                    broadcastId={b.id}
+                    initial={{
+                      audience: (b.audience as BroadcastAudienceInput | null) ?? null,
+                      trackClicks: b.trackClicks,
+                      buttonText: b.buttonText,
+                    }}
+                    onSaved={query.reload}
+                  />
+                ) : (
+                  <Card title="Кому">
+                    <p>
+                      {b.audience
+                        ? `Возврат пользователей${stageLabel(b.stage) ? ` · ${stageLabel(b.stage)}` : ' · по фильтрам'}${(b.audience as { allowRepeat?: boolean }).allowRepeat ? ' · с повтором этапа' : ''}`
+                        : 'Все подписчики бота'}
+                      {b.trackClicks ? ' · кнопка со ссылкой' : ''}
+                    </p>
+                  </Card>
+                )}
+
                 {b.status === 'awaiting_confirmation' && (
                   <Card title="Подтверждение отправки">
                     <p className={s.confirmWarning} role="alert">
-                      Это сообщение получат <strong>все доступные подписчики бота</strong> — сейчас
-                      их <strong>{num(d.recipientsEstimate)}</strong>. Отменить уже доставленные
-                      сообщения будет нельзя.
+                      {d.audiencePreview ? (
+                        <>
+                          Это сообщение получат <strong>пользователи по выбранным фильтрам</strong>
+                          {stageLabel(b.stage) ? ` («${stageLabel(b.stage)}»)` : ''} — сейчас их{' '}
+                          <strong>{num(d.recipientsEstimate)}</strong>. Отменить уже доставленные
+                          сообщения будет нельзя.
+                        </>
+                      ) : (
+                        <>
+                          Это сообщение получат <strong>все доступные подписчики бота</strong> —
+                          сейчас их <strong>{num(d.recipientsEstimate)}</strong>. Отменить уже
+                          доставленные сообщения будет нельзя.
+                        </>
+                      )}
                     </p>
+                    {d.audiencePreview && (
+                      <p className={s.small}>
+                        Не получат: без привязанного Telegram —{' '}
+                        {num(d.audiencePreview.leftOut.noBotChat)}, отключили уведомления —{' '}
+                        {num(d.audiencePreview.leftOut.notificationsOff)}, уже получали этап —{' '}
+                        {num(d.audiencePreview.leftOut.stageAlreadySent)}, исключены вручную —{' '}
+                        {num(d.audiencePreview.leftOut.excludedByHand)}.
+                      </p>
+                    )}
                     <AudienceNote recipients={d.recipientsEstimate} worker={d.worker} />
                     <div className={s.toolbar}>
                       <button
@@ -693,6 +827,7 @@ export function BroadcastPage({ id = '' }: Record<string, string>) {
                     <p className={s.small}>
                       Начата: {dateTime(b.startedAt)} · Завершена: {dateTime(b.finishedAt)}
                     </p>
+                    {d.reaction && <ReactionKpis r={d.reaction} tracked={b.trackClicks} />}
                     {b.status === 'sending' && (
                       <button
                         type="button"
@@ -712,8 +847,10 @@ export function BroadcastPage({ id = '' }: Record<string, string>) {
                 onConfirm={() => act('/confirm', { confirm: true })}
                 onClose={() => setDialog(null)}
               >
-                Сообщение уйдёт всем доступным подписчикам бота. Остановить можно будет только те
-                отправки, которые ещё не начались.
+                {d.audiencePreview
+                  ? 'Сообщение уйдёт пользователям по выбранным фильтрам (список зафиксируется в момент начала отправки).'
+                  : 'Сообщение уйдёт всем доступным подписчикам бота.'}{' '}
+                Остановить можно будет только те отправки, которые ещё не начались.
               </ConfirmDialog>
               <ConfirmDialog
                 open={dialog === 'cancel'}

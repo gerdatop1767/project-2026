@@ -1,6 +1,7 @@
 import { Icon } from '../Icon/Icon.js';
 import type { IconName } from '../Icon/icons.js';
 import { clsx } from '../../lib/clsx.js';
+import { onLinkClick } from '../../lib/linkClick.js';
 import styles from './BottomNav.module.css';
 
 export interface BottomNavItem {
@@ -9,6 +10,8 @@ export interface BottomNavItem {
   icon: IconName;
   /** Needs an account (guest mode): a small lock, and a tap explains why. */
   locked?: boolean;
+  /** The item's address: rendered as a real link (crawlable, opens in a new tab). */
+  href?: string;
 }
 
 export interface BottomNavProps {
@@ -28,16 +31,8 @@ export function BottomNav({ items, activeId, onSelect, className }: BottomNavPro
     <nav className={clsx(styles.nav, className)} aria-label="Zybrilka" data-bottom-nav>
       {items.map((item) => {
         const isActive = item.id === activeId;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            className={styles.item}
-            aria-current={isActive ? 'page' : undefined}
-            aria-label={item.locked ? `${item.label} — нужен вход` : undefined}
-            data-locked={item.locked || undefined}
-            onClick={() => onSelect(item.id)}
-          >
+        const content = (
+          <>
             <span className={styles.iconWrap}>
               <Icon name={item.icon} filled={isActive} size={22} />
               {item.locked && (
@@ -47,6 +42,26 @@ export function BottomNav({ items, activeId, onSelect, className }: BottomNavPro
               )}
             </span>
             <span className={styles.label}>{item.label}</span>
+          </>
+        );
+        const common = {
+          className: styles.item,
+          'aria-current': isActive ? ('page' as const) : undefined,
+          'aria-label': item.locked ? `${item.label} — нужен вход` : undefined,
+          'data-locked': item.locked || undefined,
+        };
+        return item.href ? (
+          <a
+            key={item.id}
+            href={item.href}
+            {...common}
+            onClick={(e) => onLinkClick(e, () => onSelect(item.id))}
+          >
+            {content}
+          </a>
+        ) : (
+          <button key={item.id} type="button" {...common} onClick={() => onSelect(item.id)}>
+            {content}
           </button>
         );
       })}

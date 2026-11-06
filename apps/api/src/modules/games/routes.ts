@@ -1,12 +1,19 @@
 import type { Database } from '@zybrilka/db';
 import {
   MINI_GAMES,
+  miniGameFinishRequestSchema,
   stressAnswerRequestSchema,
   stressRoundQuerySchema,
   type MiniGamesResponse,
 } from '@zybrilka/shared';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { answerStress, stressProgress, stressRound, stressSummary } from './stress.js';
+import {
+  answerStress,
+  finishStressSession,
+  stressProgress,
+  stressRound,
+  stressSummary,
+} from './stress.js';
 
 export interface MiniGamesRoutesOptions {
   db: Database;
@@ -54,6 +61,19 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
     const result = await answerStress(db, userOf(request), body.data);
     if (!result) return reply.code(404).send({ error: 'word_not_found' });
     return result;
+  });
+
+  app.post('/games/stress/finish', { config: limit(60) }, async (request, reply) => {
+    const body = miniGameFinishRequestSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    const ok = await finishStressSession(
+      db,
+      userOf(request),
+      body.data.sessionId,
+      body.data.firstTryCorrect ?? null,
+    );
+    if (!ok) return reply.code(404).send({ error: 'session_not_found' });
+    return reply.code(204).send();
   });
 
   app.get('/games/stress/progress', async (request, reply) => {

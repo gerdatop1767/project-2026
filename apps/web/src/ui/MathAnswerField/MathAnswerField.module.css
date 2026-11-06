@@ -11,7 +11,7 @@
 
 .row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
   min-width: 0;
 }
@@ -19,8 +19,17 @@
 .input {
   flex: 1;
   min-width: 0;
-  height: 2.75rem;
-  padding: 0 var(--space-4);
+  /* One row = the old 2.75rem input; grows with a long answer (see the
+     component), the text wraps instead of hiding behind the edge. */
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  padding: calc((2.75rem - 1.5em - 3px) / 2) var(--space-4);
+  line-height: 1.5;
+  font-family: inherit;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
   border: 1.5px solid var(--color-border-subtle);
   border-radius: var(--radius-input);
   background: var(--color-bg-base);

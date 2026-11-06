@@ -71,9 +71,9 @@ export function HomeMobile() {
             <SubjectIcon subjectId={subjects[4]!.id} />
           </span>
         </div>
-        <p className={clsx('text-h2', styles.heroHeading)}>
+        <h1 className={clsx('text-h2', styles.heroHeading)}>
           Готов к новой <span className={styles.heroAccent}>тренировке?</span>
-        </p>
+        </h1>
         <p className={clsx('text-body-sm text-secondary', styles.heroSubtitle)}>
           Решай задания, развивайся и достигай своих целей!
         </p>

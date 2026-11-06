@@ -93,14 +93,14 @@ describe('App — mobile', () => {
   it('renders the mobile Home with the bottom tab bar visible', () => {
     renderApp();
     expect(screen.getByText(/Готов к новой/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Главная/ })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /Главная/ })).toHaveAttribute('aria-current', 'page');
   });
 
   it('switches tabs via the bottom navigation', async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Статистика/ }));
-    expect(screen.getByRole('button', { name: 'Статистика' })).toHaveAttribute(
+    await user.click(screen.getByRole('link', { name: /Статистика/ }));
+    expect(screen.getByRole('link', { name: 'Статистика' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -109,16 +109,16 @@ describe('App — mobile', () => {
   it('opens the real Профиль screen from the bottom navigation "Профиль" slot, keeping the tab bar visible', async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Профиль/ }));
+    await user.click(screen.getByRole('link', { name: /Профиль/ }));
     // Name comes from the signed-in user's VK profile.
     expect(screen.getByText('Иван Петров')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Профиль' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Профиль' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('Профиль on mobile has no gear / menu drawer any more', async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole('button', { name: /Профиль/ }));
+    await user.click(screen.getByRole('link', { name: /Профиль/ }));
     expect(screen.queryByRole('button', { name: 'Меню' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Меню' })).not.toBeInTheDocument();
   });
@@ -129,7 +129,7 @@ describe('App — mobile', () => {
     renderApp();
     await user.click(screen.getByRole('button', { name: /Тренировка · случайные задания/ }));
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /Главная/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Главная/ })).not.toBeInTheDocument();
     });
   });
 });
@@ -146,7 +146,7 @@ describe('App — desktop', () => {
       await screen.findByRole('heading', { level: 1, name: 'Учебный центр' }),
     ).toBeInTheDocument();
     const sidebar = screen.getByRole('navigation', { name: 'Zybrilka' });
-    expect(within(sidebar).getByRole('button', { name: 'Учебный центр' })).toHaveAttribute(
+    expect(within(sidebar).getByRole('link', { name: 'Учебный центр' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -155,7 +155,7 @@ describe('App — desktop', () => {
     expect(screen.queryByText(/Начать заниматься/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Начать бесплатно/)).not.toBeInTheDocument();
     // This IS the home screen, so there is no "back to Главная" row on it.
-    expect(within(screen.getByRole('main')).queryByRole('button', { name: 'Главная' })).toBeNull();
+    expect(within(screen.getByRole('main')).queryByRole('link', { name: 'Главная' })).toBeNull();
     // …and it is not the support screen.
     expect(screen.queryByText('Нужна')).not.toBeInTheDocument();
     restore();
@@ -169,7 +169,7 @@ describe('App — desktop', () => {
     expect(screen.getByRole('navigation', { name: 'Zybrilka' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/learning');
     expect(
-      within(screen.getByRole('main')).queryByRole('button', { name: 'Главная' }),
+      within(screen.getByRole('main')).queryByRole('link', { name: 'Главная' }),
     ).not.toBeInTheDocument();
     restore();
   });
@@ -228,7 +228,7 @@ describe('App — desktop', () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
-    await user.click(screen.getByRole('button', { name: 'Рейтинг' }));
+    await user.click(screen.getByRole('link', { name: 'Рейтинг' }));
     await user.click(screen.getByRole('button', { name: 'Меню' }));
     await user.click(screen.getByRole('button', { name: /^Профиль/ }));
     expect(screen.getByText('Мой профиль')).toBeInTheDocument();
@@ -248,10 +248,10 @@ describe('App — desktop', () => {
     await user.click(screen.getByRole('button', { name: /^Помощь/ }));
     expect(screen.getByText('Нужна')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('main')).queryByRole('button', { name: /Главная/ }),
+      within(screen.getByRole('main')).queryByRole('link', { name: /Главная/ }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Учебный центр' }));
+    await user.click(screen.getByRole('link', { name: 'Учебный центр' }));
     expect(screen.queryByText('Нужна')).not.toBeInTheDocument();
     restore();
   });
@@ -264,20 +264,20 @@ describe('App — desktop', () => {
     // Switch the underlying tab away from Home first — this is exactly
     // the scenario that used to leak the wrong tab's name into these
     // screens' Back button ("Достижения" instead of "Главная").
-    await user.click(screen.getByRole('button', { name: 'Достижения' }));
+    await user.click(screen.getByRole('link', { name: 'Достижения' }));
 
     for (const [sidebarLabel, screenText] of [
       ['Мои ошибки', 'Разбирай ошибки'],
       ['Рейтинг', 'набирай очки и поднимайся в рейтинге'],
     ] as const) {
-      await user.click(screen.getByRole('button', { name: sidebarLabel }));
+      await user.click(screen.getByRole('link', { name: sidebarLabel }));
       await screen.findByText(new RegExp(screenText));
       const main = within(screen.getByRole('main'));
-      expect(main.queryByRole('button', { name: 'Главная' })).not.toBeInTheDocument();
-      expect(main.queryByRole('button', { name: 'Достижения' })).not.toBeInTheDocument();
+      expect(main.queryByRole('link', { name: 'Главная' })).not.toBeInTheDocument();
+      expect(main.queryByRole('link', { name: 'Достижения' })).not.toBeInTheDocument();
       // Re-enter Достижения before the next iteration so each screen is
       // independently checked against the same "stale tab" scenario.
-      await user.click(screen.getByRole('button', { name: 'Достижения' }));
+      await user.click(screen.getByRole('link', { name: 'Достижения' }));
     }
     restore();
   });
@@ -324,12 +324,12 @@ describe('App — access gate (server-truth auth state)', () => {
       renderApp(null);
       const nav = await screen.findByRole('navigation', { name: 'Zybrilka' });
       expect(
-        within(nav).getByRole('button', { name: 'Статистика — нужен вход' }),
+        within(nav).getByRole('link', { name: 'Статистика — нужен вход' }),
       ).toBeInTheDocument();
       expect(
-        within(nav).getByRole('button', { name: 'Мои ошибки — нужен вход' }),
+        within(nav).getByRole('link', { name: 'Мои ошибки — нужен вход' }),
       ).toBeInTheDocument();
-      expect(within(nav).getByRole('button', { name: 'Тренировка' })).toBeInTheDocument();
+      expect(within(nav).getByRole('link', { name: 'Тренировка' })).toBeInTheDocument();
     } finally {
       restore();
     }
@@ -545,7 +545,7 @@ describe('App — sign out', () => {
     const logout = vi.fn(async () => {});
     const user = userEvent.setup();
     renderApp(makeAuthUser(), logout);
-    await user.click(screen.getByRole('button', { name: /Профиль/ }));
+    await user.click(screen.getByRole('link', { name: /Профиль/ }));
     await user.click(screen.getByRole('button', { name: 'Выйти из аккаунта' }));
     expect(logout).toHaveBeenCalledTimes(1);
   });
@@ -608,7 +608,7 @@ describe('App — URL routing is the source of truth', () => {
   it('a direct URL to /statistics opens the Статистика tab on load (mobile)', () => {
     window.history.replaceState(null, '', '/statistics');
     renderApp();
-    expect(screen.getByRole('button', { name: 'Статистика' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Статистика' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -628,7 +628,7 @@ describe('App — URL routing is the source of truth', () => {
     await user.click(screen.getByRole('button', { name: 'Zybrilka — Учебный центр' }));
     expect(window.location.pathname).toBe('/learning');
 
-    await user.click(screen.getByRole('button', { name: 'Предметы' }));
+    await user.click(screen.getByRole('link', { name: 'Предметы' }));
     expect(window.location.pathname).toBe('/subjects');
 
     await user.click(screen.getAllByRole('button', { name: /Математика/ })[0]!);
@@ -672,7 +672,7 @@ describe('App — sign-in redirects, × and removed pages', () => {
     const user = userEvent.setup();
     renderApp(null);
     await screen.findByText(/Готов к новой/);
-    await user.click(screen.getByRole('button', { name: 'Статистика — нужен вход' }));
+    await user.click(screen.getByRole('link', { name: 'Статистика — нужен вход' }));
     expect(
       await screen.findByRole('dialog', { name: 'Статистика — после входа' }),
     ).toBeInTheDocument();
@@ -692,7 +692,7 @@ describe('App — sign-in redirects, × and removed pages', () => {
     const user = userEvent.setup();
     renderApp(null);
     await screen.findByText(/Готов к новой/);
-    await user.click(screen.getByRole('button', { name: 'Мои ошибки — нужен вход' }));
+    await user.click(screen.getByRole('link', { name: 'Мои ошибки — нужен вход' }));
     await screen.findByRole('dialog', { name: 'Мои ошибки — после входа' });
     await user.click(screen.getByRole('button', { name: 'Не сейчас' }));
     await waitFor(() =>

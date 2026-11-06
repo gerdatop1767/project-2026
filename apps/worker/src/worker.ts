@@ -112,6 +112,7 @@ export async function startWorker({
       telegram,
       logger,
       adminChats: () => notifier.adminChats(),
+      webBaseUrl: siteUrl,
     });
     await sender.recoverInterrupted();
     const stopBroadcasts = every(

@@ -52,9 +52,9 @@ export function SubjectCatalogMobile() {
         <button type="button" className={styles.backButton} aria-label="Назад" onClick={back}>
           <Icon name="back" size={20} />
         </button>
-        <p className="text-body" style={{ fontWeight: 700 }}>
+        <h1 className="text-body" style={{ fontWeight: 700 }}>
           Предметы
-        </p>
+        </h1>
       </div>
 
       <p className="text-body-sm text-secondary">Выбери предмет и начни готовиться к ЕГЭ</p>

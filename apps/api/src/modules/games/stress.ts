@@ -11,7 +11,7 @@ import {
   type StressQuestion,
   type StressRoundResponse,
 } from '@zybrilka/shared';
-import { and, eq, gt, gte, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, isNull, sql } from 'drizzle-orm';
 import { moscowDate } from '../admin/period.js';
 
 export const STRESS_GAME_ID = 'stress';
@@ -95,11 +95,80 @@ export async function stressRound(
       .sort((a, b) => hardness(b) - hardness(a))
       .slice(0, size);
   }
+  const questions = shuffle(picked).map(toQuestion);
   return {
     mode,
-    questions: shuffle(picked).map(toQuestion),
+    questions,
     dictionarySize: words.length,
+    sessionId: questions.length > 0 ? await startSession(db, userId, mode, questions.length) : null,
   };
+}
+
+/** A round was handed out: one launch (docs/MINI_GAMES.md §Статистика). */
+async function startSession(
+  db: Database,
+  userId: string | null,
+  mode: StressMode,
+  questionCount: number,
+): Promise<string> {
+  const [row] = await db
+    .insert(schema.miniGameSessions)
+    .values({ gameId: STRESS_GAME_ID, mode, userId, questionCount })
+    .returning({ id: schema.miniGameSessions.id });
+  return row!.id;
+}
+
+/** Only the session's own player (or the same guest-less session) can move it. */
+function ownSession(sessionId: string, userId: string | null) {
+  const s = schema.miniGameSessions;
+  return and(
+    eq(s.id, sessionId),
+    eq(s.gameId, STRESS_GAME_ID),
+    userId ? eq(s.userId, userId) : isNull(s.userId),
+  );
+}
+
+async function countInSession(
+  db: Pick<Database, 'update'>,
+  sessionId: string,
+  userId: string | null,
+  correct: boolean,
+  now: Date,
+): Promise<void> {
+  const s = schema.miniGameSessions;
+  await db
+    .update(s)
+    .set({
+      answeredCount: sql`${s.answeredCount} + 1`,
+      correctCount: correct ? sql`${s.correctCount} + 1` : s.correctCount,
+      lastAnswerAt: now,
+    })
+    .where(ownSession(sessionId, userId));
+}
+
+/**
+ * The player reached the summary. Idempotent: a finished round stays as
+ * first finished. False when the session is not this player's.
+ */
+export async function finishStressSession(
+  db: Database,
+  userId: string | null,
+  sessionId: string,
+  firstTryCorrect: number | null = null,
+  now = new Date(),
+): Promise<boolean> {
+  const s = schema.miniGameSessions;
+  const [own] = await db.select({ id: s.id }).from(s).where(ownSession(sessionId, userId));
+  if (!own) return false;
+  await db
+    .update(s)
+    .set({
+      finishedAt: now,
+      firstTryCorrect:
+        firstTryCorrect === null ? null : sql`least(${firstTryCorrect}, ${s.questionCount})`,
+    })
+    .where(and(ownSession(sessionId, userId), isNull(s.finishedAt)));
+  return true;
 }
 
 /**
@@ -138,6 +207,7 @@ export async function answerStress(
         })
         .returning({ id: schema.miniGameAnswers.id });
       if (inserted.length === 0) return; // already counted
+      if (input.sessionId) await countInSession(tx, input.sessionId, userId, correct, now);
       const p = schema.miniGameItemProgress;
       await tx
         .insert(p)
@@ -168,6 +238,9 @@ export async function answerStress(
               },
         });
     });
+  } else if (input.sessionId) {
+    // A guest's answer is not stored; only the round's counters move.
+    await countInSession(db, input.sessionId, null, correct, now);
   }
   return {
     correct,

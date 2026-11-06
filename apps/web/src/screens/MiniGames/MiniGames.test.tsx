@@ -14,6 +14,7 @@ vi.mock('../../lib/api.js', () => ({
   getMiniGames: vi.fn(),
   getStressRound: vi.fn(),
   answerStress: vi.fn(),
+  finishStressRound: vi.fn(),
   getStressProgress: vi.fn(),
   ApiError: class extends Error {},
 }));
@@ -39,6 +40,7 @@ function renderWith(ui: React.ReactNode, user: ReturnType<typeof makeAuthUser> |
 const ROUND: StressRoundResponse = {
   mode: 'all',
   dictionarySize: 200,
+  sessionId: '0b5d6a7e-1111-4222-8333-444455556666',
   questions: [
     {
       wordId: 'w-torty',
@@ -69,6 +71,7 @@ beforeEach(() => {
   vi.mocked(api.answerStress).mockReset();
   vi.mocked(api.getStressProgress).mockReset().mockResolvedValue(PROGRESS);
   vi.mocked(api.getMiniGames).mockReset();
+  vi.mocked(api.finishStressRound).mockReset().mockResolvedValue();
 });
 
 describe('Мини-игры', () => {
@@ -110,6 +113,7 @@ describe('Ударения', () => {
       wordId: 'w-torty',
       index: 1,
       clientAnswerId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      sessionId: ROUND.sessionId,
     });
     expect(await screen.findByText('Верно: тОрты')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Дальше' }));
@@ -181,6 +185,13 @@ describe('Ударения', () => {
     await user.click(await screen.findByRole('button', { name: 'Дальше' }));
     expect(await screen.findByRole('heading', { name: 'Раунд окончен' })).toBeInTheDocument();
     expect(screen.getByText(/из 2 с первого раза/)).toBeInTheDocument();
+    // Statistics: every answer carries the round's session, the summary finishes it once.
+    for (const [req] of vi.mocked(api.answerStress).mock.calls) {
+      expect(req.sessionId).toBe(ROUND.sessionId);
+    }
+    expect(api.finishStressRound).toHaveBeenCalledTimes(1);
+    // The summary's own result: 1 of 2 words right on the first try.
+    expect(api.finishStressRound).toHaveBeenCalledWith(ROUND.sessionId, 1);
     expect(screen.getByText('тОрты', { selector: 'li' })).toBeInTheDocument();
   });
 

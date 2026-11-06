@@ -56,6 +56,7 @@ describe('BroadcastSender', () => {
     await testDb.db.delete(schema.broadcastAttachments);
     await testDb.db.delete(schema.broadcasts);
     await testDb.db.delete(schema.telegramBotChats);
+    await testDb.db.delete(schema.authIdentities);
     await testDb.db.insert(schema.telegramBotChats).values([
       ...CHATS.map((chatId) => ({ chatId })),
       { chatId: 999, blockedAt: new Date() }, // blocked earlier: never contacted
@@ -475,5 +476,108 @@ describe('BroadcastSender', () => {
     expect((await load(b.id)).testStatus).toBe('sent');
     await sender.processTests();
     expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  describe('«Возврат пользователей» — audience broadcasts', () => {
+    async function student(chatId: number, registeredDaysAgo: number, blocked = false) {
+      const created = new Date(Date.now() - registeredDaysAgo * 86_400_000);
+      const [u] = await testDb.db.insert(schema.users).values({ createdAt: created }).returning();
+      await testDb.db.insert(schema.authIdentities).values({
+        userId: u!.id,
+        provider: 'telegram',
+        providerUserId: `w-${chatId}-${Math.random()}`,
+      });
+      await testDb.db
+        .insert(schema.telegramBotChats)
+        .values({ chatId, userId: u!.id, blockedAt: blocked ? new Date() : null });
+      return u!.id;
+    }
+
+    it('sends only to the matching users, records who they are, never the same stage twice', async () => {
+      const a = await student(201, 4);
+      await student(202, 4, true); // blocked: unreachable
+      await student(203, 30); // outside the window
+      const b = await create({
+        stage: 'd3',
+        audience: { stage: 'd3', accountAgeMinDays: 3, accountAgeMaxDays: 6 },
+      });
+      await sender.processBroadcasts();
+      expect(recipients()).toEqual([201]);
+      const rows = await testDb.db
+        .select()
+        .from(schema.broadcastDeliveries)
+        .where(eq(schema.broadcastDeliveries.broadcastId, b.id));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ chatId: 201, userId: a, status: 'sent' });
+      expect((await load(b.id)).recipientsTotal).toBe(1);
+
+      // A second «3 дня» broadcast: the student already got this stage.
+      const again = await create({
+        stage: 'd3',
+        audience: { stage: 'd3', accountAgeMinDays: 3, accountAgeMaxDays: 6 },
+      });
+      await sender.processBroadcasts();
+      expect((await load(again.id)).recipientsTotal).toBe(0);
+      expect(recipients()).toEqual([201]);
+
+      // …unless the admin explicitly allowed a repeat.
+      const repeat = await create({
+        stage: 'd3',
+        audience: { stage: 'd3', allowRepeat: true, accountAgeMinDays: 3, accountAgeMaxDays: 6 },
+      });
+      await sender.processBroadcasts();
+      expect((await load(repeat.id)).recipientsTotal).toBe(1);
+    });
+
+    it('a tracked broadcast carries a per-recipient link button under the text', async () => {
+      await student(301, 4);
+      await student(302, 4);
+      sender = new BroadcastSender({
+        db: testDb.db,
+        telegram,
+        logger,
+        adminChats: async () => [5000],
+        sleep: async () => undefined,
+        webBaseUrl: 'https://zybrilka.test',
+      });
+      const b = await create({
+        trackClicks: true,
+        buttonText: 'Вернуться к задачам',
+        audience: { accountAgeMinDays: 3, accountAgeMaxDays: 6 },
+      });
+      await sender.processBroadcasts();
+      const tokens = await testDb.db
+        .select({
+          chatId: schema.broadcastDeliveries.chatId,
+          token: schema.broadcastDeliveries.clickToken,
+        })
+        .from(schema.broadcastDeliveries)
+        .where(eq(schema.broadcastDeliveries.broadcastId, b.id));
+      expect(tokens).toHaveLength(2);
+      for (const { chatId, token } of tokens) {
+        const call = telegram.sendMessage.mock.calls.find((c) => c[0] === chatId)!;
+        expect(call[2]).toMatchObject({
+          parseMode: 'HTML',
+          replyMarkup: {
+            inline_keyboard: [
+              [{ text: 'Вернуться к задачам', url: `https://zybrilka.test/api/v1/go/b/${token}` }],
+            ],
+          },
+        });
+      }
+      expect(new Set(tokens.map((t) => t.token)).size).toBe(2);
+    });
+
+    it('a plain broadcast has no button; an unusable stored audience cancels instead of sending to all', async () => {
+      await create();
+      await sender.processBroadcasts();
+      expect(telegram.sendMessage.mock.calls[0]![2]).toEqual({ parseMode: 'HTML' });
+
+      telegram.sendMessage.mockClear();
+      const bad = await create({ audience: { stage: 'd99' } });
+      await sender.processBroadcasts();
+      expect((await load(bad.id)).status).toBe('cancelled');
+      expect(telegram.sendMessage).not.toHaveBeenCalled();
+    });
   });
 });

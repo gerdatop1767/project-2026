@@ -1,6 +1,6 @@
 import { schema } from '@zybrilka/db';
 import type { Database } from '@zybrilka/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
@@ -49,6 +49,8 @@ const eventsBodySchema = z.object({
  * - GET /go/:slug — a campaign's tracked link: counts the click and
  *   redirects to the campaign's own page on this site.
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const analyticsRoutes: FastifyPluginAsync<AnalyticsRoutesOptions> = async (
   app,
   { db, config },
@@ -117,6 +119,38 @@ export const analyticsRoutes: FastifyPluginAsync<AnalyticsRoutesOptions> = async
     reply.clearCookie(VISITOR_COOKIE, { path: '/' });
     return reply.code(204).send();
   });
+
+  // «Возврат пользователей»: the button under a tracked broadcast. One
+  // token per recipient (broadcast_deliveries.click_token): the first click
+  // is the «переход», repeats only add to the count. Not an analytics
+  // event — it is part of the broadcast the user received, consent or not;
+  // no cookie is set here. A preview bot fetching the link is not a click.
+  app.get(
+    '/go/b/:token',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const home = new URL('/', config.WEB_BASE_URL);
+      const token = (request.params as { token?: string }).token ?? '';
+      if (!UUID_RE.test(token)) return reply.redirect(home.toString());
+      const d = schema.broadcastDeliveries;
+      const [row] = isLinkPreviewBot(request.headers['user-agent'])
+        ? await db.select({ broadcastId: d.broadcastId }).from(d).where(eq(d.clickToken, token))
+        : await db
+            .update(d)
+            .set({
+              clickedAt: sql`coalesce(${d.clickedAt}, now())`,
+              clickCount: sql`${d.clickCount} + 1`,
+            })
+            .where(eq(d.clickToken, token))
+            .returning({ broadcastId: d.broadcastId });
+      if (row) {
+        home.searchParams.set('utm_source', 'telegram');
+        home.searchParams.set('utm_medium', 'broadcast');
+        home.searchParams.set('utm_campaign', row.broadcastId);
+      }
+      return reply.redirect(home.toString());
+    },
+  );
 
   app.get(
     '/go/:slug',
