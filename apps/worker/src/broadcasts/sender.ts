@@ -1,6 +1,13 @@
-import { schema } from '@zybrilka/db';
+import { audienceRowsSql, schema } from '@zybrilka/db';
 import type { Database } from '@zybrilka/db';
-import { parseTelegramHtml, planBroadcast, type BroadcastPart } from '@zybrilka/shared';
+import {
+  broadcastAudienceSchema,
+  broadcastClickUrl,
+  DEFAULT_BROADCAST_BUTTON_TEXT,
+  parseTelegramHtml,
+  planBroadcast,
+  type BroadcastPart,
+} from '@zybrilka/shared';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import {
@@ -25,6 +32,8 @@ export interface BroadcastSenderOptions {
   logger: Logger;
   /** Owner chats for «Отправить себе». */
   adminChats: () => Promise<number[]>;
+  /** Site address for the button of tracked broadcasts (`/api/v1/go/b/:token`). */
+  webBaseUrl?: string;
   /** Messages per second, under Telegram's ~30/s bulk limit. */
   ratePerSecond?: number;
   batchSize?: number;
@@ -98,6 +107,12 @@ export class BroadcastSender {
     this.now = o.now ?? Date.now;
   }
 
+  private linkFor(b: Broadcast, token: string): string | null {
+    return b.trackClicks
+      ? broadcastClickUrl(this.o.webBaseUrl ?? 'http://localhost:5173', token)
+      : null;
+  }
+
   /** Once at start-up: whatever was mid-send when the worker stopped is not resent. */
   async recoverInterrupted(): Promise<number> {
     const rows = await this.o.db
@@ -151,21 +166,45 @@ export class BroadcastSender {
 
   /** Sends the broadcast to one chat, from the first part not yet sent;
    * `progress.sent` counts the messages that went out. */
-  private async sendContent(chatId: number, b: Broadcast, progress: { sent: number }) {
+  private async sendContent(
+    chatId: number,
+    b: Broadcast,
+    progress: { sent: number },
+    link: string | null,
+  ) {
     const parsed = parseTelegramHtml(b.text);
     if (!parsed.ok) throw new ContentError(parsed.error);
     const images = await this.loadAttachments(b.id);
     const plan = planBroadcast(parsed.visibleLength, images.length, b.mediaMode);
     if (!plan.ok) throw new ContentError(plan.error);
-    for (const part of (plan.parts as BroadcastPart[]).slice(progress.sent)) {
+    const parts = plan.parts as BroadcastPart[];
+    // The tracked button goes under the last part (a text or a single photo —
+    // the API refuses to confirm a tracked album).
+    const buttonFor = (index: number) =>
+      link && index === parts.length - 1
+        ? {
+            replyMarkup: {
+              inline_keyboard: [
+                [{ text: b.buttonText || DEFAULT_BROADCAST_BUTTON_TEXT, url: link }],
+              ],
+            },
+          }
+        : {};
+    for (const [index, part] of parts.entries()) {
+      if (index < progress.sent) continue;
       if (part.kind === 'text') {
-        await this.o.telegram.sendMessage(chatId, parsed.html, { parseMode: 'HTML' });
+        await this.o.telegram.sendMessage(chatId, parsed.html, {
+          parseMode: 'HTML',
+          ...buttonFor(index),
+        });
       } else if (part.kind === 'photo') {
         const message = await this.o.telegram.sendPhoto(
           chatId,
           this.photo(images[0]!),
           part.withCaption ? parsed.html : undefined,
-          part.withCaption ? { parseMode: 'HTML' } : undefined,
+          part.withCaption || link
+            ? { ...(part.withCaption ? { parseMode: 'HTML' as const } : {}), ...buttonFor(index) }
+            : undefined,
         );
         await this.remember(images[0]!, largestPhotoId(message));
       } else {
@@ -187,13 +226,17 @@ export class BroadcastSender {
   }
 
   /** One chat: retries what is safe to retry (see the class comment). */
-  private async deliver(chatId: number, b: Broadcast): Promise<DeliveryResult> {
+  private async deliver(
+    chatId: number,
+    b: Broadcast,
+    link: string | null,
+  ): Promise<DeliveryResult> {
     const progress = { sent: 0 };
     let rateLimited = 0;
     let networkRetries = 0;
     for (;;) {
       try {
-        await this.sendContent(chatId, b, progress);
+        await this.sendContent(chatId, b, progress, link);
         return { status: 'sent', errorCode: null, errorDetail: null };
       } catch (error) {
         if (error instanceof ContentError) {
@@ -239,11 +282,36 @@ export class BroadcastSender {
     return row?.status;
   }
 
-  private async snapshotAudience(b: Broadcast): Promise<Broadcast> {
-    await this.o.db.execute(sql`
-      INSERT INTO broadcast_deliveries (broadcast_id, chat_id)
-      SELECT ${b.id}, c.chat_id FROM telegram_bot_chats c WHERE c.blocked_at IS NULL
-      ON CONFLICT DO NOTHING`);
+  /**
+   * The audience, frozen when sending starts. No audience: every chat that
+   * started the bot (as before). With one («Возврат пользователей»): only
+   * the matching users the preview called `ok` — the same SQL
+   * (@zybrilka/db audienceRowsSql), so the stage guard, opt-outs and
+   * exclusions hold here too. Returns null when the stored audience is
+   * unusable — the broadcast is then cancelled, never sent to everyone.
+   */
+  private async snapshotAudience(b: Broadcast): Promise<Broadcast | null> {
+    if (b.audience) {
+      const audience = broadcastAudienceSchema.safeParse(b.audience);
+      if (!audience.success) {
+        await this.o.db
+          .update(schema.broadcasts)
+          .set({ status: 'cancelled', finishedAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(schema.broadcasts.id, b.id), eq(schema.broadcasts.status, 'sending')));
+        this.o.logger.error({ broadcastId: b.id }, 'broadcast audience invalid: cancelled');
+        return null;
+      }
+      const rows = audienceRowsSql(audience.data, { now: new Date(this.now()), broadcastId: b.id });
+      await this.o.db.execute(sql`
+        INSERT INTO broadcast_deliveries (broadcast_id, chat_id, user_id)
+        SELECT ${b.id}, a.chat_id, a.user_id FROM (${rows}) a WHERE a.state = 'ok'
+        ON CONFLICT DO NOTHING`);
+    } else {
+      await this.o.db.execute(sql`
+        INSERT INTO broadcast_deliveries (broadcast_id, chat_id, user_id)
+        SELECT ${b.id}, c.chat_id, c.user_id FROM telegram_bot_chats c WHERE c.blocked_at IS NULL
+        ON CONFLICT DO NOTHING`);
+    }
     const [{ n }] = (await this.o.db
       .select({ n: sql<number>`count(*)::int` })
       .from(schema.broadcastDeliveries)
@@ -267,6 +335,7 @@ export class BroadcastSender {
     if (!next) return 0;
     if (this.now() < this.pausedUntil) return 0;
     const b = next.recipientsTotal === null ? await this.snapshotAudience(next) : next;
+    if (!b) return 0;
     let handled = 0;
     for (;;) {
       if (this.stopping || (await this.currentStatus(b.id)) !== 'sending') break;
@@ -286,6 +355,7 @@ export class BroadcastSender {
         .returning({
           chatId: schema.broadcastDeliveries.chatId,
           attempts: schema.broadcastDeliveries.attempts,
+          clickToken: schema.broadcastDeliveries.clickToken,
         });
       if (claimed.length === 0) break;
       // Hand back what was claimed but not sent — the next pass (or a
@@ -303,12 +373,12 @@ export class BroadcastSender {
               ),
             ),
           );
-      for (const [index, { chatId, attempts }] of claimed.entries()) {
+      for (const [index, { chatId, attempts, clickToken }] of claimed.entries()) {
         if (this.stopping || (index > 0 && (await this.currentStatus(b.id)) !== 'sending')) {
           await release(index);
           return handled;
         }
-        let result = await this.deliver(chatId, b);
+        let result = await this.deliver(chatId, b, this.linkFor(b, clickToken));
         if (result.status === 'retry' && attempts + 1 >= MAX_DELIVERY_ATTEMPTS) {
           result = { ...result, status: 'failed' };
         }
@@ -403,7 +473,11 @@ export class BroadcastSender {
       const chats = await this.o.adminChats();
       let status: 'sent' | 'failed' | 'no_recipients' = chats.length ? 'failed' : 'no_recipients';
       for (const chatId of chats) {
-        const result = await this.deliver(chatId, b);
+        // The owners' copy: the same button, to the site itself (not counted as a click).
+        const link = b.trackClicks
+          ? new URL('/', this.o.webBaseUrl ?? 'http://localhost:5173').toString()
+          : null;
+        const result = await this.deliver(chatId, b, link);
         if (result.status === 'sent') status = 'sent';
         else {
           this.o.logger.warn(

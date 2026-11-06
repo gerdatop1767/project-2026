@@ -153,4 +153,158 @@ describe('admin «Рассылки» API', () => {
       expect(res.statusCode).toBe(403);
     }
   });
+
+  describe('«Возврат пользователей»', () => {
+    async function student(chatId: number, registeredDaysAgo: number) {
+      const createdAt = new Date(Date.now() - registeredDaysAgo * 86_400_000);
+      const [u] = await testDb.db
+        .insert(schema.users)
+        .values({ createdAt, displayName: `S${chatId}` })
+        .returning();
+      await testDb.db.insert(schema.authIdentities).values({
+        userId: u!.id,
+        provider: 'telegram',
+        providerUserId: `api-${chatId}`,
+      });
+      await testDb.db.insert(schema.telegramBotChats).values({ chatId, userId: u!.id });
+      return u!.id;
+    }
+    const D3 = { stage: 'd3', accountAgeMinDays: 3, accountAgeMaxDays: 6 } as const;
+
+    it('preview: count, reasons and a contact-free list; exclusions by hand; owner only', async () => {
+      const a = await student(7001, 4);
+      const b = await student(7002, 5);
+      await student(7003, 40); // outside the window
+      const preview = await call('POST', '/audience/preview', { audience: D3 });
+      expect(preview.statusCode).toBe(200);
+      const body = preview.json();
+      expect(body.count).toBe(2);
+      expect(body.sample.map((u: { id: string }) => u.id).sort()).toEqual([a, b].sort());
+      expect(Object.keys(body.sample[0]).sort()).toEqual([
+        'id',
+        'lastActiveAt',
+        'name',
+        'registeredAt',
+        'solved',
+      ]);
+      const excluded = (
+        await call('POST', '/audience/preview', { audience: { ...D3, excludeUserIds: [b] } })
+      ).json();
+      expect(excluded.count).toBe(1);
+      expect(excluded.leftOut.excludedByHand).toBe(1);
+      expect(excluded.excluded[0].id).toBe(b);
+      const asUser = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/broadcasts/audience/preview',
+        headers: { cookie: userCookie, ...W },
+        payload: { audience: D3 },
+      });
+      expect(asUser.statusCode).toBe(403);
+      expect(
+        (await call('POST', '/audience/preview', { audience: { stage: 'd5' } })).statusCode,
+      ).toBe(400);
+    });
+
+    it('a draft keeps its audience and stage; the estimate is the audience, not every chat', async () => {
+      const created = (
+        await call('POST', '', { text: 'Возвращайся!', audience: D3, trackClicks: true })
+      ).json();
+      expect(created.broadcast).toMatchObject({ stage: 'd3', trackClicks: true });
+      expect(created.audiencePreview.count).toBe(created.recipientsEstimate);
+      const cleared = (await call('PATCH', `/${created.broadcast.id}`, { audience: null })).json();
+      expect(cleared.broadcast).toMatchObject({ stage: null, audience: null });
+      expect(cleared.audiencePreview).toBeNull();
+    });
+
+    it('a tracked album cannot be confirmed (no buttons on albums); separate text can', async () => {
+      const id = (await call('POST', '', { text: 'Фото', trackClicks: true })).json().broadcast
+        .id as string;
+      for (let i = 0; i < 2; i++) {
+        await app.inject({
+          method: 'POST',
+          url: `/api/v1/admin/broadcasts/${id}/attachments`,
+          headers: { cookie: ownerCookie, ...W, 'content-type': 'image/png' },
+          payload: fakePng(32, 32),
+        });
+      }
+      const refused = await call('POST', `/${id}/prepare`);
+      expect(refused.statusCode).toBe(400);
+      expect(refused.json().message).toMatch(/альбому/);
+      await call('PATCH', `/${id}`, { mediaMode: 'separate' });
+      expect((await call('POST', `/${id}/prepare`)).statusCode).toBe(200);
+    });
+
+    it('the button link records the click once per recipient and opens the site; reaction is honest', async () => {
+      const userId = await student(7100, 4);
+      const [b] = await testDb.db
+        .insert(schema.broadcasts)
+        .values({
+          authorUserId: userId,
+          text: 'x',
+          status: 'completed',
+          recipientsTotal: 2,
+          trackClicks: true,
+          stage: 'd3',
+          audience: D3,
+        })
+        .returning();
+      const sentAt = new Date(Date.now() - 3 * 3_600_000);
+      const [d] = await testDb.db
+        .insert(schema.broadcastDeliveries)
+        .values([
+          { broadcastId: b!.id, chatId: 7100, userId, status: 'sent', sentAt },
+          { broadcastId: b!.id, chatId: 7101, status: 'blocked' },
+        ])
+        .returning();
+      const go = (ua = 'Mozilla/5.0') =>
+        app.inject({
+          method: 'GET',
+          url: `/api/v1/go/b/${d!.clickToken}`,
+          headers: { 'user-agent': ua },
+        });
+      const first = await go();
+      expect(first.statusCode).toBe(302);
+      expect(first.headers.location).toContain('utm_medium=broadcast');
+      expect(first.headers.location).toContain(`utm_campaign=${b!.id}`);
+      await go();
+      await go('TelegramBot (like TwitterBot)'); // a link preview is not a click
+      const [row] = await testDb.db
+        .select()
+        .from(schema.broadcastDeliveries)
+        .where(eq(schema.broadcastDeliveries.clickToken, d!.clickToken));
+      expect(row!.clickCount).toBe(2);
+      expect(row!.clickedAt).not.toBeNull();
+      // An unknown token: just the site, nothing recorded.
+      const unknown = await app.inject({ method: 'GET', url: `/api/v1/go/b/${randomUUID()}` });
+      expect(unknown.statusCode).toBe(302);
+      expect(unknown.headers.location).not.toContain('utm_');
+
+      // The student then played: active after the broadcast (answers, not «solved tasks»).
+      await testDb.db.insert(schema.miniGameAnswers).values({
+        userId,
+        gameId: 'stress',
+        itemId: randomUUID(),
+        correct: true,
+        answer: '1',
+        clientAnswerId: randomUUID(),
+      });
+      const detail = (await call('GET', `/${b!.id}`)).json();
+      expect(detail.reaction).toMatchObject({
+        delivered: 1,
+        deliveredToUsers: 1,
+        clicked: 1,
+        returned: 1,
+        returned1d: 1,
+        conversionPercent: 100,
+        activeAfter: 1,
+        answersAfter: 1,
+        solvedAfter: 0,
+      });
+      const list = (await call('GET', '')).json();
+      const item = list.items.find((i: { id: string }) => i.id === b!.id);
+      expect(item).toMatchObject({ stage: 'd3', targeted: true, trackClicks: true });
+      expect(item.reaction.clicked).toBe(1);
+      expect(list.totals.clicked).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

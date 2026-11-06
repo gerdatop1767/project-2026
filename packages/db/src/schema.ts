@@ -1329,8 +1329,22 @@ export const broadcasts = pgTable(
     /** «Отправить себе»: requested → the worker sends the content to the owners. */
     testRequestedAt: timestamp('test_requested_at', { withTimezone: true }),
     testStatus: text('test_status', { enum: broadcastTestStatuses }),
+    /**
+     * «Возврат пользователей» (@zybrilka/shared BroadcastAudience): null →
+     * every chat that started the bot, as before; set → only matching
+     * registered users with a linked chat (snapshotted by the worker).
+     */
+    audience: jsonb('audience').$type<Record<string, unknown>>(),
+    /** Ready category (d3/d7/d20), copied from the audience for the repeat guard. */
+    stage: text('stage'),
+    /** A button under the message with a per-recipient link (click tracking). */
+    trackClicks: boolean('track_clicks').notNull().default(false),
+    buttonText: text('button_text'),
   },
-  (table) => [index('broadcasts_status_created_idx').on(table.status, table.createdAt)],
+  (table) => [
+    index('broadcasts_status_created_idx').on(table.status, table.createdAt),
+    index('broadcasts_stage_idx').on(table.stage),
+  ],
 );
 
 /** Images of a broadcast, in the order they were added (`position`). */
@@ -1385,10 +1399,18 @@ export const broadcastDeliveries = pgTable(
     /** Send passes made for this chat (a network outage puts it back in the queue). */
     attempts: integer('attempts').notNull().default(0),
     sentAt: timestamp('sent_at', { withTimezone: true }),
+    /** The account behind the chat, for audience broadcasts (reaction statistics). */
+    userId: uuid('user_id').references(() => users.id),
+    /** Per-recipient link token (`/api/v1/go/b/:token`) — the only way a click is known. */
+    clickToken: uuid('click_token').notNull().defaultRandom(),
+    clickedAt: timestamp('clicked_at', { withTimezone: true }),
+    clickCount: integer('click_count').notNull().default(0),
   },
   (table) => [
     primaryKey({ columns: [table.broadcastId, table.chatId] }),
     index('broadcast_deliveries_status_idx').on(table.broadcastId, table.status),
+    index('broadcast_deliveries_user_idx').on(table.userId),
+    uniqueIndex('broadcast_deliveries_click_token_idx').on(table.clickToken),
   ],
 );
 
