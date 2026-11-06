@@ -242,12 +242,16 @@ export async function submitAttempt(
   if (typeof input.answer !== 'string') throw new InvalidAnswerShapeError();
   const answerRaw = input.answer;
 
+  // The official key may accept several answers (acceptedAnswers): any of
+  // them counts, each checked exactly like the main one.
   const correct =
     answerType === 'interval'
       ? checkIntervalAnswer(answerRaw, row.task.correctAnswer)
-      : checkAnswer(answerRaw, row.task.correctAnswer, {
-          digitSetOrderInsensitive: row.task.digitSetOrderInsensitive,
-        });
+      : [row.task.correctAnswer, ...(row.task.acceptedAnswers ?? [])].some((key) =>
+          checkAnswer(answerRaw, key, {
+            digitSetOrderInsensitive: row.task.digitSetOrderInsensitive,
+          }),
+        );
 
   if (userId === null) {
     return {

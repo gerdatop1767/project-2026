@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "accepted_answers" text[] DEFAULT '{}'::text[] NOT NULL;

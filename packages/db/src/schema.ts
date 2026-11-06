@@ -347,6 +347,17 @@ export const tasks = pgTable(
     /** Never sent to the client before an attempt exists for it — see modules/tasks/service.ts. */
     correctAnswer: text('correct_answer').notNull(),
     /**
+     * Other answers the official key also accepts for a `short_answer`
+     * task («поэтому <или> потому <или> оттого», «вспыхивалигасли <или>
+     * гасливспыхивали»): checked exactly like `correctAnswer`, with the
+     * same options. Empty for every task without alternatives. Never sent
+     * to the client — like `correctAnswer`.
+     */
+    acceptedAnswers: text('accepted_answers')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /**
      * Optional presentation-only version of `correctAnswer` — LaTeX
      * ($...$) for a value whose plain form isn't real math typography
      * (e.g. "arccos(√10/5)", an interval-set string). Never read by
