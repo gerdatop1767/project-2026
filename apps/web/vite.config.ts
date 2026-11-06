@@ -1,7 +1,7 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react';
 import { defaultClientConditions, defineConfig } from 'vite';
-import { seoPrerender } from './seo/prerender';
+import { seoPrerender } from './seo/prerender.js';
 
 export default defineConfig({
   plugins: [react(), seoPrerender()],

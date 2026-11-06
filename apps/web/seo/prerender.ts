@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Plugin } from 'vite';
-import { headTagsFor, INDEXABLE_PAGES, sitemapXml } from '../src/lib/seo';
+import { headTagsFor, INDEXABLE_PAGES, sitemapXml } from '../src/lib/seo.js';
 
 const START = '<!-- seo:start -->';
 const END = '<!-- seo:end -->';

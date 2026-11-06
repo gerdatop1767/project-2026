@@ -35,7 +35,7 @@ import { ToolsPanelMobile } from '../../ui/Training/ToolsPanelMobile.js';
 import { OtherVariantsSection } from '../../ui/Training/OtherVariantsSection.js';
 import { useCountUp } from '../../lib/useCountUp.js';
 import { Collapse, SlideUp } from '../../ui/motion/motion.js';
-import { InlineMathText, MathText } from '../../ui/MathText/MathText.js';
+import { InlineMathText, AnswerMathText, MathText } from '../../ui/MathText/MathText.js';
 import {
   TaskExamIllustration,
   TaskSolutionIllustration,
@@ -316,14 +316,18 @@ export function ResultMobile({
                     part.correct ? styles.answerBoxCorrect : styles.answerBoxWrong,
                   )}
                 >
-                  {multiPartUserAnswer[part.id] || '—'}
+                  <span className={styles.answerText}>{multiPartUserAnswer[part.id] || '—'}</span>
                   <Icon name={part.correct ? 'check' : 'close'} size={18} />
                 </p>
                 {!part.correct && (
                   <p className={clsx(styles.answerBox, styles.answerBoxReference)}>
-                    <InlineMathText
-                      text={multiPartSpec!.parts.find((p) => p.id === part.id)?.correctAnswer ?? ''}
-                    />
+                    <span className={styles.answerText}>
+                      <AnswerMathText
+                        text={
+                          multiPartSpec!.parts.find((p) => p.id === part.id)?.correctAnswer ?? ''
+                        }
+                      />
+                    </span>
                   </p>
                 )}
               </div>
@@ -338,14 +342,16 @@ export function ResultMobile({
                 correct ? styles.answerBoxCorrect : styles.answerBoxWrong,
               )}
             >
-              {userAnswer || '—'}
+              <span className={styles.answerText}>{userAnswer || '—'}</span>
               <Icon name={correct ? 'check' : 'close'} size={18} />
             </p>
             {!correct && (
               <>
                 <p className="text-body-sm text-secondary">Правильный ответ:</p>
                 <p className={clsx(styles.answerBox, styles.answerBoxReference)}>
-                  <InlineMathText text={task.correctAnswerDisplay ?? task.correctAnswer} />
+                  <span className={styles.answerText}>
+                    <AnswerMathText text={task.correctAnswerDisplay ?? task.correctAnswer} />
+                  </span>
                 </p>
               </>
             )}

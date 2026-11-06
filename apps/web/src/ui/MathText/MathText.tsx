@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import katex from 'katex';
 import { tokenizeMathText } from './mathTokenizer.js';
 import { parseEmphasis, parseHeading, splitItalicMathLines } from './emphasis.js';
+import { wrapAnswerMath } from './answerWrapping.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './MathText.module.css';
 
@@ -59,6 +60,17 @@ export function MathText({
  */
 export function InlineMathText({ text }: { text: string }) {
   return <MathLine text={text} />;
+}
+
+/**
+ * An answer (correct or reference): like `InlineMathText`, but a long
+ * formula may wrap between its top-level items (∪, «,», «;») instead of
+ * only scrolling — see `answerWrapping.ts`. Never for conditions or
+ * solutions.
+ */
+export function AnswerMathText({ text }: { text: string }) {
+  const wrapped = useMemo(() => wrapAnswerMath(text), [text]);
+  return <MathLine text={wrapped} />;
 }
 
 /** Splits off whole `_…_` lines that hold a formula: the formula would

@@ -130,6 +130,9 @@
 }
 
 .answerBox {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -138,6 +141,18 @@
   border-radius: var(--radius-input);
   font-size: var(--font-size-body);
   margin: 0;
+}
+
+.answerBox > svg {
+  flex-shrink: 0;
+}
+
+/* The answer itself: one block that wraps. A single formula wider than
+   the box scrolls inside its own MathText scroller (with edge cues). */
+.answerText {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .answerBoxCorrect {

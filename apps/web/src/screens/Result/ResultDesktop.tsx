@@ -34,7 +34,7 @@ import { SessionTaskListCard } from '../../ui/Training/SessionTaskListCard.js';
 import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { useCountUp } from '../../lib/useCountUp.js';
 import { FadeIn } from '../../ui/motion/motion.js';
-import { InlineMathText, MathText } from '../../ui/MathText/MathText.js';
+import { InlineMathText, AnswerMathText, MathText } from '../../ui/MathText/MathText.js';
 import {
   TaskExamIllustration,
   TaskSolutionIllustration,
@@ -350,7 +350,7 @@ export function ResultDesktop({
                         <>
                           <span className="text-body-sm text-secondary">Правильный ответ:</span>
                           <p className={clsx(styles.answerValue, styles.answerValueReference)}>
-                            <InlineMathText
+                            <AnswerMathText
                               text={
                                 multiPartSpec!.parts.find((p) => p.id === part.id)?.correctAnswer ??
                                 ''
@@ -382,7 +382,7 @@ export function ResultDesktop({
                     <>
                       <span className="text-body-sm text-secondary">Правильный ответ:</span>
                       <p className={clsx(styles.answerValue, styles.answerValueReference)}>
-                        <InlineMathText text={task.correctAnswerDisplay ?? task.correctAnswer} />
+                        <AnswerMathText text={task.correctAnswerDisplay ?? task.correctAnswer} />
                       </p>
                     </>
                   )}
@@ -594,7 +594,7 @@ function ResultCard({
         <div className={styles.resultRow}>
           <span className="text-body-sm text-secondary">Правильный ответ</span>
           <span className="text-body-sm">
-            <InlineMathText text={correctAnswer} />
+            <AnswerMathText text={correctAnswer} />
           </span>
         </div>
         {showXp && (

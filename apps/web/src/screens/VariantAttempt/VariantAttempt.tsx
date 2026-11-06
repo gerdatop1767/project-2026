@@ -14,7 +14,7 @@ import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { InlineMathText, MathText } from '../../ui/MathText/MathText.js';
+import { AnswerMathText, MathText } from '../../ui/MathText/MathText.js';
 import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { Collapse, SlideUp } from '../../ui/motion/motion.js';
 import { PrimaryPoints } from './PrimaryPoints.js';
@@ -321,7 +321,7 @@ function TaskRow({
             <div>
               <dt className="text-body-sm text-secondary">Правильный ответ</dt>
               <dd>
-                <InlineMathText text={task.correctAnswer} />
+                <AnswerMathText text={task.correctAnswer} />
               </dd>
             </div>
             {task.timeSpentMs !== null && (
