@@ -35,6 +35,8 @@ import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { useCountUp } from '../../lib/useCountUp.js';
 import { FadeIn } from '../../ui/motion/motion.js';
 import { InlineMathText, AnswerMathText, MathText } from '../../ui/MathText/MathText.js';
+import { SolutionText } from '../../ui/Solution/SolutionText.js';
+import { bindPlainFormulas } from '../../ui/Solution/solutionBlocks.js';
 import {
   TaskExamIllustration,
   TaskSolutionIllustration,
@@ -361,7 +363,11 @@ export function ResultDesktop({
                       )}
                     </div>
                     <p className="text-body-sm" style={{ marginTop: 'var(--space-2)' }}>
-                      <InlineMathText text={explanationForPart(explanationSections, part.label)} />
+                      <InlineMathText
+                        text={bindPlainFormulas(
+                          explanationForPart(explanationSections, part.label),
+                        )}
+                      />
                     </p>
                   </div>
                 ))}
@@ -411,11 +417,12 @@ export function ResultDesktop({
                 </div>
                 <div className={styles.steps}>
                   {(correct || detailedSolution) && hasDetailedExplanation(task) ? (
-                    <div className={styles.step}>
-                      <div className={styles.stepBody}>
-                        <MathText text={task.explanation} className="text-body-sm" />
-                      </div>
-                    </div>
+                    <SolutionText text={task.explanation} className="text-body-sm" />
+                  ) : (correct || detailedSolution) &&
+                    task.steps.length === 1 &&
+                    !task.steps[0]!.title ? (
+                    // One untitled «step» is the whole solution, not step 1 of 1.
+                    <SolutionText text={task.steps[0]!.text} className="text-body-sm" />
                   ) : (
                     (correct || detailedSolution ? task.steps : task.steps.slice(-1)).map(
                       (step, i) => {
@@ -429,9 +436,7 @@ export function ResultDesktop({
                                   <InlineMathText text={step.title} />
                                 </p>
                               )}
-                              <p className="text-body-sm">
-                                <InlineMathText text={step.text} />
-                              </p>
+                              <SolutionText text={step.text} className="text-body-sm" />
                             </div>
                           </div>
                         );

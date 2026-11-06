@@ -14,7 +14,8 @@ import { BackRow } from '../../ui/BackRow/BackRow.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { AnswerMathText, MathText } from '../../ui/MathText/MathText.js';
+import { AnswerMathText } from '../../ui/MathText/MathText.js';
+import { SolutionText } from '../../ui/Solution/SolutionText.js';
 import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { Collapse, SlideUp } from '../../ui/motion/motion.js';
 import { PrimaryPoints } from './PrimaryPoints.js';
@@ -334,7 +335,7 @@ function TaskRow({
           {task.explanationMd.trim() && (
             <div className={styles.explanation}>
               <p className="text-body-sm text-secondary">Разбор</p>
-              <MathText text={task.explanationMd} className="text-body-sm" />
+              <SolutionText text={task.explanationMd} className="text-body-sm" />
             </div>
           )}
           <Button variant="secondary" onClick={onOpenTask}>

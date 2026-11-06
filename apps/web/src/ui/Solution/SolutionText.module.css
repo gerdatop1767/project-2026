@@ -1,0 +1,77 @@
+/* One visual system for every written solution (SolutionText.tsx). */
+
+.solution {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  /* Text and plain-text formulas: a run longer than the line still wraps
+     rather than leaving the card (formulas never break otherwise). */
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  text-align: left;
+}
+
+/* Every block: never wider than the solution (a wide KaTeX formula
+   scrolls inside its own MathText scroller). */
+.solution > * {
+  min-width: 0;
+  margin: 0;
+}
+
+/* Display formulas ($$…$$) breathe apart from the text around them. */
+.solution :global(.katex-display) {
+  margin: var(--space-2) 0;
+}
+
+.text,
+.labelled {
+  color: var(--color-text-primary);
+}
+
+.label {
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.given .label,
+.idea .label {
+  color: var(--color-accent-primary);
+}
+
+/* «Шаг N.»: a sequence, not cards — a thin rail and the label as a small heading. */
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
+  border-left: 2px solid color-mix(in srgb, var(--color-accent-primary) 45%, transparent);
+}
+
+.stepLabel {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--color-accent-primary);
+}
+
+.body {
+  min-width: 0;
+}
+
+/* «Ответ»: the one highlighted block. */
+.answer {
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-accent-primary) 12%, transparent);
+  color: var(--color-text-primary);
+}
+
+.answerLabel {
+  font-weight: 700;
+}
+
+.answerBody {
+  min-width: 0;
+}
