@@ -1,0 +1,226 @@
+{
+  "updated": "2026-11-07T21:31:18",
+  "target": 936,
+  "variants": {
+    "1": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "2": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "3": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "4": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "5": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "6": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "7": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "8": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "9": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 25,
+      "needs_review": 1
+    },
+    "10": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "11": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "12": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "13": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "14": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "15": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "16": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "17": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "18": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "19": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "20": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "21": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "22": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "23": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "24": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "25": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "26": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "27": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "28": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "29": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "30": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "31": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "32": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "33": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "34": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "35": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    },
+    "36": {
+      "state": "prepared",
+      "tasks": 26,
+      "published": 26,
+      "needs_review": 0
+    }
+  },
+  "prepared": 936,
+  "published": 935,
+  "needs_review": 1,
+  "reused": 2
+}
