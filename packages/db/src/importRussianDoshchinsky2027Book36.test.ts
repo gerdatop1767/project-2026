@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { checkAnswer, parseMultiPartSpec } from '@zybrilka/shared';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -72,6 +74,37 @@ describe('«36 вариантов» data (static checks)', () => {
         for (const m of t.conditionMd.matchAll(/\b(\d{1,2})\b/g))
           expect(Number(m[1]), `В${v.variant} №${n}`).toBeLessThanOrEqual(max);
       }
+    }
+  });
+});
+
+describe('«36 вариантов» does not duplicate content already in the bot', () => {
+  const letters = (s: string) => s.toLowerCase().replace(/[^а-яё]/g, '');
+  const dir = fileURLToPath(new URL('.', import.meta.url));
+  const existing = readdirSync(dir)
+    .filter((f) => /^importRussianDoshchinsky2027Variant\d+\.ts$/.test(f))
+    .map((f) => letters(readFileSync(dir + f, 'utf8').replace(/\\n/g, ' ')));
+  /** 30-letter windows of a text, taken every 15 letters. */
+  const windows = (s: string) => {
+    const n = letters(s);
+    const out: string[] = [];
+    for (let i = 0; i + 30 < n.length; i += 15) out.push(n.slice(i, i + 30));
+    return out;
+  };
+  const shared = (text: string, other: string) => {
+    const ws = windows(text);
+    return ws.length === 0 ? 0 : ws.filter((w) => other.includes(w)).length / ws.length;
+  };
+
+  it('no passage of the book repeats a passage of the earlier 18 variants or of another book variant', () => {
+    const all = r36Variants.flatMap((v) =>
+      (['A', 'B'] as const).map((k) => ({ id: `В${v.variant}${k}`, text: v.passages[k].bodyMd })),
+    );
+    for (const p of all) {
+      for (const e of existing) expect(shared(p.text, e), p.id).toBeLessThan(0.3);
+      for (const q of all)
+        if (q.id !== p.id)
+          expect(shared(p.text, letters(q.text)), `${p.id} ~ ${q.id}`).toBeLessThan(0.3);
     }
   });
 });
