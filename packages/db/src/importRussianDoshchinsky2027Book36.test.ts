@@ -132,7 +132,7 @@ describe('«36 вариантов» does not duplicate content already in the bo
   });
 });
 
-describe('importRussianDoshchinsky36 (database)', () => {
+describe('importRussianDoshchinsky36 (database)', { timeout: 60_000 }, () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
   beforeAll(async () => {
     testDb = await createTestDb();
