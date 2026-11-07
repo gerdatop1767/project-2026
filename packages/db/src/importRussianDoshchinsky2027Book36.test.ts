@@ -272,6 +272,35 @@ describe('importRussianDoshchinsky36 (database)', { timeout: 60_000 }, () => {
     expect(await bookTasks()).toHaveLength(before);
   });
 
+  it('rolls back the whole book when the database rejects a row late in the import', async () => {
+    const original = (await bookTasks()).find((t) => t.sourceVariant === 1 && t.taskNumber === 1);
+    expect(original).toBeDefined();
+    // В1 №1 changes (written first), then В36 №26 violates NOT NULL (written last).
+    const failing = r36Variants.map((v) =>
+      v.variant === 1
+        ? {
+            ...v,
+            tasks: v.tasks.map((t) =>
+              t.taskNumber === 1 ? { ...t, explanationMd: 'изменённое объяснение' } : t,
+            ),
+          }
+        : v.variant === 36
+          ? {
+              ...v,
+              tasks: v.tasks.map((t) =>
+                t.taskNumber === 26 ? { ...t, conditionMd: null as unknown as string } : t,
+              ),
+            }
+          : v,
+    );
+    await expect(importRussianDoshchinsky36(testDb.db, failing)).rejects.toThrow(
+      /condition_md|null/i,
+    );
+    const after = (await bookTasks()).find((t) => t.id === original!.id);
+    expect(after?.explanationMd).toBe(original!.explanationMd);
+    expect(after?.updatedAt).toEqual(original!.updatedAt);
+  });
+
   it('stores a needs_review task hidden and publishes it only when the data says so', async () => {
     const flagged = r36Variants.map((v) =>
       v.variant === 9
