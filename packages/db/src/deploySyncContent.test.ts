@@ -38,7 +38,7 @@ import { describe, expect, it } from 'vitest';
 /** «ЕГЭ 2027 Ященко» math variants imported so far (Вариант 1…N). */
 const MATH_2027_VARIANTS = 25;
 
-describe(`infra/docker-compose.yml — sync-content runs every EGE variant import (10 math 2026 + ${MATH_2027_VARIANTS} math 2027 + 18 Russian)`, () => {
+describe(`infra/docker-compose.yml — sync-content runs every EGE variant import (10 math 2026 + ${MATH_2027_VARIANTS} math 2027 + 18 Russian + the 36-variant Russian book)`, () => {
   const composePath = fileURLToPath(new URL('../../../infra/docker-compose.yml', import.meta.url));
   const compose = readFileSync(composePath, 'utf-8');
 
@@ -100,15 +100,25 @@ describe(`infra/docker-compose.yml — sync-content runs every EGE variant impor
     expect(russianPositions[0]).toBeGreaterThan(mathPositions[mathPositions.length - 1]!);
   });
 
+  it('runs the «36 вариантов» Russian book exactly once, after Russian V18 and before the stress dictionary', () => {
+    const book = serviceBlock.indexOf(
+      'node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Book36.js &&',
+    );
+    expect(book).toBeGreaterThan(serviceBlock.indexOf('importRussianDoshchinsky2027Variant18.js'));
+    expect(book).toBeLessThan(serviceBlock.indexOf('stressDictionary/import.js'));
+    expect(serviceBlock.match(/importRussianDoshchinsky2027Book36\.js/g)).toHaveLength(1);
+  });
+
   it('chains every import with && so a failing importer stops the sequence with a non-zero exit', () => {
-    // 10 math 2026 + N math 2027 + 18 Russian + the stress dictionary,
+    // 10 math 2026 + N math 2027 + 18 Russian + the 36-variant book + the stress dictionary,
     // joined by && — one "&&" fewer than invocations. Not ";" (which would
     // silently continue past a failure) and not "||" (which would swallow one).
-    const invocations = 10 + MATH_2027_VARIANTS + 18 + 1;
+    const invocations = 10 + MATH_2027_VARIANTS + 18 + 1 + 1;
     const andCount = (serviceBlock.match(/&&/g) ?? []).length;
     expect(andCount).toBe(invocations - 1);
     expect(serviceBlock).not.toMatch(/importEge2026Variant\d{1,2}\.js\s*;/);
     expect(serviceBlock).not.toMatch(/importRussianDoshchinsky2027Variant\d{1,2}\.js\s*;/);
+    expect(serviceBlock).not.toMatch(/importRussianDoshchinsky2027Book36\.js\s*;/);
     expect(serviceBlock).not.toContain('||');
   });
 
@@ -142,12 +152,10 @@ describe(`infra/docker-compose.yml — sync-content runs every EGE variant impor
     const stress = serviceBlock.indexOf(
       'node_modules/@zybrilka/db/dist/stressDictionary/import.js',
     );
-    expect(stress).toBeGreaterThan(
-      serviceBlock.indexOf('importRussianDoshchinsky2027Variant18.js'),
-    );
+    expect(stress).toBeGreaterThan(serviceBlock.indexOf('importRussianDoshchinsky2027Book36.js'));
     // Chained with && like the rest: a failing import fails the service.
     expect(serviceBlock).toMatch(
-      /Variant18\.js &&\s+node node_modules\/@zybrilka\/db\/dist\/stressDictionary\/import\.js/,
+      /Book36\.js &&\s+node node_modules\/@zybrilka\/db\/dist\/stressDictionary\/import\.js/,
     );
   });
 });

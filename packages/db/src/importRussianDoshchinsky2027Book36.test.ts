@@ -202,10 +202,158 @@ describe('importRussianDoshchinsky36 (database)', { timeout: 60_000 }, () => {
     }
   });
 
+  it('a repeated import changes nothing: no new rows, no rewrites, same ids', async () => {
+    const before = await bookTasks();
+    const again = await importRussianDoshchinsky36(testDb.db);
+    expect(again.created).toBe(0);
+    expect(again.updated).toBe(0);
+    expect(again.unchanged).toBe(uniqueTaskCount);
+    expect(again.unique).toBe(uniqueTaskCount);
+    expect(again.unlinked).toBe(0);
+    const after = await bookTasks();
+    const stamp = (rows: typeof before) =>
+      rows.map((r) => `${r.id}|${r.updatedAt.toISOString()}`).sort();
+    expect(stamp(after)).toEqual(stamp(before));
+  });
+
+  it('keeps attempts, mistakes and favorites on book tasks across re-imports', async () => {
+    const [task] = await bookTasks();
+    const [user] = await testDb.db.insert(schema.users).values({}).returning();
+    const [attempt] = await testDb.db
+      .insert(schema.attempts)
+      .values({ userId: user!.id, taskId: task!.id, answerRaw: 'x', isCorrect: false })
+      .returning();
+    await testDb.db.insert(schema.mistakes).values({
+      userId: user!.id,
+      taskId: task!.id,
+      firstAttemptId: attempt!.id,
+      lastAttemptId: attempt!.id,
+    });
+    await testDb.db.insert(schema.favorites).values({ userId: user!.id, taskId: task!.id });
+
+    await importRussianDoshchinsky36(testDb.db);
+
+    const byUser = <T extends { userId: unknown }>(t: T) => eq(t.userId as never, user!.id);
+    expect(
+      await testDb.db.select().from(schema.attempts).where(byUser(schema.attempts)),
+    ).toHaveLength(1);
+    expect(
+      await testDb.db.select().from(schema.mistakes).where(byUser(schema.mistakes)),
+    ).toHaveLength(1);
+    expect(
+      await testDb.db.select().from(schema.favorites).where(byUser(schema.favorites)),
+    ).toHaveLength(1);
+    const [still] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(eq(schema.tasks.id, task!.id));
+    expect(still?.status).toBe(task!.status);
+  });
+
+  it('refuses invalid data before writing anything (no partial import)', async () => {
+    const before = (await bookTasks()).length;
+    const broken = r36Variants.map((v) =>
+      v.variant === 36 ? { ...v, tasks: v.tasks.filter((t) => t.taskNumber !== 26) } : v,
+    );
+    await expect(importRussianDoshchinsky36(testDb.db, broken)).rejects.toThrow(
+      /В36: tasks are not 1–26/,
+    );
+    const badRef = r36Variants.map((v) =>
+      v.variant === 21
+        ? {
+            ...v,
+            tasks: v.tasks.map((t) =>
+              t.sameAs ? { ...t, sameAs: { variant: 30, taskNumber: 13 } } : t,
+            ),
+          }
+        : v,
+    );
+    await expect(importRussianDoshchinsky36(testDb.db, badRef)).rejects.toThrow(/bad sameAs/);
+    expect(await bookTasks()).toHaveLength(before);
+  });
+
+  it('stores a needs_review task hidden and publishes it only when the data says so', async () => {
+    const flagged = r36Variants.map((v) =>
+      v.variant === 9
+        ? {
+            ...v,
+            tasks: v.tasks.map((t) =>
+              t.taskNumber === 26
+                ? { ...t, status: 'needs_review' as const, reviewReason: 'test' }
+                : t,
+            ),
+          }
+        : v,
+    );
+    const r = await importRussianDoshchinsky36(testDb.db, flagged);
+    expect(r.needsReview).toBe(1);
+    expect(r.updated).toBe(1);
+    const row = (await bookTasks()).find((t) => t.sourceVariant === 9 && t.taskNumber === 26)!;
+    expect(row.status).toBe('needs_review');
+    const back = await importRussianDoshchinsky36(testDb.db);
+    expect(back.updated).toBe(1);
+    const again = (await bookTasks()).find((t) => t.sourceVariant === 9 && t.taskNumber === 26)!;
+    expect(again.status).toBe(
+      r36Variants.find((v) => v.variant === 9)!.tasks.find((t) => t.taskNumber === 26)!.status,
+    );
+    expect(again.id).toBe(row.id);
+  });
+
+  it('replaces a stale own row of a repeated task with the link to the original (row archived, not deleted)', async () => {
+    const [collection] = await testDb.db
+      .select()
+      .from(schema.collections)
+      .where(eq(schema.collections.slug, R36_COLLECTION_SLUG));
+    const [v21] = await testDb.db
+      .select()
+      .from(schema.variants)
+      .where(
+        and(
+          eq(schema.variants.collectionId, collection!.id),
+          eq(schema.variants.variantNumber, 21),
+        ),
+      );
+    const [stale] = await testDb.db
+      .insert(schema.tasks)
+      .values({
+        subjectId: 'russian',
+        taskNumber: 13,
+        conditionMd: 'stale copy',
+        rawStatement: 'stale copy',
+        difficulty: 2,
+        correctAnswer: '23',
+        explanationMd: '',
+        source: R36_SOURCE,
+        sourceVariant: 21,
+        contentHash: 'stale-v21-13',
+        status: 'published',
+      })
+      .returning();
+    await testDb.db
+      .insert(schema.variantTasks)
+      .values({ variantId: v21!.id, taskId: stale!.id, position: 13 });
+
+    const r = await importRussianDoshchinsky36(testDb.db);
+    expect(r.unlinked).toBe(1);
+    const links = await testDb.db
+      .select()
+      .from(schema.variantTasks)
+      .where(eq(schema.variantTasks.variantId, v21!.id));
+    expect(links).toHaveLength(26);
+    expect(links.some((l) => l.taskId === stale!.id)).toBe(false);
+    const [archived] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(eq(schema.tasks.id, stale!.id));
+    expect(archived?.status).toBe('archived');
+  });
+
   it('coexists with the earlier Дощинский collection without touching it', async () => {
     const earlier = await importRussianVariant1(testDb.db);
     expect(earlier.total).toBe(27);
     await importRussianDoshchinsky36(testDb.db);
-    expect(await bookTasks()).toHaveLength(uniqueTaskCount);
+    // Book rows: the unique tasks plus the archived stale row from the test above.
+    const rows = await bookTasks();
+    expect(rows.filter((r) => r.status !== 'archived')).toHaveLength(uniqueTaskCount);
   });
 });

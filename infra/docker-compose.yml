@@ -134,6 +134,15 @@ services:
   # 18×27 cross-variant audit), they were still not in this chain — the
   # same class of gap, now fixed for all 18.
   #
+  # After Russian V18: the separate «36 вариантов» Дощинский book
+  # (importRussianDoshchinsky2027Book36.ts, own collection
+  # `ege-2027-doshchinskiy-russian-36`: 36 variants, 936 positions, 934
+  # task rows — two tasks the book prints twice are stored once and linked
+  # into both variants). It validates the whole data set first and imports
+  # it in one transaction, so it either completes or exits non-zero with
+  # nothing written; task rows keep their ids and are rewritten only when
+  # their content changed; `needs_review` tasks stay hidden.
+  #
   # Last in the chain: the «Ударения» mini-game's stress dictionary
   # (packages/db/src/stressDictionary, docs/MINI_GAMES.md). Same rules as
   # the variant importers: upsert by a stable key (word ids — and players'
@@ -210,6 +219,7 @@ services:
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant16.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant17.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant18.js &&
+        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Book36.js &&
         node node_modules/@zybrilka/db/dist/stressDictionary/import.js
     restart: 'no'
 

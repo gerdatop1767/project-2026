@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-07T21:31:18",
+  "updated": "2026-11-07T21:46:51",
   "target": 936,
   "variants": {
     "1": {
@@ -53,8 +53,8 @@
     "9": {
       "state": "prepared",
       "tasks": 26,
-      "published": 25,
-      "needs_review": 1
+      "published": 26,
+      "needs_review": 0
     },
     "10": {
       "state": "prepared",
@@ -220,7 +220,7 @@
     }
   },
   "prepared": 936,
-  "published": 935,
-  "needs_review": 1,
+  "published": 936,
+  "needs_review": 0,
   "reused": 2
 }
