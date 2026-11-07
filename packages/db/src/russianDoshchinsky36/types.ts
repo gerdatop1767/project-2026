@@ -40,6 +40,12 @@ export interface R36Task {
   status: 'published' | 'needs_review';
   /** Why the task is not published, when status is needs_review. */
   reviewReason: string | null;
+  /**
+   * The book prints this task word for word in an earlier variant. The
+   * importer then links that earlier task row into this variant instead of
+   * creating a second copy (a task may belong to several variants).
+   */
+  sameAs?: { variant: number; taskNumber: number };
 }
 
 export interface R36Variant {

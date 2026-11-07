@@ -13,6 +13,10 @@ import { r36Variants } from './russianDoshchinsky36/index.js';
 import * as schema from './schema.js';
 import { createTestDb } from './testing.js';
 
+/** Tasks the book repeats from an earlier variant (stored once, linked twice). */
+const reusedCount = r36Variants.flatMap((v) => v.tasks).filter((t) => t.sameAs).length;
+const uniqueTaskCount = r36Variants.length * 26 - reusedCount;
+
 /** Sentence numbers «(1)…(N)» of a passage, in order of appearance. */
 const sentenceNumbers = (md: string) => [...md.matchAll(/\((\d+)\)/g)].map((m) => Number(m[1]));
 
@@ -60,6 +64,25 @@ describe('«36 вариантов» data (static checks)', () => {
           );
           expect(ok, `В${v.variant} №${t.taskNumber}: ${a}`).toBe(true);
         }
+      }
+    }
+  });
+
+  it('a repeated task points to an earlier variant with the same condition and answer', () => {
+    for (const v of r36Variants) {
+      for (const t of v.tasks) {
+        if (!t.sameAs) continue;
+        const where = `В${v.variant} №${t.taskNumber}`;
+        expect(t.sameAs.variant, where).toBeLessThan(v.variant);
+        const original = r36Variants
+          .find((x) => x.variant === t.sameAs!.variant)
+          ?.tasks.find((x) => x.taskNumber === t.sameAs!.taskNumber);
+        expect(original, where).toBeDefined();
+        expect(original!.sameAs, where).toBeUndefined();
+        expect(original!.conditionMd, where).toBe(t.conditionMd);
+        expect(original!.correctAnswer, where).toBe(t.correctAnswer);
+        expect(original!.acceptedAnswers, where).toEqual(t.acceptedAnswers);
+        expect(original!.passage, where).toBeNull();
       }
     }
   });
@@ -128,7 +151,9 @@ describe('importRussianDoshchinsky36 (database)', () => {
     const first = await importRussianDoshchinsky36(testDb.db);
     expect(first.variants).toBe(r36Variants.length);
     expect(first.total).toBe(r36Variants.length * 26);
+    expect(first.reused).toBe(reusedCount);
     const ids = (await bookTasks()).map((t) => t.id).sort();
+    expect(ids).toHaveLength(uniqueTaskCount);
     const again = await importRussianDoshchinsky36(testDb.db);
     expect(again.total).toBe(first.total);
     expect((await bookTasks()).map((t) => t.id).sort()).toEqual(ids);
@@ -142,14 +167,25 @@ describe('importRussianDoshchinsky36 (database)', () => {
       .from(schema.variants)
       .where(eq(schema.variants.collectionId, collection!.id));
     expect(variants).toHaveLength(r36Variants.length);
+    for (const v of variants) {
+      const links = await testDb.db
+        .select()
+        .from(schema.variantTasks)
+        .where(eq(schema.variantTasks.variantId, v.id));
+      expect(
+        links.map((l) => l.position).sort((a, b) => a - b),
+        v.title,
+      ).toEqual(Array.from({ length: 26 }, (_, i) => i + 1));
+    }
   });
 
   it('stores alternatives, any-order flags, multi_part keys, passages and needs_review status', async () => {
     const rows = await bookTasks();
     for (const v of r36Variants) {
       for (const t of v.tasks) {
+        const from = t.sameAs ?? { variant: v.variant, taskNumber: t.taskNumber };
         const row = rows.find(
-          (r) => r.sourceVariant === v.variant && r.taskNumber === t.taskNumber,
+          (r) => r.sourceVariant === from.variant && r.taskNumber === from.taskNumber,
         )!;
         const where = `В${v.variant} №${t.taskNumber}`;
         expect(row.status, where).toBe(t.status);
@@ -170,6 +206,6 @@ describe('importRussianDoshchinsky36 (database)', () => {
     const earlier = await importRussianVariant1(testDb.db);
     expect(earlier.total).toBe(27);
     await importRussianDoshchinsky36(testDb.db);
-    expect(await bookTasks()).toHaveLength(r36Variants.length * 26);
+    expect(await bookTasks()).toHaveLength(uniqueTaskCount);
   });
 });

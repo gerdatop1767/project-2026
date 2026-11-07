@@ -304,6 +304,7 @@ export const variant21: R36Variant = {
       hintMd: 'Слова меры и степени («совершенно», «очень») не мешают слитному написанию.',
       status: 'published',
       reviewReason: null,
+      sameAs: { variant: 14, taskNumber: 13 },
     },
     {
       taskNumber: 14,

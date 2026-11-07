@@ -153,6 +153,34 @@ async function importVariant(db: Database, collectionId: string, data: R36Varian
   const existingIdByNumber = new Map(existing.map((r) => [r.taskNumber, r.id]));
 
   for (const task of data.tasks) {
+    if (task.sameAs) {
+      // The book repeats this task from an earlier variant: link that row
+      // into this variant instead of storing a copy.
+      const [original] = await db
+        .select({ id: schema.tasks.id })
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, SUBJECT_ID),
+            eq(schema.tasks.source, R36_SOURCE),
+            eq(schema.tasks.sourceVariant, task.sameAs.variant),
+            eq(schema.tasks.taskNumber, task.sameAs.taskNumber),
+          ),
+        );
+      if (!original) {
+        throw new Error(
+          `В${data.variant} №${task.taskNumber} repeats В${task.sameAs.variant} №${task.sameAs.taskNumber}, which is not imported yet`,
+        );
+      }
+      await db
+        .insert(schema.variantTasks)
+        .values({ variantId: variant!.id, taskId: original.id, position: task.taskNumber })
+        .onConflictDoUpdate({
+          target: [schema.variantTasks.variantId, schema.variantTasks.taskId],
+          set: { position: task.taskNumber },
+        });
+      continue;
+    }
     const values = {
       subjectId: SUBJECT_ID,
       taskNumber: task.taskNumber,
@@ -207,6 +235,7 @@ async function importVariant(db: Database, collectionId: string, data: R36Varian
     total: data.tasks.length,
     published: data.tasks.filter((t) => t.status === 'published').length,
     needsReview: data.tasks.filter((t) => t.status === 'needs_review').length,
+    reused: data.tasks.filter((t) => t.sameAs).length,
   };
 }
 
@@ -242,6 +271,8 @@ export async function importRussianDoshchinsky36(
     total: results.reduce((s, r) => s + r.total, 0),
     published: results.reduce((s, r) => s + r.published, 0),
     needsReview: results.reduce((s, r) => s + r.needsReview, 0),
+    /** Positions filled by an earlier variant's identical task (no new row). */
+    reused: results.reduce((s, r) => s + r.reused, 0),
     perVariant: results,
   };
 }
