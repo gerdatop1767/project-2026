@@ -8,6 +8,7 @@ import { variant05 } from './variant05.js';
 import { variant06 } from './variant06.js';
 import { variant07 } from './variant07.js';
 import { variant08 } from './variant08.js';
+import { variant09 } from './variant09.js';
 
 export const r36Variants: readonly R36Variant[] = [
   variant01,
@@ -18,4 +19,5 @@ export const r36Variants: readonly R36Variant[] = [
   variant06,
   variant07,
   variant08,
+  variant09,
 ];
