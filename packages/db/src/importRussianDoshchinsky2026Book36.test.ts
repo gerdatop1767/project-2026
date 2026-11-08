@@ -92,6 +92,24 @@ describe('«36 вариантов» 2026 data (static checks)', () => {
     }
   });
 
+  it('a repeated task points to an earlier variant with the same condition and answer', () => {
+    for (const v of prepared) {
+      for (const t of v.tasks) {
+        if (!t.sameAs) continue;
+        const where = `В${v.variant} №${t.taskNumber}`;
+        const original = prepared
+          .find((x) => x.variant === t.sameAs!.variant)
+          ?.tasks.find((x) => x.taskNumber === t.sameAs!.taskNumber);
+        expect(original, where).toBeDefined();
+        expect(original!.sameAs, where).toBeUndefined();
+        expect(original!.conditionMd, where).toBe(t.conditionMd);
+        expect(original!.correctAnswer, where).toBe(t.correctAnswer);
+        expect(original!.acceptedAnswers, where).toEqual(t.acceptedAnswers);
+        expect(original!.passage, where).toBeNull();
+      }
+    }
+  });
+
   it('text B is numbered (1)…(N) without gaps; tasks 24 and 26 refer to existing sentences', () => {
     for (const v of prepared) {
       const nums = sentenceNumbers(v.passages.B.bodyMd);
