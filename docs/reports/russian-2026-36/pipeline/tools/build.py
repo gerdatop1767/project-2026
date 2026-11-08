@@ -82,7 +82,7 @@ def passage_text(b, errs):
         seen = [n for n in nums if n <= max(nums)]
         if sorted(set(seen)) != exp: errs.append(f'passage B: sentence numbers missing {sorted(set(exp) - set(seen))}')
         if seen != sorted(seen): errs.append(f'passage B: numbers out of order near {[x for x, y in zip(seen, seen[1:]) if y < x][:5]}')
-    bad = re.findall(r'[A-Za-z]{2,}|[|\\@#$^&_{}~]|\s[,.;:]', re.sub(r'\((?:фр|англ|лат|нем|итал|греч)\. [A-Za-z ]+\)', '', re.sub(r'\b[IVXLC]+\b', 'Ⅹ', body.replace('*', ''))))
+    bad = re.findall(r'[A-Za-z]{2,}|[|\\@#$^&_{}~]|\s[,.;:]', re.sub(r'\((?:фр|англ|лат|нем|итал|греч)\. [A-Za-z ]+\)', '', re.sub(r'\d \: \d', '', re.sub(r'\b[IVXLC]+\b', 'Ⅹ', body.replace('*', '')))))
     if bad: errs.append(f"passage {b['id']}: suspicious {sorted(set(bad))[:15]}")
     return body
 
