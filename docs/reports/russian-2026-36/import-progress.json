@@ -16,9 +16,9 @@
     "confirmedOcrAndScan": 793,
     "readFromScanZoom": 143
   },
-  "variantsPrepared": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-  "positionsPrepared": 243,
-  "published": 242,
+  "variantsPrepared": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "positionsPrepared": 270,
+  "published": 269,
   "needsReview": [
     {
       "variant": 2,
