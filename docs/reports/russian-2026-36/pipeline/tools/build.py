@@ -74,6 +74,8 @@ def passage_text(b, errs):
         elif f' ({p})' in body: body = body.replace(f' ({p})', f'\n\n({p})', 1)
         else: errs.append(f"passage {b['id']}: para ({p}) not found")
     body = re.sub(r'\((\d+)\)\s+', r'(\1)', body)
+    for m in re.finditer(r'[,;]\s*(?:— )?\((\d+)\)', body):
+        errs.append(f"passage {b['id']}: comma/semicolon before sentence ({m.group(1)}) — OCR period? check the scan")
     nums = [int(x) for x in re.findall(r'\((\d+)\)', body)]
     if nums and b['id'] == 'B':
         exp = list(range(1, max(nums) + 1))

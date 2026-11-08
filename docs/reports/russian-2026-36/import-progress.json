@@ -16,8 +16,14 @@
     "confirmedOcrAndScan": 793,
     "readFromScanZoom": 143
   },
-  "variantsPrepared": [1],
-  "positionsPrepared": 27,
-  "published": 27,
-  "needsReview": []
+  "variantsPrepared": [1, 2, 3],
+  "positionsPrepared": 81,
+  "published": 80,
+  "needsReview": [
+    {
+      "variant": 2,
+      "task": 15,
+      "reason": "В учебнике номер (3) напечатан дважды — у пропусков в словах «си..ей» и «стекля..ой» (четвёртого номера нет). Ключ даёт ответ «3», который по смыслу относится к слову «синей»; у слова «стеклянной» пишется НН. Текст оставлен как в книге; нужно решение, исправлять ли нумерацию на (4)."
+    }
+  ]
 }
