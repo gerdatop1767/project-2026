@@ -1,0 +1,23 @@
+{
+  "book": "ЕГЭ 2026. Русский язык. 36 типовых экзаменационных вариантов (под ред. Р. А. Дощинского)",
+  "ocr": {
+    "pages": 341,
+    "done": 341,
+    "rotated": [172, 188]
+  },
+  "segmentation": {
+    "variants": 36,
+    "positionsAnchored": 972,
+    "manualAnchorCorrections": 3
+  },
+  "answerKey": {
+    "variants": 36,
+    "answers": 936,
+    "confirmedOcrAndScan": 793,
+    "readFromScanZoom": 143
+  },
+  "variantsPrepared": [1],
+  "positionsPrepared": 27,
+  "published": 27,
+  "needsReview": []
+}

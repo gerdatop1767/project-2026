@@ -1,0 +1,24 @@
+{
+  "15": {
+    "anchors": {
+      "9": 164,
+      "10": 172,
+      "11": 180,
+      "12": 188
+    },
+    "reason": "OCR damaged the wording of №9 on PDF p.124 ('НЫЕ' instead of 'пропущена'): the regex matched №10 as №9 and shifted 9–12. Verified by the 'Укажите варианты' lines and 'Ответ' separators."
+  },
+  "36": {
+    "anchors": {
+      "passageB": 268
+    },
+    "reason": "The heading 'Прочитайте текст и выполните задания 23–27' on PDF p.311 is not recognised (line 268 is OCR noise); text B starts at line 269 '(1)Если бы можно было'."
+  },
+  "24": {
+    "anchors": {
+      "9": 150,
+      "10": 159
+    },
+    "reason": "OCR split the headings of №9 and №10 ('Укажите варианты ответов, в которых во' / 'всех словах…'): the regex matched the second halves. Starts set to the 'Укажите' lines; the line order of №10's heading is to be checked against the scan when the variant is transcribed."
+  }
+}

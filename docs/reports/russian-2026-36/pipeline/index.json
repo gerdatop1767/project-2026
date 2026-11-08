@@ -1,0 +1,218 @@
+{
+  "1": {
+    "pdfStart": 2,
+    "pdfEnd": 9,
+    "printedStart": 11,
+    "printedEnd": 18
+  },
+  "2": {
+    "pdfStart": 10,
+    "pdfEnd": 17,
+    "printedStart": 19,
+    "printedEnd": 26
+  },
+  "3": {
+    "pdfStart": 18,
+    "pdfEnd": 25,
+    "printedStart": 27,
+    "printedEnd": 34
+  },
+  "4": {
+    "pdfStart": 26,
+    "pdfEnd": 33,
+    "printedStart": 35,
+    "printedEnd": 42
+  },
+  "5": {
+    "pdfStart": 34,
+    "pdfEnd": 41,
+    "printedStart": 43,
+    "printedEnd": 50
+  },
+  "6": {
+    "pdfStart": 42,
+    "pdfEnd": 50,
+    "printedStart": 51,
+    "printedEnd": 59
+  },
+  "7": {
+    "pdfStart": 51,
+    "pdfEnd": 58,
+    "printedStart": 60,
+    "printedEnd": 67
+  },
+  "8": {
+    "pdfStart": 59,
+    "pdfEnd": 67,
+    "printedStart": 68,
+    "printedEnd": 76
+  },
+  "9": {
+    "pdfStart": 68,
+    "pdfEnd": 76,
+    "printedStart": 77,
+    "printedEnd": 85
+  },
+  "10": {
+    "pdfStart": 77,
+    "pdfEnd": 84,
+    "printedStart": 86,
+    "printedEnd": 93
+  },
+  "11": {
+    "pdfStart": 85,
+    "pdfEnd": 93,
+    "printedStart": 94,
+    "printedEnd": 102
+  },
+  "12": {
+    "pdfStart": 94,
+    "pdfEnd": 101,
+    "printedStart": 103,
+    "printedEnd": 110
+  },
+  "13": {
+    "pdfStart": 102,
+    "pdfEnd": 111,
+    "printedStart": 111,
+    "printedEnd": 120
+  },
+  "14": {
+    "pdfStart": 112,
+    "pdfEnd": 120,
+    "printedStart": 121,
+    "printedEnd": 129
+  },
+  "15": {
+    "pdfStart": 121,
+    "pdfEnd": 129,
+    "printedStart": 130,
+    "printedEnd": 138
+  },
+  "16": {
+    "pdfStart": 130,
+    "pdfEnd": 138,
+    "printedStart": 139,
+    "printedEnd": 147
+  },
+  "17": {
+    "pdfStart": 139,
+    "pdfEnd": 147,
+    "printedStart": 148,
+    "printedEnd": 156
+  },
+  "18": {
+    "pdfStart": 148,
+    "pdfEnd": 156,
+    "printedStart": 157,
+    "printedEnd": 165
+  },
+  "19": {
+    "pdfStart": 157,
+    "pdfEnd": 165,
+    "printedStart": 166,
+    "printedEnd": 174
+  },
+  "20": {
+    "pdfStart": 166,
+    "pdfEnd": 174,
+    "printedStart": 175,
+    "printedEnd": 183
+  },
+  "21": {
+    "pdfStart": 175,
+    "pdfEnd": 182,
+    "printedStart": 184,
+    "printedEnd": 191
+  },
+  "22": {
+    "pdfStart": 183,
+    "pdfEnd": 191,
+    "printedStart": 192,
+    "printedEnd": 200
+  },
+  "23": {
+    "pdfStart": 192,
+    "pdfEnd": 200,
+    "printedStart": 201,
+    "printedEnd": 209
+  },
+  "24": {
+    "pdfStart": 201,
+    "pdfEnd": 208,
+    "printedStart": 210,
+    "printedEnd": 217
+  },
+  "25": {
+    "pdfStart": 209,
+    "pdfEnd": 217,
+    "printedStart": 218,
+    "printedEnd": 226
+  },
+  "26": {
+    "pdfStart": 218,
+    "pdfEnd": 226,
+    "printedStart": 227,
+    "printedEnd": 235
+  },
+  "27": {
+    "pdfStart": 227,
+    "pdfEnd": 235,
+    "printedStart": 236,
+    "printedEnd": 244
+  },
+  "28": {
+    "pdfStart": 236,
+    "pdfEnd": 244,
+    "printedStart": 245,
+    "printedEnd": 253
+  },
+  "29": {
+    "pdfStart": 245,
+    "pdfEnd": 252,
+    "printedStart": 254,
+    "printedEnd": 261
+  },
+  "30": {
+    "pdfStart": 253,
+    "pdfEnd": 261,
+    "printedStart": 262,
+    "printedEnd": 270
+  },
+  "31": {
+    "pdfStart": 262,
+    "pdfEnd": 270,
+    "printedStart": 271,
+    "printedEnd": 279
+  },
+  "32": {
+    "pdfStart": 271,
+    "pdfEnd": 279,
+    "printedStart": 280,
+    "printedEnd": 288
+  },
+  "33": {
+    "pdfStart": 280,
+    "pdfEnd": 288,
+    "printedStart": 289,
+    "printedEnd": 297
+  },
+  "34": {
+    "pdfStart": 289,
+    "pdfEnd": 296,
+    "printedStart": 298,
+    "printedEnd": 305
+  },
+  "35": {
+    "pdfStart": 297,
+    "pdfEnd": 305,
+    "printedStart": 306,
+    "printedEnd": 314
+  },
+  "36": {
+    "pdfStart": 306,
+    "pdfEnd": 313,
+    "printedStart": 315,
+    "printedEnd": 322
+  }
+}
