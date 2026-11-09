@@ -550,3 +550,36 @@ $C run --rm migrate node node_modules/@zybrilka/db/dist/stressDictionary/import.
 
 Не заменяйте локальный файл файлом из репозитория и не удаляйте из него другие настройки.
 
+
+## Русский язык 2026, Дощинский «36 вариантов» на VPS
+
+Сборник импортирует `importRussianDoshchinsky2026Book36.js` (год 2026, коллекция `ege-2026-doshchinskiy-russian-36`, 36 × 27 = 972 позиции; задание 27 — сочинение). В `infra/docker-compose.yml` он стоит в цепочке `sync-content` сразу после сборника 2027 года (`importRussianDoshchinsky2027Book36.js`) и перед словарём ударений. Задания 2027 года он не трогает; задания со статусом `needs_review` остаются скрытыми.
+
+Production использует свой `docker-compose.deploy.yml`, который мог не получить это изменение. `C` — как в разделе о словаре ударений.
+
+**0. Резервная копия базы** (`pg_dump`).
+
+**1. Проверить образ** (ничего не меняет):
+
+```bash
+$C run --rm --no-deps migrate ls node_modules/@zybrilka/db/dist/ | grep Doshchinsky2026Book36
+```
+
+**2. Разовый импорт без изменения файлов** (нужна миграция 0038 `accepted_answers`):
+
+```bash
+$C run --rm migrate
+$C run --rm migrate node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js
+```
+
+Импорт сначала проверяет все данные и пишет всё в одной транзакции: при ошибке код выхода ненулевой и ничего не записано. Повторный запуск безопасен — строки обновляются по стабильным ключам, прогресс пользователей сохраняется.
+
+**3. Чтобы сборник обновлялся при каждом деплое** — если в локальном `docker-compose.deploy.yml` есть `sync-content` с цепочкой `&&`, добавить строку сразу после сборника 2027 года (или после последнего русского импортёра):
+
+```diff
+         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Book36.js &&
++        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js &&
+         node node_modules/@zybrilka/db/dist/stressDictionary/import.js
+```
+
+Затем `$C config --quiet` и `$C config | grep -c Doshchinsky2026Book36` → `1`. Если `sync-content` в файле нет, файл не трогать: выполнять шаг 2 при каждом деплое после `run --rm migrate`.

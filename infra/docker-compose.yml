@@ -143,6 +143,13 @@ services:
   # nothing written; task rows keep their ids and are rewritten only when
   # their content changed; `needs_review` tasks stay hidden.
   #
+  # Right after it: the EGE-2026 «36 вариантов» Дощинский book
+  # (importRussianDoshchinsky2026Book36.ts, year 2026, its own collection
+  # `ege-2026-doshchinskiy-russian-36`: 36 variants × 27 positions = 972,
+  # task 27 is the essay). Same shared importer and the same guarantees
+  # as the 2027 book (validate everything first, one transaction, stable
+  # ids, `needs_review` hidden); it never touches 2027 rows.
+  #
   # Last in the chain: the «Ударения» mini-game's stress dictionary
   # (packages/db/src/stressDictionary, docs/MINI_GAMES.md). Same rules as
   # the variant importers: upsert by a stable key (word ids — and players'
@@ -220,6 +227,7 @@ services:
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant17.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant18.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Book36.js &&
+        node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js &&
         node node_modules/@zybrilka/db/dist/stressDictionary/import.js
     restart: 'no'
 
