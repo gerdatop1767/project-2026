@@ -82,7 +82,7 @@ def passage_text(b, errs):
         seen = [n for n in nums if n <= max(nums)]
         if sorted(set(seen)) != exp: errs.append(f'passage B: sentence numbers missing {sorted(set(exp) - set(seen))}')
         if seen != sorted(seen): errs.append(f'passage B: numbers out of order near {[x for x, y in zip(seen, seen[1:]) if y < x][:5]}')
-    bad = re.findall(r'[A-Za-z]{2,}|[|\\@#$^&_{}~]|\s[,.;:]', re.sub(r'\((?:фр|англ|лат|нем|итал|греч)\. [A-Za-z ]+\)', '', re.sub(r'\d \: \d', '', re.sub(r'\b[IVXLC]+\b', 'Ⅹ', body.replace('*', '')))))
+    bad = re.findall(r'[A-Za-z]{2,}|[|\\@#$^&_{}~‘’‚©]|\s[,.;:]', re.sub(r'\((?:фр|англ|лат|нем|итал|греч)\. [A-Za-z ]+\)', '', re.sub(r'\d \: \d', '', re.sub(r'\b[IVXLC]+\b', 'Ⅹ', body.replace('*', '')))))
     if bad: errs.append(f"passage {b['id']}: suspicious {sorted(set(bad))[:15]}")
     return body
 
@@ -167,7 +167,7 @@ for b in blocks:
             if re.search(r'[A-Za-z]', re.sub(r'\b[IVXLC]+\b', '', t[fld])): errs.append(f'task {n}: latin letters in {fld}')
         if t.get('sampleEssayMd') and re.search(r'[A-Za-z]', re.sub(r'\b[IVXLC]+\b', '', t['sampleEssayMd'])): errs.append(f'task {n}: latin letters in sample')
         c = t['conditionMd']
-        if re.search(r'[A-Za-z]{3,}|@@|<<|\|', re.sub(r'\b[IVXLC]+\b', '', c.replace('**', ''))): errs.append(f'task {n}: suspicious chars in cond')
+        if re.search(r'[A-Za-z]{3,}|@@|<<|\||[‘’‚©]', re.sub(r'\b[IVXLC]+\b', '', c.replace('**', ''))): errs.append(f'task {n}: suspicious chars in cond')
         if n in (2, 3, 4, 9, 10, 11, 12, 13, 14, 16, 23, 24):
             opts = re.findall(r'(?m)^(\d)\) ', c)
             if opts != [str(i) for i in range(1, len(opts) + 1)] or len(opts) < 5: errs.append(f'task {n}: options {opts}')
