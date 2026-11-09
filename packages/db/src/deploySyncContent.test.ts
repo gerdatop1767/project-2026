@@ -113,9 +113,7 @@ describe(`infra/docker-compose.yml — sync-content runs every EGE variant impor
     const book2026 = serviceBlock.indexOf(
       'node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js &&',
     );
-    expect(book2026).toBeGreaterThan(
-      serviceBlock.indexOf('importRussianDoshchinsky2027Book36.js'),
-    );
+    expect(book2026).toBeGreaterThan(serviceBlock.indexOf('importRussianDoshchinsky2027Book36.js'));
     expect(book2026).toBeLessThan(serviceBlock.indexOf('stressDictionary/import.js'));
     expect(serviceBlock.match(/importRussianDoshchinsky2026Book36\.js/g)).toHaveLength(1);
   });
