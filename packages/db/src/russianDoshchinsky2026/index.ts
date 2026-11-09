@@ -17,6 +17,7 @@ import { variant14 } from './variant14.js';
 import { variant15 } from './variant15.js';
 import { variant16 } from './variant16.js';
 import { variant17 } from './variant17.js';
+import { variant18 } from './variant18.js';
 
 export const r26Variants: readonly RussianBookVariant[] = [
   variant01,
@@ -36,4 +37,5 @@ export const r26Variants: readonly RussianBookVariant[] = [
   variant15,
   variant16,
   variant17,
+  variant18,
 ];
