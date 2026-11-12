@@ -136,6 +136,19 @@ describe('«36 вариантов» 2026 data (static checks)', () => {
     expect(t.explanationMd).not.toMatch(/«вглубь»[^.]*— слитно/);
   });
 
+  it('В8 №10 keeps the key 235; the explanation reads row 3 as сЫзнова, изЫмать, сЫграть', () => {
+    const t = prepared.find((v) => v.variant === 8)!.tasks.find((x) => x.taskNumber === 10)!;
+    expect(t.status).toBe('published');
+    expect(t.correctAnswer).toBe('235');
+    expect(t.digitSetOrderInsensitive).toBe(true);
+    expect(t.conditionMd).toContain('3) с..знова, из..мать, с..грать');
+    expect(checkAnswer('523', t.correctAnswer, { digitSetOrderInsensitive: true })).toBe(true);
+    expect(checkAnswer('25', t.correctAnswer, { digitSetOrderInsensitive: true })).toBe(false);
+    expect(t.explanationMd).toContain('3) сЫзнова, изЫмать, сЫграть — везде Ы');
+    expect(t.explanationMd).not.toMatch(/изЪять|изъять/i);
+    expect(t.explanationMd).toMatch(/Ответ: 235\.$/);
+  });
+
   it('В34 №14 (вглубь / в глубь) stays under review with the key 12', () => {
     const t = prepared.find((v) => v.variant === 34)!.tasks.find((x) => x.taskNumber === 14)!;
     expect(t.status).toBe('needs_review');
@@ -299,5 +312,36 @@ describe('importRussianDoshchinsky2026Book36 (database)', { timeout: 60_000 }, (
     const again = await importRussianDoshchinsky2026Book36(testDb.db, prepared);
     expect(again.updated).toBe(0);
     expect(again.unchanged).toBe(rows.length);
+  });
+
+  it('the В8 №10 explanation fix updates only that row and keeps the answer 235', async () => {
+    const old = prepared.map((v) =>
+      v.variant !== 8
+        ? v
+        : {
+            ...v,
+            tasks: v.tasks.map((t) =>
+              t.taskNumber === 10
+                ? { ...t, explanationMd: '3) сЫзнова, изЪять — разные. Ответ: 25.' }
+                : t,
+            ),
+          },
+    );
+    await importRussianDoshchinsky2026Book36(testDb.db, old);
+    const before = new Map((await bookTasks()).map((r) => [r.id, r.updatedAt.toISOString()]));
+
+    const fixed = await importRussianDoshchinsky2026Book36(testDb.db, prepared);
+    expect(fixed.created).toBe(0);
+    expect(fixed.updated).toBe(1);
+    const rows = await bookTasks();
+    expect(new Set(rows.map((r) => r.id))).toEqual(new Set(before.keys()));
+    const changed = rows.filter((r) => r.updatedAt.toISOString() !== before.get(r.id));
+    expect(changed.map((r) => [r.sourceVariant, r.taskNumber])).toEqual([[8, 10]]);
+    expect(changed[0]!.correctAnswer).toBe('235');
+    expect(changed[0]!.status).toBe('published');
+    expect(changed[0]!.explanationMd).toMatch(/изЫмать.*Ответ: 235\.$/);
+
+    const again = await importRussianDoshchinsky2026Book36(testDb.db, prepared);
+    expect(again.updated).toBe(0);
   });
 });
