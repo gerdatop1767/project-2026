@@ -6,7 +6,7 @@ W, V = sys.argv[1], int(sys.argv[2]); SHOW = '--show' in sys.argv
 KEY = json.load(open(f'{W}/answers/key_final.json'))[str(V)]
 L = json.load(open(f'{W}/tasks/anchors_v{V:02d}.json'))['lines']
 KEYS = ('same', 'title', 'author', 'note', 'lines', 'fix', 'drop', 'append', 'text', 'topic', 'status', 'review',
-        'cond', 'expl', 'hint', 'para', 'page', 'prepend', 'sample')
+        'cond', 'expl', 'hint', 'para', 'page', 'prepend', 'sample', 'answer', 'keyfix')
 JUNK = re.compile(r'^(<<PAGE|ВАРИАНТ \d+|\d+\s+ЕГЭ|ЕГЭ\. ТИПОВЫЕ|Копирование|©|Ответ:)')
 
 def parse(path):
@@ -162,6 +162,15 @@ for b in blocks:
             if not t['sampleEssayMd']: errs.append('task 27: missing sample essay')
         else:
             t.update(answer(n, errs))
+            if b.get('answer'):
+                # Answer differs from the book key (key stays as printed in answers/key_final.json).
+                new = b['answer'].strip()
+                if not (b.get('keyfix') or '').strip(): errs.append(f'task {n}: answer override without keyfix reason')
+                if n in (8, 22): errs.append(f'task {n}: answer override not supported for multi-part')
+                if t['digitSetOrderInsensitive'] and not new.isdigit(): errs.append(f'task {n}: override {new!r} is not digits')
+                t['correctAnswer'] = new; t['acceptedAnswers'] = []
+                t['correctAnswerDisplay'] = f'{new} (в любом порядке)' if t['digitSetOrderInsensitive'] and len(new) > 1 else None
+                if not re.search(r'Ответ: ' + re.escape(new) + r'\.$', t['explanationMd']): errs.append(f'task {n}: explanation must end with «Ответ: {new}.»')
             if b.get('sample'): errs.append(f'task {n}: sample only for the essay')
         for fld in ('explanationMd', 'hintMd'):
             if re.search(r'[A-Za-z]', re.sub(r'\b[IVXLC]+\b', '', t[fld])): errs.append(f'task {n}: latin letters in {fld}')

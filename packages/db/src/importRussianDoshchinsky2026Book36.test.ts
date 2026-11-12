@@ -132,7 +132,7 @@ describe('«36 вариантов» 2026 data (static checks)', () => {
     expect(t.correctAnswer).toBe('14');
     expect(t.conditionMd).toContain('4) Водолазы погрузились (В)ГЛУБЬ моря');
     expect(t.explanationMd).toMatch(/Ответ: 14\.$/);
-    expect(t.explanationMd).toContain('По ключу учебника «в глубь моря» пишется раздельно');
+    expect(t.explanationMd).toContain('4) «в глубь моря» — раздельно');
     expect(t.explanationMd).not.toMatch(/«вглубь»[^.]*— слитно/);
   });
 
@@ -149,11 +149,84 @@ describe('«36 вариантов» 2026 data (static checks)', () => {
     expect(t.explanationMd).toMatch(/Ответ: 235\.$/);
   });
 
-  it('В34 №14 (вглубь / в глубь) stays under review with the key 12', () => {
-    const t = prepared.find((v) => v.variant === 34)!.tasks.find((x) => x.taskNumber === 14)!;
-    expect(t.status).toBe('needs_review');
-    expect(t.reviewReason).toBeTruthy();
+  const task = (variant: number, n: number) =>
+    prepared.find((v) => v.variant === variant)!.tasks.find((x) => x.taskNumber === n)!;
+  const accepts = (t: ReturnType<typeof task>, a: string) =>
+    [t.correctAnswer, ...t.acceptedAnswers].some((key) =>
+      checkAnswer(a, key, { digitSetOrderInsensitive: t.digitSetOrderInsensitive }),
+    );
+
+  it('no task of the book is left under review', () => {
+    const review = prepared.flatMap((v) =>
+      v.tasks.filter((t) => t.status !== 'published').map((t) => `В${v.variant} №${t.taskNumber}`),
+    );
+    expect(review).toEqual([]);
+  });
+
+  it('В34 №14: «в глубь моря» is the noun «глубь» (ROS: «в глубь океана»), answer 12', () => {
+    const t = task(34, 14);
+    expect(t.status).toBe('published');
+    expect(t.reviewReason).toBeNull();
     expect(t.correctAnswer).toBe('12');
+    expect(accepts(t, '21')).toBe(true);
+    expect(accepts(t, '2')).toBe(false);
+    expect(t.conditionMd).toContain('1) Водолазы погрузились (В)ГЛУБЬ моря');
+    expect(t.explanationMd).toContain('в глубь океана, в глубь веков');
+    expect(t.explanationMd).not.toMatch(/«вглубь моря» пишется слитно/);
+    expect(t.explanationMd).toMatch(/Ответ: 12\.$/);
+  });
+
+  it('В10 №14 explains «в глубь моря» the same way as В34 №14, answer 14', () => {
+    const t = task(10, 14);
+    expect(t.correctAnswer).toBe('14');
+    expect(t.explanationMd).toContain('в глубь океана, в глубь веков');
+    expect(t.explanationMd).toMatch(/Ответ: 14\.$/);
+  });
+
+  it('В2 №15: the fourth gap is numbered (4) (the book prints (3) twice), answer 3', () => {
+    const t = task(2, 15);
+    expect(t.status).toBe('published');
+    expect(t.conditionMd).toContain('на си(3)ей стекля(4)ой табличке.');
+    expect(t.conditionMd.match(/\(3\)/g)).toHaveLength(1);
+    expect(t.correctAnswer).toBe('3');
+    expect(t.explanationMd).toContain('(4) «стеклянной»');
+    expect(t.explanationMd).toMatch(/Ответ: 3\.$/);
+  });
+
+  it('В19 №6: the word written out is «действительные» (the key misprints «действительно»)', () => {
+    const t = task(19, 6);
+    expect(t.status).toBe('published');
+    expect(t.conditionMd).toContain('современные действительные реалии');
+    expect(t.correctAnswer).toBe('действительные');
+    expect(t.acceptedAnswers).toEqual([]);
+    expect(accepts(t, 'действительные')).toBe(true);
+    expect(accepts(t, 'действительно')).toBe(false);
+    expect(t.explanationMd).toMatch(/Ответ: действительные\.$/);
+  });
+
+  it('В21 №3: statement 5 contradicts the text, answer 234 in any order', () => {
+    const t = task(21, 3);
+    expect(t.status).toBe('published');
+    expect(t.correctAnswer).toBe('234');
+    expect(t.digitSetOrderInsensitive).toBe(true);
+    expect(accepts(t, '432')).toBe(true);
+    expect(accepts(t, '2345')).toBe(false);
+    expect(prepared.find((v) => v.variant === 21)!.passages.A.bodyMd).toContain(
+      'являются, безусловно, огромным вкладом в науку',
+    );
+    expect(t.explanationMd).toContain('5) Неверно');
+    expect(t.explanationMd).toMatch(/Ответ: 234\.$/);
+  });
+
+  it('В32 №16: sentence 1 stays as printed (no «и»), so it needs two commas; answer 25', () => {
+    const t = task(32, 16);
+    expect(t.status).toBe('published');
+    expect(t.conditionMd).toContain('устанавливают в алмазные пилы резцы превращают');
+    expect(t.correctAnswer).toBe('25');
+    expect(accepts(t, '52')).toBe(true);
+    expect(accepts(t, '125')).toBe(false);
+    expect(t.explanationMd).toContain('1) Две запятые');
+    expect(t.explanationMd).toMatch(/Ответ: 25\.$/);
   });
 
   it('text B is numbered (1)…(N) without gaps; tasks 24 and 26 refer to existing sentences', () => {
@@ -308,6 +381,57 @@ describe('importRussianDoshchinsky2026Book36 (database)', { timeout: 60_000 }, (
     const v10n14 = changed.find((r) => r.sourceVariant === 10)!;
     expect(v10n14.correctAnswer).toBe('14');
     expect(v10n14.explanationMd).toMatch(/Ответ: 14\.$/);
+
+    const again = await importRussianDoshchinsky2026Book36(testDb.db, prepared);
+    expect(again.updated).toBe(0);
+    expect(again.unchanged).toBe(rows.length);
+  });
+
+  it('resolving the five reviewed tasks updates exactly those rows and keeps their ids', async () => {
+    // The state before this fix: the five tasks under review with the key's
+    // answers and the old В2 №15 numbering, and the old В10 №14 explanation.
+    const old: Partial<Record<string, object>> = {
+      '2/15': {
+        status: 'needs_review',
+        reviewReason: 'old',
+        conditionMd: 'Надпись… си(3)ей стекля(3)ой табличке.',
+      },
+      '19/6': { status: 'needs_review', reviewReason: 'old', correctAnswer: 'действительно' },
+      '21/3': { status: 'needs_review', reviewReason: 'old', correctAnswer: '2345' },
+      '32/16': { status: 'needs_review', reviewReason: 'old', correctAnswer: '125' },
+      '34/14': {
+        status: 'needs_review',
+        reviewReason: 'old',
+        explanationMd: 'old. Ответ по ключу: 12.',
+      },
+      '10/14': { explanationMd: 'old. Ответ: 14.' },
+    };
+    const before = prepared.map((v) => ({
+      ...v,
+      tasks: v.tasks.map((t) => ({ ...t, ...old[`${v.variant}/${t.taskNumber}`] })),
+    }));
+    await importRussianDoshchinsky2026Book36(testDb.db, before);
+    const rowsBefore = await bookTasks();
+    const dates = new Map(rowsBefore.map((r) => [r.id, r.updatedAt.toISOString()]));
+    expect(rowsBefore.filter((r) => r.status === 'needs_review')).toHaveLength(5);
+
+    const fixed = await importRussianDoshchinsky2026Book36(testDb.db, prepared);
+    expect(fixed.created).toBe(0);
+    expect(fixed.updated).toBe(6);
+    const rows = await bookTasks();
+    expect(new Set(rows.map((r) => r.id))).toEqual(new Set(dates.keys()));
+    const changed = rows.filter((r) => r.updatedAt.toISOString() !== dates.get(r.id));
+    expect(changed.map((r) => `${r.sourceVariant}/${r.taskNumber}`).sort()).toEqual(
+      Object.keys(old).sort(),
+    );
+    expect(rows.filter((r) => r.status !== 'published')).toHaveLength(0);
+    const answer = (key: string) =>
+      changed.find((r) => `${r.sourceVariant}/${r.taskNumber}` === key)!.correctAnswer;
+    expect(answer('19/6')).toBe('действительные');
+    expect(answer('21/3')).toBe('234');
+    expect(answer('32/16')).toBe('25');
+    expect(answer('34/14')).toBe('12');
+    expect(answer('2/15')).toBe('3');
 
     const again = await importRussianDoshchinsky2026Book36(testDb.db, prepared);
     expect(again.updated).toBe(0);
