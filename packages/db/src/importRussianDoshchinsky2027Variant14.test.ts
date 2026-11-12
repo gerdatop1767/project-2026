@@ -1,3 +1,4 @@
+import { checkAnswer } from '@zybrilka/shared';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from './schema.js';
@@ -124,5 +125,30 @@ describe('importRussianVariant14', () => {
       .from(schema.tasks)
       .where(and(eq(schema.tasks.subjectId, 'russian'), eq(schema.tasks.sourceVariant, 14)));
     expect(tasksAfter.length).toBe(27);
+  });
+
+  it('task 14: «спускаться в глубь моря» — noun «глубь», written separately (ROS: «в глубь океана»); answer 24', async () => {
+    const { db } = testDb;
+    const [t14] = await db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.subjectId, 'russian'),
+          eq(schema.tasks.sourceVariant, 14),
+          eq(schema.tasks.taskNumber, 14),
+        ),
+      );
+    expect(t14!.status).toBe('published');
+    expect(t14!.conditionMd).toContain('кто собирается спускаться (В)ГЛУБЬ моря');
+    expect(t14!.correctAnswer).toBe('24');
+    const opts = { digitSetOrderInsensitive: t14!.digitSetOrderInsensitive };
+    expect(checkAnswer('24', t14!.correctAnswer, opts)).toBe(true);
+    expect(checkAnswer('42', t14!.correctAnswer, opts)).toBe(true);
+    expect(checkAnswer('4', t14!.correctAnswer, opts)).toBe(false);
+    expect(t14!.explanationMd).toContain('«в глубь моря» — раздельно');
+    expect(t14!.explanationMd).toContain('в глубь океана, в глубь веков');
+    expect(t14!.explanationMd).not.toContain('лексикализованное наречие');
+    expect(t14!.explanationMd).toMatch(/Ответ: 24\.$/);
   });
 });
