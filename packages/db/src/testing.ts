@@ -38,6 +38,24 @@ import { importVariant22 as importYashchenko2027Variant22 } from './importEge202
 import { importVariant23 as importYashchenko2027Variant23 } from './importEge2027YashchenkoVariant23.js';
 import { importVariant24 as importYashchenko2027Variant24 } from './importEge2027YashchenkoVariant24.js';
 import { importVariant25 as importYashchenko2027Variant25 } from './importEge2027YashchenkoVariant25.js';
+import { importRussianVariant1 } from './importRussianDoshchinsky2027Variant1.js';
+import { importRussianVariant2 } from './importRussianDoshchinsky2027Variant2.js';
+import { importRussianVariant3 } from './importRussianDoshchinsky2027Variant3.js';
+import { importRussianVariant4 } from './importRussianDoshchinsky2027Variant4.js';
+import { importRussianVariant5 } from './importRussianDoshchinsky2027Variant5.js';
+import { importRussianVariant6 } from './importRussianDoshchinsky2027Variant6.js';
+import { importRussianVariant7 } from './importRussianDoshchinsky2027Variant7.js';
+import { importRussianVariant8 } from './importRussianDoshchinsky2027Variant8.js';
+import { importRussianVariant9 } from './importRussianDoshchinsky2027Variant9.js';
+import { importRussianVariant10 } from './importRussianDoshchinsky2027Variant10.js';
+import { importRussianVariant11 } from './importRussianDoshchinsky2027Variant11.js';
+import { importRussianVariant12 } from './importRussianDoshchinsky2027Variant12.js';
+import { importRussianVariant13 } from './importRussianDoshchinsky2027Variant13.js';
+import { importRussianVariant14 } from './importRussianDoshchinsky2027Variant14.js';
+import { importRussianVariant15 } from './importRussianDoshchinsky2027Variant15.js';
+import { importRussianVariant16 } from './importRussianDoshchinsky2027Variant16.js';
+import { importRussianVariant17 } from './importRussianDoshchinsky2027Variant17.js';
+import { importRussianVariant18 } from './importRussianDoshchinsky2027Variant18.js';
 import * as schema from './schema.js';
 
 // In-memory Postgres (PGlite) with all migrations applied. Tests only.
@@ -114,5 +132,35 @@ export async function createImported2027TestDb() {
   await importYashchenko2027Variant23(testDb.db);
   await importYashchenko2027Variant24(testDb.db);
   await importYashchenko2027Variant25(testDb.db);
+  return testDb;
+}
+
+// All 18 variants of «ЕГЭ 2027 Дощинский — Русский язык» (no official key;
+// answers derived by analysis) — for API tests of Russian answer checking:
+// multi_part №8/№22, multi-word answers in the ЕГЭ blank form, accepted answers.
+export async function createImportedRussian2027TestDb() {
+  const testDb = await createTestDb();
+  for (const importVariant of [
+    importRussianVariant1,
+    importRussianVariant2,
+    importRussianVariant3,
+    importRussianVariant4,
+    importRussianVariant5,
+    importRussianVariant6,
+    importRussianVariant7,
+    importRussianVariant8,
+    importRussianVariant9,
+    importRussianVariant10,
+    importRussianVariant11,
+    importRussianVariant12,
+    importRussianVariant13,
+    importRussianVariant14,
+    importRussianVariant15,
+    importRussianVariant16,
+    importRussianVariant17,
+    importRussianVariant18,
+  ]) {
+    await importVariant(testDb.db);
+  }
   return testDb;
 }
