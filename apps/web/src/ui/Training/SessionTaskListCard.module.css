@@ -79,6 +79,19 @@
   box-shadow: var(--shadow-glow-accent);
 }
 
+/* Clicked, next task still loading. */
+.pending {
+  box-shadow: inset 0 0 0 2px var(--color-accent-primary);
+  color: var(--color-text-primary);
+  animation: pendingPulse 900ms ease-in-out infinite;
+}
+
+@keyframes pendingPulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -119,5 +132,9 @@
 
   .cell:active {
     transform: none;
+  }
+
+  .pending {
+    animation: none;
   }
 }

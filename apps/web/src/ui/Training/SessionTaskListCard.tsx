@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { clsx } from '../../lib/clsx.js';
 import type { SessionTask } from '../../data/sampleTask.js';
 import styles from './SessionTaskListCard.module.css';
@@ -47,9 +48,27 @@ const STATUS_CLASS: Record<Status, string | undefined> = {
 export function SessionTaskListCard({ title, sessionTasks, onSelect }: SessionTaskListCardProps) {
   const present = new Set(sessionTasks.map((t) => t.status));
   const legend = LEGEND.filter((item) => present.has(item.status));
+  // The number just clicked, until it becomes the current task: on a slow
+  // network the previous task stays on screen while the next one loads,
+  // so the grid answers the click at once instead of looking ignored.
+  const currentIndex = sessionTasks.find((t) => t.status === 'current')?.index ?? null;
+  const [requested, setRequested] = useState<{ index: number; from: number | null } | null>(null);
+  const pendingIndex =
+    requested && requested.from === currentIndex && requested.index !== currentIndex
+      ? requested.index
+      : null;
+
+  // Never pulse forever if that task fails to open (the screen shows the
+  // error itself).
+  useEffect(() => {
+    if (!requested) return;
+    const timer = window.setTimeout(() => setRequested(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [requested]);
 
   function select(task: SessionTask) {
     if (task.status !== 'current') {
+      setRequested({ index: task.index, from: currentIndex });
       // The sidebar stays in view (sticky) while the page may be scrolled
       // deep into a long condition — bring the newly opened task's top
       // into view instead of leaving the reader mid-page.
@@ -69,7 +88,12 @@ export function SessionTaskListCard({ title, sessionTasks, onSelect }: SessionTa
             <button
               key={task.index}
               type="button"
-              className={clsx(styles.cell, STATUS_CLASS[task.status])}
+              className={clsx(
+                styles.cell,
+                STATUS_CLASS[task.status],
+                pendingIndex === task.index && styles.pending,
+              )}
+              aria-busy={pendingIndex === task.index || undefined}
               aria-label={state ? `Задание ${task.index} — ${state}` : `Задание ${task.index}`}
               aria-current={task.status === 'current' ? 'step' : undefined}
               title={state ? `Задание ${task.index}: ${state}` : `Задание ${task.index}`}

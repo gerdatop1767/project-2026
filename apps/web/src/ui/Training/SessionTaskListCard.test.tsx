@@ -72,3 +72,28 @@ describe('SessionTaskListCard — compact task-number grid', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('SessionTaskListCard — instant click feedback', () => {
+  it('marks the clicked number busy until it becomes the current task', async () => {
+    vi.stubGlobal('scrollTo', vi.fn());
+    const user = userEvent.setup();
+    const tasks = variantOf27();
+    const { rerender } = render(
+      <SessionTaskListCard title="Задания" sessionTasks={tasks} onSelect={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Задание 12' }));
+    expect(screen.getByRole('button', { name: 'Задание 12' })).toHaveAttribute('aria-busy', 'true');
+
+    // The next task arrived: 12 is now current and no longer busy.
+    const moved = tasks.map((t) => ({
+      ...t,
+      status:
+        t.index === 12 ? ('current' as const) : t.index === 5 ? ('opened' as const) : t.status,
+    }));
+    rerender(<SessionTaskListCard title="Задания" sessionTasks={moved} onSelect={vi.fn()} />);
+    const twelve = screen.getByRole('button', { name: 'Задание 12' });
+    expect(twelve).toHaveAttribute('aria-current', 'step');
+    expect(twelve).not.toHaveAttribute('aria-busy');
+    vi.unstubAllGlobals();
+  });
+});
