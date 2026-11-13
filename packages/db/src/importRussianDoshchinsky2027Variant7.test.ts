@@ -6,10 +6,9 @@ import { createTestDb } from './testing.js';
 
 /**
  * Verifies the Вариант 7 Russian import in isolation, mirroring
- * importRussianDoshchinsky2027Variant1.test.ts. 1 of 27 tasks is
- * intentionally `needs_review` (21) — no two of its 9 candidate
- * sentences shared a clearly identical punctuation rule, so no answer
- * is forced to inflate the published count.
+ * importRussianDoshchinsky2027Variant1.test.ts. Task 21 was `needs_review`
+ * until the 2026-11 quality audit: the commas in (2) and (4) both separate
+ * homogeneous members, so the answer is 24; all 27 tasks are published.
  */
 describe('importRussianVariant7', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
@@ -36,7 +35,7 @@ describe('importRussianVariant7', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks exactly 26 of 27 tasks published, 1 needs_review (21)', async () => {
+  it('marks all 27 tasks published — task 21 resolved by the 2026-11 audit', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -46,8 +45,8 @@ describe('importRussianVariant7', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([21]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(26);
+    expect(needsReviewNumbers).toEqual([]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(27);
   });
 
   it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {
@@ -87,7 +86,7 @@ describe('importRussianVariant7', () => {
     }
   });
 
-  it('needs_review task (21) is honest about what is unconfirmed, not silently empty', async () => {
+  it('task 21 (published after the 2026-11 audit) answers 24 with an explanation', async () => {
     const { db } = testDb;
     const [task21] = await db
       .select()
@@ -100,7 +99,8 @@ describe('importRussianVariant7', () => {
         ),
       );
     expect(task21).toBeDefined();
-    expect(task21!.explanationMd.length).toBeGreaterThan(0);
+    expect(task21!.correctAnswer).toBe('24');
+    expect(task21!.explanationMd).toMatch(/Ответ: 24\.$/);
     expect(task21!.explanationMd).not.toContain('`');
   });
 

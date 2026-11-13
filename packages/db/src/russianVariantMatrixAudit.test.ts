@@ -55,14 +55,10 @@ const SOURCE = 'Дощинский ЕГЭ 2027. Типовые экзамена�
 // needs_review; this file must never assert everything is published.
 const EXPECTED_NEEDS_REVIEW: ReadonlyArray<{ variant: number; taskNumber: number }> = [
   { variant: 2, taskNumber: 8 },
-  { variant: 5, taskNumber: 8 },
-  { variant: 7, taskNumber: 21 },
   { variant: 10, taskNumber: 4 },
   { variant: 15, taskNumber: 4 },
   { variant: 15, taskNumber: 6 },
-  { variant: 15, taskNumber: 8 },
   { variant: 16, taskNumber: 4 },
-  { variant: 17, taskNumber: 8 },
 ];
 
 /**
@@ -172,7 +168,7 @@ describe('EGE Russian 2027 V1-V18 integration audit — full 18×27 matrix', () 
     }
   });
 
-  it('matches the real, documented needs_review set — exactly 9 of 486, each previously independently audited', async () => {
+  it('matches the real, documented needs_review set — exactly 5 of 486 after the 2026-11 quality audit (В5 №8, В7 №21, В15 №8, В17 №8 resolved and published)', async () => {
     const { db } = testDb;
     const rows = await db
       .select({ sourceVariant: schema.tasks.sourceVariant, taskNumber: schema.tasks.taskNumber })
@@ -193,7 +189,7 @@ describe('EGE Russian 2027 V1-V18 integration audit — full 18×27 matrix', () 
     expect(actual).toEqual(expected);
   });
 
-  it('477 of 486 tasks are published — the matrix is not silently under- or over-publishing', async () => {
+  it('481 of 486 tasks are published — the matrix is not silently under- or over-publishing', async () => {
     const { db } = testDb;
     const rows = await db
       .select({ status: schema.tasks.status })
@@ -201,8 +197,8 @@ describe('EGE Russian 2027 V1-V18 integration audit — full 18×27 matrix', () 
       .where(and(eq(schema.tasks.subjectId, 'russian'), eq(schema.tasks.source, SOURCE)));
     const published = rows.filter((r) => r.status === 'published').length;
     const needsReview = rows.filter((r) => r.status === 'needs_review').length;
-    expect(published).toBe(477);
-    expect(needsReview).toBe(9);
+    expect(published).toBe(481);
+    expect(needsReview).toBe(5);
     expect(published + needsReview).toBe(486);
   });
 

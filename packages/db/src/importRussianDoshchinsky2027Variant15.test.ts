@@ -6,8 +6,9 @@ import { createTestDb } from './testing.js';
 
 /**
  * Verifies the Вариант 15 Russian import in isolation, mirroring
- * importRussianDoshchinsky2027Variant1.test.ts. 3 of 27 tasks are
- * intentionally `needs_review` (4, 6, 8) — genuine unresolved
+ * importRussianDoshchinsky2027Variant1.test.ts. 2 of 27 tasks are
+ * intentionally `needs_review` (4, 6; task 8 was resolved by the 2026-11
+ * quality audit: Д=2, «не только… но и») — genuine unresolved
  * derivation questions (task 4: the key contradicts FIPI's orthoepic list
  * and needs a scan check, docs/imports/task-4-audit-2027.md), not guessed
  * to inflate the published count.
@@ -38,7 +39,7 @@ describe('importRussianVariant15', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks exactly 24 of 27 tasks published, 3 needs_review (4, 6, 8)', async () => {
+  it('marks exactly 25 of 27 tasks published, 2 needs_review (4, 6) — 8 resolved by the 2026-11 audit', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -48,8 +49,8 @@ describe('importRussianVariant15', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([4, 6, 8]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(24);
+    expect(needsReviewNumbers).toEqual([4, 6]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(25);
   });
 
   it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {

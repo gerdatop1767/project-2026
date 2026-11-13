@@ -9,10 +9,10 @@ import { createTestDb } from './testing.js';
  * importRussianDoshchinsky2027Variant1.test.ts. Tasks 10, 18 and 26
  * were resolved during a third audit pass (confirmed against the
  * source page images and, for task 26, a corrected sentence-index
- * reference). Task 8 remains `needs_review`: three independent audit
- * passes found no однородные-члены error among the five remaining
- * candidate sentences for its "А" slot — a genuine unresolved
- * question, not guessed to inflate the published count.
+ * reference). Task 8 was `needs_review` until the 2026-11 quality audit
+ * found its "А" slot in sentence 3 («задумываться не только о…, но и
+ * чаще бывать» — the double conjunction joins mismatched members), which
+ * the stored key already had; all 27 tasks are published now.
  */
 describe('importRussianVariant17', () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
@@ -39,7 +39,7 @@ describe('importRussianVariant17', () => {
     expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
   });
 
-  it('marks exactly 26 of 27 tasks published, 1 needs_review (8)', async () => {
+  it('marks all 27 tasks published — task 8 resolved by the 2026-11 audit', async () => {
     const { db } = testDb;
     const rows = await db
       .select()
@@ -49,8 +49,8 @@ describe('importRussianVariant17', () => {
       .filter((r) => r.status === 'needs_review')
       .map((r) => r.taskNumber)
       .sort((a, b) => a - b);
-    expect(needsReviewNumbers).toEqual([8]);
-    expect(rows.filter((r) => r.status === 'published').length).toBe(26);
+    expect(needsReviewNumbers).toEqual([]);
+    expect(rows.filter((r) => r.status === 'published').length).toBe(27);
   });
 
   it('task 27 is a published essay task with empty correctAnswer, never auto-graded, with a genuine sampleEssayMd', async () => {

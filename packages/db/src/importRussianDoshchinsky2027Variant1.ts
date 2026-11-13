@@ -121,6 +121,7 @@ interface ImportTask {
   conditionMd: string;
   answerType?: ImportAnswerType;
   correctAnswer: string;
+  acceptedAnswers?: readonly string[];
   /** Only for `answerType: 'essay'` — a genuine, authored example essay grounded in this task's own passage. */
   sampleEssayMd?: string;
   /**
@@ -941,10 +942,11 @@ const importTasks: readonly ImportTask[] = [
     sourcePage: 7,
     rawStatement: 'Из предложения 5 выпишите контекстные антонимы.',
     conditionMd: 'Из предложения 5 выпишите контекстные антонимы.',
-    correctAnswer: 'отставая спеша',
+    correctAnswer: 'отставаяспеша',
+    acceptedAnswers: ['спешаотставая', 'отставая спеша'],
     correctAnswerDisplay: 'не отставая — не спеша',
     explanationMd:
-      'Что дано: предложение (5) "И все сто лет часы шли непрерывно, не отставая, не спеша, не уставая отбивать час, половину и четверти."\n\nШаг 1. "Отставая" (идти медленнее, чем нужно) и "спеша" (идти быстрее, чем нужно) обозначают противоположные отклонения хода часов от нормы — то есть являются контекстными антонимами применительно к работе часов.\n\nОтвет: отставая, спеша.',
+      'Что дано: предложение (5) "И все сто лет часы шли непрерывно, не отставая, не спеша, не уставая отбивать час, половину и четверти."\n\nШаг 1. "Отставая" (идти медленнее, чем нужно) и "спеша" (идти быстрее, чем нужно) обозначают противоположные отклонения хода часов от нормы — то есть являются контекстными антонимами применительно к работе часов.\n\nОтвет: отставаяспеша (пару можно записать в любом порядке: спешаотставая).',
     hintMd:
       'Ищи два слова в предложении, которые в контексте описания точности часов обозначают противоположные отклонения (слишком медленно / слишком быстро).',
     solutionSteps: [
@@ -1140,6 +1142,7 @@ export async function importRussianVariant1(db: Database) {
       answerType: t.answerType ?? ('short_answer' as const),
       digitSetOrderInsensitive: t.digitSetOrderInsensitive ?? false,
       correctAnswer: t.correctAnswer,
+      acceptedAnswers: [...(t.acceptedAnswers ?? [])],
       correctAnswerDisplay: t.correctAnswerDisplay ?? null,
       explanationMd: t.explanationMd,
       hintMd: t.hintMd,
