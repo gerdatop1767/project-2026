@@ -102,7 +102,12 @@ export function LearningCenterDesktop() {
               aria-label={section.title}
               onClick={() => navigate(section.route)}
             >
-              <Icon name="arrowRight" size={18} />
+              {/* Two copies: on hover/press the arrow flies out to the right
+                  while its twin slides in from the left. */}
+              <span className={styles.arrowTrack} aria-hidden="true">
+                <Icon name="arrowRight" size={18} className={styles.arrowIcon} />
+                <Icon name="arrowRight" size={18} className={styles.arrowIcon} />
+              </span>
             </button>
           </Card>
         ))}
