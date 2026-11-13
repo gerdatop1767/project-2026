@@ -17,6 +17,7 @@ import { SignInMethodWarning } from '../../../ui/SignInMethodWarning/SignInMetho
 import { TelegramBotLink } from './TelegramBotLink.js';
 import type { IdentitiesState } from './useIdentities.js';
 import styles from './Account.module.css';
+import { SkeletonList } from '../../../ui/Skeleton/Skeleton.js';
 
 type Notice = { kind: 'success' | 'error'; text: string } | null;
 
@@ -310,11 +311,7 @@ export function SignInMethodsSection({
         </p>
       )}
 
-      {!data && !loadFailed && (
-        <p className="text-body-sm text-secondary" role="status">
-          Загружаем способы входа…
-        </p>
-      )}
+      {!data && !loadFailed && <SkeletonList rows={2} />}
       {loadFailed && (
         <div className={styles.loadError}>
           <p role="alert" className={`text-body-sm ${styles.error}`}>

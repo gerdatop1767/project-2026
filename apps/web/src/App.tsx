@@ -1,34 +1,67 @@
-import { useEffect } from 'react';
+import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { useAuth } from './lib/authContext.js';
 import { isOnboardingPending } from './lib/onboardingStatus.js';
 import { useNavigation, type OverlayRoute } from './lib/navigation.js';
-import { useIsDesktop } from './lib/useIsDesktop.js';
+import { isDesktopViewport, useIsDesktop } from './lib/useIsDesktop.js';
 import { useToast } from './ui/Toast/ToastProvider.js';
-import { AppMobile } from './AppMobile.js';
-import { AppDesktop } from './AppDesktop.js';
 import { Landing } from './screens/Landing/Landing.js';
 import { InfoPage, type InfoPageKind } from './screens/Info/InfoPage.js';
 import { Login } from './screens/Login/Login.js';
 import { TelegramReturn } from './screens/TelegramReturn/TelegramReturn.js';
 import { AccountGateProvider, accountFeatureForRoute } from './lib/accountGate.js';
 import { LANDING_AS_HOME } from './lib/features.js';
+import { SkeletonAppShell } from './ui/Skeleton/Skeleton.js';
+import { Button } from './ui/Button/Button.js';
+import { FeedbackState } from './ui/FeedbackState/FeedbackState.js';
+
+// Each device only ever needs one of the two app trees: a phone never
+// renders a desktop screen and vice versa, so each loads as its own chunk
+// (the shared code — React, KaTeX, the task engine — stays common).
+const loadMobile = () => import('./AppMobile.js');
+const loadDesktop = () => import('./AppDesktop.js');
+const AppMobile = lazy(() => loadMobile().then((m) => ({ default: m.AppMobile })));
+const AppDesktop = lazy(() => loadDesktop().then((m) => ({ default: m.AppDesktop })));
+// Start fetching this device's tree right away, in parallel with the
+// session check — not only once the check resolves (no extra round trip).
+void (isDesktopViewport() ? loadDesktop() : loadMobile()).catch(() => {
+  // A failed prefetch is retried by lazy() on render.
+});
+
+/**
+ * If this device's app chunk cannot be loaded (connection dropped, or a new
+ * version was deployed while the tab was open), show a way out instead of
+ * unmounting the whole app into a blank screen. React.lazy keeps a failed
+ * load, so the only real retry is a reload.
+ */
+class AppChunkBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div
+        role="alert"
+        style={{ display: 'grid', gap: '1rem', padding: '1.5rem', maxWidth: '32rem' }}
+      >
+        <FeedbackState
+          variant="error"
+          title="Не удалось загрузить приложение"
+          description="Проверь подключение к интернету и обнови страницу."
+        />
+        <Button onClick={() => window.location.reload()}>Обновить</Button>
+      </div>
+    );
+  }
+}
 
 /** Public info pages that render standalone (landing header/footer, no app
  * shell) for everyone — a privacy policy must never sit behind sign-in or
  * onboarding. */
 const infoPages: ReadonlySet<OverlayRoute['screen']> = new Set(['faq', 'privacy', 'terms']);
-
-function LoadingScreen() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center' }}
-    >
-      Загрузка…
-    </div>
-  );
-}
 
 /**
  * App root (S1 Block 6, approved design): desktop and mobile are
@@ -37,7 +70,7 @@ function LoadingScreen() {
  *
  * It is also the single access gate, driven only by server truth from
  * `/auth/me` (never localStorage or a URL parameter):
- * - not checked yet → neutral loading state;
+ * - not checked yet → a skeleton of the app shell;
  * - signed out → GUEST MODE: the trainer itself, free to use; what needs
  *   an account (Статистика, Мои ошибки, …) opens a «нужна регистрация»
  *   window (lib/accountGate). The marketing landing lives at /landing
@@ -101,7 +134,9 @@ export function App() {
   }
 
   if (user === undefined || (needsOnboarding && !onOnboarding && overlay?.screen !== 'login')) {
-    return <LoadingScreen />;
+    // The shell's own shape (header, sidebar on desktop) while the session
+    // check is in flight — never a blank screen with a lone «Загрузка…».
+    return <SkeletonAppShell desktop={isDesktop} />;
   }
 
   // Rendered standalone, bypassing the normal app shell — reachable from
@@ -119,7 +154,11 @@ export function App() {
 
   return (
     <AccountGateProvider lockedOnArrival={lockedFeature}>
-      {isDesktop ? <AppDesktop /> : <AppMobile />}
+      <AppChunkBoundary>
+        <Suspense fallback={<SkeletonAppShell desktop={isDesktop} />}>
+          {isDesktop ? <AppDesktop /> : <AppMobile />}
+        </Suspense>
+      </AppChunkBoundary>
     </AccountGateProvider>
   );
 }

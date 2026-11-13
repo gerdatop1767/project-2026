@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Icon } from '../Icon/Icon.js';
 import type { IconName } from '../Icon/icons.js';
 import { AnimatedNumber } from '../AnimatedNumber/AnimatedNumber.js';
+import { SkeletonValue } from '../Skeleton/Skeleton.js';
 import styles from './StatTile.module.css';
 
 export interface StatTileProps {
@@ -16,6 +17,9 @@ export interface StatTileProps {
   /** Count the value up on first view — the Statistics screens only; everywhere
    * else (profile, mistakes…) the number is simply there. */
   animate?: boolean;
+  /** The value is still loading: a value-sized placeholder instead of the
+   * number (and of the caption under it), so the tile never changes size. */
+  loading?: boolean;
   className?: string;
 }
 
@@ -34,11 +38,13 @@ export function StatTile({
   deltaLabel,
   deltaDirection,
   animate = false,
+  loading = false,
   className,
 }: StatTileProps) {
   const text = `${value}${suffix ?? ''}`;
   return (
     <div
+      aria-busy={loading || undefined}
       className={`${styles.tile} ${className ?? ''}`}
       style={{ ['--tile-color' as string]: iconColor }}
     >
@@ -46,8 +52,21 @@ export function StatTile({
         <Icon name={icon} size={20} />
       </span>
       <p className="text-body-sm text-secondary">{label}</p>
-      <p className={styles.value}>{animate ? <AnimatedNumber value={text} /> : text}</p>
-      {deltaLabel && (
+      <p className={styles.value}>
+        {loading ? (
+          <SkeletonValue width="2.5ch" />
+        ) : animate ? (
+          <AnimatedNumber value={text} />
+        ) : (
+          text
+        )}
+      </p>
+      {loading && deltaLabel ? (
+        <span className={styles.delta}>
+          <SkeletonValue width="5rem" />
+        </span>
+      ) : null}
+      {!loading && deltaLabel && (
         <span
           className={`${styles.delta} ${deltaDirection === 'down' ? styles.deltaDown : styles.deltaUp}`}
         >

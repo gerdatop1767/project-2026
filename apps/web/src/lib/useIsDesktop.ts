@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
+/** The same switch, read once outside React (e.g. to start loading the
+ * right app tree before the first render). */
+export function isDesktopViewport(): boolean {
+  return typeof window === 'undefined' || typeof window.matchMedia !== 'function'
+    ? true
+    : window.matchMedia(DESKTOP_QUERY).matches;
+}
+
 /**
  * Desktop and mobile are separate approved compositions (S1 Block 6),
  * not one responsive layout — this is the single switch that decides

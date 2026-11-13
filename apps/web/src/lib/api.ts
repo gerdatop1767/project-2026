@@ -343,7 +343,9 @@ export function getLeaderboard(params: {
   const qs = new URLSearchParams({ period: params.period });
   if (params.subject) qs.set('subject', params.subject);
   if (params.limit !== undefined) qs.set('limit', String(params.limit));
-  return apiFetch(`/leaderboard?${qs.toString()}`);
+  // Shared read (see cachedApiFetch): the header's own place and the
+  // «Уровень» page ask for the same `limit=0` row on one page load.
+  return cachedApiFetch(`/leaderboard?${qs.toString()}`);
 }
 
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {

@@ -19,6 +19,7 @@ import {
 } from '../../lib/learningSessionContext.js';
 import { resolveTaskBatch, shuffled, type TaskPickFilter } from '../../lib/startTraining.js';
 import { Button } from '../../ui/Button/Button.js';
+import { SkeletonGrid } from '../../ui/Skeleton/Skeleton.js';
 import { Chip } from '../../ui/Chip/Chip.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import type { IconName } from '../../ui/Icon/icons.js';
@@ -129,6 +130,9 @@ export function Training() {
   const [subjectId, setSubjectId] = useState('math');
   const [modeId, setModeId] = useState<TrainingMode['id']>('topic');
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
+  // Which subject's collections have answered (success or failure) — until
+  // then the «Сборник»/«Вариант» area shows a skeleton, not a gap.
+  const [collectionsFor, setCollectionsFor] = useState<string | null>(null);
   const [collectionSlug, setCollectionSlug] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -147,7 +151,18 @@ export function Training() {
   const [smartUnseen, setSmartUnseen] = useState(false);
 
   // "По теме" — real topics, independent 🎲/🔄, optional numbers, amount.
-  const [topics, setTopics] = useState<readonly TopicItem[]>([]);
+  // Topics per request key: `items: null` = the request failed. A key that
+  // doesn't match the current one means that request is still in flight.
+  const [topicsLoad, setTopicsLoad] = useState<{
+    key: string;
+    items: readonly TopicItem[] | null;
+  } | null>(null);
+  const [topicsAttempt, setTopicsAttempt] = useState(0);
+  const topicsKey = `${subjectId}:${collectionSlug ?? ''}:${isGuest ? 'g' : 'u'}:${topicsAttempt}`;
+  const topicsState =
+    topicsLoad?.key !== topicsKey ? 'loading' : topicsLoad.items === null ? 'error' : 'ready';
+  const topics: readonly TopicItem[] =
+    topicsLoad?.key === topicsKey ? (topicsLoad.items ?? []) : [];
   const [topicId, setTopicId] = useState<string | null>(null);
   const [topicRandom, setTopicRandom] = useState(false);
   const [topicUnseen, setTopicUnseen] = useState(false);
@@ -159,9 +174,13 @@ export function Training() {
     let cancelled = false;
     void listCollections()
       .then((items) => {
-        if (!cancelled) setCollections(items.filter((c) => c.collection.subjectId === subjectId));
+        if (!cancelled) {
+          setCollections(items.filter((c) => c.collection.subjectId === subjectId));
+          setCollectionsFor(subjectId);
+        }
       })
       .catch(() => {
+        if (!cancelled) setCollectionsFor(subjectId);
         // "Сборник" simply stays empty/unavailable — остальные режимы
         // по-прежнему работают без него.
       });
@@ -178,15 +197,15 @@ export function Training() {
     const loadTopics = isGuest ? getTopics : getProgressByTopic;
     void loadTopics({ subject: subjectId, collection: collectionSlug ?? undefined })
       .then((res) => {
-        if (!cancelled) setTopics(res.items);
+        if (!cancelled) setTopicsLoad({ key: topicsKey, items: res.items });
       })
       .catch(() => {
-        if (!cancelled) setTopics([]);
+        if (!cancelled) setTopicsLoad({ key: topicsKey, items: null });
       });
     return () => {
       cancelled = true;
     };
-  }, [subjectId, collectionSlug, isGuest]);
+  }, [subjectId, collectionSlug, isGuest, topicsKey]);
 
   function selectSubject(id: string) {
     trackSubject(id);
@@ -453,6 +472,22 @@ export function Training() {
       </button>
 
       <ContentSwap key={modeId}>
+        {modeId === 'variant' && collectionsFor !== subjectId && (
+          <div className={styles.collectionsSkeleton}>
+            <SkeletonGrid
+              count={1}
+              height={48}
+              minColumnWidth="100%"
+              aria-label="Загрузка сборников"
+            />
+            <SkeletonGrid
+              count={8}
+              height={40}
+              minColumnWidth="7.5rem"
+              aria-label="Загрузка вариантов"
+            />
+          </div>
+        )}
         {(modeId === 'topic' || modeId === 'variant') && collections.length > 0 && (
           <div>
             <SectionHeader title="Сборник" />
@@ -511,7 +546,16 @@ export function Training() {
           <>
             <div>
               <SectionHeader title="Тема" />
-              {topics.length === 0 ? (
+              {topicsState === 'loading' ? (
+                <SkeletonGrid count={6} height={52} aria-label="Загрузка тем" />
+              ) : topicsState === 'error' ? (
+                <div className={styles.loadError} role="alert">
+                  <p className="text-body-sm text-secondary">Не удалось загрузить темы.</p>
+                  <Button variant="secondary" onClick={() => setTopicsAttempt((n) => n + 1)}>
+                    Повторить
+                  </Button>
+                </div>
+              ) : topics.length === 0 ? (
                 <p className="text-body-sm text-secondary">
                   В этом источнике пока нет тем — попробуй сменить «Сборник».
                 </p>

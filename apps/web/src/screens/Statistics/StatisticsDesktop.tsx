@@ -43,6 +43,7 @@ import {
   solvedBarPoints,
 } from '../../ui/Statistics/dailyCharts.js';
 import styles from './StatisticsDesktop.module.css';
+import { Skeleton, SkeletonList } from '../../ui/Skeleton/Skeleton.js';
 
 /**
  * Desktop Statistics (S1 Block 6, approved design —
@@ -60,6 +61,11 @@ export function StatisticsDesktop() {
   const [period, setPeriod] = useState<StatsPeriod>('30d');
 
   const [realProgress, setRealProgress] = useState<ProgressSummary | null>(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  // 'loading' until the first answer — never «нет данных» while it's still coming.
+  const [mistakesState, setMistakesState] = useState<'loading' | 'ready' | 'error'>('loading');
+  // The daily chart's first load only; a period switch keeps the old bars until the new ones land.
+  const [dailyLoaded, setDailyLoaded] = useState(false);
   const [dailyItems, setDailyItems] = useState<
     Awaited<ReturnType<typeof getProgressDaily>>['items']
   >([]);
@@ -84,15 +90,21 @@ export function StatisticsDesktop() {
         if (!cancelled) setRealProgress(data);
       })
       .catch(() => {
-        // No backend data yet (or the request failed) — headline tiles
-        // stay at their neutral zero state below.
+        // The request failed — headline tiles show «—», never an endless placeholder.
+        if (!cancelled) setSummaryFailed(true);
       });
     void getMistakes()
       .then((items) => {
-        if (!cancelled) setMistakes(items.map(toSampleMistake));
+        if (!cancelled) {
+          setMistakes(items.map(toSampleMistake));
+          setMistakesState('ready');
+        }
       })
       .catch(() => {
-        if (!cancelled) setMistakes([]);
+        if (!cancelled) {
+          setMistakes([]);
+          setMistakesState('error');
+        }
       });
     // "Статистика вариантов" — every real variant session the user has
     // ever started, across all subjects, never scoped to the selected
@@ -157,10 +169,16 @@ export function StatisticsDesktop() {
     let cancelled = false;
     void getProgressDaily({ days, subject: subjectId })
       .then((res) => {
-        if (!cancelled) setDailyItems(res.items);
+        if (!cancelled) {
+          setDailyItems(res.items);
+          setDailyLoaded(true);
+        }
       })
       .catch(() => {
-        if (!cancelled) setDailyItems([]);
+        if (!cancelled) {
+          setDailyItems([]);
+          setDailyLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -172,6 +190,7 @@ export function StatisticsDesktop() {
   // returns — no new backend query needed for accuracy/solved.
   const subjectRow = realProgress?.bySubject.find((s) => s.subjectId === subjectId) ?? null;
   const subjectTime = realProgress?.timeBySubject.find((s) => s.subjectId === subjectId) ?? null;
+  const summaryLoading = realProgress === null && !summaryFailed;
   // null while `realProgress` hasn't loaded yet — never a fake `0`
   // (same mobile-flash bug fixed in Subject/Profile/StatisticsMobile).
   // «Решено» = distinct tasks solved correctly; «Правильных ответов X из Y»
@@ -233,16 +252,18 @@ export function StatisticsDesktop() {
           icon="variant"
           iconColor="var(--color-accent-primary-end)"
           label="Решено заданий"
-          value={solvedTotal ?? '···'}
+          value={solvedTotal ?? '—'}
+          loading={summaryLoading}
         />
         <StatTile
           animate
           icon="success"
           iconColor="var(--color-success)"
           label="Правильных ответов"
-          value={correctPercent ?? '···'}
+          value={correctPercent ?? '—'}
           suffix={correctPercent !== null ? '%' : undefined}
-          deltaLabel={`${correctTotal} из ${answersTotal ?? '···'}`}
+          deltaLabel={`${correctTotal} из ${answersTotal ?? '—'}`}
+          loading={summaryLoading}
         />
         <StatTile
           animate
@@ -250,6 +271,7 @@ export function StatisticsDesktop() {
           iconColor="var(--color-warning)"
           label="Среднее время"
           value={subjectTime ? formatDuration(subjectTime.averageTimeMs) : '—'}
+          loading={summaryLoading}
           deltaLabel={subjectTime ? `медиана ${formatDuration(subjectTime.medianTimeMs)}` : 'скоро'}
         />
         <StatTile
@@ -273,18 +295,28 @@ export function StatisticsDesktop() {
             </div>
             <span className={styles.metricLabel}>Нажми на столбец</span>
           </div>
-          <BarChart
-            points={solvedBars}
-            labelEvery={showEvery}
-            ariaLabel="Решённые задания по дням"
-          />
+          {dailyLoaded ? (
+            <BarChart
+              points={solvedBars}
+              labelEvery={showEvery}
+              ariaLabel="Решённые задания по дням"
+            />
+          ) : (
+            <Skeleton className={styles.chartPlaceholder} aria-label="Загрузка графика" />
+          )}
         </Card>
 
         <Card className={styles.chartCard}>
           <div className={styles.cardHeaderRow}>
             <p className="text-h3">Распределение по темам</p>
           </div>
-          {mistakesSummary.total === 0 ? (
+          {mistakesState === 'loading' ? (
+            <Skeleton className={styles.chartPlaceholder} aria-label="Загрузка распределения" />
+          ) : mistakesState === 'error' ? (
+            <p className="text-body-sm text-secondary" role="alert">
+              Не удалось загрузить ошибки. Обнови страницу позже.
+            </p>
+          ) : mistakesSummary.total === 0 ? (
             <p className="text-body-sm text-secondary">Пока нет данных об ошибках.</p>
           ) : (
             <DonutChart
@@ -317,11 +349,15 @@ export function StatisticsDesktop() {
             </div>
             <span className={styles.metricLabel}>Нажми на точку</span>
           </div>
-          <LineChart
-            points={accuracyLine}
-            labelEvery={showEvery}
-            ariaLabel="Процент правильных ответов по дням"
-          />
+          {dailyLoaded ? (
+            <LineChart
+              points={accuracyLine}
+              labelEvery={showEvery}
+              ariaLabel="Процент правильных ответов по дням"
+            />
+          ) : (
+            <Skeleton className={styles.chartPlaceholder} aria-label="Загрузка графика" />
+          )}
         </Card>
 
         <Card className={styles.chartCard}>
@@ -336,7 +372,13 @@ export function StatisticsDesktop() {
               Показать все
             </Button>
           </div>
-          {difficultTopics.length === 0 ? (
+          {mistakesState === 'loading' ? (
+            <SkeletonList rows={3} />
+          ) : mistakesState === 'error' ? (
+            <p className="text-body-sm text-secondary" role="alert">
+              Не удалось загрузить ошибки. Обнови страницу позже.
+            </p>
+          ) : difficultTopics.length === 0 ? (
             <p className="text-body-sm text-secondary">Пока нет данных об ошибках.</p>
           ) : (
             <RankedBarList

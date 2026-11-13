@@ -15,6 +15,7 @@ import { FeedbackState } from '../../ui/FeedbackState/FeedbackState.js';
 import { useToast } from '../../ui/Toast/ToastProvider.js';
 import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
 import styles from './MistakesMobile.module.css';
+import { SkeletonGrid } from '../../ui/Skeleton/Skeleton.js';
 
 const viewTabs = [
   { id: 'all', label: 'Все ошибки' },
@@ -172,9 +173,7 @@ export function MistakesMobile() {
           </Button>
         </div>
       ) : data.state === 'loading' && mistakes.length === 0 ? (
-        <p className="text-body-sm text-secondary" role="status">
-          Загрузка ошибок…
-        </p>
+        <SkeletonGrid count={3} height={148} minColumnWidth="100%" aria-label="Загрузка ошибок" />
       ) : (
         <ContentSwap key={subject.id}>
           <MistakeStats

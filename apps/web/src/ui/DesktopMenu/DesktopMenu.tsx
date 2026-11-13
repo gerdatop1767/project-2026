@@ -118,7 +118,7 @@ export function DesktopMenu({ open, onClose }: DesktopMenuProps) {
               <Icon name="crown" size={34} />
             </span>
             <span className={styles.avatar}>
-              <img src="/branding/v2/logo-icon-desktop.png" alt="" aria-hidden="true" />
+              <img src="/branding/v2/logo-icon-desktop.webp" alt="" aria-hidden="true" />
             </span>
             <p className={styles.brand}>
               Zybr<span className={styles.brandAccent}>ilka</span>

@@ -110,7 +110,8 @@ export function Level() {
           </Button>
         </div>
       )}
-      {xp === null && !xpFailed && <SkeletonCard height={180} />}
+      {/* Same height as the real hero (≈300 px), so nothing below jumps. */}
+      {xp === null && !xpFailed && <SkeletonCard height={300} />}
 
       {xp !== null && (
         <section
@@ -169,7 +170,10 @@ export function Level() {
         </section>
       )}
 
-      {xp !== null && <RankLadder level={xp.level} />}
+      {/* The ladder itself is static — render it at once (neutral until the
+          level is known) instead of inserting it later and pushing the
+          sections below down. */}
+      {!(xp === null && xpFailed) && <RankLadder level={xp?.level ?? null} />}
 
       <section className={styles.card} aria-labelledby="level-how">
         <h2 id="level-how" className={styles.sectionTitle}>
@@ -253,17 +257,18 @@ function NextRank({ level }: { level: number }) {
 
 /** Every rank, in order: reached ones in colour, the current one marked,
  * the rest greyed out with the level that unlocks them. */
-function RankLadder({ level }: { level: number }) {
-  const current = levelRankFor(level);
+function RankLadder({ level }: { level: number | null }) {
+  const current = level === null ? null : levelRankFor(level);
   return (
-    <section className={styles.card} aria-labelledby="level-ranks">
+    <section className={styles.card} aria-labelledby="level-ranks" aria-busy={current === null}>
       <h2 id="level-ranks" className={styles.sectionTitle}>
         Ранги
       </h2>
       <ol className={styles.ladder}>
         {LEVEL_RANKS.map((rank) => {
-          const reached = rank.index <= current.index;
-          const isCurrent = rank.index === current.index;
+          const known = current !== null;
+          const reached = known && rank.index <= current.index;
+          const isCurrent = known && rank.index === current.index;
           return (
             <li
               key={rank.id}
@@ -271,16 +276,17 @@ function RankLadder({ level }: { level: number }) {
               style={levelRankStyle(rank)}
               aria-current={isCurrent ? 'step' : undefined}
             >
-              <LevelEmblem rank={rank} size={40} locked={!reached} />
+              <LevelEmblem rank={rank} size={40} locked={known && !reached} />
               <span className={styles.ladderText}>
                 <span className={styles.strong}>{rank.name}</span>
                 <span className={styles.muted}>Уровни {levelRankRange(rank)}</span>
                 {isCurrent && <span className={styles.ladderYou}>Ваш ранг</span>}
               </span>
               <span className={styles.ladderState}>
-                {!isCurrent &&
+                {known &&
+                  !isCurrent &&
                   (reached ? <Icon name="check" size={18} /> : <Icon name="lock" size={16} />)}
-                {!reached && (
+                {known && !reached && (
                   <span className={styles.srOnly}>Откроется с уровня {rank.minLevel}</span>
                 )}
                 {reached && !isCurrent && <span className={styles.srOnly}>Пройден</span>}

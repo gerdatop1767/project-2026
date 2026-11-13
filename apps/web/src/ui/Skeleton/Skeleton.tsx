@@ -105,3 +105,101 @@ export function SkeletonProgress() {
     </div>
   );
 }
+
+/**
+ * A number/word placeholder INSIDE a line of text (a stat tile's value, a
+ * "N из M" caption): an inline bone, so it can sit in a <p> or <span>
+ * without breaking the line box. The surrounding element carries the
+ * loading semantics (aria-busy); this piece is decorative.
+ */
+export function SkeletonValue({ width = '3ch' }: { width?: string | number }) {
+  return (
+    <span
+      className={clsx(styles.skeleton, styles.value)}
+      style={{ width }}
+      aria-hidden="true"
+      data-testid="skeleton-value"
+    />
+  );
+}
+
+/** Same-shaped cards in a responsive grid (topic groups, variant chips, tiles). */
+export function SkeletonGrid({
+  count = 6,
+  height = 52,
+  minColumnWidth = '16rem',
+  'aria-label': ariaLabel = 'Загрузка',
+}: {
+  count?: number;
+  height?: number;
+  minColumnWidth?: string;
+  'aria-label'?: string;
+}) {
+  return (
+    <div
+      className={styles.grid}
+      style={{ ['--skeleton-min-col' as string]: minColumnWidth }}
+      role="status"
+      aria-label={ariaLabel}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <Bone key={i} className={styles.card} height={height} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The app's frame while the session check (`/auth/me`) is in flight —
+ * shaped like the real shell (header with logo and status chips; on
+ * desktop the sidebar too) so nothing jumps when the real one mounts.
+ */
+export function SkeletonAppShell({ desktop }: { desktop: boolean }) {
+  return (
+    <div
+      className={clsx(styles.shell, !desktop && styles.shellMobile)}
+      role="status"
+      aria-live="polite"
+      aria-label="Загрузка"
+    >
+      <div className={styles.shellHeader}>
+        <div className={styles.row}>
+          <Bone className={styles.avatar} width={desktop ? 40 : 34} height={desktop ? 40 : 34} />
+          <Bone className={styles.text} width={desktop ? 120 : 96} height={20} />
+        </div>
+        <div className={styles.shellChips}>
+          {Array.from({ length: desktop ? 4 : 3 }, (_, i) => (
+            <Bone
+              key={i}
+              className={styles.card}
+              width={desktop ? 88 : 56}
+              height={desktop ? 48 : 40}
+            />
+          ))}
+        </div>
+      </div>
+      <div className={styles.shellBody}>
+        {desktop && (
+          <div className={styles.shellSidebar}>
+            {Array.from({ length: 8 }, (_, i) => (
+              <Bone key={i} className={styles.text} width={i === 0 ? '90%' : '70%'} height={18} />
+            ))}
+          </div>
+        )}
+        <div className={styles.shellMain}>
+          <Bone className={styles.text} width={desktop ? 280 : 200} height={28} />
+          <Bone className={styles.text} width={desktop ? 360 : '70%'} />
+          <Bone className={styles.card} height={desktop ? 150 : 140} />
+          <div
+            className={styles.grid}
+            style={{ ['--skeleton-min-col' as string]: desktop ? '14rem' : '9rem' }}
+          >
+            {Array.from({ length: desktop ? 4 : 2 }, (_, i) => (
+              <Bone key={i} className={styles.card} height={desktop ? 140 : 110} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
