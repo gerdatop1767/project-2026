@@ -20,9 +20,12 @@ export interface LogoProps {
   onClick?: () => void;
 }
 
+// WebP copies at ~2.5× the largest rendered size (50 px): 10 KB instead of
+// the 60–95 KB source PNGs on every page. The PNGs stay for the favicon
+// and the Telegram worker's install page.
 const iconSrc: Record<LogoIconVariant, string> = {
-  desktop: '/branding/v2/logo-icon-desktop.png',
-  mobile: '/branding/v2/logo-icon-mobile.png',
+  desktop: '/branding/v2/logo-icon-desktop.webp',
+  mobile: '/branding/v2/logo-icon-mobile.webp',
 };
 
 /**
