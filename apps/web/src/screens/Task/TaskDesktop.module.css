@@ -210,11 +210,35 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* Full row height, so the task grid below can stay pinned while a long
+   * condition/solution scrolls past. */
+  align-self: stretch;
+}
+
+/* The task-number grid (with the session progress under it) stays in
+ * view while a long condition scrolls; the tools card scrolls away. */
+.stickyNav {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Too short a window to pin ~30rem of sidebar — keep it in the flow. */
+@media (max-height: 640px) {
+  .stickyNav {
+    position: static;
+  }
 }
 
 @media (max-width: 960px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .stickyNav {
+    position: static;
   }
 }
 

@@ -458,15 +458,17 @@ export function TaskDesktop({
             onSelectCalculator={() => setCalculatorOpen(true)}
             onSelectCanvas={() => setCanvasOpen(true)}
           />
-          <SessionProgressCard
-            sessionTasks={progress.sessionTasks}
-            totalInSession={progress.totalInSession}
-          />
-          <SessionTaskListCard
-            title="Задания"
-            sessionTasks={progress.sessionTasks}
-            onSelect={handleSelectSession}
-          />
+          <div className={styles.stickyNav}>
+            <SessionTaskListCard
+              title="Задания"
+              sessionTasks={progress.sessionTasks}
+              onSelect={handleSelectSession}
+            />
+            <SessionProgressCard
+              sessionTasks={progress.sessionTasks}
+              totalInSession={progress.totalInSession}
+            />
+          </div>
         </div>
       </div>
 
