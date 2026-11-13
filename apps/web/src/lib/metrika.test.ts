@@ -124,11 +124,11 @@ describe('SPA hits and goals', () => {
 });
 
 describe('Yandex.Webmaster verification file', () => {
-  it('is in public/ unchanged (byte for byte), so it is copied to the build root', () => {
+  it('is in public/ with exactly the issued text (no markup, no newline), so it is copied to the build root', () => {
     const bytes = readFileSync(resolve(WEB, 'public/yandex_d514299f65b97010.html'));
+    expect(bytes.toString('utf8')).toBe('Verification: d514299f65b97010');
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(
-      '661b8a7525a7cdbadc2d76b19353f67c123bb8659b1ca953ee76ab1538455d49',
+      createHash('sha256').update('Verification: d514299f65b97010').digest('hex'),
     );
-    expect(bytes.toString('utf8')).toContain('Verification: d514299f65b97010');
   });
 });
