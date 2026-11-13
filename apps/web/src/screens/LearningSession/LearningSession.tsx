@@ -10,6 +10,7 @@ import { Card } from '../../ui/Card/Card.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { VariantAttempt } from '../VariantAttempt/VariantAttempt.js';
 import styles from './LearningSession.module.css';
+import { SkeletonTask } from '../../ui/Skeleton/Skeleton.js';
 
 export interface LearningSessionProps {
   sessionId: string;
@@ -69,7 +70,7 @@ export function LearningSession({ sessionId }: LearningSessionProps) {
   // started or just advanced), this screen is a pure redirect with
   // nothing to show: it never actually has to load anything. Using
   // useLayoutEffect (not useEffect) runs the navigate() before the
-  // browser paints the commit below, so the "Загрузка тренировки…"
+  // browser paints the commit below, so the task-shaped skeleton
   // placeholder further down never becomes visible — without it, that
   // placeholder paints for one frame and then disappears, which is
   // exactly the kind of wrong-intermediate-content flash a real fix
@@ -169,7 +170,7 @@ export function LearningSession({ sessionId }: LearningSessionProps) {
 
   return (
     <SlideUp className={styles.page}>
-      <p className="text-body-sm text-secondary">Загрузка тренировки…</p>
+      <SkeletonTask />
     </SlideUp>
   );
 }

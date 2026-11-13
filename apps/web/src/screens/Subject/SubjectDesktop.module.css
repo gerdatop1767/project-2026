@@ -446,3 +446,11 @@
     flex-wrap: wrap;
   }
 }
+
+/* A failed load: the reason and a retry, never an endless skeleton. */
+.loadError {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

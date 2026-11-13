@@ -17,6 +17,7 @@ import { FeedbackState } from '../../ui/FeedbackState/FeedbackState.js';
 import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
 import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import styles from './MistakesDesktop.module.css';
+import { SkeletonGrid } from '../../ui/Skeleton/Skeleton.js';
 
 type FilterId = 'all' | 'unsolved' | 'byTopic' | 'byDate';
 
@@ -171,7 +172,14 @@ export function MistakesDesktop() {
               </Button>
             </div>
           )}
-          {loading && <p className="text-body-sm text-secondary">Загрузка ошибок…</p>}
+          {loading && (
+            <SkeletonGrid
+              count={3}
+              height={132}
+              minColumnWidth="100%"
+              aria-label="Загрузка ошибок"
+            />
+          )}
           {!loading && data.state !== 'error' && mistakes.length === 0 && (
             <FeedbackState
               variant="info"

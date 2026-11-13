@@ -303,7 +303,7 @@ describe('App — access gate (server-truth auth state)', () => {
         </TestAuthProvider>
       </NavigationProvider>,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Загрузка');
+    expect(screen.getByRole('status', { name: 'Загрузка' })).toBeInTheDocument();
     expect(screen.queryByText(/Подготовка к/)).not.toBeInTheDocument();
     expect(screen.queryByText('Войти или создать аккаунт')).not.toBeInTheDocument();
     expect(screen.queryByText(/Готов к новой/)).not.toBeInTheDocument();

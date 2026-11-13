@@ -45,6 +45,7 @@ import { CanonicalSolutionView } from '../../ui/CanonicalSolution/CanonicalSolut
 import { PassageCard } from '../../ui/Passage/PassageCard.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './ResultDesktop.module.css';
+import { SkeletonTask } from '../../ui/Skeleton/Skeleton.js';
 
 export interface ResultDesktopProps {
   subjectId: string;
@@ -167,7 +168,7 @@ export function ResultDesktop({
   if (!task) {
     return (
       <FadeIn className={styles.page}>
-        <p className="text-body-sm text-secondary">Загрузка результата…</p>
+        <SkeletonTask />
       </FadeIn>
     );
   }

@@ -28,6 +28,7 @@ import { clsx } from '../../lib/clsx.js';
 import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectDesktop.module.css';
+import { SkeletonList } from '../../ui/Skeleton/Skeleton.js';
 
 /** Sentinel Select value for "Общий банк" (no collection filter) — Select's
  * own value type is `string | null`, and `null` there means "nothing
@@ -106,7 +107,13 @@ export function SubjectDesktop({
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   const [collectionsLoaded, setCollectionsLoaded] = useState(false);
   const [topicsSlug, setTopicsSlug] = useState<string | null>(collectionSlug ?? null);
-  const [topics, setTopics] = useState<readonly TopicProgressItem[]>([]);
+  // Topics per request key (`items: null` = that request failed); a key
+  // that doesn't match the current one is still loading.
+  const [topicsLoad, setTopicsLoad] = useState<{
+    key: string;
+    items: readonly TopicProgressItem[] | null;
+  } | null>(null);
+  const [topicsAttempt, setTopicsAttempt] = useState(0);
   // Real solved count + accuracy for this subject/user (Block D's
   // `bySubject`), and real published-task count — replaces the static
   // `subject.taskCount`/`mastery` demo fields. null until loaded — never
@@ -181,6 +188,7 @@ export function SubjectDesktop({
   const effectiveTopicsSlug =
     collectionsLoaded && topicsSlug && !knownSlugs.has(topicsSlug) ? null : topicsSlug;
 
+  const topicsKey = `${subject.id}:${effectiveTopicsSlug ?? ''}:${isGuest ? 'g' : 'u'}:${topicsAttempt}`;
   // Real topics (Block D) — the DB's own topics table, never the static
   // per-subject design content, whose ids/names are a different,
   // incompatible taxonomy. A topic with no published task in the
@@ -194,15 +202,17 @@ export function SubjectDesktop({
       collection: effectiveTopicsSlug ?? undefined,
     })
       .then((res) => {
-        if (!cancelled) setTopics(res.items);
+        if (!cancelled) setTopicsLoad({ key: topicsKey, items: res.items });
       })
       .catch(() => {
-        if (!cancelled) setTopics([]);
+        if (!cancelled) setTopicsLoad({ key: topicsKey, items: null });
       });
     return () => {
       cancelled = true;
     };
-  }, [subject.id, effectiveTopicsSlug, isGuest]);
+  }, [subject.id, effectiveTopicsSlug, isGuest, topicsKey]);
+  // undefined = loading, null = failed, array = loaded.
+  const topics = topicsLoad?.key === topicsKey ? topicsLoad.items : undefined;
 
   // Where Task's back arrow returns — this subject page in whichever
   // mode/source is currently active (audit Block 3), so Subject → Task
@@ -312,6 +322,7 @@ export function SubjectDesktop({
             {mode === 'topics' && !selectedTopic && (
               <TopicsList
                 topics={topics}
+                onRetry={() => setTopicsAttempt((n) => n + 1)}
                 collections={collections}
                 selectedSlug={effectiveTopicsSlug}
                 onSourceChange={setTopicsSlug}
@@ -437,8 +448,10 @@ function TopicsList({
   selectedSlug,
   onSourceChange,
   onSelect,
+  onRetry,
 }: {
-  topics: readonly TopicProgressItem[];
+  topics: readonly TopicProgressItem[] | null | undefined;
+  onRetry: () => void;
   collections: readonly CollectionListItem[];
   selectedSlug: string | null;
   onSourceChange: (slug: string | null) => void;
@@ -462,10 +475,19 @@ function TopicsList({
         </div>
       </div>
       <div className={styles.topicList}>
-        {topics.length === 0 && (
+        {topics === undefined && <SkeletonList rows={5} />}
+        {topics === null && (
+          <div className={styles.loadError} role="alert">
+            <p className="text-body-sm text-secondary">Не удалось загрузить темы.</p>
+            <Button variant="secondary" onClick={onRetry}>
+              Повторить
+            </Button>
+          </div>
+        )}
+        {topics?.length === 0 && (
           <p className="text-body-sm text-secondary">В этом источнике пока нет тем.</p>
         )}
-        {topics.map((topic) => {
+        {(topics ?? []).map((topic) => {
           const percent = topic.total > 0 ? Math.round((topic.completed / topic.total) * 100) : 0;
           return (
             <button

@@ -119,3 +119,9 @@
 .numbersWaves {
   margin-bottom: var(--space-4);
 }
+
+/* Same height as a chart (plot + day labels), so nothing jumps when it lands. */
+.chartPlaceholder {
+  height: 13rem;
+  border-radius: var(--radius-input);
+}

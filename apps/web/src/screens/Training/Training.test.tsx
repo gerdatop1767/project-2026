@@ -296,6 +296,26 @@ function variantSessionResponse(variantId: string, variantNumber: number) {
   };
 }
 
+describe('Training — topics loading states', () => {
+  it('shows a skeleton while topics load, never an "empty" message', async () => {
+    vi.mocked(api.getProgressByTopic).mockReturnValue(new Promise(() => {}));
+    renderTraining();
+    expect(screen.getByRole('status', { name: 'Загрузка тем' })).toBeInTheDocument();
+    expect(screen.queryByText(/нет тем/i)).not.toBeInTheDocument();
+  });
+
+  it('shows an error with «Повторить» on failure, and retrying loads the topics', async () => {
+    vi.mocked(api.getProgressByTopic).mockRejectedValueOnce(new Error('offline'));
+    const user = userEvent.setup();
+    renderTraining();
+    expect(await screen.findByText('Не удалось загрузить темы.')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Загрузка тем' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByText('Логарифмические уравнения')).toBeInTheDocument();
+    expect(screen.queryByText('Не удалось загрузить темы.')).not.toBeInTheDocument();
+  });
+});
+
 describe('Training — "Вариант" (compact independent 🎲/🔄)', () => {
   it('starts a manually picked variant as a real backend session when both toggles are off', async () => {
     const user = userEvent.setup();

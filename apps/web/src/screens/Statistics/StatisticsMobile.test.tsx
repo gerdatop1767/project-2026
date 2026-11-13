@@ -275,7 +275,7 @@ describe('StatisticsMobile — real progress data', () => {
   // `accuracyPercent` used to collapse to a fake `0` while
   // `getProgressSummary` was still in flight, even though the
   // underlying `realProgress` state was already correctly
-  // null-until-loaded. Must show an honest '···' placeholder.
+  // null-until-loaded. Must show an honest skeleton placeholder.
   it('never shows a fake "0"/"0%" headline while /progress/summary is still loading', async () => {
     let resolveProgress!: (value: Awaited<ReturnType<typeof api.getProgressSummary>>) => void;
     vi.mocked(api.getProgressSummary).mockReturnValue(
@@ -284,7 +284,7 @@ describe('StatisticsMobile — real progress data', () => {
       }),
     );
     renderWithNav();
-    expect(screen.getAllByText('···').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('skeleton-value').length).toBeGreaterThan(0);
 
     resolveProgress({
       solvedTotal: 20,

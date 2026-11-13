@@ -46,6 +46,7 @@ import { CanonicalSolutionView } from '../../ui/CanonicalSolution/CanonicalSolut
 import { PassageCard } from '../../ui/Passage/PassageCard.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './ResultMobile.module.css';
+import { SkeletonTask } from '../../ui/Skeleton/Skeleton.js';
 
 export interface ResultMobileProps {
   subjectId: string;
@@ -172,7 +173,7 @@ export function ResultMobile({
   if (!task) {
     return (
       <SlideUp className={styles.stack}>
-        <p className="text-body-sm text-secondary">Загрузка результата…</p>
+        <SkeletonTask />
       </SlideUp>
     );
   }

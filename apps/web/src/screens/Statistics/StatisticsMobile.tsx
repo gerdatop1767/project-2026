@@ -40,7 +40,7 @@ import { DonutChart } from '../../ui/Charts/DonutChart.js';
 import { FadeIn } from '../../ui/motion/motion.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { SubjectPickerDialog } from '../../ui/SubjectPicker/SubjectPicker.js';
-import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
+import { Skeleton, SkeletonValue } from '../../ui/Skeleton/Skeleton.js';
 import { ActivityCharts } from '../../ui/Statistics/ActivityCharts.js';
 import styles from './StatisticsMobile.module.css';
 
@@ -87,6 +87,8 @@ export function StatisticsMobile() {
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const [realProgress, setRealProgress] = useState<ProgressSummary | null>(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  const [mistakesState, setMistakesState] = useState<'loading' | 'ready' | 'error'>('loading');
   const allSourcesCounts = useTaskCountsBySubject();
   // Per-subject data is stored WITH the subject it belongs to: right after
   // a subject switch the previous subject's numbers must never be shown
@@ -114,8 +116,8 @@ export function StatisticsMobile() {
         if (!cancelled) setRealProgress(data);
       })
       .catch(() => {
-        // No backend data yet (or the request failed) — headline tiles
-        // stay at their neutral zero/dash state below.
+        // The request failed — tiles show «—», never an endless placeholder.
+        if (!cancelled) setSummaryFailed(true);
       });
     // "Статистика вариантов" — every real variant session the user has
     // ever started, across all subjects, never scoped to the selected
@@ -141,10 +143,16 @@ export function StatisticsMobile() {
     let cancelled = false;
     void getMistakes()
       .then((items) => {
-        if (!cancelled) setMistakes(items.map(toSampleMistake));
+        if (!cancelled) {
+          setMistakes(items.map(toSampleMistake));
+          setMistakesState('ready');
+        }
       })
       .catch(() => {
-        if (!cancelled) setMistakes([]);
+        if (!cancelled) {
+          setMistakes([]);
+          setMistakesState('error');
+        }
       });
     return () => {
       cancelled = true;
@@ -218,6 +226,7 @@ export function StatisticsMobile() {
   // «Все источники»-only total could be overtaken by it.
   const subjectTotalTasks = allSourcesCounts ? (allSourcesCounts[subject.id] ?? 0) : null;
   const totalLabel = subjectTotalTasks ?? '···';
+  const summaryLoading = realProgress === null && !summaryFailed;
 
   function selectSubject(id: string) {
     setSubjectId(id);
@@ -304,12 +313,18 @@ export function StatisticsMobile() {
           <Card className={styles.summaryCard}>
             <CircularProgress value={accuracyPercent ?? 0} size={72} label="Твой прогресс">
               <span className="text-body" style={{ fontWeight: 700 }}>
-                {accuracyPercent !== null ? `${accuracyPercent}%` : '···'}
+                {accuracyPercent !== null ? (
+                  `${accuracyPercent}%`
+                ) : summaryLoading ? (
+                  <SkeletonValue width="2.5ch" />
+                ) : (
+                  '—'
+                )}
               </span>
             </CircularProgress>
             <div>
               <p className="text-body" style={{ fontWeight: 700 }}>
-                {solvedTotal ?? '···'} из {totalLabel}
+                {solvedTotal ?? (summaryLoading ? <SkeletonValue /> : '—')} из {totalLabel}
               </p>
               <p className="text-body-sm text-secondary">заданий решено</p>
             </div>
@@ -367,7 +382,13 @@ export function StatisticsMobile() {
             <div className={styles.cardHeaderRow}>
               <p className="text-h3">Распределение ошибок по темам</p>
             </div>
-            {difficultTopics.length === 0 ? (
+            {mistakesState === 'loading' ? (
+              <Skeleton height="10rem" aria-label="Загрузка распределения" />
+            ) : mistakesState === 'error' ? (
+              <p className="text-body-sm text-secondary" role="alert">
+                Не удалось загрузить ошибки. Обнови страницу позже.
+              </p>
+            ) : difficultTopics.length === 0 ? (
               <p className="text-body-sm text-secondary">Пока нет данных об ошибках.</p>
             ) : (
               <DonutChart
@@ -438,17 +459,19 @@ export function StatisticsMobile() {
               icon="variant"
               iconColor="var(--color-accent-primary-end)"
               label="Решено заданий"
-              value={solvedTotal ?? '···'}
+              value={solvedTotal ?? '—'}
               deltaLabel={`из ${totalLabel}`}
+              loading={summaryLoading}
             />
             <StatTile
               animate
               icon="progress"
               iconColor="var(--color-accent-secondary)"
               label="Точность"
-              value={accuracyPercent ?? '···'}
+              value={accuracyPercent ?? '—'}
               suffix={accuracyPercent !== null ? '%' : undefined}
               deltaLabel={`${subjectRow?.correct ?? 0} верных`}
+              loading={summaryLoading}
             />
             <StatTile
               animate

@@ -12,23 +12,12 @@ import { Login } from './screens/Login/Login.js';
 import { TelegramReturn } from './screens/TelegramReturn/TelegramReturn.js';
 import { AccountGateProvider, accountFeatureForRoute } from './lib/accountGate.js';
 import { LANDING_AS_HOME } from './lib/features.js';
+import { SkeletonAppShell } from './ui/Skeleton/Skeleton.js';
 
 /** Public info pages that render standalone (landing header/footer, no app
  * shell) for everyone — a privacy policy must never sit behind sign-in or
  * onboarding. */
 const infoPages: ReadonlySet<OverlayRoute['screen']> = new Set(['faq', 'privacy', 'terms']);
-
-function LoadingScreen() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center' }}
-    >
-      Загрузка…
-    </div>
-  );
-}
 
 /**
  * App root (S1 Block 6, approved design): desktop and mobile are
@@ -37,7 +26,7 @@ function LoadingScreen() {
  *
  * It is also the single access gate, driven only by server truth from
  * `/auth/me` (never localStorage or a URL parameter):
- * - not checked yet → neutral loading state;
+ * - not checked yet → a skeleton of the app shell;
  * - signed out → GUEST MODE: the trainer itself, free to use; what needs
  *   an account (Статистика, Мои ошибки, …) opens a «нужна регистрация»
  *   window (lib/accountGate). The marketing landing lives at /landing
@@ -101,7 +90,9 @@ export function App() {
   }
 
   if (user === undefined || (needsOnboarding && !onOnboarding && overlay?.screen !== 'login')) {
-    return <LoadingScreen />;
+    // The shell's own shape (header, sidebar on desktop) while the session
+    // check is in flight — never a blank screen with a lone «Загрузка…».
+    return <SkeletonAppShell desktop={isDesktop} />;
   }
 
   // Rendered standalone, bypassing the normal app shell — reachable from

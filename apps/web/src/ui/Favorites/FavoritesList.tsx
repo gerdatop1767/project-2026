@@ -6,6 +6,7 @@ import { Icon } from '../Icon/Icon.js';
 import { InlineMathText } from '../MathText/MathText.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './FavoritesList.module.css';
+import { SkeletonList } from '../Skeleton/Skeleton.js';
 
 export interface FavoritesListProps {
   subjectId: string;
@@ -79,7 +80,7 @@ export function FavoritesList({ subjectId, onSelect }: FavoritesListProps) {
   }
 
   if (state.status === 'loading') {
-    return <p className="text-body-sm text-secondary">Загрузка избранного…</p>;
+    return <SkeletonList rows={3} />;
   }
 
   if (state.status === 'error') {

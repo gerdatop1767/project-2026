@@ -5,6 +5,7 @@ import { StatTile } from './StatTile.js';
 import { LineChart } from '../Charts/LineChart.js';
 import { RankedBarList } from '../Charts/RankedBarList.js';
 import styles from './TaskNumberDetailPanel.module.css';
+import { SkeletonParagraph } from '../Skeleton/Skeleton.js';
 
 const CHART_COLORS = [
   'var(--chart-1)',
@@ -32,7 +33,7 @@ export interface TaskNumberDetailPanelProps {
  */
 export function TaskNumberDetailPanel({ taskNumber, detail }: TaskNumberDetailPanelProps) {
   if (detail === undefined) {
-    return <p className="text-body-sm text-secondary">Загрузка…</p>;
+    return <SkeletonParagraph lines={4} />;
   }
 
   if (detail === null) {

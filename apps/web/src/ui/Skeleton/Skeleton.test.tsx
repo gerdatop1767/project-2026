@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import {
   Skeleton,
+  SkeletonAppShell,
   SkeletonAvatar,
   SkeletonCard,
+  SkeletonGrid,
   SkeletonList,
   SkeletonParagraph,
   SkeletonProgress,
   SkeletonTask,
+  SkeletonValue,
 } from './Skeleton.js';
 
 describe('Skeleton', () => {
@@ -43,5 +46,19 @@ describe('Skeleton', () => {
     expect(screen.getByRole('status', { name: 'Загрузка списка' })).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Загрузка задания' })).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Загрузка прогресса' })).toBeInTheDocument();
+  });
+
+  it('renders the value/grid/app-shell composites', () => {
+    render(
+      <>
+        <SkeletonValue />
+        <SkeletonGrid count={4} aria-label="Загрузка тем" />
+        <SkeletonAppShell desktop />
+      </>,
+    );
+    expect(screen.getByTestId('skeleton-value')).toHaveAttribute('aria-hidden', 'true');
+    const grid = screen.getByRole('status', { name: 'Загрузка тем' });
+    expect(grid.children).toHaveLength(4);
+    expect(screen.getByRole('status', { name: 'Загрузка' })).toBeInTheDocument();
   });
 });

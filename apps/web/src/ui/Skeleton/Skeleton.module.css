@@ -27,9 +27,11 @@
   }
 }
 
+/* Reduced motion: no moving highlight at all — a calm, static block. */
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after {
-    animation-duration: 3.2s;
+    animation: none;
+    background: none;
   }
 }
 
@@ -68,4 +70,78 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 0;
+}
+
+/* ---- Inline value (a number inside a line of text) ---- */
+
+.value {
+  display: inline-block;
+  vertical-align: middle;
+  height: 0.85em;
+  border-radius: var(--radius-chip);
+}
+
+/* ---- Grid of same-shaped cards (topic groups, tiles, chips) ---- */
+
+.grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--skeleton-min-col, 16rem)), 1fr));
+}
+
+/* ---- App shell (first load, before the session check answers) ---- */
+
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-base);
+}
+
+.shellHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-8);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.shellChips {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.shellBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.shellSidebar {
+  width: var(--sidebar-width);
+  padding: var(--space-6) var(--space-4);
+  border-right: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.shellMain {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-6) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.shellMobile .shellHeader {
+  padding: calc(var(--space-3) + var(--safe-top, 0px)) var(--space-screen-margin) var(--space-2);
+  border-bottom: none;
+}
+
+.shellMobile .shellMain {
+  padding: var(--space-4) var(--space-screen-margin);
 }

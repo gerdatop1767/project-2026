@@ -39,16 +39,19 @@ beforeEach(() => {
   vi.mocked(api.getProgressByTaskNumber).mockResolvedValue({ items: [] });
 });
 
-/** The bars of "Активность по дням". */
-function activityBars() {
-  const chart = screen.getByRole('group', { name: /Решённые задания по дням/ });
-  return chart.querySelector('[class*="bars"]')!.children;
+/** The bars of "Активность по дням" — the chart renders once the daily
+ * series has arrived (a skeleton stands in until then). */
+async function expectBars(count: number) {
+  await waitFor(() => {
+    const chart = screen.getByRole('group', { name: /Решённые задания по дням/ });
+    expect(chart.querySelector('[class*="bars"]')!.children).toHaveLength(count);
+  });
 }
 
 describe('StatisticsDesktop — period switching', () => {
-  it('renders the daily-activity chart for the default 30-day period, zero-filled from real daily data', () => {
+  it('renders the daily-activity chart for the default 30-day period, zero-filled from real daily data', async () => {
     renderStatistics();
-    expect(activityBars()).toHaveLength(30);
+    await expectBars(30);
   });
 
   it('"Всё время" renders the full 90-day zero-filled series without throwing', async () => {
@@ -56,7 +59,7 @@ describe('StatisticsDesktop — period switching', () => {
     renderStatistics();
     await user.click(screen.getByRole('tab', { name: 'Всё время' }));
 
-    expect(activityBars()).toHaveLength(90);
+    await expectBars(90);
     // 90 points: no bead string of markers — the line itself, tappable per day.
     const line = screen.getByRole('group', { name: /Процент правильных ответов по дням/ });
     expect(line.querySelector('path[class*="line"]')).toBeInTheDocument();
@@ -68,14 +71,14 @@ describe('StatisticsDesktop — period switching', () => {
     renderStatistics();
 
     await user.click(screen.getByRole('tab', { name: '7 дней' }));
-    expect(activityBars()).toHaveLength(7);
+    await expectBars(7);
     expect(api.getProgressDaily).toHaveBeenLastCalledWith({ days: 7, subject: 'math' });
 
     await user.click(screen.getByRole('tab', { name: '30 дней' }));
-    expect(activityBars()).toHaveLength(30);
+    await expectBars(30);
 
     await user.click(screen.getByRole('tab', { name: 'Всё время' }));
-    expect(activityBars()).toHaveLength(90);
+    await expectBars(90);
   });
 });
 
@@ -103,7 +106,7 @@ describe('StatisticsDesktop — real progress data', () => {
   // Regression test for the mobile page flash (the same bug reached
   // desktop too): `solvedTotal`/`correctPercent` used to collapse to a
   // fake `0` while `getProgressSummary` was still in flight. Must show
-  // an honest '···' placeholder instead.
+  // an honest skeleton placeholder instead.
   it('never shows a fake "0"/"0%" headline while /progress/summary is still loading', async () => {
     let resolveProgress!: (value: Awaited<ReturnType<typeof api.getProgressSummary>>) => void;
     vi.mocked(api.getProgressSummary).mockReturnValue(
@@ -112,7 +115,8 @@ describe('StatisticsDesktop — real progress data', () => {
       }),
     );
     renderStatistics();
-    expect(screen.getAllByText('···').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('skeleton-value').length).toBeGreaterThan(0);
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
 
     resolveProgress({
       solvedTotal: 3,
@@ -130,11 +134,11 @@ describe('StatisticsDesktop — real progress data', () => {
     expect(await screen.findByText('2 из 3')).toBeInTheDocument();
   });
 
-  it('shows a neutral dash for average time/level, never a fabricated number', () => {
+  it('shows a neutral dash for average time/level, never a fabricated number', async () => {
     renderStatistics();
     expect(screen.getByText('Среднее время')).toBeInTheDocument();
     expect(screen.getByText('Текущий уровень')).toBeInTheDocument();
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+    await waitFor(() => expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2));
   });
 
   it('the daily chart reflects real per-day attempts, not synthetic noise', async () => {
@@ -157,9 +161,9 @@ describe('StatisticsDesktop — real progress data', () => {
     expect(screen.getAllByText('Решено 5 заданий')[0]).toBeInTheDocument();
   });
 
-  it('the errors donut and "Сложные темы" use real /mistakes data, showing an empty state with none', () => {
+  it('the errors donut and "Сложные темы" use real /mistakes data, showing an empty state with none', async () => {
     renderStatistics();
-    expect(screen.getAllByText('Пока нет данных об ошибках.').length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Пока нет данных об ошибках.')).length).toBeGreaterThan(0);
   });
 });
 
