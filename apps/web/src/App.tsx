@@ -1,11 +1,9 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAuth } from './lib/authContext.js';
 import { isOnboardingPending } from './lib/onboardingStatus.js';
 import { useNavigation, type OverlayRoute } from './lib/navigation.js';
-import { useIsDesktop } from './lib/useIsDesktop.js';
+import { isDesktopViewport, useIsDesktop } from './lib/useIsDesktop.js';
 import { useToast } from './ui/Toast/ToastProvider.js';
-import { AppMobile } from './AppMobile.js';
-import { AppDesktop } from './AppDesktop.js';
 import { Landing } from './screens/Landing/Landing.js';
 import { InfoPage, type InfoPageKind } from './screens/Info/InfoPage.js';
 import { Login } from './screens/Login/Login.js';
@@ -13,6 +11,19 @@ import { TelegramReturn } from './screens/TelegramReturn/TelegramReturn.js';
 import { AccountGateProvider, accountFeatureForRoute } from './lib/accountGate.js';
 import { LANDING_AS_HOME } from './lib/features.js';
 import { SkeletonAppShell } from './ui/Skeleton/Skeleton.js';
+
+// Each device only ever needs one of the two app trees: a phone never
+// renders a desktop screen and vice versa, so each loads as its own chunk
+// (the shared code — React, KaTeX, the task engine — stays common).
+const loadMobile = () => import('./AppMobile.js');
+const loadDesktop = () => import('./AppDesktop.js');
+const AppMobile = lazy(() => loadMobile().then((m) => ({ default: m.AppMobile })));
+const AppDesktop = lazy(() => loadDesktop().then((m) => ({ default: m.AppDesktop })));
+// Start fetching this device's tree right away, in parallel with the
+// session check — not only once the check resolves (no extra round trip).
+void (isDesktopViewport() ? loadDesktop() : loadMobile()).catch(() => {
+  // A failed prefetch is retried by lazy() on render.
+});
 
 /** Public info pages that render standalone (landing header/footer, no app
  * shell) for everyone — a privacy policy must never sit behind sign-in or
@@ -110,7 +121,9 @@ export function App() {
 
   return (
     <AccountGateProvider lockedOnArrival={lockedFeature}>
-      {isDesktop ? <AppDesktop /> : <AppMobile />}
+      <Suspense fallback={<SkeletonAppShell desktop={isDesktop} />}>
+        {isDesktop ? <AppDesktop /> : <AppMobile />}
+      </Suspense>
     </AccountGateProvider>
   );
 }
