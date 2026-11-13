@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App.js';
@@ -629,6 +629,9 @@ describe('App — URL routing is the source of truth', () => {
 
   it('navigating updates the URL, and Back/Forward walk the real history', async () => {
     const restore = mockDesktop(true);
+    // Restored even if an assertion fails, so a desktop mock never leaks
+    // into the mobile tests that follow.
+    onTestFinished(restore);
     const user = userEvent.setup();
     await renderApp();
 
@@ -642,21 +645,18 @@ describe('App — URL routing is the source of truth', () => {
     expect(window.location.pathname).toBe('/subjects/math');
     expect(screen.getByText('Темы ЕГЭ')).toBeInTheDocument();
 
+    // jsdom walks the history asynchronously — wait for it, not one tick.
     await act(async () => {
       window.history.back();
-      await new Promise((r) => setTimeout(r, 0));
     });
-    expect(window.location.pathname).toBe('/subjects');
-    expect(screen.getByText(/Выбери предмет/)).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/subjects'));
+    expect(await screen.findByText(/Выбери предмет/)).toBeInTheDocument();
 
     await act(async () => {
       window.history.forward();
-      await new Promise((r) => setTimeout(r, 0));
     });
-    expect(window.location.pathname).toBe('/subjects/math');
-    expect(screen.getByText('Темы ЕГЭ')).toBeInTheDocument();
-
-    restore();
+    await waitFor(() => expect(window.location.pathname).toBe('/subjects/math'));
+    expect(await screen.findByText('Темы ЕГЭ')).toBeInTheDocument();
   });
 });
 
