@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RuleButton } from './RuleButton.js';
+import { RuleButton, mathYearFor } from './RuleButton.js';
 
 function TaskLike({ subjectId, taskNumber }: { subjectId: string; taskNumber: number }) {
   const [answer, setAnswer] = useState('');
@@ -35,8 +35,20 @@ describe('«Правило» on the task screen', () => {
     expect(await screen.findByText('Материала к заданию №1 пока нет')).toBeInTheDocument();
   });
 
-  it('is not offered for a subject without a theory catalog', () => {
+  it('math: not offered for a number whose topic has no written theory yet', () => {
     render(<TaskLike subjectId="math" taskNumber={4} />);
-    expect(screen.queryByRole('button', { name: 'Правило' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Правило|Теория/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('mathYearFor — which numbering a math task uses', () => {
+  it('uses the task year when known, and never guesses when the years disagree', () => {
+    expect(mathYearFor(13, 2027)).toBe(2027);
+    expect(mathYearFor(16, 2026)).toBe(2026);
+    expect(mathYearFor(20, 2026)).toBeNull(); // 2026 has 19 numbers
+    // Without a year: №1–5 mean the same in both years; №6 does not.
+    expect(mathYearFor(3, null)).toBe(2027);
+    expect(mathYearFor(6, null)).toBeNull();
+    expect(mathYearFor(13, undefined)).toBeNull();
   });
 });

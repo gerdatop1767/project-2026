@@ -26,7 +26,7 @@ const sections: readonly LearningSection[] = [
   {
     icon: 'theory',
     title: 'Теория',
-    description: 'Конспекты правил по номерам заданий ЕГЭ — пока по русскому языку',
+    description: 'Правила и формулы по номерам ЕГЭ: русский язык и профильная математика',
     route: { screen: 'theory', section: 'rules' },
   },
   {

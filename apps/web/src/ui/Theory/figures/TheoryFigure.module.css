@@ -1,0 +1,129 @@
+.frame {
+  width: 100%;
+  max-width: 26rem;
+  padding: var(--space-2);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-tint) 3%, var(--color-bg-surface));
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: inherit;
+}
+
+.grid {
+  stroke: var(--color-border-subtle);
+  stroke-width: 1;
+}
+
+.axis {
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+}
+
+.tickY,
+.tickX,
+.axisName,
+.axisNameLeft {
+  fill: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.tickY {
+  text-anchor: end;
+}
+
+.tickX,
+.barLabel {
+  text-anchor: middle;
+}
+
+.axisName {
+  text-anchor: end;
+}
+
+.axisNameLeft {
+  text-anchor: start;
+}
+
+.bar {
+  fill: color-mix(in srgb, var(--color-accent-primary) 70%, transparent);
+}
+
+.barLabel {
+  fill: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.meanLine {
+  stroke: var(--color-accent-secondary);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+.meanLabel {
+  text-anchor: middle;
+  fill: var(--color-accent-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lineA,
+.lineB {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.lineA {
+  stroke: var(--color-accent-primary-end);
+}
+
+.lineB {
+  stroke: var(--color-accent-secondary);
+}
+
+.dotA {
+  fill: var(--color-accent-primary-end);
+}
+
+.dotB {
+  fill: var(--color-accent-secondary);
+}
+
+.legendList {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.legendList li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.swatchA,
+.swatchB {
+  flex-shrink: 0;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+}
+
+.swatchA {
+  background: var(--color-accent-primary-end);
+}
+
+.swatchB {
+  background: var(--color-accent-secondary);
+}

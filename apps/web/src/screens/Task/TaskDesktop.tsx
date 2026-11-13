@@ -348,6 +348,7 @@ export function TaskDesktop({
                 <RuleButton
                   subjectId={task.subjectId}
                   taskNumber={task.number}
+                  examYear={task.examYear}
                   presentation="modal"
                   className={styles.ruleButton}
                 />

@@ -186,6 +186,8 @@ export function AppMobile() {
               <TheoryCatalog
                 section={contentOverlay.section}
                 taskNumber={contentOverlay.taskNumber}
+                subject={contentOverlay.subject}
+                year={contentOverlay.year}
               />
             )}
             {contentOverlay.screen === 'learningCenter' && (

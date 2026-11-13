@@ -1,0 +1,19 @@
+.newBadge {
+  margin-left: var(--space-2);
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: var(--font-size-label);
+  font-weight: 700;
+  vertical-align: 0.1em;
+  color: var(--color-accent-primary-end);
+  background: color-mix(in srgb, var(--color-accent-primary) 16%, transparent);
+}
+
+.notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--color-bg-surface);
+}

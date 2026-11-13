@@ -294,6 +294,7 @@ export function TaskMobile({
           <RuleButton
             subjectId={task.subjectId}
             taskNumber={task.number}
+            examYear={task.examYear}
             presentation="sheet"
             className={styles.ruleButton}
           />

@@ -45,7 +45,15 @@ export type OverlayRoute =
   /** The theory catalog (docs/THEORY.md): «Теория» — конспекты by EGE task
    * number, «Полезные материалы» — справочные списки и практика. The
    * chosen number lives here, so Back and a refresh keep it. */
-  | { screen: 'theory'; section: TheorySection; taskNumber?: number }
+  | {
+      screen: 'theory';
+      section: TheorySection;
+      taskNumber?: number;
+      /** Russian by default (the original catalog's URLs stay valid). */
+      subject?: TheorySubject;
+      /** Exam year whose numbering the list uses (math: 2026 and 2027 differ). */
+      year?: number;
+    }
   | { screen: 'subjectCatalog' }
   | {
       screen: 'subject';
@@ -202,6 +210,7 @@ export interface RevealedAnswer {
 }
 
 export type TheorySection = 'rules' | 'materials';
+export type TheorySubject = 'russian' | 'math';
 
 export type Route = { screen: MainTabId } | OverlayRoute;
 

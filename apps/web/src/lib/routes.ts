@@ -104,7 +104,12 @@ export function pathForRoute(route: Route): string | null {
 
   if (route.screen === 'theory') {
     const base = route.section === 'materials' ? '/materials' : '/theory';
-    return route.taskNumber ? `${base}?n=${route.taskNumber}` : base;
+    const params = new URLSearchParams();
+    if (route.subject === 'math') params.set('s', 'math');
+    if (route.subject === 'math' && route.year) params.set('y', String(route.year));
+    if (route.taskNumber) params.set('n', String(route.taskNumber));
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
   }
 
   if (route.screen === 'learningSession') {
@@ -197,10 +202,14 @@ export function routeFromPath(pathname: string): Route {
 
   if (path === '/theory' || path === '/materials') {
     const n = Number(params.get('n'));
+    const math = params.get('s') === 'math';
+    const y = Number(params.get('y'));
     return {
       screen: 'theory',
       section: path === '/materials' ? 'materials' : 'rules',
       ...(Number.isInteger(n) && n > 0 ? { taskNumber: n } : {}),
+      ...(math ? { subject: 'math' as const } : {}),
+      ...(math && (y === 2026 || y === 2027) ? { year: y } : {}),
     };
   }
 

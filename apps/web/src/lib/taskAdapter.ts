@@ -59,6 +59,7 @@ export function toSampleTask(
     difficulty: task.difficulty as 1 | 2 | 3,
     difficultyLabel: difficultyLabel(task.difficulty),
     source: task.source,
+    examYear: task.sourceYear ?? null,
     code: shortCode(task.id),
     condition: task.conditionMd,
     passage: task.passage,

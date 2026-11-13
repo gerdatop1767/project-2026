@@ -151,3 +151,31 @@ describe('По номерам — a mode of the subject page', () => {
     expect(routeFromPath('/statistics/variants/../../x')).toEqual({ screen: 'home' });
   });
 });
+
+describe('theory routes — subject and year', () => {
+  it('math theory keeps subject, year and number in the URL; Russian URLs are unchanged', () => {
+    expect(
+      pathForRoute({
+        screen: 'theory',
+        section: 'rules',
+        subject: 'math',
+        year: 2026,
+        taskNumber: 16,
+      }),
+    ).toBe('/theory?s=math&y=2026&n=16');
+    expect(pathForRoute({ screen: 'theory', section: 'rules', taskNumber: 9 })).toBe('/theory?n=9');
+    expect(routeFromPath('/theory?s=math&y=2027&n=6')).toEqual({
+      screen: 'theory',
+      section: 'rules',
+      subject: 'math',
+      year: 2027,
+      taskNumber: 6,
+    });
+    // An unknown year is dropped rather than inventing a numbering.
+    expect(routeFromPath('/materials?s=math&y=2031')).toEqual({
+      screen: 'theory',
+      section: 'materials',
+      subject: 'math',
+    });
+  });
+});

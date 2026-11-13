@@ -101,7 +101,12 @@ export function AppDesktop() {
         {overlay.screen === 'level' && <Level />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
         {overlay.screen === 'theory' && (
-          <TheoryCatalog section={overlay.section} taskNumber={overlay.taskNumber} />
+          <TheoryCatalog
+            section={overlay.section}
+            taskNumber={overlay.taskNumber}
+            subject={overlay.subject}
+            year={overlay.year}
+          />
         )}
         {overlay.screen === 'onboarding' && <Onboarding />}
         {overlay.screen === 'favorites' && (

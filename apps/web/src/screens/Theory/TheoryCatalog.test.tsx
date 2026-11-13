@@ -8,7 +8,14 @@ import { TheoryCatalog } from './TheoryCatalog.js';
 function Routed() {
   const { overlay } = useNavigation();
   if (overlay?.screen !== 'theory') return <p>other screen</p>;
-  return <TheoryCatalog section={overlay.section} taskNumber={overlay.taskNumber} />;
+  return (
+    <TheoryCatalog
+      section={overlay.section}
+      taskNumber={overlay.taskNumber}
+      subject={overlay.subject}
+      year={overlay.year}
+    />
+  );
 }
 
 function renderAt(path: string) {
@@ -81,5 +88,44 @@ describe('Теория / Полезные материалы', () => {
     await user.click(screen.getByRole('tab', { name: 'Полезные материалы' }));
     expect(window.location.pathname + window.location.search).toBe('/materials?n=5');
     expect(screen.getByRole('heading', { name: 'Паронимы', level: 2 })).toBeInTheDocument();
+  });
+});
+
+describe('Теория — профильная математика', () => {
+  it('lists the numbers of the chosen year; 2027 №6 is new and opens the shared topic', async () => {
+    renderAt('/theory?s=math&y=2027&n=6');
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Случайные величины' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('ЕГЭ-2027 · задание №6')).toBeInTheDocument();
+    expect(await screen.findByText('Главное свойство таблицы')).toBeInTheDocument();
+    expect(screen.getByText('ЕГЭ-2027 №6')).toBeInTheDocument();
+  });
+
+  it('the same finance theory opens from 2026 №16 and from 2027 №13', async () => {
+    const { unmount } = renderAt('/theory?s=math&y=2026&n=16');
+    expect(screen.getByText('ЕГЭ-2027 №13 · ЕГЭ-2026 №16')).toBeInTheDocument();
+    expect(await screen.findByText(/Дифференцированные платежи/)).toBeInTheDocument();
+    unmount();
+    renderAt('/theory?s=math&y=2027&n=13');
+    expect(await screen.findByText(/Дифференцированные платежи/)).toBeInTheDocument();
+  });
+
+  it('a number without written theory says so instead of an empty page', () => {
+    renderAt('/theory?s=math&y=2027&n=19');
+    expect(screen.getByText(/Теория по этой теме готовится/)).toBeInTheDocument();
+  });
+
+  it('switching the year keeps the subject; the subject tabs switch catalogs', async () => {
+    const user = userEvent.setup();
+    renderAt('/theory?s=math&y=2027');
+    await user.click(screen.getByRole('tab', { name: 'ЕГЭ-2026' }));
+    expect(window.location.search).toBe('?s=math&y=2026');
+    // 2026 has 19 numbers, 2027 has 20.
+    expect(
+      within(screen.getByRole('navigation', { name: 'Задания' })).getAllByRole('button'),
+    ).toHaveLength(19);
+    await user.click(screen.getByRole('tab', { name: 'Русский язык' }));
+    expect(window.location.pathname + window.location.search).toBe('/theory');
   });
 });

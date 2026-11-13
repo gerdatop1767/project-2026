@@ -7,7 +7,9 @@ import {
   type TheoryMaterialKind,
   type TheoryTask,
 } from '../../data/theory/russianTheory.js';
-import { useNavigation, type TheorySection } from '../../lib/navigation.js';
+import { useNavigation, type TheorySection, type TheorySubject } from '../../lib/navigation.js';
+import { MathTheoryCatalog } from './MathTheoryCatalog.js';
+import { TheorySubjectTabs } from './TheorySubjectTabs.js';
 import { clsx } from '../../lib/clsx.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
@@ -91,6 +93,19 @@ function materialsLabel(n: number): string {
 export interface TheoryCatalogProps {
   section: TheorySection;
   taskNumber?: number;
+  /** Russian unless `math` (the original URLs carry no subject). */
+  subject?: TheorySubject;
+  /** Math only: whose numbering (2026 / 2027) the list uses. */
+  year?: number;
+}
+
+/** «Теория» / «Полезные материалы»: the subject decides which catalog. */
+export function TheoryCatalog({ subject, year, ...rest }: TheoryCatalogProps) {
+  return subject === 'math' ? (
+    <MathTheoryCatalog section={rest.section} taskNumber={rest.taskNumber} year={year} />
+  ) : (
+    <RussianTheoryCatalog {...rest} />
+  );
 }
 
 /**
@@ -101,7 +116,10 @@ export interface TheoryCatalogProps {
  * returns to the list with the search still in place. The section and
  * the chosen number live in the URL, so a refresh keeps them.
  */
-export function TheoryCatalog({ section, taskNumber }: TheoryCatalogProps) {
+function RussianTheoryCatalog({
+  section,
+  taskNumber,
+}: Omit<TheoryCatalogProps, 'subject' | 'year'>) {
   const { navigate } = useNavigation();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
@@ -146,18 +164,21 @@ export function TheoryCatalog({ section, taskNumber }: TheoryCatalogProps) {
           <h1 className="text-h1">{section === 'rules' ? 'Теория' : 'Полезные материалы'}</h1>
           <p className="text-body-sm text-secondary">Русский язык · {sectionLead[section]}</p>
         </div>
-        <Tabs
-          aria-label="Раздел"
-          items={sectionTabs}
-          activeId={section}
-          onChange={(id) =>
-            navigate(
-              { screen: 'theory', section: id as TheorySection, taskNumber },
-              { replace: true },
-            )
-          }
-          className={styles.sectionTabs}
-        />
+        <div className={styles.switches}>
+          <TheorySubjectTabs section={section} subject="russian" />
+          <Tabs
+            aria-label="Раздел"
+            items={sectionTabs}
+            activeId={section}
+            onChange={(id) =>
+              navigate(
+                { screen: 'theory', section: id as TheorySection, taskNumber },
+                { replace: true },
+              )
+            }
+            className={styles.sectionTabs}
+          />
+        </div>
       </header>
 
       <div className={styles.layout}>
