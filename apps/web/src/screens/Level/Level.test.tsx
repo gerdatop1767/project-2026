@@ -56,6 +56,15 @@ describe('«Уровень» page', () => {
     vi.mocked(api.getXpHistory).mockResolvedValue({ items: [], nextCursor: null });
   });
 
+  it('while the level loads, the rank ladder is already in place (neutral) — no layout jump', async () => {
+    vi.mocked(api.getXpSummary).mockReturnValue(new Promise(() => {}));
+    renderLevel();
+    const ranks = screen.getByRole('heading', { name: 'Ранги' }).closest('section')!;
+    expect(ranks).toHaveAttribute('aria-busy', 'true');
+    expect(within(ranks).queryByText('Ваш ранг')).not.toBeInTheDocument();
+    expect(within(ranks).queryByText(/Откроется с уровня/)).not.toBeInTheDocument();
+  });
+
   it('shows level, total XP, progress and what is left — all from the API', async () => {
     renderLevel();
     expect(await screen.findByText('Уровень 2')).toBeInTheDocument();
