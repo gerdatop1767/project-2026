@@ -69,10 +69,30 @@ const FIPI_OPEN_BANK: TheorySource = {
   confirms: 'Задания этой позиции для самостоятельной практики.',
 };
 
+const FIPI_CRITERIA_2027: TheorySource = {
+  title: 'ФИПИ — демоверсия ЕГЭ-2027 по математике: решения и критерии оценивания заданий 13–19',
+  url: 'https://doc.fipi.ru/ege/demoversii-specifikacii-kodifikatory/2027/ma_11_2027.zip',
+  confirms:
+    'Формат пунктов (а, б, в) и баллы по критериям — разделы «Как оценивают». Задачи демоверсии в тексте не копируются, примеры составлены заново.',
+};
+
 /** Official placement sources shared by every math topic. */
 const SPEC_SOURCES: readonly TheorySource[] = [FIPI_SPEC_2027, FIPI_SPEC_2026, FIPI_CHANGES_2027];
 /** Part-1 topics: the placement documents and the open bank. */
 const PART1_SOURCES: readonly TheorySource[] = [...SPEC_SOURCES, FIPI_OPEN_BANK];
+
+/** Part-2 topics: placement, the demo's scoring criteria and the open bank. */
+const PART2_SOURCES: readonly TheorySource[] = [
+  ...SPEC_SOURCES,
+  FIPI_CRITERIA_2027,
+  FIPI_OPEN_BANK,
+];
+
+const part2 = (topicKey: string, file: string): MathTheoryMaterial => ({
+  topicKey,
+  file,
+  sources: PART2_SOURCES,
+});
 
 const part1 = (topicKey: string, file: string): MathTheoryMaterial => ({
   topicKey,
@@ -98,9 +118,20 @@ export const mathTheory: readonly MathTheoryMaterial[] = [
     file: 'random-variables',
     sources: [...SPEC_SOURCES, PROB_TEXTBOOK, REVIEW_PROJECT_2027],
   },
+  part2('math.equations-advanced', 'equations-advanced'),
+  part2('math.stereometry-proof', 'stereometry-proof'),
+  part2('math.inequalities', 'inequalities'),
   {
     topicKey: 'math.finance',
     file: 'finance',
+    sources: [...PART2_SOURCES, REVIEW_PROJECT_2027],
+  },
+  part2('math.planimetry-proof', 'planimetry-proof'),
+  part2('math.parameters', 'parameters'),
+  part2('math.number-theory', 'number-theory'),
+  {
+    topicKey: 'math.modelling',
+    file: 'modelling',
     sources: [...SPEC_SOURCES, REVIEW_PROJECT_2027],
   },
 ];

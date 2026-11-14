@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { mathFigures } from './mathFigures.js';
+import { mathFiguresPart2 } from './mathFiguresPart2.js';
 import styles from './TheoryFigure.module.css';
 
 /**
@@ -189,6 +190,7 @@ const figures: Record<string, () => ReactElement> = {
   ),
   'finance-debt-schedule': () => <DebtScheduleChart />,
   ...mathFigures,
+  ...mathFiguresPart2,
 };
 
 export const theoryFigureIds: readonly string[] = Object.keys(figures);

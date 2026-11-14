@@ -86,4 +86,60 @@ describe('math theory manifest', () => {
       }
     }
   });
+
+  it('part 2 is covered in every edition with full material: methods, worked examples, practice with answers', async () => {
+    const part2 = EXAM_TASK_SPECS.filter((x) => x.subjectId === 'math' && x.part === 2);
+    // ЕГЭ-2027/2026 №13–19 and the old Ященко №14–20.
+    expect(part2.filter((x) => x.edition === 'ege-2027').map((x) => x.number)).toEqual([
+      13, 14, 15, 16, 17, 18, 19,
+    ]);
+    const keys = new Set(part2.flatMap((x) => x.topics.map((b) => b.topicKey)));
+    for (const key of keys) {
+      const material = mathTheory.find((m) => m.topicKey === key);
+      expect(material, key).toBeDefined();
+      const source = await loadMathTheory(material!.file);
+      const blocks = walk(parseMarkdown(source));
+      const h2 = blocks.filter((b) => b.type === 'heading' && b.level === 2);
+      expect(h2.length, key).toBeGreaterThanOrEqual(7);
+      expect(
+        blocks.filter((b) => b.type === 'callout' && b.kind === 'example').length,
+        key,
+      ).toBeGreaterThanOrEqual(3);
+      expect(source, key).toMatch(/## \d+\. Потренируйся/);
+      expect(source, key).toContain('**Ответы.**');
+      expect(source.length, key).toBeGreaterThan(5000);
+    }
+    // The tasks where a drawing is the method get drawings.
+    for (const file of [
+      'equations-advanced',
+      'stereometry-proof',
+      'inequalities',
+      'planimetry-proof',
+      'parameters',
+    ]) {
+      const blocks = walk(parseMarkdown(await loadMathTheory(file)));
+      expect(
+        blocks.some((b) => b.type === 'figure'),
+        file,
+      ).toBe(true);
+    }
+  });
+
+  it('the «where on the exam» lines of every text agree with the numbering tables', async () => {
+    const firstNumber = (line: string | undefined) =>
+      /(?:задание|тоже) №(\d+)/.exec(line ?? '')?.[1] ?? null;
+    for (const m of mathTheory) {
+      const lines = (await loadMathTheory(m.file)).split('\n');
+      const current = lines.find((l) => l.startsWith('- **ЕГЭ-2027 и ЕГЭ-2026**'));
+      const old = lines.find((l) => l.startsWith('- **Старый сборник Ященко-2027**'));
+      expect(current, m.file).toBeDefined();
+      expect(old, m.file).toBeDefined();
+      const at = examNumbersForTopic(m.topicKey).filter((x) => x.relation !== 'part-of');
+      const num = (edition: string) => at.find((x) => x.edition === edition)?.number ?? null;
+      // ЕГЭ-2027 and ЕГЭ-2026 share one line, so their numbers must coincide.
+      expect(num('ege-2027'), m.file).toBe(num('ege-2026'));
+      expect(firstNumber(current), m.file).toBe(num('ege-2027')?.toString() ?? null);
+      expect(firstNumber(old), m.file).toBe(num('ege-2027-project')?.toString() ?? null);
+    }
+  });
 });

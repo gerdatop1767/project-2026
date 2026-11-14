@@ -35,8 +35,13 @@ describe('«Правило» on the task screen', () => {
     expect(await screen.findByText('Материала к заданию №1 пока нет')).toBeInTheDocument();
   });
 
-  it('math: not offered for a number whose topic has no written theory yet', () => {
+  it('math: every number of part 2 offers its theory (№18 — parameters)', () => {
     render(<TaskLike subjectId="math" taskNumber={18} />);
+    expect(screen.getByRole('button', { name: 'Теория' })).toBeInTheDocument();
+  });
+
+  it('math: not offered for a number the edition does not have', () => {
+    render(<TaskLike subjectId="math" taskNumber={25} />);
     expect(screen.queryByRole('button', { name: /Правило|Теория/ })).not.toBeInTheDocument();
   });
 });

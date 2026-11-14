@@ -263,3 +263,60 @@
 .point {
   color: var(--color-text-secondary);
 }
+
+/* ---- Math part 2: solids, sign lines, selected arcs ---- */
+
+.plane {
+  fill: color-mix(in srgb, var(--color-accent-primary) 16%, transparent);
+  stroke: none;
+}
+
+.arcHot {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+.solution {
+  stroke: var(--color-success);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.dotGreen {
+  fill: var(--color-success);
+}
+
+.dotHollow {
+  fill: var(--color-bg-surface);
+  stroke: var(--color-accent-primary-end);
+  stroke-width: 2.5;
+}
+
+.arrowFill {
+  fill: var(--color-text-secondary);
+}
+
+.tickCenter {
+  fill: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.signPlus,
+.signMinus {
+  font-size: 17px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.signPlus {
+  fill: var(--color-success);
+}
+
+.signMinus {
+  fill: var(--color-error);
+}

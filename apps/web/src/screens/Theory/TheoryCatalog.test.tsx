@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { pathForRoute, routeFromPath } from '../../lib/routes.js';
@@ -145,9 +145,19 @@ describe('Теория — профильная математика', () => {
     expect(screen.getByText(/Требование 8 кодификатора/)).toBeInTheDocument();
   });
 
-  it('a number without written theory says so instead of an empty page', () => {
+  it('every number of every edition has written theory; №18 opens the parameters text', async () => {
+    for (const ed of ['ege-2027', 'ege-2027-project'] as const) {
+      const { unmount } = renderAt(`/theory?s=math&ed=${ed}`);
+      expect(screen.queryByText('готовится')).not.toBeInTheDocument();
+      unmount();
+    }
+    renderAt('/theory?s=math&ed=ege-2027');
+    expect(
+      screen.getByLabelText('№18. Задача с параметром — теория готова', { selector: '*' }),
+    ).toBeInTheDocument();
+    cleanup();
     renderAt('/theory?s=math&ed=ege-2027&n=18');
-    expect(screen.getByText(/Теория по этой теме готовится/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Графический метод в плоскости/)).length).toBeGreaterThan(0);
   });
 
   it('switching the edition keeps the subject; the subject tabs switch catalogs', async () => {
