@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './authContext.js';
@@ -22,10 +22,12 @@ vi.mock('./telegramMiniApp.js', () => ({
 let latest: ReturnType<typeof useAuth>;
 function Probe() {
   const auth = useAuth();
-  useEffect(() => {
+  // A layout effect runs in the same commit as the DOM change, so after
+  // `findByText` resolves `latest` is this render's value, never a stale
+  // one (see authContext.test.tsx).
+  useLayoutEffect(() => {
     latest = auth;
   });
-  latest ??= auth;
   return (
     <p>
       {auth.user === undefined ? 'pending' : (auth.user?.displayName ?? 'signed-out')}|

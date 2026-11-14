@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { schema } from '@zybrilka/db';
+import { parseMultiPartSpec } from '@zybrilka/shared';
 import { createImportedTestDb } from '@zybrilka/db/testing';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { syncSkillsFromCanonicalSolutions } from '../skills/sync.js';
@@ -30,9 +31,48 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
     await testDb.close();
   });
 
+  type TaskRow = typeof schema.tasks.$inferSelect;
+
+  /**
+   * The answer a student would send. A multi_part task stores a JSON spec
+   * in `correctAnswer` and takes `{ partId: answer }`, so the stored string
+   * itself is not a valid answer for it (the API answers 400).
+   */
+  function answerFor(task: TaskRow, kind: 'correct' | 'wrong'): string | Record<string, string> {
+    if (task.answerType === 'multi_part') {
+      const spec = parseMultiPartSpec(task.correctAnswer);
+      if (!spec) throw new Error(`malformed multi_part spec for task ${task.id}`);
+      return Object.fromEntries(
+        spec.parts.map((p) => [p.id, kind === 'correct' ? p.correctAnswer : '__wrong__']),
+      );
+    }
+    return kind === 'correct' ? task.correctAnswer : '__definitely_wrong_answer__';
+  }
+
+  /** Submits through the real HTTP path and checks it was graded as expected. */
+  async function attempt(task: TaskRow, anonId: string, kind: 'correct' | 'wrong') {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tasks/${task.id}/attempt`,
+      headers: { 'x-anon-id': anonId },
+      payload: { answer: answerFor(task, kind) },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().correct).toBe(kind === 'correct');
+    return res;
+  }
+
+  /** Task–skill links in a stable order: physical row order is not a contract. */
+  function skillLinks() {
+    return testDb.db
+      .select()
+      .from(schema.taskSkills)
+      .orderBy(asc(schema.taskSkills.taskId), asc(schema.taskSkills.skillId));
+  }
+
   /** Any real task with at least 2 linked skills — not assumed to be #13. */
   async function findTaskWithMultipleSkills() {
-    const links = await testDb.db.select().from(schema.taskSkills);
+    const links = await skillLinks();
     const byTask = new Map<string, string[]>();
     for (const link of links) {
       const list = byTask.get(link.taskId) ?? [];
@@ -48,13 +88,7 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
     const { task, skillIds } = await findTaskWithMultipleSkills();
     const anonId = randomUUID();
 
-    const res = await app.inject({
-      method: 'POST',
-      url: `/api/v1/tasks/${task.id}/attempt`,
-      headers: { 'x-anon-id': anonId },
-      payload: { answer: task.correctAnswer },
-    });
-    expect(res.statusCode).toBe(200);
+    await attempt(task, anonId, 'correct');
 
     for (const skillId of skillIds) {
       const stats = await repo.getUserSkillStatisticsForSkill(testDb.db, anonId, skillId);
@@ -69,12 +103,7 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
     const { task, skillIds } = await findTaskWithMultipleSkills();
     const anonId = randomUUID();
 
-    await app.inject({
-      method: 'POST',
-      url: `/api/v1/tasks/${task.id}/attempt`,
-      headers: { 'x-anon-id': anonId },
-      payload: { answer: '__definitely_wrong_answer__' },
-    });
+    await attempt(task, anonId, 'wrong');
 
     for (const skillId of skillIds) {
       const stats = await repo.getUserSkillStatisticsForSkill(testDb.db, anonId, skillId);
@@ -86,7 +115,7 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
   });
 
   it('two attempts on two different tasks sharing one skill both count toward that skill', async () => {
-    const links = await testDb.db.select().from(schema.taskSkills);
+    const links = await skillLinks();
     const bySkill = new Map<string, string[]>();
     for (const link of links) {
       const list = bySkill.get(link.skillId) ?? [];
@@ -98,12 +127,7 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
 
     for (const taskId of taskIds) {
       const [task] = await testDb.db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId));
-      await app.inject({
-        method: 'POST',
-        url: `/api/v1/tasks/${taskId}/attempt`,
-        headers: { 'x-anon-id': anonId },
-        payload: { answer: task!.correctAnswer },
-      });
+      await attempt(task!, anonId, 'correct');
     }
 
     const stats = await repo.getUserSkillStatisticsForSkill(testDb.db, anonId, skillId);
@@ -111,17 +135,38 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
     expect(stats!.correctAttempts).toBe(taskIds.length);
   });
 
+  it('a multi_part task counts toward a shared skill like any other task', async () => {
+    // Regression: a multi_part task (part 2 with items а/б/в) takes its
+    // answer as { partId: answer }; it must update a skill it shares with
+    // another task exactly like a single-answer task does.
+    const links = await skillLinks();
+    const tasks = new Map(
+      (await testDb.db.select().from(schema.tasks)).map((t) => [t.id, t] as const),
+    );
+    const bySkill = new Map<string, string[]>();
+    for (const link of links) {
+      bySkill.set(link.skillId, [...(bySkill.get(link.skillId) ?? []), link.taskId]);
+    }
+    const shared = [...bySkill.entries()].find(
+      ([, ids]) => ids.length >= 2 && ids.some((id) => tasks.get(id)?.answerType === 'multi_part'),
+    );
+    expect(shared, 'the imported content has a multi_part task sharing a skill').toBeDefined();
+    const [skillId, taskIds] = shared!;
+    const anonId = randomUUID();
+    for (const taskId of taskIds) await attempt(tasks.get(taskId)!, anonId, 'correct');
+
+    const stats = await repo.getUserSkillStatisticsForSkill(testDb.db, anonId, skillId);
+    expect(stats!.attempts).toBe(taskIds.length);
+    expect(stats!.correctAttempts).toBe(taskIds.length);
+    expect(stats!.incorrectAttempts).toBe(0);
+  });
+
   it('never mixes skill statistics between two different users', async () => {
     const { task, skillIds } = await findTaskWithMultipleSkills();
     const userOne = randomUUID();
     const userTwo = randomUUID();
 
-    await app.inject({
-      method: 'POST',
-      url: `/api/v1/tasks/${task.id}/attempt`,
-      headers: { 'x-anon-id': userOne },
-      payload: { answer: task.correctAnswer },
-    });
+    await attempt(task, userOne, 'correct');
 
     for (const skillId of skillIds) {
       const userTwoStats = await repo.getUserSkillStatisticsForSkill(testDb.db, userTwo, skillId);
@@ -135,18 +180,8 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
       const anonId = randomUUID();
 
       // Build up real history via the HTTP attempt path (one right, one wrong).
-      await app.inject({
-        method: 'POST',
-        url: `/api/v1/tasks/${task.id}/attempt`,
-        headers: { 'x-anon-id': anonId },
-        payload: { answer: task.correctAnswer },
-      });
-      await app.inject({
-        method: 'POST',
-        url: `/api/v1/tasks/${task.id}/attempt`,
-        headers: { 'x-anon-id': anonId },
-        payload: { answer: '__wrong__' },
-      });
+      await attempt(task, anonId, 'correct');
+      await attempt(task, anonId, 'wrong');
 
       const before = await repo.getUserSkillStatistics(testDb.db, anonId);
       expect(before.length).toBeGreaterThan(0);
@@ -167,12 +202,7 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
     it('running rebuild twice in a row is idempotent', async () => {
       const { task } = await findTaskWithMultipleSkills();
       const anonId = randomUUID();
-      await app.inject({
-        method: 'POST',
-        url: `/api/v1/tasks/${task.id}/attempt`,
-        headers: { 'x-anon-id': anonId },
-        payload: { answer: task.correctAnswer },
-      });
+      await attempt(task, anonId, 'correct');
 
       const first = await rebuildUserSkillStatistics(testDb.db, anonId);
       const firstRows = await repo.getUserSkillStatistics(testDb.db, anonId);
@@ -188,12 +218,7 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
     it('does not create duplicate rows on repeated rebuilds', async () => {
       const { task } = await findTaskWithMultipleSkills();
       const anonId = randomUUID();
-      await app.inject({
-        method: 'POST',
-        url: `/api/v1/tasks/${task.id}/attempt`,
-        headers: { 'x-anon-id': anonId },
-        payload: { answer: task.correctAnswer },
-      });
+      await attempt(task, anonId, 'correct');
 
       await rebuildUserSkillStatistics(testDb.db, anonId);
       await rebuildUserSkillStatistics(testDb.db, anonId);
@@ -216,12 +241,7 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
     it('returns subject/skill info alongside mastery and confidence', async () => {
       const { task } = await findTaskWithMultipleSkills();
       const anonId = randomUUID();
-      await app.inject({
-        method: 'POST',
-        url: `/api/v1/tasks/${task.id}/attempt`,
-        headers: { 'x-anon-id': anonId },
-        payload: { answer: task.correctAnswer },
-      });
+      await attempt(task, anonId, 'correct');
 
       const entries = await getUserMastery(testDb.db, anonId);
       expect(entries.length).toBeGreaterThan(0);
