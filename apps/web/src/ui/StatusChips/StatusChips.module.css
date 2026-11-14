@@ -94,7 +94,11 @@
   display: block;
   height: 100%;
   /* The rank's colours once the level is known (levelRanks.ts). */
-  background: linear-gradient(90deg, var(--rank-from, var(--color-accent-primary)), var(--rank-to, var(--color-accent-primary-end)));
+  background: linear-gradient(
+    90deg,
+    var(--rank-from, var(--color-accent-primary)),
+    var(--rank-to, var(--color-accent-primary-end))
+  );
   transition: width var(--duration-base) var(--easing-standard);
 }
 
