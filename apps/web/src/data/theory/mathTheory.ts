@@ -63,10 +63,36 @@ const PROB_TEXTBOOK: TheorySource = {
     'Опорный школьный учебник по теме (случайная величина, ожидание, дисперсия). При подготовке текста не открывался: формулы и все числа примеров проверены отдельным вычислением.',
 };
 
+const FIPI_OPEN_BANK: TheorySource = {
+  title: 'ФИПИ — открытый банк заданий ЕГЭ',
+  url: 'https://fipi.ru/ege/otkrytyy-bank-zadaniy-ege',
+  confirms: 'Задания этой позиции для самостоятельной практики.',
+};
+
 /** Official placement sources shared by every math topic. */
 const SPEC_SOURCES: readonly TheorySource[] = [FIPI_SPEC_2027, FIPI_SPEC_2026, FIPI_CHANGES_2027];
+/** Part-1 topics: the placement documents and the open bank. */
+const PART1_SOURCES: readonly TheorySource[] = [...SPEC_SOURCES, FIPI_OPEN_BANK];
+
+const part1 = (topicKey: string, file: string): MathTheoryMaterial => ({
+  topicKey,
+  file,
+  sources: PART1_SOURCES,
+});
 
 export const mathTheory: readonly MathTheoryMaterial[] = [
+  part1('math.planimetry', 'planimetry'),
+  part1('math.vectors', 'vectors'),
+  part1('math.stereometry', 'stereometry'),
+  part1('math.probability-basic', 'probability-basic'),
+  part1('math.probability-rules', 'probability-rules'),
+  part1('math.equations-simple', 'equations-simple'),
+  part1('math.expressions', 'expressions'),
+  part1('math.derivative-graphs', 'derivative-graphs'),
+  part1('math.applied-formulas', 'applied-formulas'),
+  part1('math.word-problems', 'word-problems'),
+  part1('math.function-graphs', 'function-graphs'),
+  part1('math.derivative-investigation', 'derivative-investigation'),
   {
     topicKey: 'math.random-variables',
     file: 'random-variables',

@@ -127,3 +127,139 @@
 .swatchB {
   background: var(--color-accent-secondary);
 }
+
+/* ---- Geometry, vectors, trees, sign charts (math part 1) ---- */
+
+.shape {
+  fill: none;
+  stroke: var(--color-text-primary);
+  stroke-width: 2;
+}
+
+.thin {
+  fill: none;
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+}
+
+.dashed,
+.dashedBlue {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.dashed {
+  stroke: var(--color-text-secondary);
+}
+
+.dashedBlue {
+  stroke: var(--color-accent-secondary);
+}
+
+.pointLabel {
+  fill: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.legendBlue,
+.legendViolet,
+.legendGreen {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.legendBlue {
+  fill: var(--color-accent-secondary);
+}
+
+.legendViolet {
+  fill: var(--color-accent-primary-end);
+}
+
+.legendGreen {
+  fill: var(--color-success);
+}
+
+.vecA,
+.vecB,
+.vecS {
+  stroke-width: 2.5;
+}
+
+.vecA {
+  stroke: var(--color-accent-primary-end);
+}
+
+.vecB {
+  stroke: var(--color-accent-secondary);
+}
+
+.vecS {
+  stroke: var(--color-success);
+}
+
+.arrowHeadA {
+  fill: var(--color-accent-primary-end);
+}
+
+.arrowHeadB {
+  fill: var(--color-accent-secondary);
+}
+
+.arrowHeadS {
+  fill: var(--color-success);
+}
+
+.nodeBox,
+.nodeBad {
+  stroke-width: 1.5;
+}
+
+.nodeBox {
+  fill: color-mix(in srgb, var(--color-accent-primary) 12%, var(--color-bg-surface));
+  stroke: color-mix(in srgb, var(--color-accent-primary) 45%, transparent);
+}
+
+.nodeBad {
+  fill: color-mix(in srgb, var(--color-error) 14%, var(--color-bg-surface));
+  stroke: color-mix(in srgb, var(--color-error) 50%, transparent);
+}
+
+.nodeText {
+  fill: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.edgeLabel {
+  fill: var(--color-accent-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+/* The sign line under a derivative graph. */
+.signRow {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--font-size-label);
+  font-weight: 700;
+}
+
+.minus {
+  color: var(--color-error);
+}
+
+.plus {
+  color: var(--color-success);
+}
+
+.point {
+  color: var(--color-text-secondary);
+}

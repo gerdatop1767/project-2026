@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXAM_TOPICS, examNumbersForTopic } from '@zybrilka/shared';
+import { EXAM_TASK_SPECS, EXAM_TOPICS, examNumbersForTopic } from '@zybrilka/shared';
 import {
   examNumbersLabel,
   loadMathTheory,
@@ -74,5 +74,16 @@ describe('math theory manifest', () => {
     expect(examNumbersLabel('math.derivative-investigation')).toBe(
       'ЕГЭ-2027 и ЕГЭ-2026 №12 · Ященко-2027, старая редакция №9',
     );
+  });
+
+  it('part 1 is covered in every edition: each number has written theory for each of its topics', () => {
+    for (const spec of EXAM_TASK_SPECS.filter((x) => x.subjectId === 'math' && x.part === 1)) {
+      for (const b of spec.topics) {
+        expect(
+          mathTheory.some((m) => m.topicKey === b.topicKey),
+          `${spec.edition} №${spec.number}: ${b.topicKey}`,
+        ).toBe(true);
+      }
+    }
   });
 });
