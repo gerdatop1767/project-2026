@@ -117,17 +117,79 @@ export function normalize(s: string): string {
   return s.toLowerCase().replaceAll('ё', 'е');
 }
 
-/** Query words (2+ characters, or a task number). */
+const endings = [
+  'ями',
+  'ами',
+  'ого',
+  'его',
+  'ому',
+  'ему',
+  'ыми',
+  'ими',
+  'иях',
+  'иям',
+  'ией',
+  'ая',
+  'яя',
+  'ое',
+  'ее',
+  'ые',
+  'ие',
+  'ый',
+  'ий',
+  'ой',
+  'ов',
+  'ев',
+  'ам',
+  'ям',
+  'ах',
+  'ях',
+  'ом',
+  'ем',
+  'ую',
+  'юю',
+  'ия',
+  'ию',
+  'а',
+  'я',
+  'о',
+  'е',
+  'ы',
+  'и',
+  'у',
+  'ю',
+  'ь',
+  'й',
+];
+
+/**
+ * A crude Russian stem: a word of 5+ letters loses its case ending, so
+ * «производная» also finds «производных», «дроби» — «дробь». It never cuts
+ * below four letters; short words and numbers stay as typed.
+ */
+export function stem(token: string): string {
+  if (token.length < 5 || !/^[а-я]+$/.test(token)) return token;
+  for (const ending of endings) {
+    if (token.endsWith(ending) && token.length - ending.length >= 4) {
+      return token.slice(0, -ending.length);
+    }
+  }
+  return token;
+}
+
+/** Query words (2+ characters, or a task number), stemmed. */
 export function queryTokens(query: string): string[] {
   return normalize(query)
     .replace(/№/g, ' ')
     .split(/[\s,.;:!?«»"()]+/)
-    .filter((t) => t.length >= 2 || /^\d+$/.test(t));
+    .filter((t) => t.length >= 2 || /^\d+$/.test(t))
+    .map(stem);
 }
 
 /** Markdown and TeX markup that should not show in a snippet. */
 export function plainText(markdown: string): string {
   return markdown
+    .replace(/^#\s.*$/m, '') // the H1 repeats the title shown above the snippet
     .replace(/^>\s?\[![a-z]+\]\s*/gm, '')
     .replace(/^>\s?/gm, '')
     .replace(/!\[\[[^\]]+\]\]/g, '')
@@ -248,8 +310,11 @@ export function highlightParts(text: string, query: string): { text: string; hit
   for (const token of tokens) {
     let at = norm.indexOf(token);
     while (at >= 0) {
-      for (let i = at; i < at + token.length; i++) marks[i] = true;
-      at = norm.indexOf(token, at + token.length);
+      // The query word is a stem: mark the rest of the word too.
+      let end = at + token.length;
+      while (end < norm.length && /[а-яa-z]/.test(norm[end]!)) end++;
+      for (let i = at; i < end; i++) marks[i] = true;
+      at = norm.indexOf(token, end);
     }
   }
   const parts: { text: string; hit: boolean }[] = [];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   highlightParts,
+  stem,
   loadAllTexts,
   plainText,
   queryTokens,
@@ -62,8 +63,21 @@ describe('learning-centre search', () => {
   it('highlights every occurrence, without changing the text', () => {
     const parts = highlightParts('Ёлка и елка', 'елк');
     expect(parts.map((p) => p.text).join('')).toBe('Ёлка и елка');
-    expect(parts.filter((p) => p.hit).map((p) => p.text)).toEqual(['Ёлк', 'елк']);
+    // The whole word is marked, not only the typed part.
+    expect(parts.filter((p) => p.hit).map((p) => p.text)).toEqual(['Ёлка', 'елка']);
     expect(queryTokens('№ 8, и')).toEqual(['8']);
     expect(plainText('> [!tip] Совет\n> **Да** $x^2$')).toBe('Совет Да x^2');
+    expect(plainText('# Заголовок\n\nТекст')).toBe('Текст');
+  });
+
+  it('ignores Russian case endings: «производная» finds «Таблица производных»', () => {
+    expect(stem('производная')).toBe('производн');
+    expect(stem('дроби')).toBe('дроб');
+    expect(stem('корень')).toBe('корен');
+    expect(stem('нн')).toBe('нн');
+    expect(keys('производная')).toContain('library:math-derivatives');
+    expect(keys('стратегии сочинения')).toContain('library:strategy-essay');
+    const parts = highlightParts('Таблица производных', 'производная');
+    expect(parts.filter((p) => p.hit).map((p) => p.text)).toEqual(['производных']);
   });
 });
