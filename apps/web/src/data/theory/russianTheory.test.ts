@@ -28,10 +28,9 @@ describe('russian theory — the one source for the catalog and «Правило
     }
   });
 
-  it('tasks 1 and 2 honestly have nothing yet; 3–27 have a конспект', () => {
-    expect(theoryForTask('russian', 1)!.materials).toEqual([]);
-    expect(theoryForTask('russian', 2)!.materials).toEqual([]);
-    for (let n = 3; n <= 27; n++) {
+  it('every task 1–27 has a конспект and a practice', () => {
+    for (let n = 1; n <= 27; n++) {
+      expect(theoryForTask('russian', n)!.materials.some((m) => m.kind === 'practice')).toBe(true);
       expect(theoryForTask('russian', n)!.materials.some((m) => m.kind === 'theory')).toBe(true);
     }
   });

@@ -47,7 +47,7 @@ describe('Теория / Полезные материалы', () => {
     expect(within(nav).getByRole('heading', { name: 'Орфография' })).toBeInTheDocument();
     expect(
       within(nav).getByRole('button', {
-        name: '№1. Пропущенное слово в тексте — пока нет материала',
+        name: '№1. Пропущенное слово в тексте — 1 материал',
       }),
     );
     await user.click(within(nav).getByRole('button', { name: /^№9\. Гласные в корне/ }));

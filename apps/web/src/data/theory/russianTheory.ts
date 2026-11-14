@@ -97,14 +97,14 @@ export const russianTheory: readonly TheoryTask[] = [
     taskNumber: 1,
     title: 'Пропущенное слово в тексте',
     group: 'text',
-    materials: [],
+    materials: [theory(1), practice(1)],
   },
   {
     subjectId: 'russian',
     taskNumber: 2,
     title: 'Лексическое значение слова',
     group: 'text',
-    materials: [],
+    materials: [theory(2), practice(2)],
   },
   {
     subjectId: 'russian',

@@ -28,11 +28,12 @@ describe('«Правило» on the task screen', () => {
     expect(screen.getByLabelText('Ответ')).toHaveValue('135');
   });
 
-  it('says honestly when a task has no material yet', async () => {
+  it('task 1 now opens its own theory', async () => {
     const user = userEvent.setup();
     render(<TaskLike subjectId="russian" taskNumber={1} />);
     await user.click(screen.getByRole('button', { name: 'Правило' }));
-    expect(await screen.findByText('Материала к заданию №1 пока нет')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Правило к заданию №1' })).toBeInTheDocument();
+    expect(await screen.findByText(/Какую связь выражает пропущенное слово/)).toBeInTheDocument();
   });
 
   it('math: every number of part 2 offers its theory (№18 — parameters)', () => {
