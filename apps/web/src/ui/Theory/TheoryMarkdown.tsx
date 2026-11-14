@@ -177,6 +177,66 @@ function withStress(text: string, keyPrefix: string): ReactNode[] {
   return out;
 }
 
+const RELATION =
+  /^(?:\\iff|\\Leftrightarrow|\\Rightarrow|\\implies|\\leq?|\\geq?|\\neq?|\\approx|[=<>])(?![A-Za-z])/;
+
+/**
+ * Splits an inline formula after each top-level relation sign (=, ≤, ⇒,
+ * ⟺ …), outside braces, \left…\right and \begin…\end. Each piece is
+ * rendered on its own, so a long chain such as `a = b \iff c` wraps at
+ * its relation signs on a phone — the typesetting rule for breaking a
+ * formula — instead of turning into a strip that has to be scrolled.
+ */
+export function splitTexAtRelations(tex: string): string[] {
+  const pieces: string[] = [];
+  let depth = 0;
+  let start = 0;
+  let i = 0;
+  while (i < tex.length) {
+    const rest = tex.slice(i);
+    const ch = tex[i]!;
+    if (ch === '\\' && /^\\(?:left|begin)(?![A-Za-z])/.test(rest)) {
+      depth++;
+      i += rest.startsWith('\\left') ? 5 : 6;
+      continue;
+    }
+    if (ch === '\\' && /^\\(?:right|end)(?![A-Za-z])/.test(rest)) {
+      depth--;
+      i += rest.startsWith('\\right') ? 6 : 4;
+      continue;
+    }
+    if (ch === '\\' && (tex[i + 1] === '{' || tex[i + 1] === '}' || tex[i + 1] === '\\')) {
+      i += 2; // an escaped brace or a line break, not a group
+      continue;
+    }
+    if (ch === '{') depth++;
+    else if (ch === '}') depth--;
+    else if (depth === 0) {
+      const rel = RELATION.exec(rest);
+      if (rel) {
+        const end = i + rel[0].length;
+        if (tex.slice(end).trim() !== '' && tex.slice(start, i).trim() !== '') {
+          pieces.push(tex.slice(start, end).trim());
+          start = end;
+        }
+        i = end;
+        continue;
+      }
+    }
+    i += ch === '\\' ? Math.max(1, /^\\[A-Za-z]+/.exec(rest)?.[0].length ?? 2) : 1;
+  }
+  pieces.push(tex.slice(start).trim());
+  return pieces.filter((p) => p !== '');
+}
+
+function inlineFormula(tex: string, key: string): ReactNode[] {
+  const pieces = splitTexAtRelations(tex);
+  return pieces.flatMap((piece, n) => [
+    ...(n > 0 ? [' '] : []),
+    <KatexSpan key={`${key}-${n}`} tex={piece} block={false} />,
+  ]);
+}
+
 export function renderInline(text: string, stress = false, keyPrefix = 'i'): ReactNode[] {
   // `$…$` formulas first: their contents are never read as **bold** etc.
   if (text.includes('$')) {
@@ -184,7 +244,7 @@ export function renderInline(text: string, stress = false, keyPrefix = 'i'): Rea
     if (parts.length > 1) {
       return parts.flatMap((part, n) =>
         /^\$[^$\n]+\$$/.test(part)
-          ? [<KatexSpan key={`${keyPrefix}-m${n}`} tex={part.slice(1, -1)} block={false} />]
+          ? inlineFormula(part.slice(1, -1), `${keyPrefix}-m${n}`)
           : renderPlainInline(part, stress, `${keyPrefix}-t${n}`),
       );
     }

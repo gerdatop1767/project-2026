@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { TheoryMarkdown, parseMarkdown, type Block } from './TheoryMarkdown.js';
+import {
+  TheoryMarkdown,
+  parseMarkdown,
+  splitTexAtRelations,
+  type Block,
+} from './TheoryMarkdown.js';
 
 const sample = `# Задание 3. Стиль
 
@@ -113,5 +118,38 @@ $$D(X) = E(X^2) - (E(X))^2$$
   it('an unknown drawing renders nothing rather than breaking the page', () => {
     const { container } = render(<TheoryMarkdown source={'![[no-such-figure]]'} />);
     expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('a long inline formula is split after its top-level relation signs, so it can wrap', () => {
+    expect(
+      splitTexAtRelations('x^2 - x \\le x + 3 \\iff x^2 - 2x - 3 \\le 0 \\iff -1 \\le x \\le 3'),
+    ).toEqual([
+      'x^2 - x \\le',
+      'x + 3 \\iff',
+      'x^2 - 2x - 3 \\le',
+      '0 \\iff',
+      '-1 \\le',
+      'x \\le',
+      '3',
+    ]);
+    // Never inside braces, \left…\right or an environment; never on \left / \neq look-alikes.
+    expect(splitTexAtRelations('\\frac{a = b}{c} = d')).toEqual(['\\frac{a = b}{c} =', 'd']);
+    expect(splitTexAtRelations('\\left(x = 1\\right) \\ne 2')).toEqual([
+      '\\left(x = 1\\right) \\ne',
+      '2',
+    ]);
+    expect(splitTexAtRelations('a \\neq b')).toEqual(['a \\neq', 'b']);
+    expect(splitTexAtRelations('\\begin{cases} x = 1,\\\\ y = 2\\end{cases}')).toEqual([
+      '\\begin{cases} x = 1,\\\\ y = 2\\end{cases}',
+    ]);
+    expect(splitTexAtRelations('\\{1\\} = A')).toEqual(['\\{1\\} =', 'A']);
+    // Nothing to split: one piece, unchanged.
+    expect(splitTexAtRelations('\\sqrt{x + 1}')).toEqual(['\\sqrt{x + 1}']);
+    expect(splitTexAtRelations('= 5')).toEqual(['= 5']);
+  });
+
+  it('renders each piece of a split formula as its own KaTeX span', () => {
+    const { container } = render(<TheoryMarkdown source={'Итак, $a = b \\iff c$.'} />);
+    expect(container.querySelectorAll('.katex')).toHaveLength(3);
   });
 });
