@@ -1,4 +1,4 @@
-import { Fragment, memo, useMemo, type ReactNode } from 'react';
+import { Fragment, memo, useId, useMemo, useState, type ReactNode } from 'react';
 import { clsx } from '../../lib/clsx.js';
 import { KatexSpan } from '../MathText/MathText.js';
 import { TheoryFigure } from './figures/TheoryFigure.js';
@@ -326,8 +326,8 @@ function BlockView({ block, stress, k }: { block: Block; stress: boolean; k: str
               src="/branding/v2/support-bison.webp"
               alt=""
               aria-hidden="true"
-              width={56}
-              height={56}
+              width={136}
+              height={163}
               loading="lazy"
             />
           )}
@@ -406,6 +406,80 @@ function BlockView({ block, stress, k }: { block: Block; stress: boolean; k: str
   }
 }
 
+/** «**Ответ: 15.**», «**Ответы.**», «Ответ:» — a paragraph that opens an answer. */
+const ANSWER_START = /^\s*(\*\*)?Ответы?\s*(\*\*)?\s*[:.]/;
+/** A section titled «Ответы», «Ответы к задачам»… — its whole body is answers. */
+const ANSWER_HEADING = /^\s*Ответы?(?![а-яё])/i;
+
+type Item = { kind: 'block'; block: Block } | { kind: 'answer'; blocks: Block[]; many: boolean };
+
+/**
+ * Practice answers are hidden until the student asks for them: an answer
+ * paragraph and everything after it up to the next subheading become one
+ * «Показать ответ» block. Worked examples (callouts, quotes) stay as they are.
+ */
+export function groupAnswers(blocks: Block[]): Item[] {
+  const out: Item[] = [];
+  let open: (Item & { kind: 'answer' }) | null = null;
+  for (const block of blocks) {
+    if (block.type === 'heading') {
+      open = null;
+      out.push({ kind: 'block', block });
+      continue;
+    }
+    if (!open && block.type === 'paragraph' && ANSWER_START.test(block.lines[0] ?? '')) {
+      open = { kind: 'answer', blocks: [], many: /^\s*(\*\*)?Ответы/.test(block.lines[0]!) };
+      out.push(open);
+    }
+    if (open) open.blocks.push(block);
+    else out.push({ kind: 'block', block });
+  }
+  return out;
+}
+
+function Reveal({ many, children }: { many: boolean; children: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  const id = useId();
+  const label = many ? 'ответы' : 'ответ';
+  return (
+    <div className={styles.answer} data-shown={shown || undefined}>
+      <button
+        type="button"
+        className={styles.answerToggle}
+        aria-expanded={shown}
+        aria-controls={id}
+        onClick={() => setShown((v) => !v)}
+      >
+        <span className={styles.answerToggleIcon} aria-hidden="true">
+          {shown ? '−' : '?'}
+        </span>
+        {shown ? `Скрыть ${label}` : `Показать ${label}`}
+      </button>
+      <div id={id} className={styles.answerBody} hidden={!shown}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SectionBody({ blocks, stress, k }: { blocks: Block[]; stress: boolean; k: string }) {
+  return (
+    <>
+      {groupAnswers(blocks).map((item, i) =>
+        item.kind === 'block' ? (
+          <BlockView key={i} block={item.block} stress={stress} k={`${k}b${i}`} />
+        ) : (
+          <Reveal key={i} many={item.many}>
+            {item.blocks.map((block, j) => (
+              <BlockView key={j} block={block} stress={stress} k={`${k}b${i}-${j}`} />
+            ))}
+          </Reveal>
+        ),
+      )}
+    </>
+  );
+}
+
 export interface TheoryMarkdownProps {
   source: string;
   /** Highlight stressed capital vowels (the orthoepy materials). */
@@ -446,9 +520,15 @@ export const TheoryMarkdown = memo(function TheoryMarkdown({
               ) : (
                 <h3 className={styles.heading}>{renderInline(title, stress, `s${s}`)}</h3>
               ))}
-            {section.blocks.map((block, b) => (
-              <BlockView key={b} block={block} stress={stress} k={`s${s}b${b}`} />
-            ))}
+            {section.heading && ANSWER_HEADING.test(title) ? (
+              <Reveal many>
+                {section.blocks.map((block, b) => (
+                  <BlockView key={b} block={block} stress={stress} k={`s${s}b${b}`} />
+                ))}
+              </Reveal>
+            ) : (
+              <SectionBody blocks={section.blocks} stress={stress} k={`s${s}`} />
+            )}
           </section>
         );
       })}

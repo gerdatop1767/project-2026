@@ -112,4 +112,13 @@ describe('russian theory — the one source for the catalog and «Правило
     );
     expect(await text('task-22-practice')).not.toMatch(/дождь стучал в окно».\n/);
   });
+
+  it('№22 covers sound devices: alliteration and assonance, with practice', async () => {
+    const theory = await loadTheoryMaterial('task-22-theory');
+    expect(theory).toMatch(/\*\*Аллитерация:\*\*/);
+    expect(theory).toMatch(/\*\*Ассонанс:\*\*/);
+    const practice = await loadTheoryMaterial('task-22-practice');
+    expect(practice).toMatch(/аллитерация/);
+    expect(practice).toMatch(/ассонанс/);
+  });
 });

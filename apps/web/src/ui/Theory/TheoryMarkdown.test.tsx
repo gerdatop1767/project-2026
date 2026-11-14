@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   TheoryMarkdown,
+  groupAnswers,
   parseMarkdown,
   splitTexAtRelations,
   type Block,
@@ -151,5 +153,58 @@ $$D(X) = E(X^2) - (E(X))^2$$
   it('renders each piece of a split formula as its own KaTeX span', () => {
     const { container } = render(<TheoryMarkdown source={'Итак, $a = b \\iff c$.'} />);
     expect(container.querySelectorAll('.katex')).toHaveLength(3);
+  });
+});
+
+describe('practice answers are hidden until asked for', () => {
+  const practice = [
+    '# Практика',
+    '## 1. Тире',
+    'Найди предложения с тире.',
+    '',
+    '**Ответ: 15.**',
+    '- (1) тире между подлежащим и сказуемым.',
+    '',
+    '## 2. Задачи',
+    '1. Найди корень.',
+    '',
+    '**Ответы.**',
+    '1. $x = 4$.',
+    '',
+    '## Ответы',
+    '1. Секрет из раздела.',
+  ].join('\n');
+
+  it('shows a button instead of the answer, and the answer after a tap', async () => {
+    const user = userEvent.setup();
+    render(<TheoryMarkdown source={practice} />);
+    expect(screen.getByText('Найди предложения с тире.')).toBeVisible();
+    expect(screen.getByText(/тире между подлежащим/)).not.toBeVisible();
+    expect(screen.getByText('Секрет из раздела.')).not.toBeVisible();
+    const one = screen.getByRole('button', { name: 'Показать ответ' });
+    expect(one).toHaveAttribute('aria-expanded', 'false');
+    await user.click(one);
+    expect(screen.getByText(/тире между подлежащим/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Скрыть ответ' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    // «Ответы.» and a «## Ответы» section get their own buttons.
+    expect(screen.getAllByRole('button', { name: 'Показать ответы' })).toHaveLength(2);
+  });
+
+  it('does not hide ordinary sentences that merely start with «Ответ»', () => {
+    render(
+      <TheoryMarkdown
+        source={'## Правило\nОтвет здесь почти всегда число.\n\nОтветь на вопрос.'}
+      />,
+    );
+    expect(screen.getByText('Ответ здесь почти всегда число.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Показать/ })).toBeNull();
+  });
+
+  it('groups an answer with its explanation up to the next subheading', () => {
+    const items = groupAnswers(parseMarkdown('**Ответ: 24.**\n- пояснение\n\n### Дальше\nтекст'));
+    expect(items.map((i) => i.kind)).toEqual(['answer', 'block', 'block']);
   });
 });
