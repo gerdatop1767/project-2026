@@ -14,6 +14,6 @@
     "@zybrilka/shared": "workspace:*",
     "drizzle-orm": "^0.45.3",
     "pino": "^10.3.1",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   }
 }
