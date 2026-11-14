@@ -116,6 +116,27 @@ export function HomeMobile() {
         ]}
       />
 
+      {/* «Учебный центр»: theory, materials and strategies are one tap away
+          on the phone too (the desktop has them in the sidebar). */}
+      <button
+        type="button"
+        className={styles.learningCard}
+        onClick={() => navigate({ screen: 'learningCenter' })}
+      >
+        <span className={styles.learningIcon} aria-hidden="true">
+          <Icon name="graduation" size={26} />
+        </span>
+        <span className={styles.learningText}>
+          <span className={styles.learningTitle}>Учебный центр</span>
+          <span className={styles.learningSubtitle}>
+            Теория, правила и разборы по всем темам ЕГЭ
+          </span>
+        </span>
+        <span className={styles.learningArrow} aria-hidden="true">
+          <Icon name="arrowRight" size={18} />
+        </span>
+      </button>
+
       {isGuest && (
         <button
           type="button"

@@ -163,6 +163,13 @@ describe('HomeMobile', () => {
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 
+  it('the «Учебный центр» card opens the learning centre', async () => {
+    window.history.replaceState(null, '', '/');
+    renderHome();
+    await userEvent.click(screen.getByRole('button', { name: /Учебный центр/ }));
+    expect(window.location.pathname).toBe('/learning');
+  });
+
   it('renders every popular subject as a tappable card', () => {
     renderHome();
     for (const subject of subjects.slice(0, 6)) {
