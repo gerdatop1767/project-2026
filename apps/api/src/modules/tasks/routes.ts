@@ -11,17 +11,26 @@ export interface TasksRoutesOptions {
   allowGuestAttempts?: boolean;
 }
 
+/** A signed-in account's answers per minute: far above a real student
+ * (a whole variant is 19–27 answers), far below a script farming XP. */
+export const ACCOUNT_ATTEMPTS_PER_MINUTE = 60;
+/** Guests, per IP (a school class may share one address). */
+export const GUEST_ATTEMPTS_PER_MINUTE = 120;
+
 /**
- * Guests have no account to throttle by, so their answer checks are
- * limited per IP (needs `@fastify/rate-limit` registered in the scope; a
- * no-op otherwise). Signed-in users are never limited here.
+ * Answer checks are rate-limited: a guest per IP, a signed-in user per
+ * account — before, accounts were not limited at all, so a script could
+ * walk the whole task bank in minutes (needs `@fastify/rate-limit`
+ * registered in the scope; a no-op otherwise).
  */
 const guestRateLimit = {
   config: {
     rateLimit: {
-      max: 120,
       timeWindow: '1 minute',
-      allowList: (request: { userId?: string | null }) => Boolean(request.userId),
+      keyGenerator: (request: { userId?: string | null; ip: string }) =>
+        request.userId ? `user:${request.userId}` : `ip:${request.ip}`,
+      max: (request: { userId?: string | null }) =>
+        request.userId ? ACCOUNT_ATTEMPTS_PER_MINUTE : GUEST_ATTEMPTS_PER_MINUTE,
     },
   },
 };

@@ -64,6 +64,37 @@ export function buildApp({
   trustProxy,
 }: AppOptions) {
   const app = Fastify({ logger, trustProxy });
+
+  // A 5xx never shows its internals: a Drizzle error message carries the
+  // SQL and its parameters, Fastify's default handler would send it to the
+  // client as `message`. Logged in full, answered with a generic body.
+  // 4xx go out exactly as before (Fastify's own format) — those are the
+  // client's mistakes (bad JSON, body too large, 429…). Scopes with their
+  // own handler (admin) win.
+  app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
+    if (status >= 500) {
+      request.log.error({ err: error }, 'request failed');
+      return reply.code(status).send({ error: 'internal_error' });
+    }
+    return reply.send(error);
+  });
+
+  // Security headers for every API response (JSON only — the API serves no
+  // pages): no MIME sniffing, never framed, no referrer to third parties,
+  // HTTPS pinned (browsers ignore HSTS on plain-HTTP responses, so it is
+  // harmless in development). A route that set its own CSP keeps it.
+  app.addHook('onSend', async (_request, reply, payload) => {
+    if (!reply.hasHeader('x-content-type-options'))
+      reply.header('x-content-type-options', 'nosniff');
+    if (!reply.hasHeader('content-security-policy')) {
+      reply.header('content-security-policy', "default-src 'none'; frame-ancestors 'none'");
+    }
+    reply.header('x-frame-options', 'DENY');
+    reply.header('referrer-policy', 'strict-origin-when-cross-origin');
+    reply.header('strict-transport-security', 'max-age=31536000');
+    return payload;
+  });
   // Route-pattern/status/duration of recent requests, in memory only —
   // read by the admin «Техническое состояние» page.
   const requestMetrics = new RequestMetrics();
