@@ -181,8 +181,25 @@ describe('theory routes — subject, edition, topic', () => {
     // An unknown edition is dropped rather than inventing a numbering.
     expect(routeFromPath('/materials?s=math&ed=ege-2031')).toEqual({
       screen: 'theory',
-      section: 'materials',
+      section: 'rules',
       subject: 'math',
+    });
+  });
+
+  it('the library: sections, subject filter and the open item round-trip', () => {
+    for (const route of [
+      { screen: 'library', section: 'materials' },
+      { screen: 'library', section: 'strategies' },
+      { screen: 'library', section: 'materials', subject: 'math' },
+      { screen: 'library', section: 'strategies', subject: 'russian', itemId: 'strategy-essay' },
+    ] as const) {
+      expect(routeFromPath(pathForRoute(route)!)).toEqual(route);
+    }
+    expect(pathForRoute({ screen: 'library', section: 'strategies' })).toBe('/strategies');
+    // Junk in the URL is dropped, not trusted.
+    expect(routeFromPath('/materials?s=chemistry&id=../x')).toEqual({
+      screen: 'library',
+      section: 'materials',
     });
   });
 });

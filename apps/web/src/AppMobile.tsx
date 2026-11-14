@@ -13,6 +13,8 @@ import { AchievementsMobile } from './screens/Achievements/AchievementsMobile.js
 import { RatingMobile } from './screens/Rating/RatingMobile.js';
 import { Level } from './screens/Level/Level.js';
 import { TheoryCatalog } from './screens/Theory/TheoryCatalog.js';
+import { Library } from './screens/Library/Library.js';
+import { LearningCenterMobile } from './screens/LearningCenter/LearningCenterMobile.js';
 import { Notifications } from './screens/Notifications/Notifications.js';
 import { HelpMobile } from './screens/Help/HelpMobile.js';
 import { FriendsMobile } from './screens/Friends/FriendsMobile.js';
@@ -191,12 +193,14 @@ export function AppMobile() {
                 topic={contentOverlay.topic}
               />
             )}
-            {contentOverlay.screen === 'learningCenter' && (
-              <WipPlaceholder
-                title="Учебный центр"
-                note="Утверждённый референс для этого экрана ещё не получен."
+            {contentOverlay.screen === 'library' && (
+              <Library
+                section={contentOverlay.section}
+                itemId={contentOverlay.itemId}
+                subject={contentOverlay.subject}
               />
             )}
+            {contentOverlay.screen === 'learningCenter' && <LearningCenterMobile />}
             {contentOverlay.screen === 'onboarding' && <Onboarding />}
             {contentOverlay.screen === 'favorites' && (
               <WipPlaceholder title="Избранное" note="Экран в разработке — следующий блок." />

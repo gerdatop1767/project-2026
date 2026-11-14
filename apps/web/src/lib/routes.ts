@@ -103,8 +103,17 @@ export function pathForRoute(route: Route): string | null {
     return '/profile';
   }
 
+  if (route.screen === 'library') {
+    const params = new URLSearchParams();
+    if (route.subject) params.set('s', route.subject);
+    if (route.itemId) params.set('id', route.itemId);
+    const qs = params.toString();
+    const base = route.section === 'strategies' ? '/strategies' : '/materials';
+    return qs ? `${base}?${qs}` : base;
+  }
+
   if (route.screen === 'theory') {
-    const base = route.section === 'materials' ? '/materials' : '/theory';
+    const base = '/theory';
     const params = new URLSearchParams();
     if (route.subject === 'math') params.set('s', 'math');
     if (route.subject === 'math' && route.edition) params.set('ed', route.edition);
@@ -206,6 +215,27 @@ export function routeFromPath(pathname: string): Route {
 
   if (path === '/profile') return { screen: 'profile' };
 
+  if (path === '/strategies' || path === '/materials') {
+    const subject = params.get('s');
+    const id = params.get('id');
+    const n = Number(params.get('n'));
+    // Old «Полезные материалы» links (per-task lists and practice, the
+    // math catalog) now live in the theory catalog: send them there.
+    const legacyTheory =
+      path === '/materials' &&
+      ((Number.isInteger(n) && n > 0) || params.has('ed') || params.has('t'));
+    if (!legacyTheory) {
+      return {
+        screen: 'library',
+        section: path === '/strategies' ? 'strategies' : 'materials',
+        ...(subject === 'math' || subject === 'russian' || subject === 'general'
+          ? { subject }
+          : {}),
+        ...(id && /^[a-z0-9-]+$/.test(id) ? { itemId: id } : {}),
+      };
+    }
+  }
+
   if (path === '/theory' || path === '/materials') {
     const n = Number(params.get('n'));
     const math = params.get('s') === 'math';
@@ -213,7 +243,7 @@ export function routeFromPath(pathname: string): Route {
     const topic = params.get('t');
     return {
       screen: 'theory',
-      section: path === '/materials' ? 'materials' : 'rules',
+      section: 'rules',
       ...(Number.isInteger(n) && n > 0 ? { taskNumber: n } : {}),
       ...(math ? { subject: 'math' as const } : {}),
       // Only a known edition; anything else falls back to the current one.

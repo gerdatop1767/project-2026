@@ -23,11 +23,6 @@ import mathStyles from './MathTheoryCatalog.module.css';
 
 export const DEFAULT_MATH_EDITION: ExamEditionId = 'ege-2027';
 
-const sectionTabs = [
-  { id: 'rules', label: 'Теория' },
-  { id: 'materials', label: 'Полезные материалы' },
-] as const;
-
 // ЕГЭ-2026 and the current ЕГЭ-2027 share one numbering (FIPI: «Изменений
 // нет»), so they share one tab; the old Ященко-2027 edition has its own.
 const editionTabs = [
@@ -164,7 +159,7 @@ export function MathTheoryCatalog({
     <div className={clsx(styles.screen, selected && styles.hasSelection)}>
       <header className={styles.head}>
         <div>
-          <h1 className="text-h1">{section === 'rules' ? 'Теория' : 'Полезные материалы'}</h1>
+          <h1 className="text-h1">Теория</h1>
           <p className="text-body-sm text-secondary">
             Профильная математика · теория по номерам заданий. Одна тема — один текст для всех
             редакций экзамена.
@@ -172,23 +167,6 @@ export function MathTheoryCatalog({
         </div>
         <div className={styles.switches}>
           <TheorySubjectTabs section={section} subject="math" />
-          <Tabs
-            aria-label="Раздел"
-            items={sectionTabs}
-            activeId={section}
-            onChange={(id) =>
-              navigate(
-                {
-                  screen: 'theory',
-                  section: id as TheorySection,
-                  subject: 'math',
-                  edition,
-                  ...(taskNumber ? { taskNumber } : {}),
-                },
-                { replace: true },
-              )
-            }
-          />
           <Tabs
             aria-label="Нумерация"
             items={editionTabs}
@@ -198,179 +176,164 @@ export function MathTheoryCatalog({
         </div>
       </header>
 
-      {section === 'materials' ? (
-        <div className={mathStyles.notice}>
-          <Icon name="reference" size={24} />
-          <div>
-            <p className="text-body" style={{ fontWeight: 700 }}>
-              Справочники по математике готовятся
-            </p>
-            <p className="text-body-sm text-secondary">
-              Таблицы формул и шпаргалки появятся здесь отдельными страницами. Пока вся теория — в
-              разделе «Теория».
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className={styles.layout}>
-          <nav className={styles.list} aria-label="Задания">
-            <p
-              className={clsx(
-                mathStyles.editionNote,
-                editionInfo.superseded && mathStyles.editionOld,
-              )}
-            >
-              {edition === 'ege-2027-project'
-                ? 'Нумерация старого сборника Ященко-2027: он составлен по проекту КИМ (август 2026), который не вошёл в окончательную редакцию. В актуальном ЕГЭ-2027 19 заданий, как в 2026 году.'
-                : 'Нумерация ЕГЭ-2027 по спецификации ФИПИ от 13.11.2026 — та же, что в ЕГЭ-2026: изменений нет.'}
-            </p>
-            <label className={styles.search}>
-              <Icon name="search" size={18} className={styles.searchIcon} />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Номер, тема или слово"
-                aria-label="Поиск по теории"
-                className={styles.searchInput}
-              />
-            </label>
-            {wantsText && !texts && (
-              <p className={styles.searchNote} aria-live="polite">
-                Ищем в текстах…
-              </p>
+      <div className={styles.layout}>
+        <nav className={styles.list} aria-label="Задания">
+          <p
+            className={clsx(
+              mathStyles.editionNote,
+              editionInfo.superseded && mathStyles.editionOld,
             )}
-            {groups.length === 0 && !(wantsText && !texts) && (
-              <p className={styles.searchNote} aria-live="polite">
-                Ничего не нашлось. Попробуй номер задания или другое слово.
-              </p>
-            )}
-            {groups.map((group) => (
-              <section key={group.id} className={styles.group}>
-                <h2 className={styles.groupTitle}>{group.title}</h2>
-                <ul className={styles.items}>
-                  {group.specs.map((spec) => {
-                    const ready = materialsOf(spec).length > 0;
-                    const isNew = spec.topics.some((b) => b.relation === 'new');
-                    return (
-                      <li key={spec.number}>
-                        <button
-                          type="button"
-                          className={clsx(
-                            styles.item,
-                            spec.number === taskNumber && styles.itemActive,
-                            !ready && styles.itemEmpty,
-                          )}
-                          aria-current={spec.number === taskNumber ? 'true' : undefined}
-                          aria-label={`№${spec.number}. ${spec.title} — ${ready ? 'теория готова' : 'теория готовится'}`}
-                          onClick={() => open(spec)}
-                        >
-                          <span className={styles.number}>{spec.number}</span>
-                          <span className={styles.itemText}>
-                            <span className={styles.itemTitle}>
-                              {spec.title}
-                              {isNew && <span className={mathStyles.newBadge}>новое</span>}
-                            </span>
-                            <span className={styles.itemMeta}>
-                              {ready ? 'теория готова' : 'готовится'}
-                            </span>
-                          </span>
-                          <Icon name="chevronRight" size={16} className={styles.chevron} />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))}
-            {extras.length > 0 && !q && (
-              <section className={styles.group}>
-                <h2 className={styles.groupTitle}>По кодификатору — без отдельного номера</h2>
-                <ul className={styles.items}>
-                  {extras.map((x) => (
-                    <li key={x.topicKey}>
+          >
+            {edition === 'ege-2027-project'
+              ? 'Нумерация старого сборника Ященко-2027: он составлен по проекту КИМ (август 2026), который не вошёл в окончательную редакцию. В актуальном ЕГЭ-2027 19 заданий, как в 2026 году.'
+              : 'Нумерация ЕГЭ-2027 по спецификации ФИПИ от 13.11.2026 — та же, что в ЕГЭ-2026: изменений нет.'}
+          </p>
+          <label className={styles.search}>
+            <Icon name="search" size={18} className={styles.searchIcon} />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Номер, тема или слово"
+              aria-label="Поиск по теории"
+              className={styles.searchInput}
+            />
+          </label>
+          {wantsText && !texts && (
+            <p className={styles.searchNote} aria-live="polite">
+              Ищем в текстах…
+            </p>
+          )}
+          {groups.length === 0 && !(wantsText && !texts) && (
+            <p className={styles.searchNote} aria-live="polite">
+              Ничего не нашлось. Попробуй номер задания или другое слово.
+            </p>
+          )}
+          {groups.map((group) => (
+            <section key={group.id} className={styles.group}>
+              <h2 className={styles.groupTitle}>{group.title}</h2>
+              <ul className={styles.items}>
+                {group.specs.map((spec) => {
+                  const ready = materialsOf(spec).length > 0;
+                  const isNew = spec.topics.some((b) => b.relation === 'new');
+                  return (
+                    <li key={spec.number}>
                       <button
                         type="button"
-                        className={clsx(styles.item, x.topicKey === topic && styles.itemActive)}
-                        aria-current={x.topicKey === topic ? 'true' : undefined}
-                        onClick={() => openTopic(x.topicKey)}
+                        className={clsx(
+                          styles.item,
+                          spec.number === taskNumber && styles.itemActive,
+                          !ready && styles.itemEmpty,
+                        )}
+                        aria-current={spec.number === taskNumber ? 'true' : undefined}
+                        aria-label={`№${spec.number}. ${spec.title} — ${ready ? 'теория готова' : 'теория готовится'}`}
+                        onClick={() => open(spec)}
                       >
-                        <span className={styles.number}>
-                          <Icon name="topic" size={14} />
-                        </span>
+                        <span className={styles.number}>{spec.number}</span>
                         <span className={styles.itemText}>
-                          <span className={styles.itemTitle}>{topicTitle(x.topicKey)}</span>
+                          <span className={styles.itemTitle}>
+                            {spec.title}
+                            {isNew && <span className={mathStyles.newBadge}>новое</span>}
+                          </span>
                           <span className={styles.itemMeta}>
-                            {mathMaterialFor(x.topicKey) ? 'теория готова' : 'готовится'}
+                            {ready ? 'теория готова' : 'готовится'}
                           </span>
                         </span>
                         <Icon name="chevronRight" size={16} className={styles.chevron} />
                       </button>
                     </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </nav>
-
-          <div className={styles.reader} ref={readerRef}>
-            {selectedExtra ? (
-              <article className={styles.article} aria-labelledby="theory-task-title">
-                <button type="button" className={styles.backToList} onClick={backToList}>
-                  <Icon name="back" size={18} /> Все задания
-                </button>
-                <p className={styles.kicker}>{editionInfo.shortTitle} · по кодификатору</p>
-                <h2 id="theory-task-title" className="text-h2">
-                  {topicTitle(selectedExtra.topicKey)}
-                </h2>
-                <MathTopicTheory
-                  topicKey={selectedExtra.topicKey}
-                  note={selectedExtra.note}
-                  partOf={false}
-                  showTitle={false}
-                />
-              </article>
-            ) : selected ? (
-              <article className={styles.article} aria-labelledby="theory-task-title">
-                <button type="button" className={styles.backToList} onClick={backToList}>
-                  <Icon name="back" size={18} /> Все задания
-                </button>
-                <p className={styles.kicker}>
-                  {editionInfo.shortTitle} · задание №{selected.number}
-                </p>
-                <h2 id="theory-task-title" className="text-h2">
-                  {selected.title}
-                </h2>
-                {selected.topics.map((binding) => (
-                  <MathTopicTheory
-                    key={binding.topicKey}
-                    topicKey={binding.topicKey}
-                    note={
-                      binding.status !== 'official' || binding.relation !== 'same'
-                        ? binding.note
-                        : undefined
-                    }
-                    partOf={binding.relation === 'part-of'}
-                    showTitle={selected.topics.length > 1}
-                  />
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+          {extras.length > 0 && !q && (
+            <section className={styles.group}>
+              <h2 className={styles.groupTitle}>По кодификатору — без отдельного номера</h2>
+              <ul className={styles.items}>
+                {extras.map((x) => (
+                  <li key={x.topicKey}>
+                    <button
+                      type="button"
+                      className={clsx(styles.item, x.topicKey === topic && styles.itemActive)}
+                      aria-current={x.topicKey === topic ? 'true' : undefined}
+                      onClick={() => openTopic(x.topicKey)}
+                    >
+                      <span className={styles.number}>
+                        <Icon name="topic" size={14} />
+                      </span>
+                      <span className={styles.itemText}>
+                        <span className={styles.itemTitle}>{topicTitle(x.topicKey)}</span>
+                        <span className={styles.itemMeta}>
+                          {mathMaterialFor(x.topicKey) ? 'теория готова' : 'готовится'}
+                        </span>
+                      </span>
+                      <Icon name="chevronRight" size={16} className={styles.chevron} />
+                    </button>
+                  </li>
                 ))}
-              </article>
-            ) : (
-              <div className={styles.placeholder}>
-                <Icon name="reference" size={28} />
-                <p className="text-body" style={{ fontWeight: 700 }}>
-                  Выбери номер задания
-                </p>
-                <p className="text-body-sm text-secondary">
-                  {edition === 'ege-2027-project'
-                    ? 'Номера — как в старом сборнике Ященко-2027. Теория та же, меняются только номера.'
-                    : 'Номера — как в ЕГЭ-2027 и ЕГЭ-2026 (они совпадают).'}
-                </p>
-              </div>
-            )}
-          </div>
+              </ul>
+            </section>
+          )}
+        </nav>
+
+        <div className={styles.reader} ref={readerRef}>
+          {selectedExtra ? (
+            <article className={styles.article} aria-labelledby="theory-task-title">
+              <button type="button" className={styles.backToList} onClick={backToList}>
+                <Icon name="back" size={18} /> Все задания
+              </button>
+              <p className={styles.kicker}>{editionInfo.shortTitle} · по кодификатору</p>
+              <h2 id="theory-task-title" className="text-h2">
+                {topicTitle(selectedExtra.topicKey)}
+              </h2>
+              <MathTopicTheory
+                topicKey={selectedExtra.topicKey}
+                note={selectedExtra.note}
+                partOf={false}
+                showTitle={false}
+              />
+            </article>
+          ) : selected ? (
+            <article className={styles.article} aria-labelledby="theory-task-title">
+              <button type="button" className={styles.backToList} onClick={backToList}>
+                <Icon name="back" size={18} /> Все задания
+              </button>
+              <p className={styles.kicker}>
+                {editionInfo.shortTitle} · задание №{selected.number}
+              </p>
+              <h2 id="theory-task-title" className="text-h2">
+                {selected.title}
+              </h2>
+              {selected.topics.map((binding) => (
+                <MathTopicTheory
+                  key={binding.topicKey}
+                  topicKey={binding.topicKey}
+                  note={
+                    binding.status !== 'official' || binding.relation !== 'same'
+                      ? binding.note
+                      : undefined
+                  }
+                  partOf={binding.relation === 'part-of'}
+                  showTitle={selected.topics.length > 1}
+                />
+              ))}
+            </article>
+          ) : (
+            <div className={styles.placeholder}>
+              <Icon name="reference" size={28} />
+              <p className="text-body" style={{ fontWeight: 700 }}>
+                Выбери номер задания
+              </p>
+              <p className="text-body-sm text-secondary">
+                {edition === 'ege-2027-project'
+                  ? 'Номера — как в старом сборнике Ященко-2027. Теория та же, меняются только номера.'
+                  : 'Номера — как в ЕГЭ-2027 и ЕГЭ-2026 (они совпадают).'}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

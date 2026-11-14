@@ -59,6 +59,15 @@ export type OverlayRoute =
        * a codifier-only topic), instead of a number. */
       topic?: string;
     }
+  /** The learning-centre library (docs/LIBRARY.md): «Полезные материалы»
+   * and «Стратегии». The open item and the subject filter live here, so
+   * Back and a refresh keep them. */
+  | {
+      screen: 'library';
+      section: LibrarySection;
+      itemId?: string;
+      subject?: LibrarySubject;
+    }
   | { screen: 'subjectCatalog' }
   | {
       screen: 'subject';
@@ -214,7 +223,12 @@ export interface RevealedAnswer {
   explanation: string;
 }
 
-export type TheorySection = 'rules' | 'materials';
+/** The theory catalog has one section now: per-task reference lists and
+ * practice are tabs of a task's page, and «Полезные материалы» is the
+ * library (`screen: 'library'`). */
+export type TheorySection = 'rules';
+export type LibrarySection = 'materials' | 'strategies';
+export type LibrarySubject = 'math' | 'russian' | 'general';
 export type TheorySubject = 'russian' | 'math';
 
 export type Route = { screen: MainTabId } | OverlayRoute;
@@ -227,6 +241,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   login: 'Вход',
   learningCenter: 'Учебный центр',
   theory: 'Теория',
+  library: 'Полезные материалы',
   learningSession: 'Тренировка',
   variantAttempt: 'Результат варианта',
   miniGames: 'Мини-игры',
@@ -244,6 +259,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
  * going back to. Falls back to "Главная" for routes with no fixed
  * name (task/result/subject carry their own context instead). */
 export function getRouteLabel(route: Route): string {
+  if (route.screen === 'library' && route.section === 'strategies') return 'Стратегии';
   return routeLabels[route.screen] ?? 'Главная';
 }
 

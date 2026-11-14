@@ -12,25 +12,12 @@ import { MathTheoryCatalog } from './MathTheoryCatalog.js';
 import { TheorySubjectTabs } from './TheorySubjectTabs.js';
 import { clsx } from '../../lib/clsx.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { TheoryTaskView } from '../../ui/Theory/TheoryTaskView.js';
 import styles from './TheoryCatalog.module.css';
 import type { ExamEditionId } from '@zybrilka/shared';
 
-const sectionKinds: Record<TheorySection, readonly TheoryMaterialKind[]> = {
-  rules: ['theory'],
-  materials: ['reference', 'practice'],
-};
-
-const sectionTabs = [
-  { id: 'rules', label: 'Теория' },
-  { id: 'materials', label: 'Полезные материалы' },
-] as const;
-
-const sectionLead: Record<TheorySection, string> = {
-  rules: 'Конспекты правил по номерам заданий ЕГЭ по русскому языку.',
-  materials: 'Справочные списки (ударения, паронимы) и практика с ответами к каждому заданию.',
-};
+/** A task page shows all its materials as tabs: конспект, справочный список, практика. */
+const allKinds: readonly TheoryMaterialKind[] = ['theory', 'reference', 'practice'];
 
 /** Full text of every material, loaded only once someone searches by words. */
 let fullText: Promise<Map<string, string>> | null = null;
@@ -49,10 +36,7 @@ function loadFullText(): Promise<Map<string, string>> {
   return fullText;
 }
 
-function useSearch(
-  query: string,
-  section: TheorySection,
-): {
+function useSearch(query: string): {
   matches: (task: TheoryTask) => boolean;
   searchingText: boolean;
 } {
@@ -71,7 +55,7 @@ function useSearch(
     };
   }, [wantsText, texts]);
 
-  const kinds = sectionKinds[section];
+  const kinds = allKinds;
   return {
     searchingText: wantsText && !texts,
     matches: (task) => {
@@ -131,8 +115,8 @@ function RussianTheoryCatalog({
   const { navigate } = useNavigation();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
-  const search = useSearch(deferredQuery, section);
-  const kinds = sectionKinds[section];
+  const search = useSearch(deferredQuery);
+  const kinds = allKinds;
   const pushedFromList = useRef(false);
   const readerRef = useRef<HTMLDivElement>(null);
 
@@ -169,23 +153,14 @@ function RussianTheoryCatalog({
     <div className={clsx(styles.screen, selected && styles.hasSelection)}>
       <header className={styles.head}>
         <div>
-          <h1 className="text-h1">{section === 'rules' ? 'Теория' : 'Полезные материалы'}</h1>
-          <p className="text-body-sm text-secondary">Русский язык · {sectionLead[section]}</p>
+          <h1 className="text-h1">Теория</h1>
+          <p className="text-body-sm text-secondary">
+            Русский язык · конспекты, справочные списки и практика с ответами по номерам заданий
+            ЕГЭ.
+          </p>
         </div>
         <div className={styles.switches}>
           <TheorySubjectTabs section={section} subject="russian" />
-          <Tabs
-            aria-label="Раздел"
-            items={sectionTabs}
-            activeId={section}
-            onChange={(id) =>
-              navigate(
-                { screen: 'theory', section: id as TheorySection, taskNumber },
-                { replace: true },
-              )
-            }
-            className={styles.sectionTabs}
-          />
         </div>
       </header>
 

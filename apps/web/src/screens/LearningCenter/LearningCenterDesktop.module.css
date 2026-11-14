@@ -343,3 +343,15 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* While a query is typed the hub shows search results instead of its sections. */
+.sectionsGrid[hidden],
+.subjectsHead[hidden],
+.subjectsGrid[hidden],
+.recommendCard[hidden] {
+  display: none;
+}
+
+.searchResults {
+  margin-bottom: var(--space-8);
+}

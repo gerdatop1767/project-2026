@@ -31,12 +31,13 @@ function renderAt(path: string) {
 describe('Теория / Полезные материалы', () => {
   it('routes round-trip, the task number included', () => {
     expect(pathForRoute({ screen: 'theory', section: 'rules', taskNumber: 9 })).toBe('/theory?n=9');
-    expect(pathForRoute({ screen: 'theory', section: 'materials' })).toBe('/materials');
+    // Old «Полезные материалы» links to a task now open that task's theory page.
     expect(routeFromPath('/materials?n=4')).toEqual({
       screen: 'theory',
-      section: 'materials',
+      section: 'rules',
       taskNumber: 4,
     });
+    expect(routeFromPath('/materials')).toEqual({ screen: 'library', section: 'materials' });
     expect(routeFromPath('/theory?n=abc')).toEqual({ screen: 'theory', section: 'rules' });
   });
 
@@ -47,7 +48,7 @@ describe('Теория / Полезные материалы', () => {
     expect(within(nav).getByRole('heading', { name: 'Орфография' })).toBeInTheDocument();
     expect(
       within(nav).getByRole('button', {
-        name: '№1. Пропущенное слово в тексте — 1 материал',
+        name: '№1. Пропущенное слово в тексте — 2 материала',
       }),
     );
     await user.click(within(nav).getByRole('button', { name: /^№9\. Гласные в корне/ }));
@@ -69,28 +70,15 @@ describe('Теория / Полезные материалы', () => {
     expect(screen.getByText(/Ничего не нашлось/)).toBeInTheDocument();
   });
 
-  it('«Полезные материалы» shows the reference list and practice, not the конспект', async () => {
-    renderAt('/materials?n=4');
-    expect(
-      screen.getByRole('heading', { name: 'Полезные материалы', level: 1 }),
-    ).toBeInTheDocument();
+  it('a task page shows all its materials as tabs: конспект, справочник, практика', async () => {
+    renderAt('/theory?n=4');
+    expect(screen.getByRole('heading', { name: 'Теория', level: 1 })).toBeInTheDocument();
     const tabs = screen.getByRole('tablist', { name: 'Материалы к заданию' });
     expect(
       within(tabs)
         .getAllByRole('tab')
         .map((t) => t.textContent),
-    ).toEqual(['Справочник', 'Практика']);
-    expect(
-      await screen.findByText(/Сверен слово в слово с навигатором ФИПИ 2026/),
-    ).toBeInTheDocument();
-  });
-
-  it('switching the section keeps the chosen task', async () => {
-    const user = userEvent.setup();
-    renderAt('/theory?n=5');
-    await user.click(screen.getByRole('tab', { name: 'Полезные материалы' }));
-    expect(window.location.pathname + window.location.search).toBe('/materials?n=5');
-    expect(screen.getByRole('heading', { name: 'Паронимы', level: 2 })).toBeInTheDocument();
+    ).toEqual(['Конспект', 'Справочник', 'Практика']);
   });
 });
 
