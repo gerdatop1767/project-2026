@@ -75,7 +75,7 @@
 .current,
 .current:hover {
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-on-accent);
   box-shadow: var(--shadow-glow-accent);
 }
 

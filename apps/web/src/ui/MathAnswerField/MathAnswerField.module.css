@@ -61,7 +61,7 @@
 
 .fxButtonActive {
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 /* Two groups (symbols, functions) — each its own wrapping grid, never

@@ -253,7 +253,7 @@
 .numberChipActive {
   background: var(--gradient-primary);
   border-color: transparent;
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .builderSummary {

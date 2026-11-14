@@ -36,15 +36,15 @@ interface FeatureIconSpec {
 }
 
 const specs: Record<FeatureIconName, FeatureIconSpec> = {
-  subjects: { glyph: LibraryBig, accent: '#b16cff' },
+  subjects: { glyph: LibraryBig, accent: '#5ab8fd' },
   tasks: { glyph: ClipboardCheck, accent: '#4da3ff' },
   statistics: { glyph: ChartNoAxesCombined, accent: '#2ee6a6' },
-  theory: { glyph: BookOpenText, accent: '#ce3dfd' },
+  theory: { glyph: BookOpenText, accent: '#8fd3ff' },
   practice: { glyph: NotebookPen, accent: '#4dd6e8' },
   strategy: { glyph: Compass, accent: '#ffc04d' },
   materials: { glyph: FolderOpen, accent: '#ff7a8a' },
   // Учебный центр — «Рекомендации для тебя».
-  topics: { glyph: BookOpen, accent: '#b16cff' },
+  topics: { glyph: BookOpen, accent: '#5ab8fd' },
   typical: { glyph: FileText, accent: '#4da3ff' },
   tips: { glyph: Lightbulb, accent: '#f5b83d' },
 };

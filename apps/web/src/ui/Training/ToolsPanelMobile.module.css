@@ -81,5 +81,5 @@
 
 .fxButtonActive {
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-on-accent);
 }

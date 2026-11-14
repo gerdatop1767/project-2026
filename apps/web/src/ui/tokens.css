@@ -18,10 +18,16 @@
   --color-bg-overlay: rgba(3, 5, 12, 0.75);
 
   /* ---- Colors: accents ---- */
-  --color-accent-primary: #8b14f5;
-  --color-accent-primary-end: #ce3dfd;
-  --color-accent-primary-hover: #a13ffc;
-  --color-accent-secondary: #4da3ff;
+  /* Sky blue (2026-11 refresh): a deeper base → the light sky blue of the
+     reference, plus a pale tint. Text on these is dark navy, not white:
+     white on light blue is only ≈2.2:1, navy is 5.4–8.4:1. */
+  --color-accent-primary: #2b8ff0;
+  --color-accent-primary-end: #5ab8fd;
+  --color-accent-primary-hover: #47a6f8;
+  --color-accent-secondary: #8fd3ff;
+  /* Translucent washes of the accent: selected rows, chips, rings. */
+  --color-accent-soft: rgba(74, 168, 250, 0.16);
+  --color-accent-ring: rgba(90, 184, 253, 0.42);
   --gradient-primary: linear-gradient(
     135deg,
     var(--color-accent-primary) 0%,
@@ -47,9 +53,9 @@
   /* ---- Colors: theme-relative ----
      `--color-tint` is "the opposite of the background": a few percent of it
      lightens a dark surface or shades a light one (hover washes, shimmer,
-     hairlines). `--color-on-accent` is text/icons on the violet accent. */
+     hairlines). `--color-on-accent` is text/icons on the accent. */
   --color-tint: #ffffff;
-  --color-on-accent: #ffffff;
+  --color-on-accent: #04162c;
   /* Low-progress tone (statistics): a muted red-violet. */
   --color-progress-low: #e2648f;
   color-scheme: dark;
@@ -148,7 +154,7 @@
   --shadow-e1: 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-e2: 0 6px 16px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   --shadow-e3: 0 16px 40px rgba(0, 0, 0, 0.55);
-  --shadow-glow-accent: 0 0 24px rgba(139, 20, 245, 0.45);
+  --shadow-glow-accent: 0 0 24px rgba(74, 168, 250, 0.42);
   --shadow-glow-gold: 0 0 24px rgba(245, 166, 35, 0.35);
 
   /* ---- Motion timing ---- */
@@ -215,10 +221,14 @@
   --color-bg-elevated: #f1eefb;
   --color-bg-overlay: rgba(26, 20, 54, 0.36);
 
-  --color-accent-primary: #7a12e2;
-  --color-accent-primary-end: #b32ee6;
-  --color-accent-primary-hover: #8c2cef;
-  --color-accent-secondary: #2f7ee0;
+  /* A shade deeper on white; white text stays (≈5.6:1 at the base). */
+  --color-accent-primary: #0d66c9;
+  --color-accent-primary-end: #1f86e4;
+  --color-accent-primary-hover: #1673d6;
+  --color-accent-secondary: #0b5fb8;
+  --color-accent-soft: rgba(13, 102, 201, 0.1);
+  --color-accent-ring: rgba(31, 134, 228, 0.35);
+  --color-on-accent: #ffffff;
 
   --color-success: #15924a;
   --color-error: #d92650;
@@ -238,6 +248,6 @@
   --shadow-e1: 0 1px 3px rgba(40, 26, 92, 0.08);
   --shadow-e2: 0 6px 18px rgba(40, 26, 92, 0.1), inset 0 0 0 1px rgba(22, 19, 44, 0.04);
   --shadow-e3: 0 16px 40px rgba(40, 26, 92, 0.16);
-  --shadow-glow-accent: 0 0 18px rgba(122, 18, 226, 0.22);
+  --shadow-glow-accent: 0 0 18px rgba(31, 134, 228, 0.22);
   --shadow-glow-gold: 0 0 18px rgba(211, 135, 6, 0.2);
 }
