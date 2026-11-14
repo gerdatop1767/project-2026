@@ -66,8 +66,13 @@ describe('math theory manifest', () => {
     }
   });
 
-  it('the label names both years where a topic is checked in both', () => {
-    expect(examNumbersLabel('math.finance')).toBe('ЕГЭ-2027 №13 · ЕГЭ-2026 №16');
-    expect(examNumbersLabel('math.random-variables')).toBe('ЕГЭ-2027 №6');
+  it('the label names every edition, merging 2027 and 2026 when their numbers coincide', () => {
+    expect(examNumbersLabel('math.finance')).toBe(
+      'ЕГЭ-2027 и ЕГЭ-2026 №16 · Ященко-2027, старая редакция №13',
+    );
+    expect(examNumbersLabel('math.random-variables')).toBe('Ященко-2027, старая редакция №6');
+    expect(examNumbersLabel('math.derivative-investigation')).toBe(
+      'ЕГЭ-2027 и ЕГЭ-2026 №12 · Ященко-2027, старая редакция №9',
+    );
   });
 });

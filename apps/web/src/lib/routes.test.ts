@@ -152,27 +152,34 @@ describe('По номерам — a mode of the subject page', () => {
   });
 });
 
-describe('theory routes — subject and year', () => {
-  it('math theory keeps subject, year and number in the URL; Russian URLs are unchanged', () => {
+describe('theory routes — subject, edition, topic', () => {
+  it('math theory keeps subject, edition and number in the URL; Russian URLs are unchanged', () => {
     expect(
       pathForRoute({
         screen: 'theory',
         section: 'rules',
         subject: 'math',
-        year: 2026,
-        taskNumber: 16,
+        edition: 'ege-2027-project',
+        taskNumber: 13,
       }),
-    ).toBe('/theory?s=math&y=2026&n=16');
+    ).toBe('/theory?s=math&ed=ege-2027-project&n=13');
     expect(pathForRoute({ screen: 'theory', section: 'rules', taskNumber: 9 })).toBe('/theory?n=9');
-    expect(routeFromPath('/theory?s=math&y=2027&n=6')).toEqual({
+    expect(routeFromPath('/theory?s=math&ed=ege-2026&n=16')).toEqual({
       screen: 'theory',
       section: 'rules',
       subject: 'math',
-      year: 2027,
-      taskNumber: 6,
+      edition: 'ege-2026',
+      taskNumber: 16,
     });
-    // An unknown year is dropped rather than inventing a numbering.
-    expect(routeFromPath('/materials?s=math&y=2031')).toEqual({
+    expect(routeFromPath('/theory?s=math&ed=ege-2027&t=math.random-variables')).toEqual({
+      screen: 'theory',
+      section: 'rules',
+      subject: 'math',
+      edition: 'ege-2027',
+      topic: 'math.random-variables',
+    });
+    // An unknown edition is dropped rather than inventing a numbering.
+    expect(routeFromPath('/materials?s=math&ed=ege-2031')).toEqual({
       screen: 'theory',
       section: 'materials',
       subject: 'math',

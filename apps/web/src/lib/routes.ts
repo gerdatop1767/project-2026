@@ -1,5 +1,6 @@
 import type { MainTabId, OverlayRoute, Route } from './navigation.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
+import { EXAM_EDITIONS, type ExamEditionId } from '@zybrilka/shared';
 
 const subjectModeIds: readonly SubjectModeId[] = ['topics', 'byNumber', 'variants', 'favorites'];
 
@@ -106,8 +107,9 @@ export function pathForRoute(route: Route): string | null {
     const base = route.section === 'materials' ? '/materials' : '/theory';
     const params = new URLSearchParams();
     if (route.subject === 'math') params.set('s', 'math');
-    if (route.subject === 'math' && route.year) params.set('y', String(route.year));
-    if (route.taskNumber) params.set('n', String(route.taskNumber));
+    if (route.subject === 'math' && route.edition) params.set('ed', route.edition);
+    if (route.subject === 'math' && route.topic) params.set('t', route.topic);
+    else if (route.taskNumber) params.set('n', String(route.taskNumber));
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   }
@@ -154,6 +156,10 @@ export function isRemovedPath(pathname: string): boolean {
  * a Route, defaulting to Home for anything unrecognized rather than
  * erroring — a stale/typo'd/removed link should land the user
  * somewhere real, not a blank screen. */
+function isExamEditionId(value: string): value is ExamEditionId {
+  return EXAM_EDITIONS.some((e) => e.id === value);
+}
+
 export function routeFromPath(pathname: string): Route {
   const [rawPath, search] = pathname.split('?');
   const path = (rawPath ?? '/').replace(/\/+$/, '') || '/';
@@ -203,13 +209,16 @@ export function routeFromPath(pathname: string): Route {
   if (path === '/theory' || path === '/materials') {
     const n = Number(params.get('n'));
     const math = params.get('s') === 'math';
-    const y = Number(params.get('y'));
+    const ed = params.get('ed');
+    const topic = params.get('t');
     return {
       screen: 'theory',
       section: path === '/materials' ? 'materials' : 'rules',
       ...(Number.isInteger(n) && n > 0 ? { taskNumber: n } : {}),
       ...(math ? { subject: 'math' as const } : {}),
-      ...(math && (y === 2026 || y === 2027) ? { year: y } : {}),
+      // Only a known edition; anything else falls back to the current one.
+      ...(math && ed && isExamEditionId(ed) ? { edition: ed } : {}),
+      ...(math && topic && /^math\.[a-z-]+$/.test(topic) ? { topic } : {}),
     };
   }
 

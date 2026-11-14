@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { examTaskSpec, topicKeysForTask } from '@zybrilka/shared';
+import { examEdition, examTaskSpec, type ExamEditionId } from '@zybrilka/shared';
 import { hasTheory, theoryForTask } from '../../data/theory/russianTheory.js';
 import { mathMaterialFor } from '../../data/theory/mathTheory.js';
 import { clsx } from '../../lib/clsx.js';
@@ -13,9 +13,10 @@ import styles from './RuleButton.module.css';
 export interface RuleButtonProps {
   subjectId: string;
   taskNumber: number;
-  /** The task's exam year (its numbering). Math needs it: ЕГЭ-2026 №6 and
-   * ЕГЭ-2027 №6 are different topics. */
-  examYear?: number | null;
+  /** The exam edition whose numbering the task uses (`examEditionForTask`).
+   * Math needs it: the old Ященко-2027 №6 and ЕГЭ-2027 №6 are different
+   * topics. Defaults to the current edition. */
+  edition?: ExamEditionId;
   /** A bottom sheet on mobile, a wide dialog on desktop. */
   presentation: 'sheet' | 'modal';
   className?: string;
@@ -30,7 +31,7 @@ export interface RuleButtonProps {
 export function RuleButton({
   subjectId,
   taskNumber,
-  examYear,
+  edition = 'ege-2027',
   presentation,
   className,
 }: RuleButtonProps) {
@@ -40,16 +41,15 @@ export function RuleButton({
   let header: { title: string; subtitle: string; icon: 'topic' };
   let content: ReactNode;
   if (subjectId === 'math') {
-    const year = mathYearFor(taskNumber, examYear);
-    if (year === null) return null;
-    const spec = examTaskSpec('math', year, taskNumber)!;
+    const spec = examTaskSpec('math', edition, taskNumber);
+    if (!spec) return null;
     // Only once at least one topic of this number has written theory.
     if (!spec.topics.some((b) => b.status !== 'unclear' && mathMaterialFor(b.topicKey))) {
       return null;
     }
     header = {
       title: `Теория к заданию №${taskNumber}`,
-      subtitle: `ЕГЭ-${year} · ${spec.title}`,
+      subtitle: `${examEdition(edition)!.shortTitle} · ${spec.title}`,
       icon: 'topic',
     };
     content = spec.topics
@@ -58,7 +58,7 @@ export function RuleButton({
         <MathTopicTheory
           key={b.topicKey}
           topicKey={b.topicKey}
-          note={b.status === 'secondary' ? b.note : undefined}
+          note={b.status !== 'official' || b.relation !== 'same' ? b.note : undefined}
           partOf={b.relation === 'part-of'}
           showTitle={spec.topics.length > 1}
         />
@@ -105,18 +105,4 @@ export function RuleButton({
       )}
     </>
   );
-}
-
-/**
- * Which year's numbering a math task uses: its own year when known; without
- * it, only a number that means the same topic in both years (otherwise the
- * button would open the wrong theory, so it is not shown).
- */
-export function mathYearFor(taskNumber: number, examYear?: number | null): number | null {
-  if (examYear === 2026 || examYear === 2027) {
-    return examTaskSpec('math', examYear, taskNumber) ? examYear : null;
-  }
-  const a = topicKeysForTask('math', 2027, taskNumber).join();
-  const b = topicKeysForTask('math', 2026, taskNumber).join();
-  return a && a === b ? 2027 : null;
 }

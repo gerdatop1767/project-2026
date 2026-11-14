@@ -10,8 +10,8 @@ const topicTitle = (key: string) => EXAM_TOPICS.find((t) => t.key === key)?.titl
 
 /**
  * The theory of one math topic (catalog reader and the task's «Правило»):
- * where it is checked in each exam year, a note while the 2027 numbering
- * awaits the FIPI documents, the text and its sources. A topic without a
+ * where it is checked in each exam edition, a note about the edition when
+ * there is one, the text and its sources. A topic without a
  * written material says so instead of showing an empty page.
  */
 export function MathTopicTheory({
@@ -50,10 +50,11 @@ export function MathTopicTheory({
       <p className={mathStyles.numbers}>
         <Icon name="topic" size={14} /> {examNumbersLabel(topicKey)}
       </p>
-      {note && <p className={mathStyles.caution}>Нумерация 2027 года: {note}</p>}
+      {note && <p className={mathStyles.caution}>{note}</p>}
       {!material ? (
         <p className="text-body-sm text-secondary">
-          Теория по этой теме готовится. Она появится здесь и сразу будет доступна из обоих годов.
+          Теория по этой теме готовится. Она появится здесь и сразу будет доступна во всех
+          редакциях.
         </p>
       ) : !text || text.file !== material.file ? (
         <SkeletonParagraph lines={6} />

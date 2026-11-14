@@ -105,7 +105,8 @@ export function AppDesktop() {
             section={overlay.section}
             taskNumber={overlay.taskNumber}
             subject={overlay.subject}
-            year={overlay.year}
+            edition={overlay.edition}
+            topic={overlay.topic}
           />
         )}
         {overlay.screen === 'onboarding' && <Onboarding />}

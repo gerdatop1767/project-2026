@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RuleButton, mathYearFor } from './RuleButton.js';
+import { RuleButton } from './RuleButton.js';
 
 function TaskLike({ subjectId, taskNumber }: { subjectId: string; taskNumber: number }) {
   const [answer, setAnswer] = useState('');
@@ -41,14 +41,48 @@ describe('«Правило» on the task screen', () => {
   });
 });
 
-describe('mathYearFor — which numbering a math task uses', () => {
-  it('uses the task year when known, and never guesses when the years disagree', () => {
-    expect(mathYearFor(13, 2027)).toBe(2027);
-    expect(mathYearFor(16, 2026)).toBe(2026);
-    expect(mathYearFor(20, 2026)).toBeNull(); // 2026 has 19 numbers
-    // Without a year: №1–5 mean the same in both years; №6 does not.
-    expect(mathYearFor(3, null)).toBe(2027);
-    expect(mathYearFor(6, null)).toBeNull();
-    expect(mathYearFor(13, undefined)).toBeNull();
+describe('«Теория» on a math task follows the task edition', () => {
+  it('opens the topic of this edition: ЕГЭ-2027 №16 and old Ященко №13 → finance; old №6 → random variables', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <RuleButton subjectId="math" taskNumber={16} edition="ege-2027" presentation="modal" />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Теория' }));
+    expect(await screen.findByRole('dialog', { name: 'Теория к заданию №16' })).toHaveTextContent(
+      'ЕГЭ-2027 · Финансовая математика',
+    );
+    unmount();
+    const second = render(
+      <RuleButton
+        subjectId="math"
+        taskNumber={13}
+        edition="ege-2027-project"
+        presentation="modal"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Теория' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('старая редакция');
+    second.unmount();
+    render(
+      <RuleButton
+        subjectId="math"
+        taskNumber={6}
+        edition="ege-2027-project"
+        presentation="modal"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Теория' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Случайные величины');
+  });
+
+  it('ЕГЭ-2027 №6 is equations — not the old №6 — and a number beyond the edition shows nothing', () => {
+    const { unmount } = render(
+      <RuleButton subjectId="math" taskNumber={6} edition="ege-2027" presentation="modal" />,
+    );
+    // Equations have no written theory yet, so no button rather than the wrong topic.
+    expect(screen.queryByRole('button', { name: 'Теория' })).not.toBeInTheDocument();
+    unmount();
+    render(<RuleButton subjectId="math" taskNumber={20} edition="ege-2027" presentation="modal" />);
+    expect(screen.queryByRole('button', { name: 'Теория' })).not.toBeInTheDocument();
   });
 });

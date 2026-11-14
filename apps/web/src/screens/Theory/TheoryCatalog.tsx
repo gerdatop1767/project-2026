@@ -15,6 +15,7 @@ import { Icon } from '../../ui/Icon/Icon.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { TheoryTaskView } from '../../ui/Theory/TheoryTaskView.js';
 import styles from './TheoryCatalog.module.css';
+import type { ExamEditionId } from '@zybrilka/shared';
 
 const sectionKinds: Record<TheorySection, readonly TheoryMaterialKind[]> = {
   rules: ['theory'],
@@ -95,14 +96,21 @@ export interface TheoryCatalogProps {
   taskNumber?: number;
   /** Russian unless `math` (the original URLs carry no subject). */
   subject?: TheorySubject;
-  /** Math only: whose numbering (2026 / 2027) the list uses. */
-  year?: number;
+  /** Math only: whose numbering the list uses. */
+  edition?: ExamEditionId;
+  /** Math only: a topic opened without a number. */
+  topic?: string;
 }
 
 /** «Теория» / «Полезные материалы»: the subject decides which catalog. */
-export function TheoryCatalog({ subject, year, ...rest }: TheoryCatalogProps) {
+export function TheoryCatalog({ subject, edition, topic, ...rest }: TheoryCatalogProps) {
   return subject === 'math' ? (
-    <MathTheoryCatalog section={rest.section} taskNumber={rest.taskNumber} year={year} />
+    <MathTheoryCatalog
+      section={rest.section}
+      taskNumber={rest.taskNumber}
+      edition={edition}
+      topic={topic}
+    />
   ) : (
     <RussianTheoryCatalog {...rest} />
   );

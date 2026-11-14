@@ -12,6 +12,7 @@ import { metrikaHit } from './metrika.js';
 import { applySeo } from './seo.js';
 import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
+import type { ExamEditionId } from '@zybrilka/shared';
 
 /**
  * The persistent tabs behind the bottom nav (mobile) / sidebar
@@ -51,8 +52,12 @@ export type OverlayRoute =
       taskNumber?: number;
       /** Russian by default (the original catalog's URLs stay valid). */
       subject?: TheorySubject;
-      /** Exam year whose numbering the list uses (math: 2026 and 2027 differ). */
-      year?: number;
+      /** Math: the exam edition whose numbering the list uses
+       * (packages/shared/src/examSpecs.ts). */
+      edition?: ExamEditionId;
+      /** Math: a topic opened directly (one no task position names, e.g.
+       * a codifier-only topic), instead of a number. */
+      topic?: string;
     }
   | { screen: 'subjectCatalog' }
   | {

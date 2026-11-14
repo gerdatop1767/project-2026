@@ -187,7 +187,8 @@ export function AppMobile() {
                 section={contentOverlay.section}
                 taskNumber={contentOverlay.taskNumber}
                 subject={contentOverlay.subject}
-                year={contentOverlay.year}
+                edition={contentOverlay.edition}
+                topic={contentOverlay.topic}
               />
             )}
             {contentOverlay.screen === 'learningCenter' && (

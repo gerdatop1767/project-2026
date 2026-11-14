@@ -13,7 +13,8 @@ function Routed() {
       section={overlay.section}
       taskNumber={overlay.taskNumber}
       subject={overlay.subject}
-      year={overlay.year}
+      edition={overlay.edition}
+      topic={overlay.topic}
     />
   );
 }
@@ -92,39 +93,68 @@ describe('Теория / Полезные материалы', () => {
 });
 
 describe('Теория — профильная математика', () => {
-  it('lists the numbers of the chosen year; 2027 №6 is new and opens the shared topic', async () => {
-    renderAt('/theory?s=math&y=2027&n=6');
+  it('ЕГЭ-2027 uses the 2026 numbering: №6 is equations, №12 extremum, №16 finance', () => {
+    renderAt('/theory?s=math&ed=ege-2027');
+    const list = screen.getByRole('navigation', { name: 'Задания' });
+    expect(
+      within(list).getByRole('button', { name: /№6\. Простейшие уравнения/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByRole('button', { name: /№12\. Наибольшее и наименьшее значение функции/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByRole('button', { name: /№16\. Финансовая математика/ }),
+    ).toBeInTheDocument();
+    expect(within(list).queryByRole('button', { name: /№20\./ })).not.toBeInTheDocument();
+    expect(screen.getByText(/та же, что в ЕГЭ-2026: изменений нет/)).toBeInTheDocument();
+  });
+
+  it('the old Ященко-2027 edition keeps its own 20 numbers and is labelled as old', async () => {
+    renderAt('/theory?s=math&ed=ege-2027-project&n=6');
+    expect(screen.getByText(/Нумерация старого сборника Ященко-2027/)).toBeInTheDocument();
+    expect(screen.getByText('Ященко-2027 · старая редакция · задание №6')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: 'Случайные величины' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('ЕГЭ-2027 · задание №6')).toBeInTheDocument();
     expect(await screen.findByText('Главное свойство таблицы')).toBeInTheDocument();
-    expect(screen.getByText('ЕГЭ-2027 №6')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Задания' })).getAllByRole('button', {
+        name: /^№/,
+      }),
+    ).toHaveLength(20);
   });
 
-  it('the same finance theory opens from 2026 №16 and from 2027 №13', async () => {
-    const { unmount } = renderAt('/theory?s=math&y=2026&n=16');
-    expect(screen.getByText('ЕГЭ-2027 №13 · ЕГЭ-2026 №16')).toBeInTheDocument();
+  it('one finance text from ЕГЭ-2027/2026 №16 and from old Ященко №13', async () => {
+    const { unmount } = renderAt('/theory?s=math&ed=ege-2027&n=16');
+    expect(
+      screen.getByText('ЕГЭ-2027 и ЕГЭ-2026 №16 · Ященко-2027, старая редакция №13'),
+    ).toBeInTheDocument();
     expect(await screen.findByText(/Дифференцированные платежи/)).toBeInTheDocument();
     unmount();
-    renderAt('/theory?s=math&y=2027&n=13');
+    renderAt('/theory?s=math&ed=ege-2027-project&n=13');
     expect(await screen.findByText(/Дифференцированные платежи/)).toBeInTheDocument();
+    expect(screen.getAllByText(/В проекте — часть 1, краткий ответ/).length).toBeGreaterThan(0);
+  });
+
+  it('random variables: no number in the current edition, reachable «по кодификатору»', async () => {
+    const user = userEvent.setup();
+    renderAt('/theory?s=math&ed=ege-2027');
+    await user.click(screen.getByRole('button', { name: /Случайная величина/ }));
+    expect(window.location.search).toBe('?s=math&ed=ege-2027&t=math.random-variables');
+    expect(screen.getByText('ЕГЭ-2027 · по кодификатору')).toBeInTheDocument();
+    expect(screen.getByText(/Требование 8 кодификатора/)).toBeInTheDocument();
   });
 
   it('a number without written theory says so instead of an empty page', () => {
-    renderAt('/theory?s=math&y=2027&n=19');
+    renderAt('/theory?s=math&ed=ege-2027&n=18');
     expect(screen.getByText(/Теория по этой теме готовится/)).toBeInTheDocument();
   });
 
-  it('switching the year keeps the subject; the subject tabs switch catalogs', async () => {
+  it('switching the edition keeps the subject; the subject tabs switch catalogs', async () => {
     const user = userEvent.setup();
-    renderAt('/theory?s=math&y=2027');
-    await user.click(screen.getByRole('tab', { name: 'ЕГЭ-2026' }));
-    expect(window.location.search).toBe('?s=math&y=2026');
-    // 2026 has 19 numbers, 2027 has 20.
-    expect(
-      within(screen.getByRole('navigation', { name: 'Задания' })).getAllByRole('button'),
-    ).toHaveLength(19);
+    renderAt('/theory?s=math&ed=ege-2027');
+    await user.click(screen.getByRole('tab', { name: 'Ященко-2027 · старая редакция' }));
+    expect(window.location.search).toBe('?s=math&ed=ege-2027-project');
     await user.click(screen.getByRole('tab', { name: 'Русский язык' }));
     expect(window.location.pathname + window.location.search).toBe('/theory');
   });

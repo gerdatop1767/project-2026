@@ -35,6 +35,7 @@ import { EssayPanel } from '../../ui/Essay/EssayPanel.js';
 import { useEssayAck } from '../../lib/useEssayAck.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './TaskMobile.module.css';
+import { examEditionForTask } from '@zybrilka/shared';
 
 export interface TaskMobileProps {
   subjectId: string;
@@ -294,7 +295,11 @@ export function TaskMobile({
           <RuleButton
             subjectId={task.subjectId}
             taskNumber={task.number}
-            examYear={task.examYear}
+            edition={examEditionForTask({
+              subjectId: task.subjectId,
+              sourceYear: task.examYear,
+              source: task.source,
+            })}
             presentation="sheet"
             className={styles.ruleButton}
           />
