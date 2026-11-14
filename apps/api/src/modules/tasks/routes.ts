@@ -142,6 +142,22 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (
     return result;
   });
 
+  // «Показать ответ» before answering: the answer and explanation. For an
+  // account the server records it, and a first correct solve after it earns
+  // half XP (docs/XP.md) — the client cannot opt out. Same limit as answer
+  // checks, so it is no faster way to download the answer key.
+  app.post('/tasks/:id/reveal', guestRateLimit, async (request, reply) => {
+    const params = taskIdParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: 'invalid_id' });
+    if (!request.userId && !allowGuestAttempts) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+    const task = await service.revealAnswer(db, params.data.id, request.userId ?? null);
+    if (!task) return reply.code(404).send({ error: 'task_not_found' });
+    reply.header('cache-control', 'no-store');
+    return task;
+  });
+
   // "Я решил" for an essay task — deliberately not an attempt (essay
   // tasks are never auto-graded, see EssayNotGradableError above).
   // Idempotent: a repeat click just no-ops.

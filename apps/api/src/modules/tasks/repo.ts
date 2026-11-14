@@ -295,6 +295,26 @@ export async function hasAttempt(db: Database, userId: string, taskId: string): 
   return (row?.value ?? 0) > 0;
 }
 
+/** Whether `userId` pressed «Показать ответ» on this task. */
+export async function hasAnswerReveal(
+  db: Database,
+  userId: string,
+  taskId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(schema.taskAnswerReveals)
+    .where(
+      and(eq(schema.taskAnswerReveals.userId, userId), eq(schema.taskAnswerReveals.taskId, taskId)),
+    );
+  return (row?.value ?? 0) > 0;
+}
+
+/** Records «Показать ответ» once per (user, task); a repeat keeps the first time. */
+export async function recordAnswerReveal(db: Database, userId: string, taskId: string) {
+  await db.insert(schema.taskAnswerReveals).values({ userId, taskId }).onConflictDoNothing();
+}
+
 /** Whether `userId` has clicked "Я решил" on this essay task — see `essay_acknowledgements`. */
 export async function hasEssayAck(db: Database, userId: string, taskId: string): Promise<boolean> {
   const [row] = await db

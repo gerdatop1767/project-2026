@@ -122,14 +122,16 @@ describe('XP and levels', () => {
     expect(wrong.correct).toBe(false);
     expect(wrong.xp).toMatchObject({ awarded: 0, kind: null, totalXp: 0, level: 1 });
 
+    // The wrong answer's response showed the correct one: half of 10 (v2, docs/XP.md).
     expect((await answer(me.cookie, 'easy', '42')).json().xp).toMatchObject({
-      awarded: 10,
+      awarded: 5,
       kind: 'task_first_solve',
-      totalXp: 10,
+      totalXp: 5,
     });
+    // Solved on the first try: the full value.
     expect((await answer(me.cookie, 'medium', '42')).json().xp.awarded).toBe(15);
     expect((await answer(me.cookie, 'hard', '42')).json().xp.awarded).toBe(25);
-    expect((await summary(me.cookie)).totalXp).toBe(50);
+    expect((await summary(me.cookie)).totalXp).toBe(45);
 
     const events = await ledger(me.userId);
     expect(events).toHaveLength(3);
@@ -185,7 +187,8 @@ describe('XP and levels', () => {
     const partial = (await answer(me.cookie, 'multi', { a: '1', b: '0' })).json();
     expect(partial.partStatus).toBe('partially_correct');
     expect(partial.xp.awarded).toBe(0);
-    expect((await answer(me.cookie, 'multi', { a: '1', b: '2' })).json().xp.awarded).toBe(25);
+    // The partial attempt showed the answer: half of 25, rounded (v2).
+    expect((await answer(me.cookie, 'multi', { a: '1', b: '2' })).json().xp.awarded).toBe(13);
   });
 
   it('rewards a later review with a capped share, once per day', async () => {

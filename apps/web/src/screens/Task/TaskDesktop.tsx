@@ -19,6 +19,7 @@ import { CanvasWorkspaceDesktop } from '../../ui/CanvasWorkspace/CanvasWorkspace
 import { clearCanvasState } from '../../lib/canvasSessionStore.js';
 import { useAnswerDraft } from '../../lib/useAnswerDraft.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { RevealAnswer } from '../../ui/Training/RevealAnswer.js';
 import { Modal } from '../../ui/Modal/Modal.js';
 import { RuleButton } from '../../ui/Theory/RuleButton.js';
 import {
@@ -376,6 +377,12 @@ export function TaskDesktop({
                       </div>
                     </Collapse>
                   </>
+                )}
+
+                {/* «Показать ответ»: only while the answer is still hidden, never in
+                    an exam variant; the server halves this task's XP (docs/XP.md). */}
+                {!isEssay && !learningSession?.variant && task.correctAnswer === '' && (
+                  <RevealAnswer taskId={task.id} />
                 )}
 
                 {isEssay ? (

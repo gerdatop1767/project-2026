@@ -9,7 +9,7 @@ import type { XpEventKind } from '@zybrilka/shared';
  * Bump `XP_RULES_VERSION` when the numbers change: it is stored with each
  * award, so old awards stay explainable (they are never recomputed).
  */
-export const XP_RULES_VERSION = 1;
+export const XP_RULES_VERSION = 2;
 
 /**
  * Base XP for a correct answer, by the task's `difficulty` column
@@ -70,6 +70,19 @@ export const REVIEW_RULE = {
   minDaysSinceLastAward: 7,
 } as const;
 
+/**
+ * «Показать ответ»: a first solve after the answer was shown earns this
+ * share of the task's value (v2). «Shown» is decided by the server only:
+ * the account pressed «Показать ответ» (`task_answer_reveals`) or got the
+ * answer back with an earlier wrong attempt — both are the server handing
+ * the answer out. Rounded, never below 1 XP.
+ */
+export const ANSWER_SHOWN_SHARE = 0.5;
+
+export function answerShownXpValue(task: TaskForXp): number {
+  return Math.max(1, Math.round(taskXpValue(task).amount * ANSWER_SHOWN_SHARE));
+}
+
 export interface TaskForXp {
   id: string;
   subjectId: string;
@@ -119,6 +132,9 @@ export function decideTaskXp(input: {
   now: Date;
   /** The Moscow calendar date of `now` (YYYY-MM-DD), for the review key. */
   moscowDate: string;
+  /** The server showed this account the answer before this correct one
+   * («Показать ответ» or an earlier wrong attempt). Only for a first solve. */
+  answerShown?: boolean;
 }): XpDecision | null {
   if (!input.correct) return null;
   const { task } = input;
@@ -131,11 +147,15 @@ export function decideTaskXp(input: {
     difficultyKnown: value.difficultyKnown,
   };
   if (input.lastAwardAt === null) {
+    // One first-solve award per task, full or half — the same dedup key,
+    // so a half award can never be topped up to a full one later.
     return {
       kind: 'task_first_solve',
-      amount: value.amount,
+      amount: input.answerShown ? answerShownXpValue(task) : value.amount,
       dedupKey: `task:${task.id}:first`,
-      metadata,
+      metadata: input.answerShown
+        ? { ...metadata, answerShown: true, share: ANSWER_SHOWN_SHARE }
+        : metadata,
     };
   }
   const days = (input.now.getTime() - input.lastAwardAt.getTime()) / 86_400_000;

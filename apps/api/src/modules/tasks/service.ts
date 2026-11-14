@@ -140,8 +140,29 @@ export async function getTask(
     const acknowledged = userId ? await repo.hasEssayAck(db, userId, id) : false;
     return toTaskWithSolution(row, acknowledged);
   }
-  const attempted = userId ? await repo.hasAttempt(db, userId, id) : false;
-  return attempted ? toTaskWithSolution(row) : toPublicTask(row);
+  const answerSeen = userId
+    ? (await repo.hasAttempt(db, userId, id)) || (await repo.hasAnswerReveal(db, userId, id))
+    : false;
+  return answerSeen ? toTaskWithSolution(row) : toPublicTask(row);
+}
+
+/**
+ * «Показать ответ»: hands out the task's answer and explanation before
+ * any attempt. For an account the server records it first
+ * (`task_answer_reveals`) — that, not anything the client says, is what
+ * later halves the XP of a first correct solve (docs/XP.md). A guest gets
+ * the answer too; nothing is stored, a guest earns no XP anyway. Not an
+ * attempt: statistics, mistakes and streaks are untouched.
+ */
+export async function revealAnswer(
+  db: Database,
+  id: string,
+  userId: string | null,
+): Promise<TaskWithSolution | undefined> {
+  const row = await repo.getTaskById(db, id);
+  if (!row) return undefined;
+  if (userId && row.task.answerType !== 'essay') await repo.recordAnswerReveal(db, userId, id);
+  return toTaskWithSolution(row);
 }
 
 /**
