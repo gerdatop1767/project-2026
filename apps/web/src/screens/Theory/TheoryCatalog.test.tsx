@@ -80,7 +80,9 @@ describe('Теория / Полезные материалы', () => {
         .getAllByRole('tab')
         .map((t) => t.textContent),
     ).toEqual(['Справочник', 'Практика']);
-    expect(await screen.findByText(/ещё не сверен построчно/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Сверен слово в слово с навигатором ФИПИ 2026/),
+    ).toBeInTheDocument();
   });
 
   it('switching the section keeps the chosen task', async () => {

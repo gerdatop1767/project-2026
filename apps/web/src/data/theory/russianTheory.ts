@@ -46,11 +46,19 @@ export const theoryGroups: readonly { id: TheoryGroupId; title: string }[] = [
   { id: 'essay', title: 'Сочинение' },
 ];
 
-/** The exam the archives were written for (their own label). */
+/** The first exam year these materials follow; the 2027 exam is unchanged (FIPI, «Изменения в КИМ ЕГЭ 2027»). */
 export const THEORY_EXAM_YEAR = 2026;
 
-/** Official sources the archives cite (ИСТОЧНИКИ.md of each archive). */
+/** Official sources the materials were checked against (docs/theory/RUSSIAN-AUDIT.md). */
 export const theorySources: readonly { title: string; url: string }[] = [
+  {
+    title: 'ФИПИ — спецификация, кодификатор и демоверсия ЕГЭ-2027 по русскому языку',
+    url: 'https://doc.fipi.ru/ege/demoversii-specifikacii-kodifikatory/2027/ru_11_2027.zip',
+  },
+  {
+    title: 'ФИПИ — «Изменения в КИМ ЕГЭ 2027 года»',
+    url: 'https://doc.fipi.ru/ege/demoversii-specifikacii-kodifikatory/2027/Izmeneniya_KIM_EGE_2027.pdf',
+  },
   {
     title: 'ФИПИ — демоверсии, спецификации, кодификаторы',
     url: 'https://fipi.ru/ege/demoversii-specifikacii-kodifikatory',
@@ -78,7 +86,7 @@ export const theorySources: readonly { title: string; url: string }[] = [
 ];
 
 const listCaution =
-  'Список перенесён из прежних материалов и ещё не сверен построчно с актуальным PDF ФИПИ.';
+  'Сверен слово в слово с навигатором ФИПИ 2026 года (14.11.2026). Для ЕГЭ-2027 ФИПИ изменений не объявил; навигатор 2027 года ещё не опубликован — после публикации список нужно сверить снова.';
 
 const theory = (n: number, title = 'Конспект'): TheoryMaterial => ({
   id: `task-${String(n).padStart(2, '0')}-theory`,
