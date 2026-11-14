@@ -202,7 +202,9 @@ export function searchLearning(query: string, options: SearchOptions = {}): Sear
     for (const token of tokens) {
       if (/^\d+$/.test(token)) {
         if (entry.tasks.includes(Number(token))) score += 8;
-        else if (title.includes(token) || meta.includes(token)) score += 3;
+        // A longer number (a year) may match text; a task number only matches tasks,
+        // so «16» never finds a topic through the old Ященко-2027 numbering.
+        else if (token.length >= 3 && (title.includes(token) || meta.includes(token))) score += 3;
         else {
           all = false;
           break;
