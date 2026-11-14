@@ -157,3 +157,95 @@
 .table tr:last-child td {
   border-bottom: none;
 }
+
+/* ---- Formulas, drawings and highlighted boxes (math & new theory) ---- */
+
+/* A display formula: centred, scrolls sideways on a narrow phone rather
+ * than squeezing or overflowing the page. */
+.formula {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-tint) 4%, transparent);
+  text-align: center;
+}
+
+.figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.figcaption {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.callout {
+  --callout: var(--color-accent-primary);
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--callout) 9%, transparent);
+  box-shadow:
+    inset 3px 0 0 var(--callout),
+    inset 0 0 0 1px color-mix(in srgb, var(--callout) 18%, transparent);
+}
+
+.callout[data-kind='remember'] {
+  --callout: var(--color-accent-primary-end);
+}
+
+.callout[data-kind='mistake'] {
+  --callout: var(--color-error);
+}
+
+.callout[data-kind='exam'] {
+  --callout: var(--color-accent-secondary);
+}
+
+.callout[data-kind='tip'] {
+  --callout: var(--color-success);
+}
+
+.callout[data-kind='example'] {
+  --callout: var(--color-text-secondary);
+}
+
+.calloutBody {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.calloutTitle {
+  margin: 0;
+  font-weight: 700;
+  color: var(--callout);
+}
+
+.callout[data-kind='example'] .calloutTitle {
+  color: var(--color-text-primary);
+}
+
+.calloutMascot {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: contain;
+}
+
+@media (max-width: 420px) {
+  .calloutMascot {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}

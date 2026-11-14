@@ -42,6 +42,7 @@ import { EssayPanel } from '../../ui/Essay/EssayPanel.js';
 import { useEssayAck } from '../../lib/useEssayAck.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './TaskDesktop.module.css';
+import { examEditionForTask } from '@zybrilka/shared';
 
 export interface TaskDesktopProps {
   subjectId: string;
@@ -348,6 +349,11 @@ export function TaskDesktop({
                 <RuleButton
                   subjectId={task.subjectId}
                   taskNumber={task.number}
+                  edition={examEditionForTask({
+                    subjectId: task.subjectId,
+                    sourceYear: task.examYear,
+                    source: task.source,
+                  })}
                   presentation="modal"
                   className={styles.ruleButton}
                 />

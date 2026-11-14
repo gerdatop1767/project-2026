@@ -7,27 +7,17 @@ import {
   type TheoryMaterialKind,
   type TheoryTask,
 } from '../../data/theory/russianTheory.js';
-import { useNavigation, type TheorySection } from '../../lib/navigation.js';
+import { useNavigation, type TheorySection, type TheorySubject } from '../../lib/navigation.js';
+import { MathTheoryCatalog } from './MathTheoryCatalog.js';
+import { TheorySubjectTabs } from './TheorySubjectTabs.js';
 import { clsx } from '../../lib/clsx.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { TheoryTaskView } from '../../ui/Theory/TheoryTaskView.js';
 import styles from './TheoryCatalog.module.css';
+import type { ExamEditionId } from '@zybrilka/shared';
 
-const sectionKinds: Record<TheorySection, readonly TheoryMaterialKind[]> = {
-  rules: ['theory'],
-  materials: ['reference', 'practice'],
-};
-
-const sectionTabs = [
-  { id: 'rules', label: 'Теория' },
-  { id: 'materials', label: 'Полезные материалы' },
-] as const;
-
-const sectionLead: Record<TheorySection, string> = {
-  rules: 'Конспекты правил по номерам заданий ЕГЭ по русскому языку.',
-  materials: 'Справочные списки (ударения, паронимы) и практика с ответами к каждому заданию.',
-};
+/** A task page shows all its materials as tabs: конспект, справочный список, практика. */
+const allKinds: readonly TheoryMaterialKind[] = ['theory', 'reference', 'practice'];
 
 /** Full text of every material, loaded only once someone searches by words. */
 let fullText: Promise<Map<string, string>> | null = null;
@@ -46,10 +36,7 @@ function loadFullText(): Promise<Map<string, string>> {
   return fullText;
 }
 
-function useSearch(
-  query: string,
-  section: TheorySection,
-): {
+function useSearch(query: string): {
   matches: (task: TheoryTask) => boolean;
   searchingText: boolean;
 } {
@@ -68,7 +55,7 @@ function useSearch(
     };
   }, [wantsText, texts]);
 
-  const kinds = sectionKinds[section];
+  const kinds = allKinds;
   return {
     searchingText: wantsText && !texts,
     matches: (task) => {
@@ -91,6 +78,26 @@ function materialsLabel(n: number): string {
 export interface TheoryCatalogProps {
   section: TheorySection;
   taskNumber?: number;
+  /** Russian unless `math` (the original URLs carry no subject). */
+  subject?: TheorySubject;
+  /** Math only: whose numbering the list uses. */
+  edition?: ExamEditionId;
+  /** Math only: a topic opened without a number. */
+  topic?: string;
+}
+
+/** «Теория» / «Полезные материалы»: the subject decides which catalog. */
+export function TheoryCatalog({ subject, edition, topic, ...rest }: TheoryCatalogProps) {
+  return subject === 'math' ? (
+    <MathTheoryCatalog
+      section={rest.section}
+      taskNumber={rest.taskNumber}
+      edition={edition}
+      topic={topic}
+    />
+  ) : (
+    <RussianTheoryCatalog {...rest} />
+  );
 }
 
 /**
@@ -101,12 +108,15 @@ export interface TheoryCatalogProps {
  * returns to the list with the search still in place. The section and
  * the chosen number live in the URL, so a refresh keeps them.
  */
-export function TheoryCatalog({ section, taskNumber }: TheoryCatalogProps) {
+function RussianTheoryCatalog({
+  section,
+  taskNumber,
+}: Omit<TheoryCatalogProps, 'subject' | 'year'>) {
   const { navigate } = useNavigation();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
-  const search = useSearch(deferredQuery, section);
-  const kinds = sectionKinds[section];
+  const search = useSearch(deferredQuery);
+  const kinds = allKinds;
   const pushedFromList = useRef(false);
   const readerRef = useRef<HTMLDivElement>(null);
 
@@ -143,21 +153,15 @@ export function TheoryCatalog({ section, taskNumber }: TheoryCatalogProps) {
     <div className={clsx(styles.screen, selected && styles.hasSelection)}>
       <header className={styles.head}>
         <div>
-          <h1 className="text-h1">{section === 'rules' ? 'Теория' : 'Полезные материалы'}</h1>
-          <p className="text-body-sm text-secondary">Русский язык · {sectionLead[section]}</p>
+          <h1 className="text-h1">Теория</h1>
+          <p className="text-body-sm text-secondary">
+            Русский язык · конспекты, справочные списки и практика с ответами по номерам заданий
+            ЕГЭ.
+          </p>
         </div>
-        <Tabs
-          aria-label="Раздел"
-          items={sectionTabs}
-          activeId={section}
-          onChange={(id) =>
-            navigate(
-              { screen: 'theory', section: id as TheorySection, taskNumber },
-              { replace: true },
-            )
-          }
-          className={styles.sectionTabs}
-        />
+        <div className={styles.switches}>
+          <TheorySubjectTabs section={section} subject="russian" />
+        </div>
       </header>
 
       <div className={styles.layout}>

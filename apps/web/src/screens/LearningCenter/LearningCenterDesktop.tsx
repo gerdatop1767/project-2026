@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigation, type Route } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
 import { subjects } from '../../data/subjects.js';
@@ -11,22 +12,25 @@ import {
 } from '../../ui/FeatureIcon/FeatureIcon.js';
 import { staggerClassName } from '../../ui/motion/motion.js';
 import { SignInMethodWarning } from '../../ui/SignInMethodWarning/SignInMethodWarning.js';
+import {
+  LearningSearchBox,
+  LearningSearchResults,
+} from '../../ui/LearningSearch/LearningSearch.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
   icon: FeatureIconName;
   title: string;
   description: string;
-  /** Where the card leads: the theory catalog for Теория / Полезные
-   * материалы (real Russian content), the subjects for the rest. */
+  /** Where the card leads. */
   route: Route;
 }
 
-const sections: readonly LearningSection[] = [
+export const learningSections: readonly LearningSection[] = [
   {
     icon: 'theory',
     title: 'Теория',
-    description: 'Конспекты правил по номерам заданий ЕГЭ — пока по русскому языку',
+    description: 'Правила и формулы по номерам ЕГЭ: русский язык и профильная математика',
     route: { screen: 'theory', section: 'rules' },
   },
   {
@@ -38,14 +42,14 @@ const sections: readonly LearningSection[] = [
   {
     icon: 'strategy',
     title: 'Стратегии',
-    description: 'Советы, лайфхаки и эффективные методики',
-    route: { screen: 'subjectCatalog' },
+    description: 'Время на экзамене, порядок заданий, оформление, сочинение, проверка ответов',
+    route: { screen: 'library', section: 'strategies' },
   },
   {
     icon: 'materials',
     title: 'Полезные материалы',
-    description: 'Справочные списки и практика с ответами — пока по русскому языку',
-    route: { screen: 'theory', section: 'materials' },
+    description: 'Таблицы формул, справочники, схемы и шпаргалки по математике и русскому',
+    route: { screen: 'library', section: 'materials' },
   },
 ];
 
@@ -56,6 +60,8 @@ const sections: readonly LearningSection[] = [
  */
 export function LearningCenterDesktop() {
   const { navigate } = useNavigation();
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
 
   return (
     <div>
@@ -66,21 +72,25 @@ export function LearningCenterDesktop() {
             Всё, что нужно для эффективной подготовки к ЕГЭ в одном месте
           </p>
         </div>
-        <div className={styles.search}>
-          <Icon name="search" size={18} className={styles.searchIcon} />
-          <input
-            type="search"
-            placeholder="Поиск материалов..."
-            className={styles.searchInput}
-            aria-label="Поиск материалов"
-          />
-        </div>
+        <LearningSearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Поиск материалов…"
+          label="Поиск материалов"
+          className={styles.search}
+        />
       </div>
+
+      {searching && (
+        <div className={styles.searchResults}>
+          <LearningSearchResults query={query} />
+        </div>
+      )}
 
       <SignInMethodWarning className={styles.signInWarning} />
 
-      <div className={clsx(styles.sectionsGrid, staggerClassName)}>
-        {sections.map((section) => (
+      <div hidden={searching} className={clsx(styles.sectionsGrid, staggerClassName)}>
+        {learningSections.map((section) => (
           <Card
             key={section.title}
             className={styles.sectionCard}
@@ -102,17 +112,22 @@ export function LearningCenterDesktop() {
               aria-label={section.title}
               onClick={() => navigate(section.route)}
             >
-              <Icon name="arrowRight" size={18} />
+              {/* Two copies: on hover/press the arrow flies out to the right
+                  while its twin slides in from the left. */}
+              <span className={styles.arrowTrack} aria-hidden="true">
+                <Icon name="arrowRight" size={18} className={styles.arrowIcon} />
+                <Icon name="arrowRight" size={18} className={styles.arrowIcon} />
+              </span>
             </button>
           </Card>
         ))}
       </div>
 
-      <div className={styles.subjectsHead}>
+      <div hidden={searching} className={styles.subjectsHead}>
         <p className="text-h3">Выбери предмет</p>
         <p className="text-body-sm text-secondary">Перейди к материалам нужного предмета</p>
       </div>
-      <div className={clsx(styles.subjectsGrid, staggerClassName)}>
+      <div hidden={searching} className={clsx(styles.subjectsGrid, staggerClassName)}>
         {subjects.map((subject, index) => (
           <button
             key={subject.id}
@@ -132,7 +147,7 @@ export function LearningCenterDesktop() {
         ))}
       </div>
 
-      <Card className={styles.recommendCard}>
+      <Card hidden={searching} className={styles.recommendCard}>
         <p className="text-h3">Рекомендации для тебя</p>
         {/* No recommendation engine behind this block yet: an honest
             placeholder — no invented «personal» picks, no API requests. */}

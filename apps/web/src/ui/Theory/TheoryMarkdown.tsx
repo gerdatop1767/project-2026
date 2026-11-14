@@ -1,5 +1,7 @@
 import { Fragment, memo, useMemo, type ReactNode } from 'react';
 import { clsx } from '../../lib/clsx.js';
+import { KatexSpan } from '../MathText/MathText.js';
+import { TheoryFigure } from './figures/TheoryFigure.js';
 import styles from './TheoryMarkdown.module.css';
 
 /**
@@ -17,7 +19,26 @@ export type Block =
   | { type: 'paragraph'; lines: Inline[] }
   | { type: 'quote'; lines: Inline[] }
   | { type: 'list'; ordered: boolean; start: number; items: { text: Inline; checkbox: boolean }[] }
-  | { type: 'table'; head: Inline[]; rows: Inline[][] };
+  | { type: 'table'; head: Inline[]; rows: Inline[][] }
+  /** `$$…$$` on its own line(s): a display formula. */
+  | { type: 'math'; tex: string }
+  /** `> [!remember] Заголовок` … — a «Запомни» / «Частая ошибка» / «Как решать на ЕГЭ» box. */
+  | { type: 'callout'; kind: CalloutKind; title: Inline | null; blocks: Block[] }
+  /** `![[figure-id]]` — an exact SVG drawing from ui/Theory/figures. */
+  | { type: 'figure'; id: string; caption: Inline | null };
+
+export type CalloutKind = 'remember' | 'mistake' | 'exam' | 'tip' | 'example';
+
+const CALLOUT = /^\[!(remember|mistake|exam|tip|example)\]\s*(.*)$/;
+
+/** Default titles, so a bare `> [!mistake]` still reads as a heading. */
+export const calloutTitles: Record<CalloutKind, string> = {
+  remember: 'Запомни',
+  mistake: 'Частая ошибка',
+  exam: 'Как решать на ЕГЭ',
+  tip: 'Совет',
+  example: 'Пример',
+};
 
 const cells = (line: string) =>
   line
@@ -47,6 +68,31 @@ export function parseMarkdown(source: string): Block[] {
       i++;
       continue;
     }
+    if (trimmed.startsWith('$$')) {
+      const tex: string[] = [];
+      let rest = trimmed.slice(2);
+      i++;
+      // Same line close: $$x^2$$
+      if (rest.endsWith('$$')) {
+        tex.push(rest.slice(0, -2));
+      } else {
+        if (rest) tex.push(rest);
+        while (i < lines.length && !lines[i]!.trim().endsWith('$$')) tex.push(lines[i++]!.trim());
+        if (i < lines.length) {
+          rest = lines[i]!.trim().slice(0, -2);
+          if (rest) tex.push(rest);
+          i++;
+        }
+      }
+      blocks.push({ type: 'math', tex: tex.join(' ').trim() });
+      continue;
+    }
+    const figure = /^!\[\[([a-z0-9-]+)\]\](?:\s+(.+))?$/.exec(trimmed);
+    if (figure) {
+      blocks.push({ type: 'figure', id: figure[1]!, caption: figure[2] ?? null });
+      i++;
+      continue;
+    }
     if (trimmed.startsWith('|')) {
       const rows: string[][] = [];
       while (i < lines.length && lines[i]!.trim().startsWith('|')) {
@@ -63,7 +109,17 @@ export function parseMarkdown(source: string): Block[] {
         quote.push(lines[i]!.trim().replace(/^>\s?/, ''));
         i++;
       }
-      blocks.push({ type: 'quote', lines: quote });
+      const callout = CALLOUT.exec(quote[0] ?? '');
+      if (callout) {
+        blocks.push({
+          type: 'callout',
+          kind: callout[1] as CalloutKind,
+          title: callout[2] || null,
+          blocks: parseMarkdown(quote.slice(1).join('\n')),
+        });
+      } else {
+        blocks.push({ type: 'quote', lines: quote });
+      }
       continue;
     }
     const bullet = /^[-*]\s+/;
@@ -87,7 +143,7 @@ export function parseMarkdown(source: string): Block[] {
     const paragraph: string[] = [];
     while (i < lines.length) {
       const t = lines[i]!.trim();
-      if (t === '' || /^(#{1,3}\s|\||>|[-*]\s|\d+\.\s)/.test(t)) break;
+      if (t === '' || /^(#{1,3}\s|\||>|[-*]\s|\d+\.\s|\$\$|!\[\[)/.test(t)) break;
       paragraph.push(t);
       i++;
     }
@@ -121,7 +177,82 @@ function withStress(text: string, keyPrefix: string): ReactNode[] {
   return out;
 }
 
+const RELATION =
+  /^(?:\\iff|\\Leftrightarrow|\\Rightarrow|\\implies|\\leq?|\\geq?|\\neq?|\\approx|[=<>])(?![A-Za-z])/;
+
+/**
+ * Splits an inline formula after each top-level relation sign (=, ≤, ⇒,
+ * ⟺ …), outside braces, \left…\right and \begin…\end. Each piece is
+ * rendered on its own, so a long chain such as `a = b \iff c` wraps at
+ * its relation signs on a phone — the typesetting rule for breaking a
+ * formula — instead of turning into a strip that has to be scrolled.
+ */
+export function splitTexAtRelations(tex: string): string[] {
+  const pieces: string[] = [];
+  let depth = 0;
+  let start = 0;
+  let i = 0;
+  while (i < tex.length) {
+    const rest = tex.slice(i);
+    const ch = tex[i]!;
+    if (ch === '\\' && /^\\(?:left|begin)(?![A-Za-z])/.test(rest)) {
+      depth++;
+      i += rest.startsWith('\\left') ? 5 : 6;
+      continue;
+    }
+    if (ch === '\\' && /^\\(?:right|end)(?![A-Za-z])/.test(rest)) {
+      depth--;
+      i += rest.startsWith('\\right') ? 6 : 4;
+      continue;
+    }
+    if (ch === '\\' && (tex[i + 1] === '{' || tex[i + 1] === '}' || tex[i + 1] === '\\')) {
+      i += 2; // an escaped brace or a line break, not a group
+      continue;
+    }
+    if (ch === '{') depth++;
+    else if (ch === '}') depth--;
+    else if (depth === 0) {
+      const rel = RELATION.exec(rest);
+      if (rel) {
+        const end = i + rel[0].length;
+        if (tex.slice(end).trim() !== '' && tex.slice(start, i).trim() !== '') {
+          pieces.push(tex.slice(start, end).trim());
+          start = end;
+        }
+        i = end;
+        continue;
+      }
+    }
+    i += ch === '\\' ? Math.max(1, /^\\[A-Za-z]+/.exec(rest)?.[0].length ?? 2) : 1;
+  }
+  pieces.push(tex.slice(start).trim());
+  return pieces.filter((p) => p !== '');
+}
+
+function inlineFormula(tex: string, key: string): ReactNode[] {
+  const pieces = splitTexAtRelations(tex);
+  return pieces.flatMap((piece, n) => [
+    ...(n > 0 ? [' '] : []),
+    <KatexSpan key={`${key}-${n}`} tex={piece} block={false} />,
+  ]);
+}
+
 export function renderInline(text: string, stress = false, keyPrefix = 'i'): ReactNode[] {
+  // `$…$` formulas first: their contents are never read as **bold** etc.
+  if (text.includes('$')) {
+    const parts = text.split(/(\$[^$\n]+\$)/g);
+    if (parts.length > 1) {
+      return parts.flatMap((part, n) =>
+        /^\$[^$\n]+\$$/.test(part)
+          ? inlineFormula(part.slice(1, -1), `${keyPrefix}-m${n}`)
+          : renderPlainInline(part, stress, `${keyPrefix}-t${n}`),
+      );
+    }
+  }
+  return renderPlainInline(text, stress, keyPrefix);
+}
+
+function renderPlainInline(text: string, stress: boolean, keyPrefix: string): ReactNode[] {
   const out: ReactNode[] = [];
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g;
   let last = 0;
@@ -169,6 +300,47 @@ function sections(blocks: Block[]): Section[] {
 
 function BlockView({ block, stress, k }: { block: Block; stress: boolean; k: string }) {
   switch (block.type) {
+    case 'math':
+      return (
+        <div className={styles.formula}>
+          <KatexSpan tex={block.tex} block />
+        </div>
+      );
+    case 'figure':
+      return (
+        <figure className={styles.figure}>
+          <TheoryFigure id={block.id} />
+          {block.caption && (
+            <figcaption className={styles.figcaption}>
+              {renderInline(block.caption, stress, `${k}-c`)}
+            </figcaption>
+          )}
+        </figure>
+      );
+    case 'callout':
+      return (
+        <aside className={styles.callout} data-kind={block.kind}>
+          {block.kind === 'tip' && (
+            <img
+              className={styles.calloutMascot}
+              src="/branding/v2/support-bison.webp"
+              alt=""
+              aria-hidden="true"
+              width={56}
+              height={56}
+              loading="lazy"
+            />
+          )}
+          <div className={styles.calloutBody}>
+            <p className={styles.calloutTitle}>
+              {renderInline(block.title ?? calloutTitles[block.kind], stress, `${k}-t`)}
+            </p>
+            {block.blocks.map((inner, b) => (
+              <BlockView key={b} block={inner} stress={stress} k={`${k}-${b}`} />
+            ))}
+          </div>
+        </aside>
+      );
     case 'heading':
       return <h4 className={styles.subheading}>{renderInline(block.text, stress, k)}</h4>;
     case 'paragraph':

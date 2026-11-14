@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './authContext.js';
@@ -17,14 +17,25 @@ vi.mock('./api.js', async (importOriginal) => ({
   listFavoriteTaskIds: vi.fn(),
 }));
 
+/**
+ * The context value of the provider's latest render. It is captured in a
+ * layout effect, which runs in the same commit as the DOM change: a passive
+ * `useEffect` can run after `findByText` has already resolved on the new
+ * DOM, and the value then still holds the previous render (or, in the next
+ * test, the previous test's unmounted provider).
+ */
 let latest: ReturnType<typeof useAuth>;
 function Probe() {
   const auth = useAuth();
-  useEffect(() => {
+  useLayoutEffect(() => {
     latest = auth;
   });
-  latest ??= auth;
-  return <p>{auth.user === undefined ? 'pending' : (auth.user?.firstName ?? 'signed-out')}</p>;
+  return (
+    <>
+      <p>{auth.user === undefined ? 'pending' : (auth.user?.firstName ?? 'signed-out')}</p>
+      <p data-testid="needs-method">{String(auth.needsSignInMethod)}</p>
+    </>
+  );
 }
 
 function renderProvider(onSignedOut = vi.fn()) {
@@ -36,7 +47,10 @@ function renderProvider(onSignedOut = vi.fn()) {
   return onSignedOut;
 }
 
-afterEach(() => vi.resetAllMocks());
+afterEach(() => {
+  vi.resetAllMocks();
+  latest = undefined as unknown as ReturnType<typeof useAuth>;
+});
 
 describe('AuthProvider', () => {
   it('needsSignInMethod follows /auth/me and never sticks to another account', async () => {
@@ -46,19 +60,20 @@ describe('AuthProvider', () => {
     });
     renderProvider();
     await screen.findByText('Анна');
-    expect(latest.needsSignInMethod).toBe(true);
+    // Rendered in the same commit as the name, so no effect timing involved.
+    expect(screen.getByTestId('needs-method')).toHaveTextContent('true');
 
     // After connecting VK the server no longer sends the flag.
     vi.mocked(api.getCurrentUser).mockResolvedValue({ user: makeAuthUser({ firstName: 'Анна' }) });
     await act(() => latest.refresh());
-    expect(latest.needsSignInMethod).toBe(false);
+    expect(screen.getByTestId('needs-method')).toHaveTextContent('false');
   });
 
   it('needsSignInMethod is false for a regular account', async () => {
     vi.mocked(api.getCurrentUser).mockResolvedValue({ user: makeAuthUser({ firstName: 'Олег' }) });
     renderProvider();
     await screen.findByText('Олег');
-    expect(latest.needsSignInMethod).toBe(false);
+    expect(screen.getByTestId('needs-method')).toHaveTextContent('false');
   });
 
   it('starts "not checked yet" and then reflects the server user', async () => {

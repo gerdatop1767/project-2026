@@ -73,8 +73,16 @@ export const INDEXABLE_PAGES: readonly PageSeo[] = [
   {
     path: '/materials',
     title: 'Полезные материалы для подготовки к ЕГЭ — Zybrilka',
-    description: 'Полезные материалы для подготовки к ЕГЭ по номерам заданий.',
+    description:
+      'Таблицы формул, справочники и шпаргалки к ЕГЭ по профильной математике и русскому языку: производные, тригонометрия, геометрия, вероятность, орфография, пунктуация.',
     name: 'Полезные материалы',
+  },
+  {
+    path: '/strategies',
+    title: 'Стратегии подготовки к ЕГЭ — Zybrilka',
+    description:
+      'Как распределить время на ЕГЭ по математике и русскому языку, в каком порядке решать задания, как оформлять вторую часть, писать сочинение и проверять ответы.',
+    name: 'Стратегии',
   },
   {
     path: '/games',
@@ -141,7 +149,7 @@ const NOINDEX_TITLES: ReadonlyArray<[RegExp, string]> = [
  * checks both directions, and that nginx.conf carries this exact pattern.
  */
 export const APP_ROUTE_PATTERN =
-  '^/(training(/(topic|random|variants|mistakes|by-number))?|statistics(/variants/[0-9a-f-]+)?|achievements|subjects(/[a-z-]+)?|profile|theory|materials|learning(/session/[A-Za-z0-9_-]+)?|friends(/[A-Za-z0-9_-]+)?|login|rating|level|favorites|mock-exams|topics|settings|help|faq|privacy|terms|notifications|games(/stress)?|onboarding|landing|telegram-return|admin(/[A-Za-z0-9/_-]*)?)$';
+  '^/(training(/(topic|random|variants|mistakes|by-number))?|statistics(/variants/[0-9a-f-]+)?|achievements|subjects(/[a-z-]+)?|profile|theory|materials|strategies|learning(/session/[A-Za-z0-9_-]+)?|friends(/[A-Za-z0-9_-]+)?|login|rating|level|favorites|mock-exams|topics|settings|help|faq|privacy|terms|notifications|games(/stress)?|onboarding|landing|telegram-return|admin(/[A-Za-z0-9/_-]*)?)$';
 
 const appRoute = new RegExp(APP_ROUTE_PATTERN);
 

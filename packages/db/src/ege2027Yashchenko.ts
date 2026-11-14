@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import { currentScoringRules } from '@zybrilka/shared';
+import { currentScoringRules, YASHCHENKO_2027_PROJECT_SOURCE } from '@zybrilka/shared';
 import type { Database } from './client.js';
 import * as schema from './schema.js';
 
@@ -18,14 +18,19 @@ import * as schema from './schema.js';
  * tasks; the 2026 №13–19 are №14–20 here) and is never mapped onto 2026
  * numbers. See docs/imports/ege-2027-yashchenko-v1-v2-report.md.
  */
-export const SOURCE = 'Ященко ЕГЭ 2027. Типовые экзаменационные варианты';
+/** Unchanged task identity (subject, source, variant, number) — the label
+ * of the edition lives in the collection title, not here. */
+export const SOURCE = YASHCHENKO_2027_PROJECT_SOURCE;
 export const SOURCE_DOCUMENT = 'ЕГЭ 2027 Ященко 36 вариантов';
 export const SOURCE_YEAR = 2027;
 export const COLLECTION_SLUG = 'ege-2027-yashchenko';
-const COLLECTION_TITLE = 'ЕГЭ 2027 Ященко';
+/** The book follows the August-2026 FIPI project (20 tasks), not the
+ * adopted ЕГЭ-2027 edition (19 tasks, numbered as in 2026) — the title says
+ * so wherever the collection is offered. docs/theory/EXAM-NUMBERING.md. */
+const COLLECTION_TITLE = 'Ященко-2027 · старая редакция';
 const COLLECTION_PUBLISHER = 'Ященко';
 const COLLECTION_DESCRIPTION =
-  'ЕГЭ 2027. Математика. Профильный уровень. Типовые экзаменационные варианты: 36 вариантов (под ред. И. В. Ященко). Нумерация заданий — по формату 2027 года (20 заданий).';
+  'ЕГЭ 2027. Математика. Профильный уровень. Типовые экзаменационные варианты: 36 вариантов (под ред. И. В. Ященко) — старая редакция, составленная по проекту КИМ ФИПИ (август 2026): 20 заданий. В актуальной редакции ЕГЭ-2027 (ФИПИ, 13.11.2026) 19 заданий и нумерация как в 2026 году.';
 export const EXAM_FORMAT = 'ege-math-profile-2027';
 /** The book's own scan Варианты 1–2 were read from (pages are relative to it). */
 const SOURCE_FILE = 'ege2027-yashchenko-v1-v2.pdf';

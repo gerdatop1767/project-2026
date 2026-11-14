@@ -28,15 +28,70 @@ describe('«Правило» on the task screen', () => {
     expect(screen.getByLabelText('Ответ')).toHaveValue('135');
   });
 
-  it('says honestly when a task has no material yet', async () => {
+  it('task 1 now opens its own theory', async () => {
     const user = userEvent.setup();
     render(<TaskLike subjectId="russian" taskNumber={1} />);
     await user.click(screen.getByRole('button', { name: 'Правило' }));
-    expect(await screen.findByText('Материала к заданию №1 пока нет')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Правило к заданию №1' })).toBeInTheDocument();
+    expect(await screen.findByText(/Какую связь выражает пропущенное слово/)).toBeInTheDocument();
   });
 
-  it('is not offered for a subject without a theory catalog', () => {
-    render(<TaskLike subjectId="math" taskNumber={4} />);
-    expect(screen.queryByRole('button', { name: 'Правило' })).not.toBeInTheDocument();
+  it('math: every number of part 2 offers its theory (№18 — parameters)', () => {
+    render(<TaskLike subjectId="math" taskNumber={18} />);
+    expect(screen.getByRole('button', { name: 'Теория' })).toBeInTheDocument();
+  });
+
+  it('math: not offered for a number the edition does not have', () => {
+    render(<TaskLike subjectId="math" taskNumber={25} />);
+    expect(screen.queryByRole('button', { name: /Правило|Теория/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('«Теория» on a math task follows the task edition', () => {
+  it('opens the topic of this edition: ЕГЭ-2027 №16 and old Ященко №13 → finance; old №6 → random variables', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <RuleButton subjectId="math" taskNumber={16} edition="ege-2027" presentation="modal" />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Теория' }));
+    expect(await screen.findByRole('dialog', { name: 'Теория к заданию №16' })).toHaveTextContent(
+      'ЕГЭ-2027 · Финансовая математика',
+    );
+    unmount();
+    const second = render(
+      <RuleButton
+        subjectId="math"
+        taskNumber={13}
+        edition="ege-2027-project"
+        presentation="modal"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Теория' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('старая редакция');
+    second.unmount();
+    render(
+      <RuleButton
+        subjectId="math"
+        taskNumber={6}
+        edition="ege-2027-project"
+        presentation="modal"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Теория' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Случайные величины');
+  });
+
+  it('ЕГЭ-2027 №6 opens equations — not the old №6 — and a number beyond the edition shows nothing', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <RuleButton subjectId="math" taskNumber={6} edition="ege-2027" presentation="modal" />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Теория' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Теория к заданию №6' });
+    expect(dialog).toHaveTextContent('ЕГЭ-2027 · Простейшие уравнения');
+    expect(dialog).not.toHaveTextContent('Случайные величины');
+    unmount();
+    render(<RuleButton subjectId="math" taskNumber={20} edition="ege-2027" presentation="modal" />);
+    expect(screen.queryByRole('button', { name: 'Теория' })).not.toBeInTheDocument();
   });
 });

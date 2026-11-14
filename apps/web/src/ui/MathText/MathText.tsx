@@ -161,7 +161,8 @@ export function scrollCue(scrollWidth: number, clientWidth: number, scrollLeft: 
   };
 }
 
-function KatexSpan({ tex, block }: { tex: string; block: boolean }) {
+/** One formula (KaTeX), for renderers outside MathText (the theory). */
+export function KatexSpan({ tex, block }: { tex: string; block: boolean }) {
   const html = useMemo(() => {
     try {
       return katex.renderToString(tex, {

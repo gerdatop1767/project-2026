@@ -151,3 +151,55 @@ describe('По номерам — a mode of the subject page', () => {
     expect(routeFromPath('/statistics/variants/../../x')).toEqual({ screen: 'home' });
   });
 });
+
+describe('theory routes — subject, edition, topic', () => {
+  it('math theory keeps subject, edition and number in the URL; Russian URLs are unchanged', () => {
+    expect(
+      pathForRoute({
+        screen: 'theory',
+        section: 'rules',
+        subject: 'math',
+        edition: 'ege-2027-project',
+        taskNumber: 13,
+      }),
+    ).toBe('/theory?s=math&ed=ege-2027-project&n=13');
+    expect(pathForRoute({ screen: 'theory', section: 'rules', taskNumber: 9 })).toBe('/theory?n=9');
+    expect(routeFromPath('/theory?s=math&ed=ege-2026&n=16')).toEqual({
+      screen: 'theory',
+      section: 'rules',
+      subject: 'math',
+      edition: 'ege-2026',
+      taskNumber: 16,
+    });
+    expect(routeFromPath('/theory?s=math&ed=ege-2027&t=math.random-variables')).toEqual({
+      screen: 'theory',
+      section: 'rules',
+      subject: 'math',
+      edition: 'ege-2027',
+      topic: 'math.random-variables',
+    });
+    // An unknown edition is dropped rather than inventing a numbering.
+    expect(routeFromPath('/materials?s=math&ed=ege-2031')).toEqual({
+      screen: 'theory',
+      section: 'rules',
+      subject: 'math',
+    });
+  });
+
+  it('the library: sections, subject filter and the open item round-trip', () => {
+    for (const route of [
+      { screen: 'library', section: 'materials' },
+      { screen: 'library', section: 'strategies' },
+      { screen: 'library', section: 'materials', subject: 'math' },
+      { screen: 'library', section: 'strategies', subject: 'russian', itemId: 'strategy-essay' },
+    ] as const) {
+      expect(routeFromPath(pathForRoute(route)!)).toEqual(route);
+    }
+    expect(pathForRoute({ screen: 'library', section: 'strategies' })).toBe('/strategies');
+    // Junk in the URL is dropped, not trusted.
+    expect(routeFromPath('/materials?s=chemistry&id=../x')).toEqual({
+      screen: 'library',
+      section: 'materials',
+    });
+  });
+});

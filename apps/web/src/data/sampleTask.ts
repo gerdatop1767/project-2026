@@ -46,6 +46,9 @@ export interface SampleTask {
   difficulty: 1 | 2 | 3;
   difficultyLabel: 'Лёгкое' | 'Среднее' | 'Сложное';
   source: string;
+  /** Exam year of the task's source (its numbering): decides which theory a
+   * math number opens, since ЕГЭ-2026 and ЕГЭ-2027 number tasks differently. */
+  examYear?: number | null;
   code: string;
   condition: string;
   /** The shared text this task reads, if any — null for a self-contained task. */

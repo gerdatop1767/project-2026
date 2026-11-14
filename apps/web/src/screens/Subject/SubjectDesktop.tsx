@@ -29,6 +29,7 @@ import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectDesktop.module.css';
 import { SkeletonList } from '../../ui/Skeleton/Skeleton.js';
+import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
 
 /** Sentinel Select value for "Общий банк" (no collection filter) — Select's
  * own value type is `string | null`, and `null` there means "nothing
@@ -474,6 +475,7 @@ function TopicsList({
           />
         </div>
       </div>
+      <EditionNote collectionSlug={selectedSlug} />
       <div className={styles.topicList}>
         {topics === undefined && <SkeletonList rows={5} />}
         {topics === null && (
@@ -615,6 +617,7 @@ function VariantBuilder({
           sheetTitle="Источник"
         />
       </div>
+      <EditionNote collectionSlug={selectedSlug} />
 
       <div className={styles.builderStepHeader}>
         <p className={styles.builderStepLabel}>2. Выбери номера заданий</p>

@@ -146,8 +146,8 @@ export function TheoryTaskView({ task, kinds, materialId, onMaterialChange }: Th
       )}
       <MaterialBody key={active!.id} material={active!} />
       <p className={styles.footnote}>
-        Учебная выжимка, ориентир — ЕГЭ-{THEORY_EXAM_YEAR}. Не официальный документ ФИПИ: точные
-        формулировки и списки сверяй с навигатором ФИПИ.
+        Учебный материал по документам ФИПИ ЕГЭ-{THEORY_EXAM_YEAR} и ЕГЭ-{THEORY_EXAM_YEAR + 1}:
+        нумерация и форматы заданий в эти годы совпадают. Не официальный документ ФИПИ.
       </p>
     </div>
   );

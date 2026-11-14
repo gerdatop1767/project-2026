@@ -15,6 +15,7 @@ import { Select } from '../../ui/Select/Select.js';
 import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { Card } from '../../ui/Card/Card.js';
 import styles from './ByNumberPanel.module.css';
+import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
 
 interface NumberSelection {
   /** "Ignore the selected Сборник, draw from the whole bank" — see
@@ -222,6 +223,7 @@ export function ByNumberPanel({
             }
             placeholder="Все источники"
           />
+          <EditionNote collectionSlug={selectedCollectionSlug} />
         </div>
       )}
 

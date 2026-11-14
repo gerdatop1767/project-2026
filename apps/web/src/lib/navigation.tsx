@@ -12,6 +12,7 @@ import { metrikaHit } from './metrika.js';
 import { applySeo } from './seo.js';
 import { isLegacyPath, isRemovedPath, pathForRoute, routeFromPath } from './routes.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
+import type { ExamEditionId } from '@zybrilka/shared';
 
 /**
  * The persistent tabs behind the bottom nav (mobile) / sidebar
@@ -45,7 +46,28 @@ export type OverlayRoute =
   /** The theory catalog (docs/THEORY.md): «Теория» — конспекты by EGE task
    * number, «Полезные материалы» — справочные списки и практика. The
    * chosen number lives here, so Back and a refresh keep it. */
-  | { screen: 'theory'; section: TheorySection; taskNumber?: number }
+  | {
+      screen: 'theory';
+      section: TheorySection;
+      taskNumber?: number;
+      /** Russian by default (the original catalog's URLs stay valid). */
+      subject?: TheorySubject;
+      /** Math: the exam edition whose numbering the list uses
+       * (packages/shared/src/examSpecs.ts). */
+      edition?: ExamEditionId;
+      /** Math: a topic opened directly (one no task position names, e.g.
+       * a codifier-only topic), instead of a number. */
+      topic?: string;
+    }
+  /** The learning-centre library (docs/LIBRARY.md): «Полезные материалы»
+   * and «Стратегии». The open item and the subject filter live here, so
+   * Back and a refresh keep them. */
+  | {
+      screen: 'library';
+      section: LibrarySection;
+      itemId?: string;
+      subject?: LibrarySubject;
+    }
   | { screen: 'subjectCatalog' }
   | {
       screen: 'subject';
@@ -201,7 +223,13 @@ export interface RevealedAnswer {
   explanation: string;
 }
 
-export type TheorySection = 'rules' | 'materials';
+/** The theory catalog has one section now: per-task reference lists and
+ * practice are tabs of a task's page, and «Полезные материалы» is the
+ * library (`screen: 'library'`). */
+export type TheorySection = 'rules';
+export type LibrarySection = 'materials' | 'strategies';
+export type LibrarySubject = 'math' | 'russian' | 'general';
+export type TheorySubject = 'russian' | 'math';
 
 export type Route = { screen: MainTabId } | OverlayRoute;
 
@@ -213,6 +241,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   login: 'Вход',
   learningCenter: 'Учебный центр',
   theory: 'Теория',
+  library: 'Полезные материалы',
   learningSession: 'Тренировка',
   variantAttempt: 'Результат варианта',
   miniGames: 'Мини-игры',
@@ -230,6 +259,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
  * going back to. Falls back to "Главная" for routes with no fixed
  * name (task/result/subject carry their own context instead). */
 export function getRouteLabel(route: Route): string {
+  if (route.screen === 'library' && route.section === 'strategies') return 'Стратегии';
   return routeLabels[route.screen] ?? 'Главная';
 }
 

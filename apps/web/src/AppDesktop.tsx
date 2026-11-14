@@ -10,6 +10,7 @@ import { RatingDesktop } from './screens/Rating/RatingDesktop.js';
 import { Level } from './screens/Level/Level.js';
 import { LearningCenterDesktop } from './screens/LearningCenter/LearningCenterDesktop.js';
 import { TheoryCatalog } from './screens/Theory/TheoryCatalog.js';
+import { Library } from './screens/Library/Library.js';
 import { Notifications } from './screens/Notifications/Notifications.js';
 import { SubjectCatalogDesktop } from './screens/SubjectCatalog/SubjectCatalogDesktop.js';
 import { SubjectDesktop } from './screens/Subject/SubjectDesktop.js';
@@ -101,7 +102,16 @@ export function AppDesktop() {
         {overlay.screen === 'level' && <Level />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
         {overlay.screen === 'theory' && (
-          <TheoryCatalog section={overlay.section} taskNumber={overlay.taskNumber} />
+          <TheoryCatalog
+            section={overlay.section}
+            taskNumber={overlay.taskNumber}
+            subject={overlay.subject}
+            edition={overlay.edition}
+            topic={overlay.topic}
+          />
+        )}
+        {overlay.screen === 'library' && (
+          <Library section={overlay.section} itemId={overlay.itemId} subject={overlay.subject} />
         )}
         {overlay.screen === 'onboarding' && <Onboarding />}
         {overlay.screen === 'favorites' && (

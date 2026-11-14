@@ -74,4 +74,28 @@ describe('LearningCenterDesktop', () => {
     expect(screen.queryByText('Популярное')).not.toBeInTheDocument();
     expect(screen.queryByText('Типовые задания')).not.toBeInTheDocument();
   });
+
+  it('the section cards lead to the theory and to the library', async () => {
+    const user = userEvent.setup();
+    renderLearningCenter();
+    await user.click(screen.getByRole('button', { name: 'Стратегии' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('library');
+    expect(window.location.pathname).toBe('/strategies');
+  });
+
+  it('the search finds theory, materials and strategies, highlights matches and says when nothing is found', async () => {
+    const user = userEvent.setup();
+    renderLearningCenter();
+    const input = screen.getByRole('searchbox', { name: 'Поиск материалов' });
+    await user.type(input, 'производн');
+    const results = await screen.findByRole('region', { name: 'Результаты поиска' });
+    expect(results).toHaveTextContent('Таблица производных и правила дифференцирования');
+    expect(results).toHaveTextContent('Теория');
+    expect(results.querySelector('mark')).toHaveTextContent(/производн/i);
+    // While searching, the section cards step aside.
+    expect(screen.queryByText('Выбери предмет')).not.toBeVisible();
+    await user.clear(input);
+    await user.type(input, 'абракадабра');
+    expect(await screen.findByText(/ничего не найдено/)).toBeInTheDocument();
+  });
 });

@@ -39,6 +39,7 @@ export * from './xp.js';
 export * from './leaderboard.js';
 export * from './reminders.js';
 export * from './support.js';
+export * from './examSpecs.js';
 export * from './miniGames.js';
 export * from './examScoring.js';
 export * from './broadcastAudience.js';

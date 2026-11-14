@@ -29,6 +29,7 @@ import { ContentSwap, FadeIn, SlideUp, staggerDelay } from '../../ui/motion/moti
 import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
 import styles from './SubjectMobile.module.css';
 import { SkeletonList } from '../../ui/Skeleton/Skeleton.js';
+import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
 
 /** See SubjectDesktop.tsx for why "Общий банк" needs its own sentinel value. */
 const ALL_SOURCES_VALUE = '__all__';
@@ -445,6 +446,7 @@ function TopicsList({
           sheetTitle="Источник"
         />
       </div>
+      <EditionNote collectionSlug={selectedSlug} />
       <div className={styles.topicList}>
         {topics === undefined && <SkeletonList rows={5} />}
         {topics === null && (
@@ -584,6 +586,7 @@ function VariantBuilder({
           sheetTitle="Источник"
         />
       </div>
+      <EditionNote collectionSlug={selectedSlug} />
 
       <div className={styles.builderStepHeader}>
         <p className={styles.builderStepLabel}>2. Выбери номера заданий</p>

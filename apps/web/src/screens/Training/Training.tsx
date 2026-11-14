@@ -31,6 +31,7 @@ import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
 import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import { TopicPicker } from '../../ui/Training/TopicPicker.js';
 import styles from './Training.module.css';
+import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
 
 type TopicItem = ProgressByTopicResponse['items'][number];
 type AmountId = 'infinite' | '5' | '10' | '20' | 'custom';
@@ -500,6 +501,7 @@ export function Training() {
               onChange={handleSelectCollection}
               placeholder="Все источники"
             />
+            <EditionNote collectionSlug={collectionSlug} />
           </div>
         )}
 

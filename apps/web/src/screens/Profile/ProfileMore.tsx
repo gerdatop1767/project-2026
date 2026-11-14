@@ -37,6 +37,7 @@ export function ProfileMore({ guest = false }: { guest?: boolean }) {
     <div>
       <SectionHeader title="Ещё" />
       <Card>
+        {row('graduation', 'Учебный центр', () => navigate({ screen: 'learningCenter' }))}
         {row('reference', 'Теория', () => navigate({ screen: 'theory', section: 'rules' }))}
         {!guest && row('friends', 'Друзья', () => navigate({ screen: 'friends' }))}
         {row('faq', 'Помощь', () => navigate({ screen: 'help' }))}
