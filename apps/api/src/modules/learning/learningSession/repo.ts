@@ -157,23 +157,32 @@ export async function getSessionById(
   return row ? toRow(row) : undefined;
 }
 
-/** Atomic append via the jsonb `||` concat operator — never a
- * read-modify-write race between concurrent requests for the same
- * session. Returns the row AFTER the append. */
+/** Atomic append via the jsonb `||` concat operator. Applied only while
+ * the session is still active and has exactly `expectedLength` served
+ * tasks — the state the caller picked from — so two concurrent `/next`
+ * requests (a double tap) serve one task, not two. Returns the row AFTER
+ * the append, or undefined when another request got there first. */
 export async function appendConsumedTask(
   db: Database,
   sessionId: string,
   taskId: string,
-): Promise<LearningSessionRow> {
+  expectedLength: number,
+): Promise<LearningSessionRow | undefined> {
   const [row] = await db
     .update(schema.learningSessions)
     .set({
       consumedTaskIds: sql`${schema.learningSessions.consumedTaskIds} || ${JSON.stringify([taskId])}::jsonb`,
       updatedAt: new Date(),
     })
-    .where(eq(schema.learningSessions.id, sessionId))
+    .where(
+      and(
+        eq(schema.learningSessions.id, sessionId),
+        eq(schema.learningSessions.status, 'active'),
+        sql`jsonb_array_length(${schema.learningSessions.consumedTaskIds}) = ${expectedLength}`,
+      ),
+    )
     .returning();
-  return toRow(row!);
+  return row ? toRow(row) : undefined;
 }
 
 /**

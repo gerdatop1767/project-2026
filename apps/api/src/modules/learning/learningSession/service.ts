@@ -250,7 +250,14 @@ export async function advanceLearningSession(
       const completed = await repo.markCompleted(db, session.id);
       return buildCompletedResponse(db, completed);
     }
-    const updated = await repo.appendConsumedTask(db, session.id, next.taskId);
+    const updated = await repo.appendConsumedTask(
+      db,
+      session.id,
+      next.taskId,
+      session.consumedTaskIds.length,
+    );
+    // A concurrent `/next` already served this slot: report that task.
+    if (!updated) return getLearningSessionSnapshot(db, userId, session.id);
     return {
       sessionId: updated.id,
       subject: updated.subjectId,
@@ -278,7 +285,13 @@ export async function advanceLearningSession(
   }
 
   const step = path.steps[0]!;
-  const updated = await repo.appendConsumedTask(db, session.id, step.task.id);
+  const updated = await repo.appendConsumedTask(
+    db,
+    session.id,
+    step.task.id,
+    session.consumedTaskIds.length,
+  );
+  if (!updated) return getLearningSessionSnapshot(db, userId, session.id);
 
   return {
     sessionId: updated.id,

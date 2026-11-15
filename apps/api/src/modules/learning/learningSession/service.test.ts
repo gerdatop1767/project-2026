@@ -10,6 +10,7 @@ import {
   getLearningSessionSnapshot,
   startLearningSession,
 } from './service.js';
+import * as repo from './repo.js';
 
 describe('learning sessions (ZUBRILKA LEARNING INTELLIGENCE Phase 9)', () => {
   let testDb: Awaited<ReturnType<typeof createImportedTestDb>>;
@@ -178,6 +179,28 @@ describe('learning sessions (ZUBRILKA LEARNING INTELLIGENCE Phase 9)', () => {
         seen.add(next.task.id);
         sessionId = next.sessionId;
       }
+    });
+
+    it('a stale `/next` (double tap) serves no extra task — it reports the one already served', async () => {
+      const userId = await freshUserId();
+      const started = await startLearningSession(testDb.db, userId, {
+        subjectId: 'math',
+        total: 3,
+      });
+      if (!started || started.status !== 'active') throw new Error('unreachable');
+      // Both requests read the session at 1 served task; the first one wins.
+      expect(
+        await repo.appendConsumedTask(testDb.db, started.sessionId, randomUUID(), 0),
+      ).toBeUndefined();
+      const winner = await advanceLearningSession(testDb.db, userId, started.sessionId);
+      if (!winner || winner.status !== 'active') throw new Error('unreachable');
+      expect(
+        await repo.appendConsumedTask(testDb.db, started.sessionId, randomUUID(), 1),
+      ).toBeUndefined();
+      const snapshot = await getLearningSessionSnapshot(testDb.db, userId, started.sessionId);
+      if (!snapshot || snapshot.status !== 'active') throw new Error('unreachable');
+      expect(snapshot.position).toBe(2);
+      expect(snapshot.task.id).toBe(winner.task.id);
     });
 
     it('position increases by exactly 1 per step and never exceeds total', async () => {
