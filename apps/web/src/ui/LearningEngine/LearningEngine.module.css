@@ -197,6 +197,7 @@
 .scaleLegend {
   display: flex;
   justify-content: space-between;
+  font-size: var(--font-size-label);
 }
 
 @media (prefers-reduced-motion: reduce) {

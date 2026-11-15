@@ -20,7 +20,7 @@ export function LearningSessionBadge({
         {label} · {session.position} из {session.total}
       </Chip>
       {session.pick && !session.variant && (
-        <p className="text-label text-secondary" style={{ margin: '4px 0 0' }}>
+        <p className="text-body-sm text-secondary" style={{ margin: '4px 0 0' }}>
           {session.pick.reason}
         </p>
       )}

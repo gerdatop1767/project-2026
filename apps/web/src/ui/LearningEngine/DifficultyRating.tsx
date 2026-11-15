@@ -66,17 +66,17 @@ export function DifficultyRating({ taskId }: { taskId: string }) {
           </button>
         ))}
       </div>
-      <p className={clsx('text-label text-secondary', styles.scaleLegend)}>
+      <p className={clsx('text-secondary', styles.scaleLegend)}>
         <span>1 — очень легко</span>
         <span>10 — крайне сложно</span>
       </p>
       {failed && (
-        <p className="text-label" role="alert">
+        <p className="text-body-sm" role="alert">
           Не удалось сохранить оценку. Попробуй ещё раз.
         </p>
       )}
       {mine !== null && community && (
-        <p className="text-label text-secondary" aria-live="polite">
+        <p className="text-body-sm text-secondary" aria-live="polite">
           Твоя оценка: {mine}.{' '}
           {community.confident && community.median !== null && community.band
             ? `Ученики оценивают задание как ${DIFFICULTY_BAND_LABELS[community.band]}: ${String(community.median).replace('.', ',')} из 10 (${community.count} оценок).`

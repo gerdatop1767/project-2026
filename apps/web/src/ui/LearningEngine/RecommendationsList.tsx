@@ -128,7 +128,7 @@ export function RecommendationsList({
             </span>
           </div>
           <p className="text-body-sm">{r.reason}</p>
-          <p className="text-label text-secondary">{r.benefit}</p>
+          <p className="text-body-sm text-secondary">{r.benefit}</p>
           <Button
             variant="secondary"
             loading={starting === r.skillKey}
