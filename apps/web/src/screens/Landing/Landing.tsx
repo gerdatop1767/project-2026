@@ -113,7 +113,7 @@ export function Landing() {
               <span className={styles.ring} />
               <span className={styles.floor} />
               <img
-                src="/branding/v2/landing-mascot.webp"
+                src="/branding/v3/landing-mascot.webp"
                 alt=""
                 width={1224}
                 height={1024}

@@ -18,7 +18,7 @@ export function GuestProfileCard() {
   return (
     <section className={styles.card} aria-label="Гостевой режим">
       <img
-        src="/branding/v2/support-bison.webp"
+        src="/branding/v3/support-bison.webp"
         alt=""
         aria-hidden="true"
         width={560}

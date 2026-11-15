@@ -36,7 +36,7 @@ export function HelpMobile() {
           Напишите нам в Telegram — мы обязательно поможем и ответим как можно скорее!
         </p>
         <img
-          src="/branding/v2/hero-mascot-desktop.webp"
+          src="/branding/v3/hero-mascot-desktop.webp"
           alt=""
           aria-hidden="true"
           className={styles.mascot}

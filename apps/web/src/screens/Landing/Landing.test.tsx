@@ -36,7 +36,7 @@ describe('Landing', () => {
     const bison = [...container.querySelectorAll('img')]
       .map((img) => img.getAttribute('src') ?? '')
       .filter((src) => /mascot|logo-icon|zybrilka-logo/.test(src));
-    expect(bison).toEqual(['/branding/v2/landing-mascot.webp']);
+    expect(bison).toEqual(['/branding/v3/landing-mascot.webp']);
   });
 
   it('header has the section links, FAQ and "Войти" — and no "О нас" / "О проекте"', () => {

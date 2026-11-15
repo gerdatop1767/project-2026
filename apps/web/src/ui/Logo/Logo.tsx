@@ -24,8 +24,8 @@ export interface LogoProps {
 // the 60–95 KB source PNGs on every page. The PNGs stay for the favicon
 // and the Telegram worker's install page.
 const iconSrc: Record<LogoIconVariant, string> = {
-  desktop: '/branding/v2/logo-icon-desktop.webp',
-  mobile: '/branding/v2/logo-icon-mobile.webp',
+  desktop: '/branding/v3/logo-icon-desktop.webp',
+  mobile: '/branding/v3/logo-icon-mobile.webp',
 };
 
 /**

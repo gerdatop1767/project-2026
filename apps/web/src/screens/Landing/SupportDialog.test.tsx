@@ -82,7 +82,7 @@ describe('Support window on the public landing', () => {
     expect(win.getByText('@zybrilka_bot')).toBeInTheDocument();
 
     const mascot = dialog().querySelector('img')!;
-    expect(mascot).toHaveAttribute('src', '/branding/v2/support-bison.webp');
+    expect(mascot).toHaveAttribute('src', '/branding/v3/support-bison.webp');
     expect(mascot).toHaveAttribute('alt', '');
     expect(mascot.closest('[aria-hidden="true"]')).not.toBeNull();
 

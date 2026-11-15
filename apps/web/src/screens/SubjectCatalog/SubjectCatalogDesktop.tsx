@@ -50,7 +50,7 @@ export function SubjectCatalogDesktop() {
     <div>
       <div className={styles.hero}>
         <img
-          src="/branding/v2/hero-mascot-desktop.webp"
+          src="/branding/v3/hero-mascot-desktop.webp"
           alt=""
           className={styles.heroImg}
           aria-hidden="true"
