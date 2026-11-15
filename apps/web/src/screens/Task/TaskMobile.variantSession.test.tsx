@@ -15,6 +15,7 @@ import { resetCanvasStoreForTests } from '../../lib/canvasSessionStore.js';
 import { clearDraft, readDraft } from '../../lib/answerDrafts.js';
 
 vi.mock('../../lib/api.js', () => ({
+  getSimilarTasks: vi.fn(() => Promise.resolve([])),
   getTask: vi.fn(),
   listTasksByNumber: vi.fn(() => Promise.resolve([])),
   submitAttempt: vi.fn(),

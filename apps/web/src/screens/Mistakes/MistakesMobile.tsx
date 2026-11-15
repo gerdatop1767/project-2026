@@ -115,7 +115,8 @@ export function MistakesMobile() {
 
   /**
    * "Решить похожее" — the deterministic similarity engine
-   * (`GET /tasks/:taskId/similar`, same task number only). An empty result
+   * (`GET /tasks/:taskId/similar`: the same EGE skill, closest subtype first —
+   * docs/learning/SIMILAR-TASKS.md). An empty result
    * is real and only shows a toast; it never opens an empty session.
    */
   function solveSimilar(mistake: Mistake) {
@@ -124,7 +125,7 @@ export function MistakesMobile() {
     void getSimilarTasks(mistake.taskId)
       .then((items) => {
         if (items.length === 0) {
-          showToast({ variant: 'info', message: 'Похожих заданий этого номера пока нет.' });
+          showToast({ variant: 'info', message: 'Похожих заданий по этой теме пока нет.' });
           return;
         }
         const first = items[0]!;

@@ -301,15 +301,22 @@ export function getTaskCountsBySubject(): Promise<TaskCountsBySubjectResponse> {
 }
 
 /**
- * Mistakes' "Решить похожее" — the existing deterministic Phase 6
- * similarity engine (`calculateTaskSimilarity`, never AI/ML), scored
- * against every other published task in the same subject. An empty
- * `items` array (small catalog today, or a task with no close match
- * yet) is a real, honest result — callers must show an empty state,
- * never fabricate a candidate.
+ * «Решить похожее» / «Похожие на это задание» (docs/learning/SIMILAR-TASKS.md):
+ * tasks testing the same EGE skill, closest first — the same subtype (what
+ * is asked, which rule), then a shared feature, then the topic — with the
+ * student's own history when signed in. Deterministic, no AI. `exclude`:
+ * tasks already on screen, never offered again. An empty list is a real
+ * answer — callers show an empty state, never a made-up candidate.
  */
-export function getSimilarTasks(taskId: string, limit?: number): Promise<SimilarTaskEntry[]> {
-  const qs = limit ? `?limit=${limit}` : '';
+export function getSimilarTasks(
+  taskId: string,
+  limit?: number,
+  exclude: readonly string[] = [],
+): Promise<SimilarTaskEntry[]> {
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', String(limit));
+  if (exclude.length > 0) params.set('exclude', exclude.slice(0, 40).join(','));
+  const qs = params.size > 0 ? `?${params.toString()}` : '';
   return apiFetch<{ items: SimilarTaskEntry[] }>(`/tasks/${taskId}/similar${qs}`).then(
     (r) => r.items,
   );

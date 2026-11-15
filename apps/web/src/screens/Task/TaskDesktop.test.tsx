@@ -12,6 +12,7 @@ import { getCanvasState, resetCanvasStoreForTests } from '../../lib/canvasSessio
 import { initialCanvasState } from '../../lib/canvasEngine.js';
 
 vi.mock('../../lib/api.js', () => ({
+  getSimilarTasks: vi.fn(() => Promise.resolve([])),
   getTask: vi.fn(),
   listTasksByNumber: vi.fn(),
   submitAttempt: vi.fn(),

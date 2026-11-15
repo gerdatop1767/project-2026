@@ -11,12 +11,19 @@ export interface TaskSimilarityRoutesOptions {
 const taskIdParamsSchema = z.object({ taskId: z.uuid() });
 const similarQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).optional().default(5),
+  /** Comma-separated task ids the client is showing — never offered again. */
+  exclude: z
+    .string()
+    .max(40 * 37)
+    .optional()
+    .transform((v) => (v ? v.split(',').filter(Boolean) : []))
+    .pipe(z.array(z.uuid()).max(40)),
 });
 
 /**
- * Read-only and aggregated across all users (metadata similarity, not
- * personal data), so — like `/tasks/:taskId/statistics` — this needs
- * no `request.userId` check.
+ * Open to guests (content similarity). With a session the order also uses
+ * the student's own answers (solved last, wrong subtypes first, nothing just
+ * answered) — read only from the session's user, never from the request.
  */
 export const taskSimilarityRoutes: FastifyPluginAsync<TaskSimilarityRoutesOptions> = async (
   app,
@@ -34,7 +41,11 @@ export const taskSimilarityRoutes: FastifyPluginAsync<TaskSimilarityRoutesOption
     const task = await getTaskById(db, params.data.taskId);
     if (!task) return reply.code(404).send({ error: 'task_not_found' });
 
-    const items = await getSimilarTasks(db, params.data.taskId, query.data.limit);
+    const items = await getSimilarTasks(db, params.data.taskId, query.data.limit, {
+      userId: request.userId ?? null,
+      exclude: query.data.exclude,
+    });
+    void reply.header('cache-control', 'private, no-store');
     return { items };
   });
 };

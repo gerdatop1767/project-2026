@@ -44,3 +44,5 @@ DATABASE_URL=… pnpm --filter @zybrilka/db learning:sync-skills   # связа�
 DATABASE_URL=… pnpm --filter @zybrilka/db learning:coverage      # таблица покрытия
 DATABASE_URL=… pnpm --filter @zybrilka/api skills:rebuild-stats  # пересчитать статистику навыков всех учеников
 ```
+
+«Решать похожие» — как определяется сходство заданий: `SIMILAR-TASKS.md`.

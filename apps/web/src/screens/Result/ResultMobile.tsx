@@ -8,7 +8,7 @@ import {
   type RevealedAnswer,
 } from '../../lib/navigation.js';
 import { gradeMultiPart, parseMultiPartSpec, parseMultiPartUserAnswer } from '@zybrilka/shared';
-import { getTask, listTasksByNumber } from '../../lib/api.js';
+import { getSimilarTasks, getTask, listTasksByNumber } from '../../lib/api.js';
 import {
   buildSessionProgress,
   explanationForPart,
@@ -128,10 +128,20 @@ export function ResultMobile({
     void Promise.all([
       getTask(taskId),
       listTasksByNumber(subjectId, taskNumber, undefined, undefined, taskId),
+      // «Похожие на это задание»: the closest tasks first (same subtype /
+      // rule), not just the first ones of the number. Optional — on a
+      // failure the cards keep the list order.
+      getSimilarTasks(taskId, 10).catch(() => []),
     ])
-      .then(([fetchedTask, siblings]) => {
+      .then(([fetchedTask, siblings, similar]) => {
         if (cancelled) return;
-        setTask(toSampleTask(withRevealedAnswer(fetchedTask, revealed), siblings));
+        setTask(
+          toSampleTask(
+            withRevealedAnswer(fetchedTask, revealed),
+            siblings,
+            similar.map((s) => s.taskId),
+          ),
+        );
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
