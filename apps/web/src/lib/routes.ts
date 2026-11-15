@@ -1,6 +1,9 @@
 import type { MainTabId, OverlayRoute, Route } from './navigation.js';
 import type { SubjectModeId } from '../data/subjectContent.js';
 import { EXAM_EDITIONS, type ExamEditionId } from '@zybrilka/shared';
+import { libraryItem } from '../data/library/libraryData.js';
+import { russianTheory } from '../data/theory/russianTheoryData.js';
+import { mathTheorySpecs, SEO_MATH_EDITION } from './seoPages.js';
 
 const subjectModeIds: readonly SubjectModeId[] = ['topics', 'byNumber', 'variants', 'favorites'];
 
@@ -104,15 +107,30 @@ export function pathForRoute(route: Route): string | null {
   }
 
   if (route.screen === 'library') {
+    // An item has its own readable address (/materials/<id>); the subject
+    // filter rides along only so «Все материалы» returns to the same list.
     const params = new URLSearchParams();
     if (route.subject) params.set('s', route.subject);
-    if (route.itemId) params.set('id', route.itemId);
     const qs = params.toString();
     const base = route.section === 'strategies' ? '/strategies' : '/materials';
-    return qs ? `${base}?${qs}` : base;
+    const path = route.itemId ? `${base}/${route.itemId}` : base;
+    return qs ? `${path}?${qs}` : path;
   }
 
   if (route.screen === 'theory') {
+    // Readable addresses (docs/seo/SEO-REPORT.md): /theory/russian/9,
+    // /theory/math, /theory/math/13 — the current numbering. Another
+    // edition or a topic without a number keeps its query address.
+    if (route.subject !== 'math' && route.taskNumber) {
+      return `/theory/russian/${route.taskNumber}`;
+    }
+    if (
+      route.subject === 'math' &&
+      !route.topic &&
+      (!route.edition || route.edition === SEO_MATH_EDITION)
+    ) {
+      return route.taskNumber ? `/theory/math/${route.taskNumber}` : '/theory/math';
+    }
     const base = '/theory';
     const params = new URLSearchParams();
     if (route.subject === 'math') params.set('s', 'math');
@@ -149,11 +167,47 @@ const legacyByNumberPath = '/training/by-number';
  * not keep showing a URL of a page that no longer exists. */
 const removedPaths: ReadonlySet<string> = new Set(['/about']);
 
-/** A path that still works but has a newer address (today: the old
- * standalone "По номерам" page) — the router rewrites the address bar. */
+/** A path that still works but has a newer address (the old standalone
+ * "По номерам" page; query addresses of theory and library pages, e.g.
+ * /theory?n=9 → /theory/russian/9) — the router rewrites the address bar.
+ * Pass the query too (`pathname + search`). */
 export function isLegacyPath(pathname: string): boolean {
   const path = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
-  return path === legacyByNumberPath;
+  if (path === legacyByNumberPath) return true;
+  if (pathname.includes('?') && /^\/(theory|materials|strategies)$/.test(path)) {
+    return pathForRoute(routeFromPath(pathname)) !== pathname;
+  }
+  return false;
+}
+
+/** /theory/russian/9, /theory/math, /theory/math/13, /materials/<id>,
+ * /strategies/<id> — only numbers and items that exist. */
+function readableLearningRoute(path: string, params: URLSearchParams): Route | null {
+  if (path === '/theory/math') return { screen: 'theory', section: 'rules', subject: 'math' };
+  const theory = path.match(/^\/theory\/(russian|math)\/([1-9][0-9]?)$/);
+  if (theory) {
+    const n = Number(theory[2]);
+    if (theory[1] === 'russian' && russianTheory.some((t) => t.taskNumber === n)) {
+      return { screen: 'theory', section: 'rules', taskNumber: n };
+    }
+    if (theory[1] === 'math' && mathTheorySpecs.some((s) => s.number === n)) {
+      return { screen: 'theory', section: 'rules', subject: 'math', taskNumber: n };
+    }
+    return null;
+  }
+  const item = path.match(/^\/(materials|strategies)\/([a-z0-9-]+)$/);
+  if (item) {
+    const found = libraryItem(item[2]!);
+    if (!found || found.section !== item[1]) return null;
+    const subject = params.get('s');
+    return {
+      screen: 'library',
+      section: found.section,
+      itemId: found.id,
+      ...(subject === 'math' || subject === 'russian' || subject === 'general' ? { subject } : {}),
+    };
+  }
+  return null;
 }
 
 export function isRemovedPath(pathname: string): boolean {
@@ -215,6 +269,9 @@ export function routeFromPath(pathname: string): Route {
 
   if (path === '/profile') return { screen: 'profile' };
 
+  const readable = readableLearningRoute(path, params);
+  if (readable) return readable;
+
   if (path === '/strategies' || path === '/materials') {
     const subject = params.get('s');
     const id = params.get('id');
@@ -231,7 +288,10 @@ export function routeFromPath(pathname: string): Route {
         ...(subject === 'math' || subject === 'russian' || subject === 'general'
           ? { subject }
           : {}),
-        ...(id && /^[a-z0-9-]+$/.test(id) ? { itemId: id } : {}),
+        // Only an item of this section: a wrong one opens the list.
+        ...(id && libraryItem(id)?.section === (path === '/strategies' ? 'strategies' : 'materials')
+          ? { itemId: id }
+          : {}),
       };
     }
   }

@@ -1,4 +1,6 @@
+import { onLinkClick } from '../../lib/linkClick.js';
 import { useNavigation, type Route } from '../../lib/navigation.js';
+import { pathForRoute } from '../../lib/routes.js';
 import { Icon } from '../Icon/Icon.js';
 import styles from './LearningNav.module.css';
 
@@ -32,15 +34,22 @@ export function LearningNav({ trail }: { trail: readonly LearningCrumb[] }) {
 
   return (
     <nav className={styles.nav} aria-label="Навигация по учебному центру">
-      <button
-        type="button"
-        className={styles.pill}
-        onClick={() => (parent?.route ? navigate(parent.route) : back())}
-        data-testid="learning-back"
-      >
-        <Icon name="back" size={16} />
-        <span>{parent ? parent.label : 'Назад'}</span>
-      </button>
+      {parent?.route ? (
+        <a
+          href={pathForRoute(parent.route) ?? undefined}
+          className={styles.pill}
+          onClick={(e) => onLinkClick(e, () => navigate(parent.route!))}
+          data-testid="learning-back"
+        >
+          <Icon name="back" size={16} />
+          <span>{parent.label}</span>
+        </a>
+      ) : (
+        <button type="button" className={styles.pill} onClick={back} data-testid="learning-back">
+          <Icon name="back" size={16} />
+          <span>Назад</span>
+        </button>
+      )}
       {!atCenter && (
         <ol className={styles.crumbs}>
           {trail.map((crumb, i) => {
@@ -48,14 +57,14 @@ export function LearningNav({ trail }: { trail: readonly LearningCrumb[] }) {
             return (
               <li key={`${i}-${crumb.label}`}>
                 {crumb.route && !last ? (
-                  <button
-                    type="button"
+                  <a
+                    href={pathForRoute(crumb.route) ?? undefined}
                     className={styles.crumbLink}
-                    onClick={() => navigate(crumb.route!)}
+                    onClick={(e) => onLinkClick(e, () => navigate(crumb.route!))}
                   >
                     {i === 0 && <Icon name="back" size={14} />}
                     {crumb.label}
-                  </button>
+                  </a>
                 ) : (
                   <span className={styles.current} aria-current={last ? 'page' : undefined}>
                     {crumb.label}

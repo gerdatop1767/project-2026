@@ -26,7 +26,7 @@ const cardTitles = () =>
     .getAllByRole('listitem')
     // Cards only — not the learning-centre breadcrumb steps.
     .filter((li) => !li.closest('nav[aria-label="Навигация по учебному центру"]'))
-    .map((li) => li.querySelector('button')?.textContent ?? '')
+    .map((li) => li.querySelector('a')?.textContent ?? '')
     .filter(Boolean);
 
 describe('Библиотека: полезные материалы и стратегии', () => {
@@ -57,22 +57,22 @@ describe('Библиотека: полезные материалы и стра�
     const user = userEvent.setup();
     renderAt('/materials');
     await user.click(screen.getByText('Таблица производных и правила дифференцирования'));
-    expect(window.location.search).toBe('?id=math-derivatives');
+    expect(window.location.pathname).toBe('/materials/math-derivatives');
     expect(
       screen.getByRole('heading', {
         name: 'Таблица производных и правила дифференцирования',
-        level: 2,
+        level: 1,
       }),
     ).toBeInTheDocument();
     expect(await screen.findByText('Правила дифференцирования')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '№12' }));
+    await user.click(screen.getByRole('link', { name: 'Теория к заданию №12' }));
     expect(screen.getByText('theory 12')).toBeInTheDocument();
   });
 
   it('a reused FIPI list opens from its library card', async () => {
     renderAt('/materials?id=ru-stress-list');
     expect(
-      screen.getByRole('heading', { name: 'Орфоэпический список ФИПИ', level: 2 }),
+      screen.getByRole('heading', { name: 'Орфоэпический список ФИПИ', level: 1 }),
     ).toBeInTheDocument();
     expect(await screen.findByText(/аэропОрты|Имена существительные/)).toBeInTheDocument();
   });

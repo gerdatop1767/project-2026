@@ -14,6 +14,8 @@ import {
 } from '../../data/theory/mathTheory.js';
 import { useNavigation, type TheorySection } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
+import { onLinkClick } from '../../lib/linkClick.js';
+import { pathForRoute } from '../../lib/routes.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { LEARNING_CENTER_CRUMB, LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
@@ -177,7 +179,14 @@ export function MathTheoryCatalog({
       />
       <header className={styles.head}>
         <div>
-          <h1 className="text-h1">Теория</h1>
+          {selected || selectedExtra ? (
+            <p className="text-h1">Теория</p>
+          ) : (
+            <h1 className="text-h1">
+              Теория{' '}
+              <span className="visually-hidden">к заданиям ЕГЭ по профильной математике</span>
+            </h1>
+          )}
           <p className="text-body-sm text-secondary">
             Профильная математика · теория по номерам заданий. Одна тема — один текст для всех
             редакций экзамена.
@@ -236,16 +245,24 @@ export function MathTheoryCatalog({
                   const isNew = spec.topics.some((b) => b.relation === 'new');
                   return (
                     <li key={spec.number}>
-                      <button
-                        type="button"
+                      <a
+                        href={
+                          pathForRoute({
+                            screen: 'theory',
+                            section,
+                            subject: 'math',
+                            edition,
+                            taskNumber: spec.number,
+                          }) ?? undefined
+                        }
                         className={clsx(
                           styles.item,
                           spec.number === taskNumber && styles.itemActive,
                           !ready && styles.itemEmpty,
                         )}
-                        aria-current={spec.number === taskNumber ? 'true' : undefined}
+                        aria-current={spec.number === taskNumber ? 'page' : undefined}
                         aria-label={`№${spec.number}. ${spec.title} — ${ready ? 'теория готова' : 'теория готовится'}`}
-                        onClick={() => open(spec)}
+                        onClick={(e) => onLinkClick(e, () => open(spec))}
                       >
                         <span className={styles.number}>{spec.number}</span>
                         <span className={styles.itemText}>
@@ -258,7 +275,7 @@ export function MathTheoryCatalog({
                           </span>
                         </span>
                         <Icon name="chevronRight" size={16} className={styles.chevron} />
-                      </button>
+                      </a>
                     </li>
                   );
                 })}
@@ -301,10 +318,10 @@ export function MathTheoryCatalog({
               <button type="button" className={styles.backToList} onClick={backToList}>
                 <Icon name="back" size={18} /> Все задания
               </button>
-              <p className={styles.kicker}>{editionInfo.shortTitle} · по кодификатору</p>
-              <h2 id="theory-task-title" className="text-h2">
+              <h1 id="theory-task-title" className={clsx('text-h2', styles.title)}>
+                <span className={styles.kicker}>{editionInfo.shortTitle} · по кодификатору</span>{' '}
                 {topicTitle(selectedExtra.topicKey)}
-              </h2>
+              </h1>
               <MathTopicTheory
                 topicKey={selectedExtra.topicKey}
                 note={selectedExtra.note}
@@ -317,12 +334,13 @@ export function MathTheoryCatalog({
               <button type="button" className={styles.backToList} onClick={backToList}>
                 <Icon name="back" size={18} /> Все задания
               </button>
-              <p className={styles.kicker}>
-                {editionInfo.shortTitle} · задание №{selected.number}
-              </p>
-              <h2 id="theory-task-title" className="text-h2">
+              <h1 id="theory-task-title" className={clsx('text-h2', styles.title)}>
+                <span className={styles.kicker}>
+                  {editionInfo.shortTitle} · задание №{selected.number}{' '}
+                  <span className="visually-hidden">по профильной математике:</span>
+                </span>{' '}
                 {selected.title}
-              </h2>
+              </h1>
               {selected.topics.map((binding) => (
                 <MathTopicTheory
                   key={binding.topicKey}

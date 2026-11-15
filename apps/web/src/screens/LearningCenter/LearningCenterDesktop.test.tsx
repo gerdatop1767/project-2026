@@ -48,7 +48,7 @@ describe('LearningCenterDesktop', () => {
       const iconEl = document.querySelector(`[data-icon="${icon}"]`);
       expect(iconEl).toBeInTheDocument();
       expect(iconEl).toHaveAttribute('aria-hidden', 'true');
-      expect(screen.getByRole('button', { name: title })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: title })).toBeInTheDocument();
     }
   });
 
@@ -78,7 +78,7 @@ describe('LearningCenterDesktop', () => {
   it('the section cards lead to the theory and to the library', async () => {
     const user = userEvent.setup();
     renderLearningCenter();
-    await user.click(screen.getByRole('button', { name: 'Стратегии' }));
+    await user.click(screen.getByRole('link', { name: 'Стратегии' }));
     expect(screen.getByTestId('overlay')).toHaveTextContent('library');
     expect(window.location.pathname).toBe('/strategies');
   });

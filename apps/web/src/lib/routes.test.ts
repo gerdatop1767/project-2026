@@ -153,7 +153,45 @@ describe('По номерам — a mode of the subject page', () => {
 });
 
 describe('theory routes — subject, edition, topic', () => {
-  it('math theory keeps subject, edition and number in the URL; Russian URLs are unchanged', () => {
+  it('theory pages have readable addresses; another edition or a topic keeps its query', () => {
+    expect(pathForRoute({ screen: 'theory', section: 'rules', taskNumber: 9 })).toBe(
+      '/theory/russian/9',
+    );
+    expect(routeFromPath('/theory/russian/9')).toEqual({
+      screen: 'theory',
+      section: 'rules',
+      taskNumber: 9,
+    });
+    expect(pathForRoute({ screen: 'theory', section: 'rules', subject: 'math' })).toBe(
+      '/theory/math',
+    );
+    expect(
+      pathForRoute({
+        screen: 'theory',
+        section: 'rules',
+        subject: 'math',
+        edition: 'ege-2027',
+        taskNumber: 13,
+      }),
+    ).toBe('/theory/math/13');
+    expect(routeFromPath('/theory/math/13')).toEqual({
+      screen: 'theory',
+      section: 'rules',
+      subject: 'math',
+      taskNumber: 13,
+    });
+    // Numbers that do not exist are not pages.
+    expect(routeFromPath('/theory/russian/28').screen).not.toBe('theory');
+    expect(routeFromPath('/theory/math/20').screen).not.toBe('theory');
+    // Old query links still open the same page, and the address bar is rewritten.
+    expect(routeFromPath('/theory?n=9')).toEqual(routeFromPath('/theory/russian/9'));
+    expect(isLegacyPath('/theory?n=9')).toBe(true);
+    expect(isLegacyPath('/theory?s=math&n=13')).toBe(true);
+    // A strategy asked for under «materials» is not a material: the list opens.
+    expect(pathForRoute(routeFromPath('/materials?id=strategy-essay'))).toBe('/materials');
+    expect(isLegacyPath('/strategies?id=strategy-essay')).toBe(true);
+    expect(isLegacyPath('/theory?s=math&ed=ege-2027-project&n=13')).toBe(false);
+
     expect(
       pathForRoute({
         screen: 'theory',
@@ -163,7 +201,6 @@ describe('theory routes — subject, edition, topic', () => {
         taskNumber: 13,
       }),
     ).toBe('/theory?s=math&ed=ege-2027-project&n=13');
-    expect(pathForRoute({ screen: 'theory', section: 'rules', taskNumber: 9 })).toBe('/theory?n=9');
     expect(routeFromPath('/theory?s=math&ed=ege-2026&n=16')).toEqual({
       screen: 'theory',
       section: 'rules',

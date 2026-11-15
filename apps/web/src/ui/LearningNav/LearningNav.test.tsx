@@ -79,7 +79,7 @@ describe('learning-centre navigation', () => {
     const steps = [...nav.querySelectorAll('li')].map((li) => li.textContent);
     expect(steps).toHaveLength(3);
     expect(steps.slice(0, 2)).toEqual(['Учебный центр', 'Полезные материалы']);
-    expect(screen.getByRole('heading', { level: 2, name: steps[2]! })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: steps[2]! })).toBeInTheDocument();
   });
 
   it('the centre itself offers «Назад», which leaves the centre (not a sign-out)', async () => {

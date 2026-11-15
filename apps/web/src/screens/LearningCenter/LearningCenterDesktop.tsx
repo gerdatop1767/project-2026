@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigation, type Route } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
+import { onLinkClick } from '../../lib/linkClick.js';
+import { pathForRoute } from '../../lib/routes.js';
 import { subjects } from '../../data/subjects.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -106,11 +108,11 @@ export function LearningCenterDesktop() {
               </p>
               <p className="text-body-sm text-secondary">{section.description}</p>
             </div>
-            <button
-              type="button"
+            <a
+              href={pathForRoute(section.route) ?? undefined}
               className={styles.sectionArrow}
               aria-label={section.title}
-              onClick={() => navigate(section.route)}
+              onClick={(e) => onLinkClick(e, () => navigate(section.route))}
             >
               {/* Two copies: on hover/press the arrow flies out to the right
                   while its twin slides in from the left. */}
@@ -118,7 +120,7 @@ export function LearningCenterDesktop() {
                 <Icon name="arrowRight" size={18} className={styles.arrowIcon} />
                 <Icon name="arrowRight" size={18} className={styles.arrowIcon} />
               </span>
-            </button>
+            </a>
           </Card>
         ))}
       </div>

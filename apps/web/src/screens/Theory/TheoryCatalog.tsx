@@ -12,6 +12,8 @@ import { MathTheoryCatalog } from './MathTheoryCatalog.js';
 import { TheorySubjectTabs } from './TheorySubjectTabs.js';
 import { RelatedLibrary } from './RelatedLibrary.js';
 import { clsx } from '../../lib/clsx.js';
+import { onLinkClick } from '../../lib/linkClick.js';
+import { pathForRoute } from '../../lib/routes.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { LEARNING_CENTER_CRUMB, LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import { TheoryTaskView } from '../../ui/Theory/TheoryTaskView.js';
@@ -165,7 +167,13 @@ function RussianTheoryCatalog({
       />
       <header className={styles.head}>
         <div>
-          <h1 className="text-h1">Теория</h1>
+          {selected ? (
+            <p className="text-h1">Теория</p>
+          ) : (
+            <h1 className="text-h1">
+              Теория <span className="visually-hidden">к заданиям ЕГЭ по русскому языку</span>
+            </h1>
+          )}
           <p className="text-body-sm text-secondary">
             Русский язык · конспекты, справочные списки и практика с ответами по номерам заданий
             ЕГЭ.
@@ -209,16 +217,22 @@ function RussianTheoryCatalog({
                   const n = count(task);
                   return (
                     <li key={task.taskNumber}>
-                      <button
-                        type="button"
+                      <a
+                        href={
+                          pathForRoute({
+                            screen: 'theory',
+                            section,
+                            taskNumber: task.taskNumber,
+                          }) ?? undefined
+                        }
                         className={clsx(
                           styles.item,
                           task.taskNumber === taskNumber && styles.itemActive,
                           n === 0 && styles.itemEmpty,
                         )}
-                        aria-current={task.taskNumber === taskNumber ? 'true' : undefined}
+                        aria-current={task.taskNumber === taskNumber ? 'page' : undefined}
                         aria-label={`№${task.taskNumber}. ${task.title} — ${materialsLabel(n)}`}
-                        onClick={() => open(task)}
+                        onClick={(e) => onLinkClick(e, () => open(task))}
                       >
                         <span className={styles.number}>{task.taskNumber}</span>
                         <span className={styles.itemText}>
@@ -228,7 +242,7 @@ function RussianTheoryCatalog({
                           </span>
                         </span>
                         <Icon name="chevronRight" size={16} className={styles.chevron} />
-                      </button>
+                      </a>
                     </li>
                   );
                 })}
@@ -243,10 +257,13 @@ function RussianTheoryCatalog({
               <button type="button" className={styles.backToList} onClick={backToList}>
                 <Icon name="back" size={18} /> Все задания
               </button>
-              <p className={styles.kicker}>Задание №{selected.taskNumber}</p>
-              <h2 id="theory-task-title" className="text-h2">
+              <h1 id="theory-task-title" className={clsx('text-h2', styles.title)}>
+                <span className={styles.kicker}>
+                  Задание №{selected.taskNumber}{' '}
+                  <span className="visually-hidden">ЕГЭ по русскому языку:</span>
+                </span>{' '}
                 {selected.title}
-              </h2>
+              </h1>
               <TheoryTaskView
                 key={`${section}-${selected.taskNumber}`}
                 task={selected}

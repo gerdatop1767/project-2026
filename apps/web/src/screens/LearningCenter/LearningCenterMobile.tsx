@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
 import { FeatureIcon } from '../../ui/FeatureIcon/FeatureIcon.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { onLinkClick } from '../../lib/linkClick.js';
+import { pathForRoute } from '../../lib/routes.js';
 import { LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import {
   LearningSearchBox,
@@ -36,7 +38,11 @@ export function LearningCenterMobile() {
         <ul className={styles.sections}>
           {learningSections.map((section) => (
             <li key={section.title}>
-              <button type="button" className={styles.row} onClick={() => navigate(section.route)}>
+              <a
+                href={pathForRoute(section.route) ?? undefined}
+                className={styles.row}
+                onClick={(e) => onLinkClick(e, () => navigate(section.route))}
+              >
                 <span className={styles.icon}>
                   <FeatureIcon name={section.icon} />
                 </span>
@@ -45,7 +51,7 @@ export function LearningCenterMobile() {
                   <span className={styles.description}>{section.description}</span>
                 </span>
                 <Icon name="chevronRight" size={18} className={styles.chevron} />
-              </button>
+              </a>
             </li>
           ))}
         </ul>
