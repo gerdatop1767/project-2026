@@ -33,14 +33,22 @@ COPY packages/db/package.json packages/db/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN pnpm install --frozen-lockfile
 
-# --- build: apps/web's own source, plus @zybrilka/shared's — vite.config.ts
-# resolves it via the @zybrilka/source condition straight to its .ts
-# source (same as every dev tool in this repo), so the compiled dist/
-# alone is not enough; the actual source has to be in the build context. ---
+# --- build: @zybrilka/shared first, then apps/web (`web...` = web and the
+# workspace packages it depends on, in dependency order — same as the api
+# and worker images).
+#
+# Both forms of shared are needed:
+# - the app bundle imports it through the @zybrilka/source condition
+#   (vite.config.ts → resolve.conditions), i.e. straight from its .ts source;
+# - vite.config.ts itself is loaded by Node before that setting applies, and
+#   it imports @zybrilka/shared too (seo/prerender.ts → src/lib/seo.ts →
+#   seoPages.ts → EXAM_TASK_SPECS). Node resolves the package's "default"
+#   export, dist/index.js, which only exists after shared is built.
+#   dist/ is never copied in (.dockerignore): it is built here, from source. ---
 FROM deps AS build
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-RUN pnpm --filter @zybrilka/web build
+RUN pnpm --filter "@zybrilka/web..." build
 
 # --- runtime: static files behind nginx, nothing else ---
 FROM --platform=linux/amd64 nginx:1.27-alpine AS runtime

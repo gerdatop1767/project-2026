@@ -54,3 +54,19 @@ jobs:
         run: |
           pnpm --filter @zybrilka/db db:migrate:prod
           pnpm --filter @zybrilka/db db:migrate:prod
+
+  # The production images, built the way the server builds them: from a clean
+  # checkout with only what each Dockerfile copies in (no dist/, no cache).
+  # `pnpm build` above builds every package first, so it cannot catch an image
+  # that forgets to build a workspace dependency.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, api, worker]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build apps/${{ matrix.app }}/Dockerfile
+        run: docker build --no-cache -f apps/${{ matrix.app }}/Dockerfile -t zybrilka-${{ matrix.app }}:ci .
