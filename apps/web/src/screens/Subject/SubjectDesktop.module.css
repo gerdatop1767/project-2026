@@ -362,7 +362,7 @@
 .numberChipActive {
   border-color: var(--color-accent-primary);
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .builderSummary {

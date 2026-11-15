@@ -210,7 +210,7 @@
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  box-shadow: 0 0 28px color-mix(in srgb, #a855f7 60%, transparent);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--color-accent-primary-end) 60%, transparent);
   animation: badgePop 520ms var(--easing-out) 300ms backwards;
 }
 

@@ -18,6 +18,7 @@ import { CanvasWorkspaceMobile } from '../../ui/CanvasWorkspace/CanvasWorkspaceM
 import { clearCanvasState } from '../../lib/canvasSessionStore.js';
 import { useAnswerDraft } from '../../lib/useAnswerDraft.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { RevealAnswer } from '../../ui/Training/RevealAnswer.js';
 import { BottomSheet } from '../../ui/BottomSheet/BottomSheet.js';
 import { RuleButton } from '../../ui/Theory/RuleButton.js';
 import { DifficultyTag } from '../../ui/Training/DifficultyTag.js';
@@ -324,6 +325,12 @@ export function TaskMobile({
                 </div>
               </Collapse>
             </div>
+          )}
+
+          {/* «Показать ответ»: only while the answer is still hidden, never in
+              an exam variant; the server halves this task's XP (docs/XP.md). */}
+          {!isEssay && !learningSession?.variant && task.correctAnswer === '' && (
+            <RevealAnswer taskId={task.id} />
           )}
 
           {isEssay ? (

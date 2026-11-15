@@ -2,6 +2,7 @@ import { schema } from '@zybrilka/db';
 import { createTestDb } from '@zybrilka/db/testing';
 import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { AVATAR_MAX_BYTES } from '@zybrilka/shared';
 import { fakePng } from '../../testSupport.js';
 import { cacheProviderAvatar, isAllowedProviderAvatarUrl } from './providerAvatar.js';
 import { resolveProfile } from './service.js';
@@ -101,5 +102,53 @@ describe('provider avatar copy', () => {
       .from(schema.userAvatars)
       .where(eq(schema.userAvatars.userId, userId));
     expect(rows.map((r) => r.source)).toEqual(['telegram']);
+  });
+
+  it('never follows a redirect to a host off the allow-list (no internal requests)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, { status: 302, headers: { location: 'http://postgres:5432/' } }),
+    );
+    expect(
+      await cacheProviderAvatar(testDb.db, userId, 'telegram', 'https://t.me/i/userpic/320/x.jpg'),
+    ).toBe('failed');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![1]).toMatchObject({ redirect: 'manual' });
+  });
+
+  it('follows a redirect between allowed hosts', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: 'https://cdn4.telesco.pe/file/abc.png' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(fakePng(64, 64), { status: 200, headers: { 'content-type': 'image/png' } }),
+      );
+    expect(
+      await cacheProviderAvatar(testDb.db, userId, 'telegram', 'https://t.me/i/userpic/320/y.jpg'),
+    ).toBe('stored');
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://cdn4.telesco.pe/file/abc.png');
+  });
+
+  it('refuses a body over the size limit even without content-length', async () => {
+    const big = new Uint8Array(AVATAR_MAX_BYTES + 10);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        new ReadableStream({
+          start(c) {
+            c.enqueue(big);
+            c.close();
+          },
+        }),
+        {
+          status: 200,
+        },
+      ),
+    );
+    expect(
+      await cacheProviderAvatar(testDb.db, userId, 'telegram', 'https://t.me/i/userpic/320/z.jpg'),
+    ).toBe('failed');
   });
 });

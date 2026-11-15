@@ -8,7 +8,7 @@ import {
   type LevelProgress,
   type XpHistoryResponse,
 } from '@zybrilka/shared';
-import { and, desc, eq, lt, max, or, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, lte, max, ne, or, sql } from 'drizzle-orm';
 import { XP_RULES_VERSION, decideTaskXp, taskXpValue, type TaskForXp } from './rules.js';
 
 /**
@@ -130,6 +130,47 @@ export async function prepareForAward(tx: Database, userId: string): Promise<num
 }
 
 /**
+ * Did the server already hand this account the task's answer before the
+ * attempt `attemptId`? Yes after «Показать ответ» (`task_answer_reveals`)
+ * and after any earlier attempt on the task — every graded attempt returns
+ * the correct answer. Decided from the database only: nothing the client
+ * sends can make it «no».
+ */
+export async function wasAnswerShown(
+  tx: Database,
+  userId: string,
+  taskId: string,
+  attemptId: string,
+  at: Date,
+): Promise<boolean> {
+  const [reveal] = await tx
+    .select({ at: schema.taskAnswerReveals.revealedAt })
+    .from(schema.taskAnswerReveals)
+    .where(
+      and(
+        eq(schema.taskAnswerReveals.userId, userId),
+        eq(schema.taskAnswerReveals.taskId, taskId),
+        lte(schema.taskAnswerReveals.revealedAt, at),
+      ),
+    )
+    .limit(1);
+  if (reveal) return true;
+  const [earlier] = await tx
+    .select({ id: schema.attempts.id })
+    .from(schema.attempts)
+    .where(
+      and(
+        eq(schema.attempts.userId, userId),
+        eq(schema.attempts.taskId, taskId),
+        ne(schema.attempts.id, attemptId),
+        lte(schema.attempts.createdAt, at),
+      ),
+    )
+    .limit(1);
+  return Boolean(earlier);
+}
+
+/**
  * Applies the XP rules to one graded attempt. Call after `prepareForAward`
  * in the same transaction. Returns what the client is told about it.
  */
@@ -160,12 +201,18 @@ export async function awardForAttempt(
     .where(
       and(eq(schema.xpEvents.userId, input.userId), eq(schema.xpEvents.sourceId, input.task.id)),
     );
+  const lastAwardAt = last?.at ?? null;
   const decision = decideTaskXp({
     task: input.task,
     correct: true,
-    lastAwardAt: last?.at ?? null,
+    lastAwardAt,
     now: input.at,
     moscowDate: toMoscowDateString(input.at),
+    // Only a first solve cares; reviews come after the answer was seen anyway.
+    answerShown:
+      lastAwardAt === null
+        ? await wasAnswerShown(tx, input.userId, input.task.id, input.attemptId, input.at)
+        : false,
   });
   if (!decision) return unchanged;
 

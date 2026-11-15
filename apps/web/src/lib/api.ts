@@ -348,6 +348,15 @@ export function getLeaderboard(params: {
   return cachedApiFetch(`/leaderboard?${qs.toString()}`);
 }
 
+/**
+ * «Показать ответ»: the answer and explanation before answering. The server
+ * records it for an account, and a first correct solve afterwards earns
+ * half XP (decided by the server, docs/XP.md).
+ */
+export function revealAnswer(taskId: string): Promise<TaskWithSolution> {
+  return apiFetch<TaskWithSolution>(`/tasks/${taskId}/reveal`, { method: 'POST' });
+}
+
 export function submitAttempt(taskId: string, request: AttemptRequest): Promise<AttemptResult> {
   return apiFetch<AttemptResult>(`/tasks/${taskId}/attempt`, {
     method: 'POST',

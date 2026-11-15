@@ -362,8 +362,8 @@ function MascotArt({
             <circle cx="24" cy="24" r="21" fill="url(#onbDone)" />
             <defs>
               <linearGradient id="onbDone" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor="#a855f7" />
-                <stop offset="1" stopColor="#ec4899" />
+                <stop offset="0" stopColor="#2b8ff0" />
+                <stop offset="1" stopColor="#5ab8fd" />
               </linearGradient>
             </defs>
             <path

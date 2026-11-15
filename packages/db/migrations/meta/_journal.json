@@ -274,6 +274,13 @@
       "when": 1793999924977,
       "tag": "0038_task_accepted_answers",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794694288162,
+      "tag": "0039_task_answer_reveals",
+      "breakpoints": true
     }
   ]
 }

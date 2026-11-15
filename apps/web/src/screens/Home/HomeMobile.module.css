@@ -386,7 +386,7 @@
   height: 2.5rem;
   border-radius: 50%;
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 /* Guest mode: a quiet one-line way into an account, never a nag. */
@@ -426,4 +426,149 @@
 .guestHint:focus-visible {
   outline: 2px solid var(--color-accent-primary-end);
   outline-offset: 2px;
+}
+
+/* ---- «Учебный центр» card (mobile home) ----
+   A glassy navy card lit from the right in the accent blue: icon tile,
+   title and an arrow. On press the card sinks a little and the arrow
+   nudges right; a light sweep crosses the card once when it appears. All motion is off for
+   prefers-reduced-motion. */
+.learningCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 4rem;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  isolation: isolate;
+  text-align: left;
+  font: inherit;
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(
+      120% 140% at 100% 50%,
+      color-mix(in srgb, var(--color-accent-primary) 38%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(
+      100deg,
+      var(--color-bg-surface) 0%,
+      color-mix(in srgb, var(--color-accent-primary) 16%, var(--color-bg-surface)) 100%
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 45%, transparent),
+    0 10px 28px -14px color-mix(in srgb, var(--color-accent-primary) 70%, transparent);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast, 160ms) var(--easing-out, ease-out),
+    box-shadow var(--duration-fast, 160ms) var(--easing-out, ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The one-time light sweep. */
+.learningCard::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in srgb, var(--color-tint) 10%, transparent) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  animation: learningSweep 1.4s var(--easing-out, ease-out) 0.5s 1 both;
+  pointer-events: none;
+}
+
+.learningCard:active {
+  transform: scale(0.985);
+}
+
+.learningCard:focus-visible {
+  outline: 2px solid var(--color-accent-secondary);
+  outline-offset: 2px;
+}
+
+.learningIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  color: var(--color-accent-primary-end);
+  background: color-mix(in srgb, var(--color-accent-primary) 18%, var(--color-bg-elevated));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary-end) 40%, transparent),
+    0 0 18px -4px color-mix(in srgb, var(--color-accent-primary) 60%, transparent);
+}
+
+.learningText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  padding-left: var(--space-2);
+  margin-left: var(--space-1);
+  border-left: 1px solid color-mix(in srgb, var(--color-accent-primary-end) 30%, transparent);
+}
+
+.learningTitle {
+  font-family: var(--font-family-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.learningSubtitle {
+  font-size: var(--font-size-label);
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.learningArrow {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-tint) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-tint) 16%, transparent);
+  transition: transform var(--duration-fast, 160ms) var(--easing-out, ease-out);
+}
+
+.learningCard:active .learningArrow {
+  transform: translateX(3px);
+}
+
+@media (hover: hover) {
+  .learningCard:hover .learningArrow {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes learningSweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learningCard,
+  .learningArrow {
+    transition: none;
+  }
+  .learningCard::after {
+    animation: none;
+  }
 }

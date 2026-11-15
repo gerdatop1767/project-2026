@@ -51,7 +51,7 @@
   font-family: var(--font-family-base);
   font-size: 1.0625rem;
   font-weight: var(--font-weight-semibold);
-  color: #fff;
+  color: var(--color-on-accent);
   background: var(--color-accent-primary);
   box-shadow: 0 12px 32px -14px color-mix(in srgb, var(--color-accent-primary) 90%, transparent);
   cursor: pointer;

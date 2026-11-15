@@ -19,6 +19,8 @@ describe('ЕГЭ 2027 Ященко: needs_review tasks are excluded from every s
   let hidden: { id: string; variant: number; position: number }[];
   let hiddenIds: Set<string>;
   let variantIds: string[];
+  /** Published (servable) tasks per variant id. */
+  let publishedPerVariant: Map<string, number>;
   let user: { id: string; cookie: string };
 
   const COLLECTION = 'ege-2027-yashchenko';
@@ -68,6 +70,11 @@ describe('ЕГЭ 2027 Ященко: needs_review tasks are excluded from every s
     hidden = rows.filter((r) => r.status === 'needs_review');
     hiddenIds = new Set(hidden.map((r) => r.id));
     variantIds = [...new Set(rows.map((r) => r.variantId))];
+    publishedPerVariant = new Map(variantIds.map((v) => [v, 0]));
+    for (const r of rows) {
+      if (r.status === 'published')
+        publishedPerVariant.set(r.variantId, publishedPerVariant.get(r.variantId)! + 1);
+    }
 
     const [u] = await testDb.db.insert(schema.users).values({}).returning();
     user = { id: u!.id, cookie: await sessionFor(u!.id) };
@@ -151,39 +158,94 @@ describe('ЕГЭ 2027 Ященко: needs_review tasks are excluded from every s
     }
   });
 
-  it('smart training, variant sessions, recommendations and the path skip them', async () => {
+  // Smart training, variant sessions, recommendations and the path — split
+  // into independent tests (each with its own fresh account) so no single
+  // one walks all ~600 session steps: together they cover exactly what the
+  // one big test did, each within the default per-test time limit.
+
+  /** A fresh student, so a test never depends on another test's sessions. */
+  async function freshStudent() {
+    const [u] = await testDb.db.insert(schema.users).values({}).returning();
+    return sessionFor(u!.id);
+  }
+
+  /** Walks a session step by step until it is completed (or stops serving). */
+  /** Walks a session step by step until it is completed (or stops serving);
+   * returns the ids of the tasks it served. */
+  async function walkSession(
+    start: { statusCode: number; json(): unknown },
+    steps: number,
+    cookie: string,
+    where: string,
+  ): Promise<string[]> {
+    expect(start.statusCode).toBe(200);
+    const first = start.json() as {
+      id?: string;
+      sessionId?: string;
+      status?: string;
+      task?: { id: string };
+    };
+    expectNoHidden(first, `${where} start`);
+    const served = first.task ? [first.task.id] : [];
+    const sessionId = first.id ?? first.sessionId;
+    if (first.status === 'completed') return served;
+    for (let i = 0; i < steps; i++) {
+      const next = await get(`/api/v1/me/learning/sessions/${sessionId}/next`, cookie);
+      const body = next.json() as { status?: string; task?: { id: string } };
+      expectNoHidden(body, `${where} next`);
+      // A completed session has nothing more to serve: further calls would
+      // only repeat the same completed response.
+      if (next.statusCode !== 200 || body.status === 'completed') break;
+      if (body.task) served.push(body.task.id);
+    }
+    return served;
+  }
+
+  it('smart training never serves them', async () => {
+    const cookie = await freshStudent();
     for (let round = 0; round < 6; round++) {
       const start = await app.inject({
         method: 'POST',
         url: '/api/v1/me/learning/sessions',
-        headers: { cookie: user.cookie },
+        headers: { cookie },
         payload: { subjectId: 'math', limit: 10, randomizeTopTier: true },
       });
-      expect(start.statusCode).toBe(200);
-      expectNoHidden(start.json(), 'smart session start');
-      const sessionId = start.json().id ?? start.json().sessionId;
-      for (let i = 0; i < 12; i++) {
-        const next = await get(`/api/v1/me/learning/sessions/${sessionId}/next`, user.cookie);
-        expectNoHidden(next.json(), 'smart session next');
-        if (next.statusCode !== 200) break;
-      }
+      await walkSession(start, 12, cookie, `smart session ${round}`);
     }
-    for (const v of variantIds) {
-      const start = await app.inject({
-        method: 'POST',
-        url: '/api/v1/me/learning/sessions/variant',
-        headers: { cookie: user.cookie },
-        payload: { variantId: v },
-      });
-      expect(start.statusCode).toBe(200);
-      expectNoHidden(start.json(), 'variant session start');
-      const sessionId = start.json().id ?? start.json().sessionId;
-      for (let i = 0; i < 21; i++) {
-        const next = await get(`/api/v1/me/learning/sessions/${sessionId}/next`, user.cookie);
-        expectNoHidden(next.json(), 'variant session next');
-        if (next.statusCode !== 200) break;
+  });
+
+  /** Variants split into three groups; together they are all 25. */
+  const VARIANT_GROUPS = [
+    [0, 9],
+    [9, 17],
+    [17, 25],
+  ] as const;
+
+  it('the variant-session groups below cover every variant exactly once', () => {
+    const covered = VARIANT_GROUPS.flatMap(([from, to]) => variantIds.slice(from, to));
+    expect(covered).toEqual(variantIds);
+  });
+
+  for (const [from, to] of VARIANT_GROUPS) {
+    it(`variant sessions of Варианты ${from + 1}–${to} never serve them`, async () => {
+      const group = variantIds.slice(from, to);
+      expect(group.length).toBe(to - from);
+      const cookie = await freshStudent();
+      for (const v of group) {
+        const start = await app.inject({
+          method: 'POST',
+          url: '/api/v1/me/learning/sessions/variant',
+          headers: { cookie },
+          payload: { variantId: v },
+        });
+        const served = await walkSession(start, 21, cookie, `variant session ${v}`);
+        // The whole variant was walked: every published task, each once.
+        expect(new Set(served).size, `variant ${v}`).toBe(publishedPerVariant.get(v));
       }
-    }
+    });
+  }
+
+  it('recommendations and the learning path never point at them', async () => {
     expectNoHidden((await get('/api/v1/me/learning/next-task', user.cookie)).json(), 'next-task');
     expectNoHidden((await get('/api/v1/me/learning/path', user.cookie)).json(), 'path');
   });

@@ -1486,6 +1486,27 @@ export const userXp = pgTable(
 );
 
 /**
+ * «Показать ответ» (docs/XP.md): the account asked to see a task's answer
+ * before solving it. Written by the server when it hands the answer out,
+ * never from a client flag, once per (user, task) — the first time counts.
+ * A first correct solve after this earns half XP. Not an attempt: it
+ * leaves attempts, mistakes and statistics alone.
+ */
+export const taskAnswerReveals = pgTable(
+  'task_answer_reveals',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    revealedAt: timestamp('revealed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.taskId] })],
+);
+
+/**
  * Daily Telegram reminders (docs/REMINDERS.md). One row per account that
  * ever opened the settings; `enabled` is the switch. The time is local to
  * `timezone` (IANA), stored as minutes after midnight.
