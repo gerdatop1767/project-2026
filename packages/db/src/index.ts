@@ -42,3 +42,9 @@ export {
   type SyncTaskSkillsResult,
   type UnmappedTask,
 } from './learningSkills.js';
+export { coverageMarkdown, learningCoverage, type CoverageRow } from './learningCoverage.js';
+export {
+  importRussianDoshchinsky2026Book36,
+  R26_SOURCE,
+} from './importRussianDoshchinsky2026Book36.js';
+export { r26Variants } from './russianDoshchinsky2026/index.js';

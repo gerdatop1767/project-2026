@@ -1,0 +1,94 @@
+import {
+  importRussianDoshchinsky2026Book36,
+  learningCoverage,
+  r26Variants,
+  R26_SOURCE,
+  schema,
+  syncTaskSkills,
+} from '@zybrilka/db';
+import { createFullContentTestDb } from '@zybrilka/db/testing';
+import { eq, inArray } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { syncLearningOnStartup } from '../bootstrap.js';
+
+const silent = { info() {}, warn() {}, error() {} };
+
+/**
+ * A new variant reaches the Learning Engine with no code change
+ * (docs/learning/IMPORT-INTEGRATION.md): the real Russian ЕГЭ-2026 book
+ * importer — not part of the base test content — runs, then the API start
+ * step that every deploy runs after `sync-content`.
+ */
+describe('Learning Engine: automatic connection of new imports', () => {
+  let testDb: Awaited<ReturnType<typeof createFullContentTestDb>>;
+
+  beforeAll(async () => {
+    testDb = await createFullContentTestDb();
+    await syncLearningOnStartup(testDb.db, silent);
+  });
+  afterAll(async () => {
+    await testDb.close();
+  });
+
+  it('a newly imported variant is linked to the existing skills — no new or duplicate skills', async () => {
+    const skillsBefore = await testDb.db.select({ id: schema.skills.id }).from(schema.skills);
+    const variants = r26Variants.slice(0, 2);
+    await importRussianDoshchinsky2026Book36(testDb.db, variants);
+    const imported = await testDb.db
+      .select({ id: schema.tasks.id, n: schema.tasks.taskNumber })
+      .from(schema.tasks)
+      .where(inArray(schema.tasks.source, [R26_SOURCE]));
+    expect(imported.length).toBeGreaterThanOrEqual(27);
+
+    await syncLearningOnStartup(testDb.db, silent);
+
+    const links = await testDb.db
+      .select({ taskId: schema.taskSkills.taskId, slug: schema.skills.slug })
+      .from(schema.taskSkills)
+      .innerJoin(schema.skills, eq(schema.skills.id, schema.taskSkills.skillId))
+      .where(
+        inArray(
+          schema.taskSkills.taskId,
+          imported.map((t) => t.id),
+        ),
+      );
+    const slugByTask = new Map(links.map((l) => [l.taskId, l.slug]));
+    for (const t of imported) {
+      expect(slugByTask.get(t.id), `№${t.n}`).toMatch(
+        new RegExp(`^russian\\.${String(t.n).padStart(2, '0')}-`),
+      );
+    }
+    const skillsAfter = await testDb.db.select({ id: schema.skills.id }).from(schema.skills);
+    expect(skillsAfter).toHaveLength(skillsBefore.length);
+  });
+
+  it('coverage counts the new tasks automatically and stays complete', async () => {
+    const rows = await learningCoverage(testDb.db);
+    const russian = rows.filter((r) => r.subjectId === 'russian');
+    expect(russian.reduce((n, r) => n + r.unlinked, 0)).toBe(0);
+    expect(russian.find((r) => r.examNumber === 9)!.total).toBeGreaterThan(18);
+    expect(rows.every((r) => r.unlinked === 0)).toBe(true);
+  });
+
+  it('a task of an unknown type is reported for review, never given an invented skill, and does not stop the rest', async () => {
+    const [odd] = await testDb.db
+      .insert(schema.tasks)
+      .values({
+        subjectId: 'math',
+        taskNumber: 21,
+        difficulty: 2,
+        conditionMd: 'Задание нового формата (тест).',
+        correctAnswer: '1',
+        explanationMd: 'Объяснение.',
+        source: 'Новый формат 2028',
+        sourceYear: 2027,
+        status: 'needs_review',
+      })
+      .returning();
+    const result = await syncTaskSkills(testDb.db);
+    expect(result.unmapped.map((u) => u.taskId)).toEqual([odd!.id]);
+    expect(result.linksCreated).toBe(0);
+    const rows = await learningCoverage(testDb.db);
+    expect(rows.find((r) => r.skillKey === null)).toMatchObject({ total: 1, unlinked: 1 });
+  });
+});
