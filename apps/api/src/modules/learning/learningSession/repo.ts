@@ -1,6 +1,11 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
-import type { LearningSessionStatus, VariantScoringSnapshot } from '@zybrilka/shared';
+import {
+  isExamSkillSlug,
+  type LearningSessionStatus,
+  type TrainingPlan,
+  type VariantScoringSnapshot,
+} from '@zybrilka/shared';
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 
 export interface LearningSessionRow {
@@ -17,6 +22,8 @@ export interface LearningSessionRow {
   readonly plannedTaskIds: readonly string[] | null;
   /** A variant's scoring rules frozen at its start; null before 0035. */
   readonly scoring: VariantScoringSnapshot | null;
+  /** Learning Engine plan of a Smart Training; null for variants and old sessions. */
+  readonly trainingPlan: TrainingPlan | null;
   readonly status: LearningSessionStatus;
   readonly startedAt: Date;
   readonly completedAt: Date | null;
@@ -34,6 +41,7 @@ function toRow(row: typeof schema.learningSessions.$inferSelect): LearningSessio
     variantId: row.variantId,
     plannedTaskIds: row.plannedTaskIds ?? null,
     scoring: row.scoring ?? null,
+    trainingPlan: row.trainingPlan ?? null,
     status: row.status as LearningSessionStatus,
     startedAt: row.startedAt,
     completedAt: row.completedAt,
@@ -56,6 +64,7 @@ export async function createSession(
     plannedTaskIds?: readonly string[];
     /** A variant's scoring rules, frozen for this attempt. */
     scoring?: VariantScoringSnapshot | null;
+    trainingPlan?: TrainingPlan | null;
   },
 ): Promise<LearningSessionRow> {
   const [row] = await db
@@ -70,6 +79,7 @@ export async function createSession(
       variantId: input.variantId,
       plannedTaskIds: input.plannedTaskIds,
       scoring: input.scoring ?? null,
+      trainingPlan: input.trainingPlan ?? null,
     })
     .returning();
   return toRow(row!);
@@ -228,6 +238,25 @@ export async function getSkillIdsForTasks(
     .from(schema.taskSkills)
     .where(inArray(schema.taskSkills.taskId, taskIds as string[]));
   return rows.map((r) => r.skillId);
+}
+
+/** Exam-skill keys (Learning Engine) of each task. */
+export async function getExamSkillKeysForTasks(
+  db: Database,
+  taskIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (taskIds.length === 0) return out;
+  const rows = await db
+    .select({ taskId: schema.taskSkills.taskId, slug: schema.skills.slug })
+    .from(schema.taskSkills)
+    .innerJoin(schema.skills, eq(schema.skills.id, schema.taskSkills.skillId))
+    .where(inArray(schema.taskSkills.taskId, taskIds as string[]));
+  for (const r of rows) {
+    if (!isExamSkillSlug(r.slug)) continue;
+    out.set(r.taskId, [...(out.get(r.taskId) ?? []), r.slug]);
+  }
+  return out;
 }
 
 /** Real `mistakes` rows for this user on one of `taskIds` whose

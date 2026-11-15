@@ -1,5 +1,6 @@
 import type { VariantScore } from '../examScoring.js';
 import type { TaskPublic } from '../tasks.js';
+import type { SkillRecommendation, TrainingBucket } from './engine.js';
 import type { RecommendationBreakdown } from './recommendation.js';
 
 /**
@@ -50,6 +51,8 @@ export interface LearningSessionActiveResponse {
    * real exam's own, never scored) — never fabricating or re-deriving
    * a stale one. */
   readonly recommendation?: LearningSessionRecommendationInfo;
+  /** Learning Engine Smart Training: why this task (bucket, skill, reason). */
+  readonly pick?: TrainingPickInfo;
   readonly variant?: LearningSessionVariantInfo;
 }
 
@@ -72,6 +75,10 @@ export interface LearningSessionSummary {
   readonly skillsPracticed: number;
   /** Real `mistakes` rows whose `createdAt` falls within this session's window. */
   readonly mistakesCreated: number;
+  /** Smart Training (Learning Engine): mastery before → after per practiced skill. */
+  readonly skills?: readonly TrainingSkillProgress[];
+  /** Smart Training: what to train next, from the updated profile. */
+  readonly next?: readonly SkillRecommendation[];
 }
 
 /** Response once the session has reached its requested length or run
@@ -216,4 +223,24 @@ export interface VariantAttemptDetail {
   readonly toRepeat: readonly { taskId: string; taskNumber: number; topic: string | null }[];
   /** Null for a variant whose source has no exam scoring rules. */
   readonly scoring: VariantAttemptScoring | null;
+}
+
+/** Why the Learning Engine served this task in a Smart Training step. */
+export interface TrainingPickInfo {
+  readonly bucket: TrainingBucket;
+  readonly skillKey: string;
+  readonly examNumber: number | null;
+  readonly title: string;
+  readonly reason: string;
+}
+
+/** «Что улучшилось» after a Smart Training: one row per practiced skill. */
+export interface TrainingSkillProgress {
+  readonly skillKey: string;
+  readonly examNumber: number | null;
+  readonly title: string;
+  readonly before: number;
+  readonly after: number;
+  readonly attempts: number;
+  readonly correct: number;
 }

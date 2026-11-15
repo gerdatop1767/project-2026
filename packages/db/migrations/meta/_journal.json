@@ -288,6 +288,13 @@
       "when": 1794742851154,
       "tag": "0040_task_difficulty_ratings",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794743458826,
+      "tag": "0041_learning_session_training_plan",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { VariantScoringSnapshot } from '@zybrilka/shared';
+import type { TrainingPlan, VariantScoringSnapshot } from '@zybrilka/shared';
 import {
   type AnyPgColumn,
   bigint,
@@ -963,6 +963,15 @@ export const learningSessions = pgTable(
      * a Smart Training session, or a variant without scoring rules.
      */
     scoring: jsonb('scoring').$type<VariantScoringSnapshot>(),
+    /**
+     * Smart Training plan (Learning Engine, docs/learning/ALGORITHMS.md § 4):
+     * one slot per task — which bucket (weak / mistakes / stale / strong) and
+     * which EGE skill — plus every skill's mastery when the training started,
+     * for the «что улучшилось» summary. The task of a slot is picked when it
+     * is reached, from the student's state at that moment. Null for variant
+     * sessions and for smart sessions started before migration 0041.
+     */
+    trainingPlan: jsonb('training_plan').$type<TrainingPlan>(),
     status: text('status', { enum: learningSessionStatuses }).notNull().default('active'),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     /** Set once, the moment `status` flips to 'completed'. */

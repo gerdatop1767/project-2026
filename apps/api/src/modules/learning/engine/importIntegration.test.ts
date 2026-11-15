@@ -7,9 +7,11 @@ import {
   syncTaskSkills,
 } from '@zybrilka/db';
 import { createFullContentTestDb } from '@zybrilka/db/testing';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { syncLearningOnStartup } from '../bootstrap.js';
+import { availableTasksBySkill } from './model.js';
+import { pickTasksForSkill } from './picker.js';
 
 const silent = { info() {}, warn() {}, error() {} };
 
@@ -60,6 +62,36 @@ describe('Learning Engine: automatic connection of new imports', () => {
     }
     const skillsAfter = await testDb.db.select({ id: schema.skills.id }).from(schema.skills);
     expect(skillsAfter).toHaveLength(skillsBefore.length);
+  });
+
+  it('the new tasks are in the training/recommendation pool with no extra step', async () => {
+    const available = await availableTasksBySkill(testDb.db);
+    // 18 Russian ЕГЭ-2027 variants + the 2 new ЕГЭ-2026 ones, №9 each.
+    expect(available.get('russian.09-root-vowels')).toBeGreaterThanOrEqual(20);
+    const imported = await testDb.db
+      .select({ id: schema.tasks.id })
+      .from(schema.tasks)
+      .where(and(eq(schema.tasks.source, R26_SOURCE), eq(schema.tasks.taskNumber, 9)));
+    const old = await testDb.db
+      .select({ id: schema.tasks.id })
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.taskNumber, 9),
+          eq(schema.tasks.subjectId, 'russian'),
+          ne(schema.tasks.source, R26_SOURCE),
+        ),
+      );
+    const [user] = await testDb.db.insert(schema.users).values({}).returning();
+    const picked = await pickTasksForSkill(testDb.db, user!.id, {
+      skillKey: 'russian.09-root-vowels',
+      count: 5,
+      bucket: 'weak',
+      targetDifficulty: 2,
+      excludeTaskIds: old.map((t) => t.id),
+    });
+    expect(picked.length).toBeGreaterThan(0);
+    for (const p of picked) expect(imported.map((t) => t.id)).toContain(p.taskId);
   });
 
   it('coverage counts the new tasks automatically and stays complete', async () => {
