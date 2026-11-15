@@ -46,22 +46,23 @@ export function RecommendationsList({
   const { user } = useAuth();
   const { navigate } = useNavigation();
   const { setSession } = useLearningSessionContext();
-  const [state, setState] = useState<State>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const key = `${subjectId ?? 'all'}|${limit}|${attempt}`;
+  const [result, setResult] = useState<{ key: string; state: State } | null>(null);
+  const state: State = result && result.key === key ? result.state : { status: 'loading' };
   const [starting, setStarting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
     let live = true;
-    setState({ status: 'loading' });
     getLearningRecommendations({ subjectId, limit }).then(
-      (r) => live && setState({ status: 'ready', items: r.recommendations }),
-      () => live && setState({ status: 'error' }),
+      (r) => live && setResult({ key, state: { status: 'ready', items: r.recommendations } }),
+      () => live && setResult({ key, state: { status: 'error' } }),
     );
     return () => {
       live = false;
     };
-  }, [user, subjectId, limit, attempt]);
+  }, [user, key, subjectId, limit]);
 
   if (user === null) {
     return (
@@ -107,7 +108,7 @@ export function RecommendationsList({
       });
       applyLearningSessionResponse(response, setSession, navigate);
     } catch {
-      setState({ status: 'error' });
+      setResult({ key, state: { status: 'error' } });
     } finally {
       setStarting(null);
     }

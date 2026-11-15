@@ -35,21 +35,22 @@ type State =
  */
 export function SkillsPanel({ subjectId }: { subjectId: string }) {
   const { user } = useAuth();
-  const [state, setState] = useState<State>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const key = `${subjectId}|${attempt}`;
+  const [result, setResult] = useState<{ key: string; state: State } | null>(null);
+  const state: State = result && result.key === key ? result.state : { status: 'loading' };
 
   useEffect(() => {
     if (!user) return;
     let live = true;
-    setState({ status: 'loading' });
     getLearningOverview(subjectId).then(
-      (o) => live && setState({ status: 'ready', subject: o.subjects[0] ?? null }),
-      () => live && setState({ status: 'error' }),
+      (o) => live && setResult({ key, state: { status: 'ready', subject: o.subjects[0] ?? null } }),
+      () => live && setResult({ key, state: { status: 'error' } }),
     );
     return () => {
       live = false;
     };
-  }, [user, subjectId, attempt]);
+  }, [user, key, subjectId]);
 
   if (!user) return null;
   if (state.status === 'loading') {
