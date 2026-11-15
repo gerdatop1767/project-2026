@@ -21,9 +21,15 @@ export async function getAttemptRecordsForUserSkill(
   skillId: string,
 ): Promise<SkillAttemptRecord[]> {
   const rows = await db
-    .select({ isCorrect: schema.attempts.isCorrect, createdAt: schema.attempts.createdAt })
+    .select({
+      isCorrect: schema.attempts.isCorrect,
+      createdAt: schema.attempts.createdAt,
+      taskId: schema.attempts.taskId,
+      difficulty: schema.tasks.difficulty,
+    })
     .from(schema.attempts)
     .innerJoin(schema.taskSkills, eq(schema.taskSkills.taskId, schema.attempts.taskId))
+    .innerJoin(schema.tasks, eq(schema.tasks.id, schema.attempts.taskId))
     .where(and(eq(schema.attempts.userId, userId), eq(schema.taskSkills.skillId, skillId)));
   return rows;
 }

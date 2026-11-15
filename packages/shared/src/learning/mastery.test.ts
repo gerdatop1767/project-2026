@@ -1,154 +1,113 @@
 import { describe, expect, it } from 'vitest';
-import { calculateSkillMastery, type SkillAttemptRecord } from './mastery.js';
+import { calculateSkillMastery, skillLevel, type SkillAttemptRecord } from './mastery.js';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const BASE_TIME = new Date('2026-01-01T00:00:00Z').getTime();
+const day = 24 * 60 * 60 * 1000;
+const t0 = new Date('2026-11-01T10:00:00Z').getTime();
 
-/** `offsetDays` ago from a fixed base time, so test attempts have a stable, readable order. */
-function attempt(isCorrect: boolean, offsetDays: number): SkillAttemptRecord {
-  return { isCorrect, createdAt: new Date(BASE_TIME - offsetDays * DAY_MS) };
+/** Attempts one minute apart (or `gapDays` apart), oldest first. */
+function seq(
+  pattern: string,
+  opts: { gapDays?: number; difficulty?: number; task?: (i: number) => string } = {},
+) {
+  return [...pattern].map((c, i): SkillAttemptRecord => ({
+    isCorrect: c === '1',
+    createdAt: new Date(t0 + i * (opts.gapDays ? opts.gapDays * day : 60_000)),
+    difficulty: opts.difficulty ?? 2,
+    taskId: opts.task ? opts.task(i) : `t${i}`,
+  }));
 }
 
-function series(pattern: readonly boolean[]): SkillAttemptRecord[] {
-  // pattern[0] is oldest; each subsequent entry is one day more recent.
-  return pattern.map((isCorrect, i) => attempt(isCorrect, pattern.length - i));
-}
-
-describe('calculateSkillMastery', () => {
-  it('0 attempts -> mastery 0, confidence 0, no lastAttemptAt', () => {
-    const result = calculateSkillMastery([]);
-    expect(result).toEqual({
+describe('calculateSkillMastery v2', () => {
+  it('no attempts: nothing known — level «none», no fake numbers', () => {
+    const r = calculateSkillMastery([]);
+    expect(r).toMatchObject({
       attempts: 0,
-      correctAttempts: 0,
-      incorrectAttempts: 0,
       mastery: 0,
       confidence: 0,
       lastAttemptAt: null,
+      trend: null,
     });
+    expect(skillLevel(r)).toBe('none');
   });
 
-  it('1 correct out of 1 does NOT give mastery 100 (low confidence caps it)', () => {
-    const result = calculateSkillMastery(series([true]));
-    expect(result.attempts).toBe(1);
-    expect(result.correctAttempts).toBe(1);
-    expect(result.confidence).toBe(10);
-    expect(result.mastery).toBe(10);
-    expect(result.mastery).toBeLessThan(100);
+  it('one correct answer does not jump to 100, one wrong answer does not drop to 0', () => {
+    const right = calculateSkillMastery(seq('1'));
+    const wrong = calculateSkillMastery(seq('0'));
+    expect(right.mastery).toBe(60);
+    expect(wrong.mastery).toBe(40);
+    // …and with so little data no verdict is given.
+    expect(skillLevel(right)).toBe('low_data');
+    expect(skillLevel(wrong)).toBe('low_data');
+    expect(right.confidence).toBeLessThan(25);
   });
 
-  it('1 incorrect out of 1 gives mastery 0', () => {
-    const result = calculateSkillMastery(series([false]));
-    expect(result.mastery).toBe(0);
-    expect(result.confidence).toBe(10);
+  it('a long correct streak approaches 100 but never claims certainty from few answers', () => {
+    const three = calculateSkillMastery(seq('111'));
+    const ten = calculateSkillMastery(seq('1111111111'));
+    expect(three.mastery).toBeGreaterThan(60);
+    expect(ten.mastery).toBeGreaterThan(three.mastery);
+    expect(ten.mastery).toBeLessThan(100);
+    expect(skillLevel(ten)).toBe('strong');
+    expect(ten.confidence).toBe(100);
   });
 
-  it('5/10 gives a mid-range mastery with full confidence', () => {
-    const result = calculateSkillMastery(
-      series([true, false, true, false, true, false, true, false, true, false]),
-    );
-    expect(result.attempts).toBe(10);
-    expect(result.correctAttempts).toBe(5);
-    expect(result.confidence).toBe(100);
-    expect(result.mastery).toBe(50);
+  it('a long wrong streak is weak, but one wrong answer after a strong streak is not a collapse', () => {
+    expect(skillLevel(calculateSkillMastery(seq('0000000')))).toBe('weak');
+    const strong = calculateSkillMastery(seq('11111111'));
+    const oneSlip = calculateSkillMastery(seq('111111110'));
+    expect(oneSlip.mastery).toBeLessThan(strong.mastery);
+    expect(strong.mastery - oneSlip.mastery).toBeLessThan(20);
   });
 
-  it('9/10 gives a high but non-absolute mastery', () => {
-    const result = calculateSkillMastery(
-      series([true, true, true, true, true, true, true, true, true, false]),
-    );
-    expect(result.mastery).toBe(90);
-    expect(result.mastery).toBeLessThan(100);
-    expect(result.confidence).toBe(100);
+  it('recent results weigh more: wrong-then-right beats right-then-wrong', () => {
+    const improving = calculateSkillMastery(seq('0000011111'));
+    const declining = calculateSkillMastery(seq('1111100000'));
+    expect(improving.mastery).toBeGreaterThan(declining.mastery);
+    expect(improving.trend).toBe('up');
+    expect(declining.trend).toBe('down');
   });
 
-  it('10/10 gives the maximum mastery', () => {
-    const result = calculateSkillMastery(series(Array(10).fill(true)));
-    expect(result.mastery).toBe(100);
-    expect(result.confidence).toBe(100);
+  it('old successes fade: the same answers spread over months count less than last week', () => {
+    const oldStreakThenMiss = calculateSkillMastery([
+      ...seq('11111', { gapDays: 30 }),
+      { isCorrect: false, createdAt: new Date(t0 + 300 * day), difficulty: 2 },
+    ]);
+    const freshStreakThenMiss = calculateSkillMastery(seq('111110'));
+    expect(oldStreakThenMiss.mastery).toBeLessThan(freshStreakThenMiss.mastery);
   });
 
-  it('0/10 gives mastery 0 with full confidence', () => {
-    const result = calculateSkillMastery(series(Array(10).fill(false)));
-    expect(result.mastery).toBe(0);
-    expect(result.confidence).toBe(100);
+  it('difficulty: right answers on hard tasks are stronger evidence than on easy ones', () => {
+    const hard = calculateSkillMastery(seq('11111', { difficulty: 3 }));
+    const easy = calculateSkillMastery(seq('11111', { difficulty: 1 }));
+    expect(hard.mastery).toBeGreaterThan(easy.mastery);
+    const wrongEasy = calculateSkillMastery(seq('00000', { difficulty: 1 }));
+    const wrongHard = calculateSkillMastery(seq('00000', { difficulty: 3 }));
+    expect(wrongEasy.mastery).toBeLessThan(wrongHard.mastery);
   });
 
-  it('a recent error streak after an older correct streak pulls mastery down (recency, not just lifetime average)', () => {
-    // 10 correct (older) then 5 incorrect (recent) = 15 total, lifetime
-    // accuracy 10/15 = 67%, but the last-10-attempt window is
-    // [5 correct, 5 incorrect] = 50% — recency must win, not lifetime.
-    const olderCorrect = Array.from({ length: 10 }, (_, i) => attempt(true, 20 - i));
-    const recentWrong = Array.from({ length: 5 }, (_, i) => attempt(false, 5 - i));
-    const result = calculateSkillMastery([...olderCorrect, ...recentWrong]);
-    expect(result.attempts).toBe(15);
-    expect(result.correctAttempts).toBe(10);
-    expect(result.incorrectAttempts).toBe(5);
-    expect(result.confidence).toBe(100);
-    expect(result.mastery).toBe(50);
-    // Sanity: the naive lifetime-average would have been 67, not 50 —
-    // confirms recency is actually doing something, not a no-op.
-    const naiveLifetimeAverage = Math.round((result.correctAttempts / result.attempts) * 100);
-    expect(result.mastery).not.toBe(naiveLifetimeAverage);
+  it('counts repeated errors on one task and recovery after an error', () => {
+    const r = calculateSkillMastery([
+      ...seq('00', { task: () => 'A' }),
+      ...seq('0', { task: () => 'B' }).map((a) => ({ ...a, createdAt: new Date(t0 + 5 * 60_000) })),
+      { isCorrect: true, createdAt: new Date(t0 + 10 * 60_000), taskId: 'A', difficulty: 2 },
+    ]);
+    expect(r.repeatedErrorTasks).toBe(1);
+    expect(r.recoveredTasks).toBe(1);
   });
 
-  it('old correct attempts outside the recency window no longer prop up mastery once dropped', () => {
-    // 20 correct (ancient) then 10 incorrect (recent) -> window is all 10 incorrect.
-    const oldCorrect = Array.from({ length: 20 }, (_, i) => attempt(true, 100 - i));
-    const recentWrong = Array.from({ length: 10 }, (_, i) => attempt(false, 10 - i));
-    const result = calculateSkillMastery([...oldCorrect, ...recentWrong]);
-    expect(result.attempts).toBe(30);
-    expect(result.mastery).toBe(0);
-    expect(result.confidence).toBe(100);
+  it('deterministic and order-independent: the rebuild gives the same row', () => {
+    const attempts = seq('1011001110');
+    const shuffled = [...attempts].reverse();
+    expect(calculateSkillMastery(shuffled)).toEqual(calculateSkillMastery(attempts));
+    expect(calculateSkillMastery(attempts)).toEqual(calculateSkillMastery(attempts));
   });
 
-  it('is order-independent at the input level (sorts internally, same result regardless of input order)', () => {
-    const chronological = series([true, false, true, true, false, true, true, true, true, false]);
-    const shuffled = [...chronological].reverse();
-    expect(calculateSkillMastery(shuffled)).toEqual(calculateSkillMastery(chronological));
-  });
-
-  it('recomputing with the exact same attempts gives the exact same result (idempotent)', () => {
-    const attempts = series([true, true, false, true, true, true, false, true]);
-    const first = calculateSkillMastery(attempts);
-    const second = calculateSkillMastery(attempts);
-    expect(second).toEqual(first);
-  });
-
-  it('mastery never leaves [0, 100] across a wide range of inputs', () => {
-    for (let correct = 0; correct <= 20; correct++) {
-      for (let incorrect = 0; incorrect <= 20; incorrect++) {
-        if (correct + incorrect === 0) continue;
-        const pattern = [...Array(correct).fill(true), ...Array(incorrect).fill(false)];
-        const result = calculateSkillMastery(series(pattern));
-        expect(result.mastery).toBeGreaterThanOrEqual(0);
-        expect(result.mastery).toBeLessThanOrEqual(100);
-        expect(result.confidence).toBeGreaterThanOrEqual(0);
-        expect(result.confidence).toBeLessThanOrEqual(100);
-      }
+  it('stays within 0..100 and tracks the latest attempt time', () => {
+    for (const p of ['0', '1', '0101', '1111111111111111', '0000000000000000']) {
+      const r = calculateSkillMastery(seq(p));
+      expect(r.mastery).toBeGreaterThanOrEqual(0);
+      expect(r.mastery).toBeLessThanOrEqual(100);
+      expect(r.lastAttemptAt?.getTime()).toBe(t0 + (p.length - 1) * 60_000);
     }
-  });
-
-  it('confidence scales monotonically with attempt count up to the threshold, never decreasing', () => {
-    let previousConfidence = -1;
-    for (let n = 1; n <= 12; n++) {
-      const result = calculateSkillMastery(series(Array(n).fill(true)));
-      expect(result.confidence).toBeGreaterThanOrEqual(previousConfidence);
-      previousConfidence = result.confidence;
-    }
-  });
-
-  it('confidence caps at 100 once attempts reach the threshold, never grows past it', () => {
-    const at10 = calculateSkillMastery(series(Array(10).fill(true)));
-    const at50 = calculateSkillMastery(series(Array(50).fill(true)));
-    expect(at10.confidence).toBe(100);
-    expect(at50.confidence).toBe(100);
-  });
-
-  it('tracks lastAttemptAt as the most recent attempt, regardless of input order', () => {
-    const oldest = attempt(true, 10);
-    const newest = attempt(false, 1);
-    const middle = attempt(true, 5);
-    const result = calculateSkillMastery([middle, oldest, newest]);
-    expect(result.lastAttemptAt).toEqual(newest.createdAt);
   });
 });

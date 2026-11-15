@@ -17,6 +17,7 @@ export * from './adminNotifications.js';
 export * from './telegramHtml.js';
 export * from './learning/skill.js';
 export * from './learning/mastery.js';
+export * from './learning/examSkills.js';
 export * from './learning/taskDifficulty.js';
 export * from './learning/taskStatistics.js';
 export * from './learning/errorSignatures.js';

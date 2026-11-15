@@ -2,6 +2,7 @@ import { createDb, pingDb } from '@zybrilka/db';
 import { createApp } from './createApp.js';
 import { loadConfig } from './config.js';
 import { logAuthProviders } from './modules/auth/providersStatus.js';
+import { syncLearningOnStartup } from './modules/learning/bootstrap.js';
 
 const config = loadConfig();
 const database = config.DATABASE_URL ? createDb(config.DATABASE_URL) : undefined;
@@ -21,6 +22,8 @@ process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });
+  // Links newly imported tasks to their skills; never delays serving.
+  if (database) void syncLearningOnStartup(database.db, app.log);
 } catch (error) {
   app.log.fatal(error);
   await database?.close();

@@ -197,17 +197,10 @@ describe('getNextTaskRecommendation (ZUBRILKA LEARNING INTELLIGENCE Phase 7)', (
       expect(needWithOneCorrect!).toBeGreaterThan(needWithTwoCorrect!);
     });
 
-    // 3b. the critical requirement from the audit: once recent accuracy
-    // is already 0%, a SECOND or THIRD wrong attempt must NOT invent
-    // extra pressure beyond what the real, unmodified mastery formula
-    // already produces. Within the first 10 attempts,
-    // mastery = correctCount * 10 exactly (reused from Phase 3
-    // unchanged) — independent of how many wrong attempts accompany a
-    // fixed correct count — so once correctCount is 0, need is already
-    // at its ceiling (100) and stays there. No artificial per-repeat
-    // multiplier is introduced (unlike Phase 8's separately-justified
-    // skillCoverageNeed, a different mechanism for a different problem).
-    it('does not artificially escalate pressure once recent accuracy is already at 0%', async () => {
+    // 3b. Repeated wrong answers raise the need step by step (more
+    // evidence, Bayesian mastery v2 — docs/learning/ALGORITHMS.md § 1),
+    // never by an artificial multiplier, and never past 100.
+    it('repeated wrong answers raise the need gradually, never past 100', async () => {
       const userId = await freshUserId();
       const [task] = await testDb.db
         .select()
@@ -220,7 +213,8 @@ describe('getNextTaskRecommendation (ZUBRILKA LEARNING INTELLIGENCE Phase 7)', (
         answerRaw: '__wrong__',
         isCorrect: false,
       });
-      expect(await taskNumberNeedFor(userId, 1)).toBe(100);
+      const first = (await taskNumberNeedFor(userId, 1))!;
+      expect(first).toBeGreaterThanOrEqual(50);
 
       await testDb.db.insert(schema.attempts).values({
         userId,
@@ -228,7 +222,8 @@ describe('getNextTaskRecommendation (ZUBRILKA LEARNING INTELLIGENCE Phase 7)', (
         answerRaw: '__wrong_again__',
         isCorrect: false,
       });
-      expect(await taskNumberNeedFor(userId, 1)).toBe(100);
+      const second = (await taskNumberNeedFor(userId, 1))!;
+      expect(second).toBeGreaterThan(first);
 
       await testDb.db.insert(schema.attempts).values({
         userId,
@@ -236,7 +231,9 @@ describe('getNextTaskRecommendation (ZUBRILKA LEARNING INTELLIGENCE Phase 7)', (
         answerRaw: '__wrong_third__',
         isCorrect: false,
       });
-      expect(await taskNumberNeedFor(userId, 1)).toBe(100);
+      const third = (await taskNumberNeedFor(userId, 1))!;
+      expect(third).toBeGreaterThan(second);
+      expect(third).toBeLessThanOrEqual(100);
     });
 
     // 4 + 5. correct attempts decrease pressure; wrong does not force it forever

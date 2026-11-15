@@ -1,4 +1,4 @@
-import type { Database } from '@zybrilka/db';
+import { syncTaskSkills, taskHasExamSkill, type Database } from '@zybrilka/db';
 import { calculateSkillMastery, type SkillMasteryEntry } from '@zybrilka/shared';
 import * as repo from './repo.js';
 
@@ -31,6 +31,9 @@ export async function updateSkillStatisticsForTaskAttempt(
   userId: string,
   taskId: string,
 ): Promise<void> {
+  // A task imported after the last sync is linked right here, from its own
+  // metadata (docs/learning/IMPORT-INTEGRATION.md) — no answer is lost.
+  if (!(await taskHasExamSkill(db, taskId))) await syncTaskSkills(db, { taskIds: [taskId] });
   const skillIds = await repo.getSkillIdsForTask(db, taskId);
   for (const skillId of skillIds) {
     await recomputeUserSkillStatistics(db, userId, skillId);

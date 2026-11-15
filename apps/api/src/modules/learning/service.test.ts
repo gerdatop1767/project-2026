@@ -110,7 +110,10 @@ describe('learning module — skill statistics (ZUBRILKA LEARNING INTELLIGENCE P
       expect(stats!.attempts).toBe(1);
       expect(stats!.correctAttempts).toBe(0);
       expect(stats!.incorrectAttempts).toBe(1);
-      expect(stats!.mastery).toBe(0);
+      // Mastery v2: one wrong answer lowers the estimate below the 50%
+      // prior, but never to 0 (docs/learning/ALGORITHMS.md § 1).
+      expect(stats!.mastery).toBeLessThan(50);
+      expect(stats!.mastery).toBeGreaterThan(0);
     }
   });
 
