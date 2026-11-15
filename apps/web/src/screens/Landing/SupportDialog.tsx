@@ -227,7 +227,7 @@ function SupportDialogView({ closing, onRequestClose, onClosed }: ViewProps) {
         <div className={styles.art} aria-hidden="true">
           <span className={styles.glow} />
           <img
-            src="/branding/v2/support-bison.webp"
+            src="/branding/v3/support-bison.webp"
             alt=""
             width={560}
             height={672}

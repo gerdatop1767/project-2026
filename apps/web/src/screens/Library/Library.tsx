@@ -9,8 +9,12 @@ import {
 } from '../../data/library/library.js';
 import { useNavigation, type LibrarySection, type LibrarySubject } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
+import { onLinkClick } from '../../lib/linkClick.js';
+import { pathForRoute } from '../../lib/routes.js';
+import type { Route } from '../../lib/navigation.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { LEARNING_CENTER_CRUMB, LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import { SkeletonParagraph } from '../../ui/Skeleton/Skeleton.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { TheoryMarkdown } from '../../ui/Theory/TheoryMarkdown.js';
@@ -84,7 +88,13 @@ function TaskChips({ item }: { item: LibraryItem }) {
 function ItemCard({ item, onOpen }: { item: LibraryItem; onOpen: () => void }) {
   return (
     <li>
-      <button type="button" className={clsx(styles.card, styles[item.subject])} onClick={onOpen}>
+      <a
+        href={
+          pathForRoute({ screen: 'library', section: item.section, itemId: item.id }) ?? undefined
+        }
+        className={clsx(styles.card, styles[item.subject])}
+        onClick={(e) => onLinkClick(e, onOpen)}
+      >
         <span className={styles.cardTopic}>{item.topic}</span>
         <span className={styles.cardTitle}>{item.title}</span>
         <span className={styles.cardText}>{item.description}</span>
@@ -92,7 +102,7 @@ function ItemCard({ item, onOpen }: { item: LibraryItem; onOpen: () => void }) {
           <TaskChips item={item} />
           <Icon name="arrowRight" size={16} className={styles.cardArrow} />
         </span>
-      </button>
+      </a>
     </li>
   );
 }
@@ -110,29 +120,30 @@ function ItemPage({ item, onBack }: { item: LibraryItem; onBack: () => void }) {
       <p className={styles.kicker}>
         {subjectLabel(item.subject)} · {item.topic}
       </p>
-      <h2 id="library-item-title" className="text-h2">
+      <h1 id="library-item-title" className="text-h2">
         {item.title}
-      </h2>
+      </h1>
       <p className={styles.lead}>{item.description}</p>
       {item.tasks && item.tasks.length > 0 && item.subject !== 'general' && (
         <p className={styles.related}>
           <span>Теория к заданиям:</span>
-          {item.tasks.map((n) => (
-            <button
-              key={n}
-              type="button"
-              className={styles.relatedLink}
-              onClick={() =>
-                navigate(
-                  theorySubject === 'math'
-                    ? { screen: 'theory', section: 'rules', subject: 'math', taskNumber: n }
-                    : { screen: 'theory', section: 'rules', taskNumber: n },
-                )
-              }
-            >
-              №{n}
-            </button>
-          ))}
+          {item.tasks.map((n) => {
+            const to: Route =
+              theorySubject === 'math'
+                ? { screen: 'theory', section: 'rules', subject: 'math', taskNumber: n }
+                : { screen: 'theory', section: 'rules', taskNumber: n };
+            return (
+              <a
+                key={n}
+                href={pathForRoute(to) ?? undefined}
+                className={styles.relatedLink}
+                aria-label={`Теория к заданию №${n}`}
+                onClick={(e) => onLinkClick(e, () => navigate(to))}
+              >
+                №{n}
+              </a>
+            );
+          })}
         </p>
       )}
       <div className={styles.body}>
@@ -206,6 +217,16 @@ export function Library({ section, itemId, subject }: LibraryProps) {
   if (shownItem) {
     return (
       <div className={styles.screen}>
+        <LearningNav
+          trail={[
+            LEARNING_CENTER_CRUMB,
+            {
+              label: sectionInfo[section].title,
+              route: { screen: 'library', section, ...(subject ? { subject } : {}) },
+            },
+            { label: shownItem.title },
+          ]}
+        />
         <ItemPage key={shownItem.id} item={shownItem} onBack={back} />
       </div>
     );
@@ -214,6 +235,7 @@ export function Library({ section, itemId, subject }: LibraryProps) {
   const info = sectionInfo[section];
   return (
     <div className={styles.screen}>
+      <LearningNav trail={[LEARNING_CENTER_CRUMB, { label: info.title }]} />
       <header className={styles.head}>
         <div>
           <h1 className="text-h1">{info.title}</h1>

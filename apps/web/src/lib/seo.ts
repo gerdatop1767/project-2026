@@ -13,6 +13,8 @@
  * screens (statistics, profile…), sign-in, work-in-progress placeholders and
  * subjects without tasks are `noindex, follow`.
  */
+import { LEARNING_PAGES } from './seoPages.js';
+
 export const SITE_ORIGIN = 'https://zybrilka.ru';
 export const SITE_NAME = 'Zybrilka';
 export const DEFAULT_TITLE = 'Zybrilka — бесплатный тренажёр ЕГЭ';
@@ -29,6 +31,8 @@ export interface PageSeo {
   name: string;
   /** Breadcrumb parent path ('/' when omitted, none for '/'). */
   parent?: string;
+  /** schema.org type of the main entity (theory and library item pages). */
+  resource?: 'LearningResource';
 }
 
 /** Pages a guest can open and that carry real content — the sitemap. */
@@ -64,18 +68,14 @@ export const INDEXABLE_PAGES: readonly PageSeo[] = [
     name: 'Русский язык',
     parent: '/subjects',
   },
-  {
-    path: '/theory',
-    title: 'Теория и правила к заданиям ЕГЭ — Zybrilka',
-    description: 'Правила и теория к заданиям ЕГЭ, сгруппированные по номерам заданий.',
-    name: 'Теория',
-  },
+  ...LEARNING_PAGES,
   {
     path: '/materials',
     title: 'Полезные материалы для подготовки к ЕГЭ — Zybrilka',
     description:
       'Таблицы формул, справочники и шпаргалки к ЕГЭ по профильной математике и русскому языку: производные, тригонометрия, геометрия, вероятность, орфография, пунктуация.',
     name: 'Полезные материалы',
+    parent: '/learning',
   },
   {
     path: '/strategies',
@@ -83,6 +83,7 @@ export const INDEXABLE_PAGES: readonly PageSeo[] = [
     description:
       'Как распределить время на ЕГЭ по математике и русскому языку, в каком порядке решать задания, как оформлять вторую часть, писать сочинение и проверять ответы.',
     name: 'Стратегии',
+    parent: '/learning',
   },
   {
     path: '/games',
@@ -139,7 +140,7 @@ const NOINDEX_TITLES: ReadonlyArray<[RegExp, string]> = [
   [/^\/settings$/, 'Настройки'],
   [/^\/notifications$/, 'Уведомления'],
   [/^\/friends(\/|$)/, 'Друзья'],
-  [/^\/learning(\/|$)/, 'Учебный центр'],
+  [/^\/learning\/session\//, 'Тренировка'],
   [/^\/onboarding$/, 'Знакомство'],
 ];
 
@@ -167,10 +168,27 @@ export interface ResolvedSeo {
   jsonLd: object[];
 }
 
-/** Metadata for a pathname (query ignored: it never makes a different page). */
+/**
+ * Metadata for a pathname, optionally with its `?query`. A query never makes
+ * a different indexable page (filters, tracking): it is ignored — except on
+ * /theory, where one still selects a page that has no readable address (an
+ * old exam edition, a topic without a number). Those stay out of the index.
+ */
 export function seoForPath(pathname: string): ResolvedSeo {
   const path = cleanPath(pathname);
-  const page = byPath.get(path);
+  const query = new URLSearchParams(pathname.split('?')[1]?.split('#')[0] ?? '');
+  const selectsTheoryPage =
+    path === '/theory' && ['n', 's', 'ed', 't'].some((key) => query.has(key));
+  const page = selectsTheoryPage ? undefined : byPath.get(path);
+  if (selectsTheoryPage) {
+    return {
+      title: `Теория — ${SITE_NAME}`,
+      description: DEFAULT_DESCRIPTION,
+      index: false,
+      canonical: null,
+      jsonLd: [],
+    };
+  }
   if (page) {
     return {
       title: page.title,
@@ -232,18 +250,40 @@ export function jsonLdFor(page: PageSeo): object[] {
       },
     ];
   }
-  return [
-    {
-      '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: breadcrumbs(page).map((p, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        name: p.name,
-        item: abs(p.path),
-      })),
-    },
-  ];
+  const crumbs = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: breadcrumbs(page).map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: p.name,
+      item: abs(p.path),
+    })),
+  };
+  if (page.resource) {
+    return [
+      crumbs,
+      {
+        '@context': 'https://schema.org',
+        '@type': page.resource,
+        name: page.name,
+        headline: page.name,
+        description: page.description,
+        url: abs(page.path),
+        inLanguage: 'ru',
+        isAccessibleForFree: true,
+        educationalLevel: 'ЕГЭ, 11 класс',
+        learningResourceType: page.path.startsWith('/strategies/')
+          ? 'Стратегия подготовки'
+          : page.path.startsWith('/materials/')
+            ? 'Справочный материал'
+            : 'Теория',
+        isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: abs('/') },
+        publisher: { '@type': 'Organization', name: SITE_NAME, url: abs('/'), logo: OG_IMAGE },
+      },
+    ];
+  }
+  return [crumbs];
 }
 
 function setMeta(attr: 'name' | 'property', key: string, content: string): void {
@@ -266,6 +306,8 @@ export function applySeo(pathname: string): void {
   setMeta('property', 'og:title', seo.title);
   setMeta('property', 'og:description', seo.description);
   setMeta('property', 'og:url', seo.canonical ?? abs(cleanPath(pathname)));
+  setMeta('name', 'twitter:title', seo.title);
+  setMeta('name', 'twitter:description', seo.description);
 
   let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
   if (seo.canonical) {
@@ -324,6 +366,8 @@ export function headTagsFor(page: PageSeo | null): string {
     `<meta property="og:title" content="${escapeHtml(page.title)}" />`,
     `<meta property="og:description" content="${escapeHtml(page.description)}" />`,
     `<meta property="og:url" content="${url}" />`,
+    `<meta name="twitter:title" content="${escapeHtml(page.title)}" />`,
+    `<meta name="twitter:description" content="${escapeHtml(page.description)}" />`,
     `<script type="application/ld+json" id="seo-jsonld">${JSON.stringify(ld.length === 1 ? ld[0] : ld).replace(/</g, '\\u003c')}</script>`,
   ].join('\n    ');
 }

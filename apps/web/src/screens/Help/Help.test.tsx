@@ -58,7 +58,7 @@ describe('HelpDesktop', () => {
   it('shows the landing support mascot, not the old hero picture', () => {
     const { container } = renderWithNav(<HelpDesktop />);
     const img = container.querySelector('img');
-    expect(img).toHaveAttribute('src', '/branding/v2/support-bison.webp');
+    expect(img).toHaveAttribute('src', '/branding/v3/support-bison.webp');
   });
 });
 

@@ -61,7 +61,7 @@ export function SignInRequiredDialog({ feature, onClose, onSignIn }: SignInRequi
       {content && (
         <div className={styles.body}>
           <img
-            src="/branding/v2/support-bison.webp"
+            src="/branding/v3/support-bison.webp"
             alt=""
             aria-hidden="true"
             width={560}

@@ -115,6 +115,7 @@
   font: inherit;
   text-align: left;
   color: var(--color-text-primary);
+  text-decoration: none;
   background: var(--color-bg-surface);
   cursor: pointer;
   transition:
@@ -194,8 +195,15 @@
   max-width: 48rem;
 }
 
-.article h2 {
+.article h2,
+.title {
   margin: 0 0 var(--space-2);
+}
+
+/* «Задание №9» above the task name — part of the page's H1. */
+.title .kicker {
+  display: block;
+  margin-bottom: var(--space-3);
 }
 
 .kicker {

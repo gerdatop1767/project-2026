@@ -126,8 +126,8 @@ export function Onboarding() {
         {step === 1 && (
           <div className={styles.hero}>
             <MascotArt
-              srcSet="/branding/v2/onboarding/welcome-480.webp 480w, /branding/v2/onboarding/welcome-720.webp 720w"
-              src="/branding/v2/onboarding/welcome-480.webp"
+              srcSet="/branding/v3/onboarding/welcome-480.webp 480w, /branding/v3/onboarding/welcome-720.webp 720w"
+              src="/branding/v3/onboarding/welcome-480.webp"
               width={480}
               height={402}
               variant="welcome"
@@ -244,8 +244,8 @@ export function Onboarding() {
         {step === 5 && (
           <div className={styles.hero}>
             <MascotArt
-              srcSet="/branding/v2/onboarding/done-320.webp 320w, /branding/v2/onboarding/done-480.webp 480w"
-              src="/branding/v2/onboarding/done-320.webp"
+              srcSet="/branding/v3/onboarding/done-320.webp 320w, /branding/v3/onboarding/done-480.webp 480w"
+              src="/branding/v3/onboarding/done-320.webp"
               width={320}
               height={384}
               variant="done"

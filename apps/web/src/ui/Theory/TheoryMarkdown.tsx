@@ -323,7 +323,7 @@ function BlockView({ block, stress, k }: { block: Block; stress: boolean; k: str
           {block.kind === 'tip' && (
             <img
               className={styles.calloutMascot}
-              src="/branding/v2/support-bison.webp"
+              src="/branding/v3/support-bison.webp"
               alt=""
               aria-hidden="true"
               width={136}

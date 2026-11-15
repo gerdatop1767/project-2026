@@ -17,6 +17,7 @@ import { defaultBottomNavItems } from '../ui/BottomNav/defaultItems.js';
 
 const WEB = resolve(__dirname, '../..');
 const appRoute = new RegExp(APP_ROUTE_PATTERN);
+const prerendered = new Set(INDEXABLE_PAGES.map((p) => p.path));
 
 /** Every addressable route of the app, one sample each. */
 const sampleRoutes: Route[] = [
@@ -74,7 +75,8 @@ describe('SEO registry', () => {
   it('every app route is known to nginx (200), and its path parses back to the same screen', () => {
     for (const route of sampleRoutes) {
       const path = pathForRoute(route)!.split('?')[0]!;
-      if (path !== '/') expect(appRoute.test(path), path).toBe(true);
+      // nginx serves a prerendered page ($uri.html) or the app shell (the pattern).
+      if (path !== '/') expect(appRoute.test(path) || prerendered.has(path), path).toBe(true);
       expect(routeFromPath(path).screen, path).toBe(route.screen);
     }
   });
@@ -104,7 +106,11 @@ describe('SEO registry', () => {
     expect(titles.size).toBe(INDEXABLE_PAGES.length);
     expect(descriptions.size).toBe(INDEXABLE_PAGES.length);
     for (const page of INDEXABLE_PAGES) {
-      if (page.path !== '/') expect(appRoute.test(page.path), page.path).toBe(true);
+      // Each one is a real screen of the app (not the home fallback)…
+      if (page.path !== '/') {
+        expect(routeFromPath(page.path).screen, page.path).not.toBe('home');
+        expect(pathForRoute(routeFromPath(page.path))!.split('?')[0], page.path).toBe(page.path);
+      }
       expect(page.title.length).toBeLessThanOrEqual(80);
       expect(page.description.length).toBeGreaterThan(30);
       expect(page.description.length).toBeLessThanOrEqual(200);
@@ -125,7 +131,6 @@ describe('SEO registry', () => {
       '/onboarding',
       '/telegram-return',
       '/landing',
-      '/learning',
       '/learning/session/x',
       '/statistics/variants/0b5d6a7e-1111-2222-3333-444455556666',
       '/rating',

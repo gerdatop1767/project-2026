@@ -17,12 +17,12 @@ describe('Logo', () => {
     const { rerender } = render(<Logo />);
     expect(document.querySelector('img')).toHaveAttribute(
       'src',
-      '/branding/v2/logo-icon-desktop.webp',
+      '/branding/v3/logo-icon-desktop.webp',
     );
     rerender(<Logo icon="mobile" />);
     expect(document.querySelector('img')).toHaveAttribute(
       'src',
-      '/branding/v2/logo-icon-mobile.webp',
+      '/branding/v3/logo-icon-mobile.webp',
     );
   });
 

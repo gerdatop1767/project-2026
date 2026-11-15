@@ -8,7 +8,7 @@ export const PROMO_DELAY_MS = 1800;
 
 /**
  * Floating «Подписывайся на наш Telegram» in the bottom-right corner (the
- * owner's artwork, public/branding/telegram). Shown on a visit unless it
+ * owner's artwork, public/branding/v3/telegram). Shown on a visit unless it
  * was closed or followed within the last 24 hours (lib/telegramPromo).
  * Compact on phones and lifted above the bottom navigation; the parent
  * (FloatingLayer) keeps it away from the cookie banner and task screens.
@@ -46,9 +46,9 @@ export function TelegramPromo() {
         }}
       >
         <picture>
-          <source media="(min-width: 1024px)" srcSet="/branding/telegram/promo-720.webp" />
+          <source media="(min-width: 1024px)" srcSet="/branding/v3/telegram/promo-720.webp" />
           <img
-            src="/branding/telegram/promo-400.webp"
+            src="/branding/v3/telegram/promo-400.webp"
             alt=""
             className={styles.image}
             width={400}

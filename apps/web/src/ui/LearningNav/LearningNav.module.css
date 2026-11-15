@@ -1,0 +1,113 @@
+/* Phone: a sticky pill; desktop: a breadcrumb trail. */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: 0 var(--space-4) 0 var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 160ms ease;
+}
+
+.pill:active {
+  transform: scale(0.97);
+}
+
+.pill svg {
+  color: var(--color-accent-primary);
+}
+
+.crumbs {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .nav {
+    position: static;
+    padding: 0;
+  }
+
+  /* On the centre itself the desktop sidebar already leads everywhere. */
+  .pill {
+    display: none;
+  }
+
+  .crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-body-sm);
+  }
+
+  .crumbs li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .crumbLink {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    border: none;
+    border-radius: var(--radius-chip);
+    background: none;
+    color: var(--color-text-secondary);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .crumbLink:hover {
+    color: var(--color-accent-primary);
+    background: color-mix(in srgb, var(--color-accent-primary) 10%, transparent);
+  }
+
+  .current {
+    padding: var(--space-1) var(--space-2);
+    color: var(--color-text-primary);
+    font-weight: 600;
+    max-width: 32ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sep {
+    color: var(--color-text-disabled);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
+}

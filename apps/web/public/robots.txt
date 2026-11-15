@@ -13,8 +13,11 @@ Allow: /
 
 # Yandex: query parameters that never change the page (canonical is the bare path).
 Clean-param: source&mode&n /subjects/
+# Old query links of the learning centre: the app rewrites them to the readable
+# pages (/theory/russian/9, /materials/<id>), which are in the sitemap.
 Clean-param: n /theory
-Clean-param: n /materials
+Clean-param: s&id&n /materials
+Clean-param: s&id /strategies
 Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&fbclid&ysclid
 
 Sitemap: https://zybrilka.ru/sitemap.xml

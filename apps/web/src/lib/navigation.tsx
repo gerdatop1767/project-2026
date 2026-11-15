@@ -341,7 +341,7 @@ function writeHistory(mode: 'push' | 'replace', path: string, index: number, gat
   const state = { zybrilka: gate ? { index, gate } : { index } };
   if (mode === 'push') window.history.pushState(state, '', path);
   else window.history.replaceState(state, '', path);
-  applySeo(window.location.pathname);
+  applySeo(window.location.pathname + window.location.search);
   metrikaHit();
 }
 
@@ -384,7 +384,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const { pathname, search, hash } = window.location;
     if (isRemovedPath(pathname)) {
       writeHistory('replace', `/${hash}`, 0);
-    } else if (isLegacyPath(pathname)) {
+    } else if (isLegacyPath(pathname + search)) {
       const path = pathForRoute(routeFromPath(pathname + search)) ?? '/';
       writeHistory('replace', path + hash, currentHistoryIndex(), isSignInGateEntry());
     } else {
@@ -392,7 +392,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }
 
     function onPopState() {
-      applySeo(window.location.pathname);
+      applySeo(window.location.pathname + window.location.search);
       metrikaHit();
       const route = routeFromPath(window.location.pathname + window.location.search);
       if (isTabRoute(route)) {
