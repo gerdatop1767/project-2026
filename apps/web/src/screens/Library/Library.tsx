@@ -11,6 +11,7 @@ import { useNavigation, type LibrarySection, type LibrarySubject } from '../../l
 import { clsx } from '../../lib/clsx.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { LEARNING_CENTER_CRUMB, LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import { SkeletonParagraph } from '../../ui/Skeleton/Skeleton.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { TheoryMarkdown } from '../../ui/Theory/TheoryMarkdown.js';
@@ -206,6 +207,16 @@ export function Library({ section, itemId, subject }: LibraryProps) {
   if (shownItem) {
     return (
       <div className={styles.screen}>
+        <LearningNav
+          trail={[
+            LEARNING_CENTER_CRUMB,
+            {
+              label: sectionInfo[section].title,
+              route: { screen: 'library', section, ...(subject ? { subject } : {}) },
+            },
+            { label: shownItem.title },
+          ]}
+        />
         <ItemPage key={shownItem.id} item={shownItem} onBack={back} />
       </div>
     );
@@ -214,6 +225,7 @@ export function Library({ section, itemId, subject }: LibraryProps) {
   const info = sectionInfo[section];
   return (
     <div className={styles.screen}>
+      <LearningNav trail={[LEARNING_CENTER_CRUMB, { label: info.title }]} />
       <header className={styles.head}>
         <div>
           <h1 className="text-h1">{info.title}</h1>

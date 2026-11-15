@@ -24,6 +24,8 @@ function renderAt(path: string) {
 const cardTitles = () =>
   screen
     .getAllByRole('listitem')
+    // Cards only — not the learning-centre breadcrumb steps.
+    .filter((li) => !li.closest('nav[aria-label="Навигация по учебному центру"]'))
     .map((li) => li.querySelector('button')?.textContent ?? '')
     .filter(Boolean);
 

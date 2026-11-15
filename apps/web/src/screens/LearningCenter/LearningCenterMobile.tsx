@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
 import { FeatureIcon } from '../../ui/FeatureIcon/FeatureIcon.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import {
   LearningSearchBox,
   LearningSearchResults,
@@ -21,6 +22,7 @@ export function LearningCenterMobile() {
 
   return (
     <div className={styles.screen}>
+      <LearningNav trail={[{ label: 'Учебный центр' }]} />
       <header>
         <h1 className="text-h1">Учебный центр</h1>
         <p className="text-body-sm text-secondary">

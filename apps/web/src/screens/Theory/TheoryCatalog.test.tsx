@@ -41,11 +41,16 @@ describe('Теория / Полезные материалы', () => {
     expect(routeFromPath('/theory?n=abc')).toEqual({ screen: 'theory', section: 'rules' });
   });
 
-  it('lists tasks by part of the exam and opens one — the number goes to the URL', async () => {
+  it('lists tasks №1–27 in exam order and opens one — the number goes to the URL', async () => {
     const user = userEvent.setup();
     renderAt('/theory');
     const nav = screen.getByRole('navigation', { name: 'Задания' });
-    expect(within(nav).getByRole('heading', { name: 'Орфография' })).toBeInTheDocument();
+    const numbers = within(nav)
+      .getAllByRole('button')
+      .map((b) => Number(/^№(\d+)\./.exec(b.getAttribute('aria-label') ?? '')?.[1]));
+    expect(numbers).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
+    // The part of the exam is a label on the row, not a regrouping.
+    expect(within(nav).getAllByText(/^Орфография · /)).toHaveLength(7);
     expect(
       within(nav).getByRole('button', {
         name: '№1. Пропущенное слово в тексте — 2 материала',

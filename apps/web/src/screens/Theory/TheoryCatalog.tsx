@@ -10,8 +10,10 @@ import {
 import { useNavigation, type TheorySection, type TheorySubject } from '../../lib/navigation.js';
 import { MathTheoryCatalog } from './MathTheoryCatalog.js';
 import { TheorySubjectTabs } from './TheorySubjectTabs.js';
+import { RelatedLibrary } from './RelatedLibrary.js';
 import { clsx } from '../../lib/clsx.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { LEARNING_CENTER_CRUMB, LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import { TheoryTaskView } from '../../ui/Theory/TheoryTaskView.js';
 import styles from './TheoryCatalog.module.css';
 import type { ExamEditionId } from '@zybrilka/shared';
@@ -69,6 +71,8 @@ function useSearch(query: string): {
   };
 }
 
+const groupTitles = new Map(theoryGroups.map((g) => [g.id, g.title]));
+
 function materialsLabel(n: number): string {
   if (n === 0) return 'пока нет материала';
   if (n === 1) return '1 материал';
@@ -101,8 +105,8 @@ export function TheoryCatalog({ subject, edition, topic, ...rest }: TheoryCatalo
 }
 
 /**
- * «Теория» / «Полезные материалы» for Russian (docs/THEORY.md): tasks
- * grouped by part of the exam, a search over numbers, titles and the
+ * «Теория» / «Полезные материалы» for Russian (docs/THEORY.md): one list
+ * of tasks in exam order №1–27 (each number holds all its materials), a search over numbers, titles and the
  * texts themselves, and a reading pane. Wide screens show the list and
  * the text side by side; on a phone the list opens a task and Back
  * returns to the list with the search still in place. The section and
@@ -121,12 +125,11 @@ function RussianTheoryCatalog({
   const readerRef = useRef<HTMLDivElement>(null);
 
   const selected = russianTheory.find((t) => t.taskNumber === taskNumber) ?? null;
-  const groups = theoryGroups
-    .map((group) => ({
-      ...group,
-      tasks: russianTheory.filter((t) => t.group === group.id && search.matches(t)),
-    }))
-    .filter((g) => g.tasks.length > 0);
+  // One list in exam order №1 → №27 (not by topic): the part of the exam
+  // each number belongs to is a label on the row.
+  const tasks = [...russianTheory]
+    .sort((a, b) => a.taskNumber - b.taskNumber)
+    .filter((t) => search.matches(t));
 
   // A newly opened task starts at its top, not where the previous one was read.
   useEffect(() => {
@@ -151,6 +154,15 @@ function RussianTheoryCatalog({
 
   return (
     <div className={clsx(styles.screen, selected && styles.hasSelection)}>
+      <LearningNav
+        trail={[
+          LEARNING_CENTER_CRUMB,
+          selected
+            ? { label: 'Теория · русский язык', route: { screen: 'theory', section } }
+            : { label: 'Теория · русский язык' },
+          ...(selected ? [{ label: `№${selected.taskNumber}. ${selected.title}` }] : []),
+        ]}
+      />
       <header className={styles.head}>
         <div>
           <h1 className="text-h1">Теория</h1>
@@ -182,16 +194,18 @@ function RussianTheoryCatalog({
               Ищем в текстах…
             </p>
           )}
-          {groups.length === 0 && !search.searchingText && (
+          {tasks.length === 0 && !search.searchingText && (
             <p className={styles.searchNote} aria-live="polite">
               Ничего не нашлось. Попробуй номер задания или другое слово.
             </p>
           )}
-          {groups.map((group) => (
-            <section key={group.id} className={styles.group}>
-              <h2 className={styles.groupTitle}>{group.title}</h2>
-              <ul className={styles.items}>
-                {group.tasks.map((task) => {
+          {tasks.length > 0 && (
+            <section className={styles.group} aria-labelledby="theory-order-title">
+              <h2 id="theory-order-title" className={styles.groupTitle}>
+                Задания ЕГЭ по порядку
+              </h2>
+              <ol className={styles.items}>
+                {tasks.map((task) => {
                   const n = count(task);
                   return (
                     <li key={task.taskNumber}>
@@ -209,16 +223,18 @@ function RussianTheoryCatalog({
                         <span className={styles.number}>{task.taskNumber}</span>
                         <span className={styles.itemText}>
                           <span className={styles.itemTitle}>{task.title}</span>
-                          <span className={styles.itemMeta}>{materialsLabel(n)}</span>
+                          <span className={styles.itemMeta}>
+                            {groupTitles.get(task.group)} · {materialsLabel(n)}
+                          </span>
                         </span>
                         <Icon name="chevronRight" size={16} className={styles.chevron} />
                       </button>
                     </li>
                   );
                 })}
-              </ul>
+              </ol>
             </section>
-          ))}
+          )}
         </nav>
 
         <div className={styles.reader} ref={readerRef}>
@@ -236,6 +252,7 @@ function RussianTheoryCatalog({
                 task={selected}
                 kinds={kinds}
               />
+              <RelatedLibrary subject="russian" taskNumber={selected.taskNumber} />
             </article>
           ) : (
             <div className={styles.placeholder}>

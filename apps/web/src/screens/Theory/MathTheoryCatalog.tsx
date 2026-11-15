@@ -15,9 +15,11 @@ import {
 import { useNavigation, type TheorySection } from '../../lib/navigation.js';
 import { clsx } from '../../lib/clsx.js';
 import { Icon } from '../../ui/Icon/Icon.js';
+import { LEARNING_CENTER_CRUMB, LearningNav } from '../../ui/LearningNav/LearningNav.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { MathTopicTheory } from '../../ui/Theory/MathTopicTheory.js';
 import { TheorySubjectTabs } from './TheorySubjectTabs.js';
+import { RelatedLibrary } from './RelatedLibrary.js';
 import styles from './TheoryCatalog.module.css';
 import mathStyles from './MathTheoryCatalog.module.css';
 
@@ -157,6 +159,22 @@ export function MathTheoryCatalog({
 
   return (
     <div className={clsx(styles.screen, selected && styles.hasSelection)}>
+      <LearningNav
+        trail={[
+          LEARNING_CENTER_CRUMB,
+          selected || selectedExtra
+            ? {
+                label: 'Теория · математика',
+                route: { screen: 'theory', section, subject: 'math', edition },
+              }
+            : { label: 'Теория · математика' },
+          ...(selectedExtra
+            ? [{ label: topicTitle(selectedExtra.topicKey) }]
+            : selected
+              ? [{ label: `№${selected.number}. ${selected.title}` }]
+              : []),
+        ]}
+      />
       <header className={styles.head}>
         <div>
           <h1 className="text-h1">Теория</h1>
@@ -318,6 +336,10 @@ export function MathTheoryCatalog({
                   showTitle={selected.topics.length > 1}
                 />
               ))}
+              {/* Library task chips use the current numbering, not the old Yashchenko project's. */}
+              {edition !== 'ege-2027-project' && (
+                <RelatedLibrary subject="math" taskNumber={selected.number} />
+              )}
             </article>
           ) : (
             <div className={styles.placeholder}>
