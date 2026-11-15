@@ -42,6 +42,9 @@ import type {
   VariantProgressResponse,
   LeaderboardPeriod,
   LeaderboardResponse,
+  DifficultyRatingResponse,
+  LearningOverviewResponse,
+  LearningRecommendationsResponse,
 } from '@zybrilka/shared';
 import { registerPrivateCacheReset } from './privateCaches.js';
 
@@ -532,8 +535,44 @@ export function startLearningSession(params: {
    * GetLearningPathContext for what each one changes. */
   unseenOnly?: boolean;
   randomizeTopTier?: boolean;
+  /** A recommendation's «Начать»: every task from this EGE skill. */
+  focusSkill?: string;
 }): Promise<LearningSessionResponse> {
   return apiFetch('/me/learning/sessions', { method: 'POST', body: JSON.stringify(params) });
+}
+
+/** Learning Engine (docs/learning/API.md) — never cached: it changes with every answer. */
+export function getLearningOverview(subjectId?: string): Promise<LearningOverviewResponse> {
+  return apiFetch(
+    `/me/learning/overview${subjectId ? `?subject=${encodeURIComponent(subjectId)}` : ''}`,
+  );
+}
+
+export function getLearningRecommendations(
+  params: {
+    subjectId?: string;
+    limit?: number;
+  } = {},
+): Promise<LearningRecommendationsResponse> {
+  const qs = new URLSearchParams();
+  if (params.subjectId) qs.set('subject', params.subjectId);
+  if (params.limit) qs.set('limit', String(params.limit));
+  const q = qs.toString();
+  return apiFetch(`/me/learning/recommendations${q ? `?${q}` : ''}`);
+}
+
+export function getDifficultyRating(taskId: string): Promise<DifficultyRatingResponse> {
+  return apiFetch(`/tasks/${taskId}/difficulty-rating`);
+}
+
+export function rateTaskDifficulty(
+  taskId: string,
+  rating: number,
+): Promise<DifficultyRatingResponse> {
+  return apiFetch(`/tasks/${taskId}/difficulty-rating`, {
+    method: 'PUT',
+    body: JSON.stringify({ rating }),
+  });
 }
 
 /** Must only be called after the user has actually submitted an

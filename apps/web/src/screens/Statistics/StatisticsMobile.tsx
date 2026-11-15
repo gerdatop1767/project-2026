@@ -41,6 +41,7 @@ import { FadeIn } from '../../ui/motion/motion.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { SubjectPickerDialog } from '../../ui/SubjectPicker/SubjectPicker.js';
 import { Skeleton, SkeletonValue } from '../../ui/Skeleton/Skeleton.js';
+import { SkillsPanel } from '../../ui/LearningEngine/SkillsPanel.js';
 import { ActivityCharts } from '../../ui/Statistics/ActivityCharts.js';
 import styles from './StatisticsMobile.module.css';
 
@@ -492,6 +493,13 @@ export function StatisticsMobile() {
           </div>
 
           <ActivityCharts subjectId={subject.id} />
+
+          <Card>
+            <div className={styles.cardHeaderRow}>
+              <p className="text-h3">Навыки по номерам</p>
+            </div>
+            <SkillsPanel subjectId={subject.id} />
+          </Card>
 
           <Card>
             <div className={styles.cardHeaderRow}>

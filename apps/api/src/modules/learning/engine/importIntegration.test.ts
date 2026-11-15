@@ -94,6 +94,26 @@ describe('Learning Engine: automatic connection of new imports', () => {
     for (const p of picked) expect(imported.map((t) => t.id)).toContain(p.taskId);
   });
 
+  it('the start step also fills statistics missing for links made earlier', async () => {
+    const [task] = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(eq(schema.tasks.subjectId, 'math'))
+      .limit(1);
+    const [user] = await testDb.db.insert(schema.users).values({}).returning();
+    // An answer stored with no statistics row (e.g. history before this step existed).
+    await testDb.db
+      .insert(schema.attempts)
+      .values({ userId: user!.id, taskId: task!.id, answerRaw: 'x', isCorrect: false });
+    await syncLearningOnStartup(testDb.db, silent);
+    const rows = await testDb.db
+      .select()
+      .from(schema.userSkillStatistics)
+      .where(eq(schema.userSkillStatistics.userId, user!.id));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0]!.attempts).toBe(1);
+  });
+
   it('coverage counts the new tasks automatically and stays complete', async () => {
     const rows = await learningCoverage(testDb.db);
     const russian = rows.filter((r) => r.subjectId === 'russian');

@@ -7,6 +7,10 @@ import * as api from '../../lib/api.js';
 import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
+  getLearningOverview: vi.fn(() => new Promise(() => {})),
+  getLearningRecommendations: vi.fn(() => new Promise(() => {})),
+  getDifficultyRating: vi.fn(() => new Promise(() => {})),
+  rateTaskDifficulty: vi.fn(),
   getProgressSummary: vi.fn(),
   getProgressByTaskNumber: vi.fn(),
   getProgressByTopic: vi.fn(),

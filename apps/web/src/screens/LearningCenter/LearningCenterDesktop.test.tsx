@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LearningCenterDesktop } from './LearningCenterDesktop.js';
@@ -68,11 +68,43 @@ describe('LearningCenterDesktop', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('subject');
   });
 
-  it('«Рекомендации для тебя» is an honest placeholder — no invented picks', () => {
-    renderLearningCenter();
-    expect(screen.getByText('Рекомендации появятся позже')).toBeInTheDocument();
-    expect(screen.queryByText('Популярное')).not.toBeInTheDocument();
-    expect(screen.queryByText('Типовые задания')).not.toBeInTheDocument();
+  it('«Рекомендации для тебя» shows the Learning Engine’s real picks with their reason', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes('/me/learning/recommendations')) {
+        return new Response(
+          JSON.stringify({
+            recommendations: [
+              {
+                subjectId: 'math',
+                skillKey: 'math.equations-advanced',
+                examNumber: 13,
+                title: 'Уравнения (развёрнутый ответ)',
+                kind: 'weak',
+                priority: 80,
+                reason: 'За последние 7 попыток — 3 ошибки. Освоение 35%.',
+                benefit: 'Задание второй части.',
+                suggestedTasks: 5,
+                taskIds: ['t1', 't2', 't3', 't4', 't5'],
+              },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return new Response('{}', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      renderLearningCenter();
+      expect(
+        await screen.findByText('За последние 7 попыток — 3 ошибки. Освоение 35%.'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('№13')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Начать · 5 заданий/ })).toBeInTheDocument();
+      expect(screen.queryByText('Рекомендации появятся позже')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('the section cards lead to the theory and to the library', async () => {

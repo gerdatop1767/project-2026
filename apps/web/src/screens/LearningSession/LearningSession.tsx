@@ -154,6 +154,51 @@ export function LearningSession({ sessionId }: LearningSessionProps) {
             </div>
           ))}
         </Card>
+        {summary.skills && summary.skills.length > 0 && (
+          <Card>
+            <h2 className="text-h3">Что изменилось</h2>
+            <ul className={styles.progressList}>
+              {summary.skills.map((k) => {
+                const delta = k.after - k.before;
+                return (
+                  <li key={k.skillKey} className={styles.progressRow}>
+                    <span className="text-body-sm">
+                      {k.examNumber ? `№${k.examNumber} · ` : ''}
+                      {k.title}
+                    </span>
+                    <span className={styles.progressValue}>
+                      {k.before}% → {k.after}%{' '}
+                      <span className={delta > 0 ? styles.up : delta < 0 ? styles.down : undefined}>
+                        ({delta > 0 ? '+' : ''}
+                        {delta})
+                      </span>
+                      <span className="text-label text-secondary">
+                        {' '}
+                        · верно {k.correct} из {k.attempts}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )}
+        {summary.next && summary.next.length > 0 && (
+          <Card>
+            <h2 className="text-h3">Что тренировать дальше</h2>
+            <ul className={styles.progressList}>
+              {summary.next.map((r) => (
+                <li key={r.skillKey} className={styles.nextRow}>
+                  <span className="text-body-sm" style={{ fontWeight: 700 }}>
+                    {r.examNumber ? `№${r.examNumber} · ` : ''}
+                    {r.title}
+                  </span>
+                  <span className="text-body-sm text-secondary">{r.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
         <Button
           variant="primary"
           fullWidth

@@ -15,3 +15,31 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+
+.progressList {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progressRow,
+.nextRow {
+  display: grid;
+  gap: 2px;
+}
+
+.progressValue {
+  font-size: var(--font-size-body-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.up {
+  color: var(--color-success, var(--color-accent-primary));
+}
+
+.down {
+  color: var(--color-error);
+}

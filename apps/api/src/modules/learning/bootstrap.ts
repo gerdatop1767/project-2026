@@ -1,5 +1,6 @@
 import { schema, syncTaskSkills, type Database } from '@zybrilka/db';
-import { inArray } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
+import { rows } from '../admin/sql.js';
 import { rebuildUserSkillStatistics } from './service.js';
 
 interface Log {
@@ -45,6 +46,20 @@ export async function syncLearningOnStartup(db: Database, log: Log): Promise<voi
         .where(inArray(schema.attempts.taskId, ids.slice(i, i + 500)));
       for (const r of rows) users.add(r.userId);
     }
+    // Also anyone whose answered task has a skill but no statistics row for
+    // it yet (links created before this step existed, an interrupted run).
+    const missing = await rows<{ user_id: string }>(
+      db,
+      sql`
+      select distinct a.user_id
+      from ${schema.attempts} a
+      join ${schema.taskSkills} ts on ts.task_id = a.task_id
+      where not exists (
+        select 1 from ${schema.userSkillStatistics} uss
+        where uss.user_id = a.user_id and uss.skill_id = ts.skill_id
+      )`,
+    );
+    for (const row of missing) users.add(row.user_id);
     for (const userId of users) await rebuildUserSkillStatistics(db, userId);
     log.info(
       { usersRebuilt: users.size, ms: Date.now() - started },

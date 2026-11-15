@@ -6,6 +6,10 @@ import { NavigationProvider } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
 
 vi.mock('../../lib/api.js', () => ({
+  getLearningOverview: vi.fn(() => new Promise(() => {})),
+  getLearningRecommendations: vi.fn(() => new Promise(() => {})),
+  getDifficultyRating: vi.fn(() => new Promise(() => {})),
+  rateTaskDifficulty: vi.fn(),
   getProgressSummary: vi.fn(),
   getProgressDaily: vi.fn(),
   getMistakes: vi.fn(),

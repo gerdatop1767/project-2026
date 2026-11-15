@@ -79,3 +79,13 @@
   flex: none;
   color: var(--color-text-secondary);
 }
+
+.recs {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.recs h2 {
+  margin: 0;
+}

@@ -6,6 +6,7 @@ import { Chip } from '../Chip/Chip.js';
  * add for a real backend learning session: a small, unobtrusive
  * "Тренировка · N из M" indicator built from the existing `Chip`
  * (Design Spec Section 12), never a new badge component or color.
+ * A Learning Engine Smart Training also says why this task was chosen.
  */
 export function LearningSessionBadge({
   session,
@@ -14,8 +15,15 @@ export function LearningSessionBadge({
 }) {
   const label = session.variant ? `Вариант ${session.variant.variantNumber}` : 'Тренировка';
   return (
-    <Chip selected icon={session.variant ? 'variant' : 'smart'}>
-      {label} · {session.position} из {session.total}
-    </Chip>
+    <>
+      <Chip selected icon={session.variant ? 'variant' : 'smart'}>
+        {label} · {session.position} из {session.total}
+      </Chip>
+      {session.pick && !session.variant && (
+        <p className="text-label text-secondary" style={{ margin: '4px 0 0' }}>
+          {session.pick.reason}
+        </p>
+      )}
+    </>
   );
 }
