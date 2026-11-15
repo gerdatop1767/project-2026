@@ -41,6 +41,7 @@ export * from './streakTiers.js';
 export * from './xp.js';
 export * from './leaderboard.js';
 export * from './reminders.js';
+export * from './examCalendar.js';
 export * from './support.js';
 export * from './examSpecs.js';
 export * from './miniGames.js';

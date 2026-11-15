@@ -1603,6 +1603,46 @@ export const reminderDeliveries = pgTable(
 );
 
 /**
+ * «Давно не виделись» (docs/REMINDERS.md § Напоминания неактивным): one row
+ * per reminder sent (or tried) to an account that stopped practising. The
+ * worker claims the row BEFORE sending, under a per-account advisory lock,
+ * and only if the account has no row from the last INACTIVITY_REMINDER_DAYS
+ * — a repeated run, a restart or a second worker sends nothing twice.
+ * `localDate` is the Moscow date of the claim; (user, date) is unique as a
+ * second guard. Statuses as in `reminder_deliveries`, plus `skipped` — a
+ * pending retry dropped because the student came back.
+ */
+export const inactivityReminderStatuses = [...reminderDeliveryStatuses, 'skipped'] as const;
+
+export const inactivityReminders = pgTable(
+  'inactivity_reminders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    localDate: date('local_date', { mode: 'string' }).notNull(),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    status: text('status', { enum: inactivityReminderStatuses }).notNull().default('sending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    /** The activity the reminder was about (latest answer / sign-in / event). */
+    lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
+    /** Days to the first main-period EGE shown in the message (null = none shown). */
+    daysToExam: integer('days_to_exam'),
+    /** Short failure code (`network`, `rate_limited`…) — never message text. */
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('inactivity_reminders_user_date_idx').on(table.userId, table.localDate),
+    index('inactivity_reminders_user_created_idx').on(table.userId, table.createdAt),
+    index('inactivity_reminders_status_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
+/**
  * One-time links that attach a Telegram account to a site account through
  * the bot (`t.me/<bot>?start=link_<token>`). Only the SHA-256 of the token
  * is stored; a token lives a few minutes and is finished (`consumedAt`) by

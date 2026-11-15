@@ -218,7 +218,7 @@ const commandList = [
   '/menu — главное меню',
   '/ios — как установить Зубрилку на iPhone и iPad',
   '/support — написать в поддержку',
-  '/reminders_off — отключить ежедневные напоминания',
+  '/reminders_off — отключить напоминания',
 ];
 
 export const helpText = commandList.join('\n');

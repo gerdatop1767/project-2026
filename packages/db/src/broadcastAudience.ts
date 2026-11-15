@@ -18,6 +18,17 @@ import { sql, type SQL } from 'drizzle-orm';
  * Signed-in visits are not logged otherwise, so a visit without any of these
  * is not seen — the admin page says so.
  */
+/** «Last activity» of the account `userId` (see above) — shared with the
+ * worker's inactivity reminders, so «inactive» means the same everywhere. */
+export function lastActiveSql(userId: SQL): SQL {
+  return sql`greatest(
+          (SELECT max(t.created_at) FROM attempts t WHERE t.user_id = ${userId}),
+          (SELECT max(g.created_at) FROM mini_game_answers g WHERE g.user_id = ${userId}),
+          (SELECT max(s.created_at) FROM auth_sessions s WHERE s.user_id = ${userId}),
+          (SELECT max(e.occurred_at) FROM analytics_events e WHERE e.user_id = ${userId})
+        )`;
+}
+
 export function audienceRowsSql(
   a: BroadcastAudience,
   options: { now: Date; broadcastId: string | null },
@@ -96,12 +107,7 @@ export function audienceRowsSql(
     FROM users u
     CROSS JOIN LATERAL (
       SELECT
-        greatest(
-          (SELECT max(t.created_at) FROM attempts t WHERE t.user_id = u.id),
-          (SELECT max(g.created_at) FROM mini_game_answers g WHERE g.user_id = u.id),
-          (SELECT max(s.created_at) FROM auth_sessions s WHERE s.user_id = u.id),
-          (SELECT max(e.occurred_at) FROM analytics_events e WHERE e.user_id = u.id)
-        ) AS last_active,
+        ${lastActiveSql(sql`u.id`)} AS last_active,
         (SELECT count(*) FROM user_daily_activity x
           WHERE x.user_id = u.id AND x.activity_date::date > ${today} - ${a.activityWindowDays}::int) AS active_days,
         (SELECT count(DISTINCT t.task_id) FROM attempts t WHERE t.user_id = u.id AND t.is_correct) AS solved
