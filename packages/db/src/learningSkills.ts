@@ -1,5 +1,5 @@
 import { allExamSkills, examSkillsForTask, isExamSkillSlug } from '@zybrilka/shared';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import type { Database } from './client.js';
@@ -54,33 +54,50 @@ export async function ensureExamSkillRows(db: Database): Promise<Map<string, str
   );
   const skills = allExamSkills().filter((s) => subjectIds.has(s.subjectId));
   if (skills.length === 0) return new Map();
-  await db
-    .insert(schema.skills)
-    .values(
-      skills.map((s) => ({
-        subjectId: s.subjectId,
-        slug: s.key,
-        name: s.title,
-        description: s.examNumber ? `Задание №${s.examNumber} ЕГЭ` : 'Тема кодификатора',
-      })),
-    )
-    .onConflictDoUpdate({
-      target: [schema.skills.subjectId, schema.skills.slug],
-      set: {
-        name: sql`excluded.name`,
-        description: sql`excluded.description`,
-        updatedAt: sql`now()`,
-      },
-    });
-  const rows = await db
-    .select({ id: schema.skills.id, slug: schema.skills.slug })
-    .from(schema.skills)
-    .where(
-      inArray(
-        schema.skills.slug,
-        skills.map((s) => s.key),
-      ),
-    );
+  const wanted = skills.map((s) => ({
+    subjectId: s.subjectId,
+    slug: s.key,
+    name: s.title,
+    description: s.examNumber ? `Задание №${s.examNumber} ЕГЭ` : 'Тема кодификатора',
+  }));
+  const readRows = () =>
+    db
+      .select({
+        id: schema.skills.id,
+        subjectId: schema.skills.subjectId,
+        slug: schema.skills.slug,
+        name: schema.skills.name,
+        description: schema.skills.description,
+      })
+      .from(schema.skills)
+      .where(
+        inArray(
+          schema.skills.slug,
+          wanted.map((s) => s.slug),
+        ),
+      );
+  const keyOf = (r: { subjectId: string; slug: string }) => `${r.subjectId}\u0000${r.slug}`;
+
+  // Read first and write only what is missing or changed. This runs inside
+  // answer transactions too, and an unconditional upsert would row-lock every
+  // skill on every first answer to a new task.
+  let rows = await readRows();
+  const byKey = new Map(rows.map((r) => [keyOf(r), r]));
+  const missing = wanted.filter((s) => !byKey.has(keyOf(s)));
+  const changed = wanted.filter((s) => {
+    const row = byKey.get(keyOf(s));
+    return row !== undefined && (row.name !== s.name || row.description !== s.description);
+  });
+  if (missing.length > 0) {
+    await db.insert(schema.skills).values(missing).onConflictDoNothing();
+  }
+  for (const s of changed) {
+    await db
+      .update(schema.skills)
+      .set({ name: s.name, description: s.description, updatedAt: new Date() })
+      .where(and(eq(schema.skills.subjectId, s.subjectId), eq(schema.skills.slug, s.slug)));
+  }
+  if (missing.length > 0) rows = await readRows();
   return new Map(rows.map((r) => [r.slug, r.id]));
 }
 

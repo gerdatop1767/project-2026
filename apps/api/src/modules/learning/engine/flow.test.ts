@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { schema, syncTaskSkills } from '@zybrilka/db';
+import { ensureExamSkillRows, schema, syncTaskSkills } from '@zybrilka/db';
 import { createFullContentTestDb } from '@zybrilka/db/testing';
 import { YASHCHENKO_2027_PROJECT_SOURCE } from '@zybrilka/shared';
 import { and, eq, ne } from 'drizzle-orm';
@@ -76,6 +76,21 @@ describe('Learning Engine: answer → skill (real content)', () => {
     const again = await syncTaskSkills(testDb.db);
     expect(again.linksCreated).toBe(0);
     expect(again.linksRemoved).toBe(0);
+  });
+
+  it('a repeated sync does not rewrite skill rows (no row locks on the answer path)', async () => {
+    await syncTaskSkills(testDb.db);
+    const before = await testDb.db
+      .select({ id: schema.skills.id, updatedAt: schema.skills.updatedAt })
+      .from(schema.skills);
+    const map = await ensureExamSkillRows(testDb.db);
+    await syncTaskSkills(testDb.db);
+    const after = await testDb.db
+      .select({ id: schema.skills.id, updatedAt: schema.skills.updatedAt })
+      .from(schema.skills);
+    expect(after).toEqual(expect.arrayContaining(before));
+    expect(after).toHaveLength(before.length);
+    expect(map.size).toBeGreaterThan(40);
   });
 
   it('an answer updates the exam skill of its number; the old Ященко numbering lands on the right topic', async () => {
