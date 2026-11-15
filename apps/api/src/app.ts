@@ -28,6 +28,7 @@ import { taskSimilarityRoutes } from './modules/learning/taskSimilarity/routes.j
 import { recommendationRoutes } from './modules/learning/recommendation/routes.js';
 import { learningPathRoutes } from './modules/learning/learningPath/routes.js';
 import { learningSessionRoutes } from './modules/learning/learningSession/routes.js';
+import { difficultyRatingRoutes } from './modules/learning/difficultyRating/routes.js';
 import { mistakesRoutes } from './modules/mistakes/routes.js';
 import { enqueueNotification } from './modules/notifications/outbox.js';
 import { errorKind, SiteErrorNotifier } from './modules/notifications/siteErrors.js';
@@ -159,6 +160,7 @@ export function buildApp({
       scope.register(recommendationRoutes, { db, prefix: '/api/v1' });
       scope.register(learningPathRoutes, { db, prefix: '/api/v1' });
       scope.register(learningSessionRoutes, { db, prefix: '/api/v1' });
+      scope.register(difficultyRatingRoutes, { db, prefix: '/api/v1' });
     };
 
     if (authConfig) {

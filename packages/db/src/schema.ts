@@ -4,6 +4,7 @@ import {
   type AnyPgColumn,
   bigint,
   boolean,
+  check,
   customType,
   date,
   index,
@@ -1504,6 +1505,34 @@ export const taskAnswerReveals = pgTable(
     revealedAt: timestamp('revealed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.taskId] })],
+);
+
+/**
+ * «Насколько сложным было это задание?» (docs/learning/ALGORITHMS.md § 5):
+ * one rating 1..10 per student and task — changing it updates this row,
+ * never adds a second one. Only after the student answered the task (or
+ * opened its answer). A student's own rating is their subjective
+ * difficulty; the community difficulty is a robust aggregate computed from
+ * all rows on read, never stored as a number that could drift.
+ */
+export const taskDifficultyRatings = pgTable(
+  'task_difficulty_ratings',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    rating: integer('rating').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.taskId] }),
+    index('task_difficulty_ratings_task_idx').on(table.taskId),
+    check('task_difficulty_ratings_range', sql`${table.rating} BETWEEN 1 AND 10`),
+  ],
 );
 
 /**
