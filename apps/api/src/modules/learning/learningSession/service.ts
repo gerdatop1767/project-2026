@@ -18,8 +18,10 @@ import {
   type LearningSessionSummary,
   type VariantProgressItem,
   type VariantProgressResponse,
+  type TrainingMix,
 } from '@zybrilka/shared';
 import { getLearningPath } from '../learningPath/service.js';
+import { pickForSlot, startPlannedTraining, trainingOutcome } from '../engine/training.js';
 import { resolveSubjectId } from '../recommendation/service.js';
 import { buildDetectionInput } from '../errorSignatures/service.js';
 import { getVariantDetail } from '../../variants/service.js';
@@ -36,6 +38,10 @@ export interface StartLearningSessionContext {
    * filter/selection the session was started with. */
   readonly unseenOnly?: boolean;
   readonly randomizeTopTier?: boolean;
+  /** A recommendation's «Начать»: every task from this EGE skill. */
+  readonly focusSkill?: string;
+  /** Learning Engine bucket shares (default 50/25/15/10). */
+  readonly mix?: TrainingMix;
 }
 
 /**
@@ -61,6 +67,41 @@ export async function startLearningSession(
   const subjectId = await resolveSubjectId(db, userId, { subjectId: context.subjectId });
   if (!subjectId) return null;
 
+  // Learning Engine: a plan of buckets × skills from the student model
+  // (docs/learning/ALGORITHMS.md § 4); each slot's task is picked when reached.
+  const planned = await startPlannedTraining(db, userId, {
+    subjectId,
+    total: context.total,
+    focusSkill: context.focusSkill,
+    mix: context.mix,
+    unseenOnly: context.unseenOnly,
+  });
+  if (planned) {
+    const row = await tasksRepo.getTaskById(db, planned.taskId);
+    if (row) {
+      const session = await repo.createSession(db, {
+        userId,
+        subjectId,
+        total: context.total,
+        firstTaskId: planned.taskId,
+        unseenOnly: context.unseenOnly,
+        randomizeTopTier: context.randomizeTopTier,
+        trainingPlan: planned.plan,
+      });
+      return {
+        sessionId: session.id,
+        subject: subjectId,
+        status: 'active',
+        position: 1,
+        total: session.total,
+        task: toPublicTask(row),
+        pick: planned.pick,
+      };
+    }
+  }
+  if (context.focusSkill) return null;
+
+  // No plan possible (no linked tasks) — the scored path, as before.
   const path = await getLearningPath(db, userId, {
     subjectId,
     limit: 1,
@@ -196,6 +237,38 @@ export async function advanceLearningSession(
     return activeVariantResponse(db, updated, row);
   }
 
+  if (session.trainingPlan) {
+    const next = await pickForSlot(db, userId, {
+      subjectId: session.subjectId,
+      plan: session.trainingPlan,
+      index: session.consumedTaskIds.length,
+      consumed: session.consumedTaskIds,
+      unseenOnly: session.unseenOnly,
+    });
+    const row = next ? await tasksRepo.getTaskById(db, next.taskId) : null;
+    if (!next || !row) {
+      const completed = await repo.markCompleted(db, session.id);
+      return buildCompletedResponse(db, completed);
+    }
+    const updated = await repo.appendConsumedTask(
+      db,
+      session.id,
+      next.taskId,
+      session.consumedTaskIds.length,
+    );
+    // A concurrent `/next` already served this slot: report that task.
+    if (!updated) return getLearningSessionSnapshot(db, userId, session.id);
+    return {
+      sessionId: updated.id,
+      subject: updated.subjectId,
+      status: 'active',
+      position: updated.consumedTaskIds.length,
+      total: updated.total,
+      task: toPublicTask(row),
+      pick: next.pick,
+    };
+  }
+
   const path = await getLearningPath(db, userId, {
     subjectId: session.subjectId,
     limit: 1,
@@ -212,7 +285,13 @@ export async function advanceLearningSession(
   }
 
   const step = path.steps[0]!;
-  const updated = await repo.appendConsumedTask(db, session.id, step.task.id);
+  const updated = await repo.appendConsumedTask(
+    db,
+    session.id,
+    step.task.id,
+    session.consumedTaskIds.length,
+  );
+  if (!updated) return getLearningSessionSnapshot(db, userId, session.id);
 
   return {
     sessionId: updated.id,
@@ -409,8 +488,20 @@ async function computeSessionSummary(
 
   const skillIds = await repo.getSkillIdsForTasks(db, [...attemptedTaskIds]);
   const skillsPracticed = new Set(skillIds).size;
+  const base = { attempted, correct, incorrect, accuracy, skillsPracticed, mistakesCreated };
+  if (!session.trainingPlan) return base;
 
-  return { attempted, correct, incorrect, accuracy, skillsPracticed, mistakesCreated };
+  // Learning Engine: mastery before → after per practiced skill, and what next.
+  const skillKeys = await repo.getExamSkillKeysForTasks(db, [...attemptedTaskIds]);
+  const outcome = await trainingOutcome(db, session.userId, {
+    subjectId: session.subjectId,
+    plan: session.trainingPlan,
+    answers: [...attemptedTaskIds].map((taskId) => ({
+      taskSkillKeys: skillKeys.get(taskId) ?? [],
+      isCorrect: correctTaskIds.has(taskId),
+    })),
+  });
+  return { ...base, skills: outcome.skills, next: outcome.next };
 }
 
 /**

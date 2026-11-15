@@ -35,3 +35,16 @@ export {
 export { importStressDictionary } from './stressDictionary/import.js';
 export { STRESS_ENTRIES, STRESS_SOURCES } from './stressDictionary/data.js';
 export { audienceRowsSql, type AudienceRow, type AudienceState } from './broadcastAudience.js';
+export {
+  ensureExamSkillRows,
+  syncTaskSkills,
+  taskHasExamSkill,
+  type SyncTaskSkillsResult,
+  type UnmappedTask,
+} from './learningSkills.js';
+export { coverageMarkdown, learningCoverage, type CoverageRow } from './learningCoverage.js';
+export {
+  importRussianDoshchinsky2026Book36,
+  R26_SOURCE,
+} from './importRussianDoshchinsky2026Book36.js';
+export { r26Variants } from './russianDoshchinsky2026/index.js';

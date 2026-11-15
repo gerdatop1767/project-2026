@@ -281,6 +281,20 @@
       "when": 1794694288162,
       "tag": "0039_task_answer_reveals",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794742851154,
+      "tag": "0040_task_difficulty_ratings",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794743458826,
+      "tag": "0041_learning_session_training_plan",
+      "breakpoints": true
     }
   ]
 }

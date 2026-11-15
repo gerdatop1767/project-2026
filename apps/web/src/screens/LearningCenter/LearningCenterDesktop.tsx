@@ -18,6 +18,7 @@ import {
   LearningSearchBox,
   LearningSearchResults,
 } from '../../ui/LearningSearch/LearningSearch.js';
+import { RecommendationsList } from '../../ui/LearningEngine/RecommendationsList.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
@@ -151,21 +152,7 @@ export function LearningCenterDesktop() {
 
       <Card hidden={searching} className={styles.recommendCard}>
         <p className="text-h3">Рекомендации для тебя</p>
-        {/* No recommendation engine behind this block yet: an honest
-            placeholder — no invented «personal» picks, no API requests. */}
-        <div className={styles.recommendEmpty} role="status">
-          <span className={styles.recommendEmptyIcon} aria-hidden="true">
-            <Icon name="smart" size={22} />
-          </span>
-          <div>
-            <p className="text-body" style={{ fontWeight: 700 }}>
-              Рекомендации появятся позже
-            </p>
-            <p className="text-body-sm text-secondary">
-              Решай задания — по ним мы подберём, что повторить и чем заняться дальше.
-            </p>
-          </div>
-        </div>
+        <RecommendationsList limit={4} />
       </Card>
     </div>
   );

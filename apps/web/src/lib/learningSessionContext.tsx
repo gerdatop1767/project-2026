@@ -12,6 +12,7 @@ import type {
   LearningSessionResponse,
   LearningSessionSummary,
   LearningSessionVariantInfo,
+  TrainingPickInfo,
 } from '@zybrilka/shared';
 import type { Route } from './navigation.js';
 import { registerPrivateCacheReset } from './privateCaches.js';
@@ -48,6 +49,8 @@ export type LearningSessionState =
       /** Present only for a VARIANT session (Training's "Вариант" mode) —
        * absent for Smart Training. */
       readonly variant?: LearningSessionVariantInfo;
+      /** Smart Training: why the Learning Engine chose this task. */
+      readonly pick?: TrainingPickInfo;
     }
   | {
       readonly status: 'completed';
@@ -161,6 +164,7 @@ export function applyLearningSessionResponse(
     position: response.position,
     total: response.total,
     variant: response.variant,
+    pick: response.pick,
   });
   navigate({
     screen: 'task',

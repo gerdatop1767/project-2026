@@ -1,5 +1,6 @@
 import type { Database } from '@zybrilka/db';
 import type { FastifyPluginAsync } from 'fastify';
+import { isExamSkillSlug } from '@zybrilka/shared';
 import { z } from 'zod';
 import {
   advanceLearningSession,
@@ -28,6 +29,21 @@ const startSessionBodySchema = z.object({
    * each one changes. */
   unseenOnly: z.boolean().optional(),
   randomizeTopTier: z.boolean().optional(),
+  /** A recommendation's «Начать»: an EGE skill key of `subjectId`. */
+  focusSkill: z
+    .string()
+    .refine((key) => isExamSkillSlug(key), 'unknown_skill')
+    .optional(),
+  /** Learning Engine bucket shares; any non-negative numbers (normalized). */
+  mix: z
+    .object({
+      weak: z.number().min(0).max(1),
+      mistakes: z.number().min(0).max(1),
+      stale: z.number().min(0).max(1),
+      strong: z.number().min(0).max(1),
+    })
+    .refine((m) => m.weak + m.mistakes + m.stale + m.strong > 0, 'empty_mix')
+    .optional(),
 });
 
 const sessionParamsSchema = z.object({ sessionId: z.uuid() });
@@ -57,9 +73,17 @@ export const learningSessionRoutes: FastifyPluginAsync<LearningSessionRoutesOpti
       return reply.code(400).send({ error: 'invalid_body', issues: body.error.issues });
     }
 
+    if (
+      body.data.focusSkill &&
+      (!body.data.subjectId || !body.data.focusSkill.startsWith(`${body.data.subjectId}.`))
+    ) {
+      return reply.code(400).send({ error: 'invalid_body', issues: ['focus_skill_subject'] });
+    }
     const session = await startLearningSession(db, request.userId, {
       subjectId: body.data.subjectId,
       total: body.data.limit,
+      focusSkill: body.data.focusSkill,
+      mix: body.data.mix,
       unseenOnly: body.data.unseenOnly,
       randomizeTopTier: body.data.randomizeTopTier,
     });

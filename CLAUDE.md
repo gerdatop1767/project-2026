@@ -537,6 +537,16 @@ For future/current EGE:
 - use official/current specifications and materials where available;
 - clearly label the year.
 
+## 15.1 Learning Engine compatibility (mandatory)
+
+Every change to importers, task structure or task metadata must stay compatible with the Learning Engine (`docs/learning/`, start with `docs/learning/README.md`):
+
+- a task's EGE skill is derived from `subjectId`, `taskNumber`, `source`, `sourceYear` (`examSkillsForTask`); keep them correct, number = the number in the source's own edition;
+- a new exam format/edition/number goes into `packages/shared/src/examSpecs.ts` BEFORE importing it;
+- never hand-write `task_skills` for EGE topics and never hard-code task ids in learning code;
+- after an import run `pnpm --filter @zybrilka/db learning:coverage`, expect 0 tasks without a skill, and update `docs/learning/LEARNING-COVERAGE.md`;
+- keep `docs/learning/*` in sync with the code when changing learning logic.
+
 ---
 
 # 16. EXPLANATIONS

@@ -1,7 +1,7 @@
 import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
 import type { SkillAttemptRecord, SkillMasteryResult } from '@zybrilka/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 export async function getSkillIdsForTask(db: Database, taskId: string): Promise<string[]> {
   const rows = await db
@@ -21,23 +21,79 @@ export async function getAttemptRecordsForUserSkill(
   skillId: string,
 ): Promise<SkillAttemptRecord[]> {
   const rows = await db
-    .select({ isCorrect: schema.attempts.isCorrect, createdAt: schema.attempts.createdAt })
+    .select({
+      isCorrect: schema.attempts.isCorrect,
+      createdAt: schema.attempts.createdAt,
+      taskId: schema.attempts.taskId,
+      difficulty: schema.tasks.difficulty,
+    })
     .from(schema.attempts)
     .innerJoin(schema.taskSkills, eq(schema.taskSkills.taskId, schema.attempts.taskId))
+    .innerJoin(schema.tasks, eq(schema.tasks.id, schema.attempts.taskId))
     .where(and(eq(schema.attempts.userId, userId), eq(schema.taskSkills.skillId, skillId)));
   return rows;
 }
 
-/** Every distinct skillId the user has ever attempted (via any linked
- * task) — the full set `rebuildUserSkillStatistics` needs to recompute,
- * not just the skills that already have a `user_skill_statistics` row. */
-export async function getAttemptedSkillIdsForUser(db: Database, userId: string): Promise<string[]> {
+/** The user's whole attempt history, grouped by linked skill — one query
+ * for a full rebuild instead of one per skill. */
+export async function getAttemptRecordsForUserBySkill(
+  db: Database,
+  userId: string,
+): Promise<Map<string, SkillAttemptRecord[]>> {
   const rows = await db
-    .selectDistinct({ skillId: schema.taskSkills.skillId })
+    .select({
+      skillId: schema.taskSkills.skillId,
+      isCorrect: schema.attempts.isCorrect,
+      createdAt: schema.attempts.createdAt,
+      taskId: schema.attempts.taskId,
+      difficulty: schema.tasks.difficulty,
+    })
     .from(schema.attempts)
     .innerJoin(schema.taskSkills, eq(schema.taskSkills.taskId, schema.attempts.taskId))
+    .innerJoin(schema.tasks, eq(schema.tasks.id, schema.attempts.taskId))
     .where(eq(schema.attempts.userId, userId));
-  return rows.map((r) => r.skillId);
+  const out = new Map<string, SkillAttemptRecord[]>();
+  for (const { skillId, ...record } of rows) {
+    const list = out.get(skillId);
+    if (list) list.push(record);
+    else out.set(skillId, [record]);
+  }
+  return out;
+}
+
+/** Same full overwrite as `upsertUserSkillStatistics`, for many skills at once. */
+export async function upsertUserSkillStatisticsMany(
+  db: Database,
+  userId: string,
+  rows: readonly { skillId: string; result: SkillMasteryResult }[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  await db
+    .insert(schema.userSkillStatistics)
+    .values(
+      rows.map(({ skillId, result }) => ({
+        userId,
+        skillId,
+        attempts: result.attempts,
+        correctAttempts: result.correctAttempts,
+        incorrectAttempts: result.incorrectAttempts,
+        mastery: result.mastery,
+        confidence: result.confidence,
+        lastAttemptAt: result.lastAttemptAt,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [schema.userSkillStatistics.userId, schema.userSkillStatistics.skillId],
+      set: {
+        attempts: sql`excluded.attempts`,
+        correctAttempts: sql`excluded.correct_attempts`,
+        incorrectAttempts: sql`excluded.incorrect_attempts`,
+        mastery: sql`excluded.mastery`,
+        confidence: sql`excluded.confidence`,
+        lastAttemptAt: sql`excluded.last_attempt_at`,
+        updatedAt: sql`now()`,
+      },
+    });
 }
 
 /** Idempotent: always a full overwrite from a freshly computed

@@ -164,3 +164,42 @@ export async function createImportedRussian2027TestDb() {
   }
   return testDb;
 }
+
+// Every content source the tests can import: math ЕГЭ-2026 Вариант 1-10, the
+// old-edition Ященко-2027 Вариант 1-25 and Russian ЕГЭ-2027 Вариант 1-18 —
+// for Learning Engine tests on real task metadata (docs/learning/TESTING.md).
+export async function createFullContentTestDb() {
+  const testDb = await createImported2027TestDb();
+  for (const importVariant of [
+    importVariant2,
+    importVariant3,
+    importVariant4,
+    importVariant5,
+    importVariant6,
+    importVariant7,
+    importVariant8,
+    importVariant9,
+    importVariant10,
+    importRussianVariant1,
+    importRussianVariant2,
+    importRussianVariant3,
+    importRussianVariant4,
+    importRussianVariant5,
+    importRussianVariant6,
+    importRussianVariant7,
+    importRussianVariant8,
+    importRussianVariant9,
+    importRussianVariant10,
+    importRussianVariant11,
+    importRussianVariant12,
+    importRussianVariant13,
+    importRussianVariant14,
+    importRussianVariant15,
+    importRussianVariant16,
+    importRussianVariant17,
+    importRussianVariant18,
+  ]) {
+    await importVariant(testDb.db);
+  }
+  return testDb;
+}

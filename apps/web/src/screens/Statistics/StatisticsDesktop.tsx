@@ -42,6 +42,7 @@ import {
   periodTabs,
   solvedBarPoints,
 } from '../../ui/Statistics/dailyCharts.js';
+import { SkillsPanel } from '../../ui/LearningEngine/SkillsPanel.js';
 import styles from './StatisticsDesktop.module.css';
 import { Skeleton, SkeletonList } from '../../ui/Skeleton/Skeleton.js';
 
@@ -393,6 +394,11 @@ export function StatisticsDesktop() {
           )}
         </Card>
       </div>
+
+      <Card>
+        <p className="text-h3">Навыки по номерам</p>
+        <SkillsPanel subjectId={subjectId} />
+      </Card>
 
       {/* Statistics 2.0 — additive, placed after the existing stats/
           charts above (never replacing them), compact so it reads as

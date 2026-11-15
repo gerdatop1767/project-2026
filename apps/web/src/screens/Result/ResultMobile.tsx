@@ -43,6 +43,7 @@ import {
   TaskSolutionIllustration,
 } from '../../ui/TaskIllustration/TaskIllustration.js';
 import { CanonicalSolutionView } from '../../ui/CanonicalSolution/CanonicalSolutionView.js';
+import { DifficultyRating } from '../../ui/LearningEngine/DifficultyRating.js';
 import { PassageCard } from '../../ui/Passage/PassageCard.js';
 import { clsx } from '../../lib/clsx.js';
 import styles from './ResultMobile.module.css';
@@ -405,6 +406,8 @@ export function ResultMobile({
             </div>
           )}
         </Collapse>
+
+        <DifficultyRating taskId={task.id} />
 
         <div className={styles.actions}>
           <Button variant="secondary" onClick={goToNext} disabled={!taskNav.next}>
