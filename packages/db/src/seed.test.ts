@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from './schema.js';
+import { syncTaskSkills } from './learningSkills.js';
 import { seed } from './seed.js';
 import { createTestDb } from './testing.js';
 
@@ -41,5 +42,16 @@ describe('seed', () => {
     await seed(db);
     const second = await db.select().from(schema.tasks).where(eq(schema.tasks.subjectId, 'math'));
     expect(second.length).toBe(first.length);
+  });
+
+  it('re-runs after the Learning Engine linked the demo tasks to skills', async () => {
+    const { db } = testDb;
+    await seed(db);
+    await syncTaskSkills(db);
+    expect((await db.select().from(schema.taskSkills)).length).toBeGreaterThan(0);
+    await seed(db);
+    const again = await syncTaskSkills(db);
+    expect(again.unmapped).toEqual([]);
+    expect((await db.select().from(schema.taskSkills)).length).toBeGreaterThan(0);
   });
 });

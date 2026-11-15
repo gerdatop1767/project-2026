@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import type { Database } from './client.js';
@@ -151,6 +151,13 @@ export async function seed(db: Database) {
     topicIdBySlug.set(slug, topic!.id);
   }
 
+  // `task_skills` is derived from task metadata (learningSkills.ts) and is
+  // recreated by the next sync; drop it so the demo tasks can be replaced.
+  const demoTaskIds = db
+    .select({ id: schema.tasks.id })
+    .from(schema.tasks)
+    .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.source, DEMO_SOURCE)));
+  await db.delete(schema.taskSkills).where(inArray(schema.taskSkills.taskId, demoTaskIds));
   await db
     .delete(schema.tasks)
     .where(and(eq(schema.tasks.subjectId, 'math'), eq(schema.tasks.source, DEMO_SOURCE)));
