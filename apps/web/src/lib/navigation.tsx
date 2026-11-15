@@ -301,6 +301,14 @@ interface NavigationContextValue {
    * page always closes to the public Home, never to a private tab).
    */
   leave: (fallback: Route) => void;
+  /**
+   * «Up» to `route` (a breadcrumb, «к списку»): when the entry right behind
+   * this one IS that route, a real Back — so going up never stacks a second
+   * copy of a page the history already has (the loop «центр → практика →
+   * центр → Назад → практика…»). Otherwise it opens `route`: pushed
+   * (`'push'`, a link) or in place of the current entry (`'replace'`).
+   */
+  backTo: (route: Route, otherwise?: 'push' | 'replace') => void;
 }
 
 export interface NavigateOptions {
@@ -319,6 +327,22 @@ export interface NavigateOptions {
  * how `back()` knows whether `history.back()` stays inside the app: the
  * browser itself never says whether a previous entry is ours.
  */
+function currentHistoryState(): { index?: unknown; gate?: unknown; prev?: unknown } {
+  const state = window.history.state as { zybrilka?: Record<string, unknown> } | null;
+  return state?.zybrilka ?? {};
+}
+
+/**
+ * The path of the app entry right behind the current one — recorded when
+ * the current entry was pushed — or null when there is none of ours (the
+ * first entry of a visit, a direct link).
+ */
+export function previousAppPath(): string | null {
+  if (currentHistoryIndex() === 0) return null;
+  const prev = currentHistoryState().prev;
+  return typeof prev === 'string' ? prev : null;
+}
+
 function currentHistoryIndex(): number {
   const state = window.history.state as { zybrilka?: { index?: unknown } } | null;
   const index = state?.zybrilka?.index;
@@ -338,7 +362,19 @@ export function isSignInGateEntry(): boolean {
 }
 
 function writeHistory(mode: 'push' | 'replace', path: string, index: number, gate = false) {
-  const state = { zybrilka: gate ? { index, gate } : { index } };
+  // `prev`: a push remembers the page it was pushed from; a replace keeps
+  // what the entry it overwrites remembered (it stays at the same place).
+  const prev =
+    mode === 'push'
+      ? window.location.pathname + window.location.search
+      : currentHistoryState().prev;
+  const state = {
+    zybrilka: {
+      index,
+      ...(gate ? { gate } : {}),
+      ...(typeof prev === 'string' && index > 0 ? { prev } : {}),
+    },
+  };
   if (mode === 'push') window.history.pushState(state, '', path);
   else window.history.replaceState(state, '', path);
   applySeo(window.location.pathname + window.location.search);
@@ -435,6 +471,18 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     [navigate],
   );
 
+  const backTo = useCallback(
+    (route: Route, otherwise: 'push' | 'replace' = 'push') => {
+      const path = pathForRoute(route);
+      if (path !== null && path === previousAppPath()) {
+        window.history.back();
+      } else {
+        navigate(route, otherwise === 'replace' ? { replace: true } : undefined);
+      }
+    },
+    [navigate],
+  );
+
   // Only routes `navigate()` actually pushed a history entry for can
   // be popped — `menu`/`task`/`result` have no URL (see routes.ts), so
   // closing them just clears the overlay in place, same as before URL
@@ -453,8 +501,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   // identity and force them all to re-render — only an actual
   // tab/overlay change should do that.
   const value = useMemo<NavigationContextValue>(
-    () => ({ tab, overlay, navigate, back, leave }),
-    [tab, overlay, navigate, back, leave],
+    () => ({ tab, overlay, navigate, back, leave, backTo }),
+    [tab, overlay, navigate, back, leave, backTo],
   );
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;

@@ -241,6 +241,9 @@
 .article h1,
 .article h2 {
   margin: 0;
+  /* «дифференцирования» is wider than a 320 px phone: break, don't clip. */
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .lead {
