@@ -41,6 +41,16 @@ async function lockUserXp(
   return row!;
 }
 
+/**
+ * The per-account lock every answer transaction takes first
+ * (`prepareForAward`). Anything else that rewrites a student's derived
+ * learning state (the skill statistics rebuild) takes the same lock, so it
+ * can never interleave with an answer being recorded.
+ */
+export async function lockUserLearningState(tx: Database, userId: string): Promise<void> {
+  await lockUserXp(tx, userId);
+}
+
 async function addToTotal(tx: Database, userId: string, amount: number): Promise<number> {
   const [row] = await tx
     .update(schema.userXp)

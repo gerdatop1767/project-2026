@@ -1,5 +1,6 @@
 import { syncTaskSkills, taskHasExamSkill, type Database } from '@zybrilka/db';
 import { calculateSkillMastery, type SkillMasteryEntry } from '@zybrilka/shared';
+import { lockUserLearningState } from '../xp/service.js';
 import * as repo from './repo.js';
 
 /**
@@ -43,18 +44,28 @@ export async function updateSkillStatisticsForTaskAttempt(
 /**
  * Deterministic, idempotent recompute of every skill the user has ever
  * attempted, straight from `attempts` — safe to run repeatedly (a
- * migration, a formula change, data recovery). Running it twice in a
- * row with no new attempts in between produces identical rows.
+ * migration, a formula change, data recovery, every API start). Running it
+ * twice in a row with no new attempts in between produces identical rows.
+ *
+ * Runs in one transaction under the same per-account lock as the answer
+ * transaction (`lockUserLearningState`), so an answer recorded while the
+ * rebuild runs is never overwritten by a row computed without it. One query
+ * for the whole history, one upsert for all skills.
  */
 export async function rebuildUserSkillStatistics(
   db: Database,
   userId: string,
 ): Promise<{ skillsUpdated: number }> {
-  const skillIds = await repo.getAttemptedSkillIdsForUser(db, userId);
-  for (const skillId of skillIds) {
-    await recomputeUserSkillStatistics(db, userId, skillId);
-  }
-  return { skillsUpdated: skillIds.length };
+  return db.transaction(async (tx) => {
+    await lockUserLearningState(tx, userId);
+    const bySkill = await repo.getAttemptRecordsForUserBySkill(tx, userId);
+    const rows = [...bySkill.entries()].map(([skillId, records]) => ({
+      skillId,
+      result: calculateSkillMastery(records),
+    }));
+    await repo.upsertUserSkillStatisticsMany(tx, userId, rows);
+    return { skillsUpdated: rows.length };
+  });
 }
 
 export async function getUserMastery(db: Database, userId: string): Promise<SkillMasteryEntry[]> {
