@@ -99,7 +99,7 @@ export function adviceFixture(over: Partial<AdviceResponse> = {}): AdviceRespons
       linksTheory: true,
       generic: true,
     },
-    theory: { subjectId: 'math', taskNumber: 13 },
+    theory: { subjectId: 'math', taskNumber: 13, topic: null, sections: ['4. Методы решения'] },
     stats: {
       mastery: 41,
       level: 'weak',

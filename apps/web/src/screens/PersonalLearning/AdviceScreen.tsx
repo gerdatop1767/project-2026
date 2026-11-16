@@ -67,6 +67,12 @@ export function AdviceScreen({ skillKey }: { skillKey: string }) {
         <h1 className="text-h1" style={{ margin: 0 }}>
           {a.problem.title}
         </h1>
+        {a.advice.focus && (
+          <p className={styles.muted} style={{ margin: 0 }}>
+            {a.advice.focus.kind === 'part' ? 'Часть задания' : 'Вид заданий'}:{' '}
+            <strong>{a.advice.focus.label}</strong>
+          </p>
+        )}
         <p style={{ margin: 0 }}>{a.advice.whatIsWrong}</p>
         <ul className={styles.list} aria-label="По твоим ответам">
           {a.problem.evidence.map((e) => (
@@ -105,8 +111,11 @@ export function AdviceScreen({ skillKey }: { skillKey: string }) {
 
       <section className={styles.card} aria-labelledby="advice-why">
         <h2 id="advice-why" className="text-h3">
-          Почему так бывает
+          Как это проявляется и почему
         </h2>
+        {a.advice.howItShows && a.advice.howItShows !== a.advice.whatIsWrong && (
+          <p style={{ margin: 0 }}>{a.advice.howItShows}</p>
+        )}
         <p style={{ margin: 0 }}>{a.advice.why}</p>
       </section>
 
@@ -123,16 +132,20 @@ export function AdviceScreen({ skillKey }: { skillKey: string }) {
           <div>
             <Button
               variant="secondary"
-              onClick={() =>
+              onClick={() => {
+                const t = a.theory!;
                 navigate({
                   screen: 'theory',
                   section: 'rules',
-                  taskNumber: a.theory!.taskNumber,
-                  ...(a.theory!.subjectId === 'math' ? { subject: 'math' as const } : {}),
-                })
-              }
+                  ...(t.taskNumber !== null ? { taskNumber: t.taskNumber } : {}),
+                  ...(t.topic ? { topic: t.topic } : {}),
+                  ...(t.subjectId === 'math' ? { subject: 'math' as const } : {}),
+                });
+              }}
             >
-              Открыть теорию №{a.theory.taskNumber}
+              {a.theory.taskNumber !== null
+                ? `Открыть теорию №${a.theory.taskNumber}`
+                : 'Открыть теорию темы'}
             </Button>
           </div>
         )}
@@ -147,11 +160,28 @@ export function AdviceScreen({ skillKey }: { skillKey: string }) {
             <li key={s}>{s}</li>
           ))}
         </ol>
+        {a.advice.exercises && a.advice.exercises.length > 0 && (
+          <>
+            <h3 className="text-h4" style={{ margin: 0 }}>
+              Упражнения
+            </h3>
+            <ul className={styles.list} aria-label="Упражнения">
+              {a.advice.exercises.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          </>
+        )}
         <p className={styles.muted}>
           Рекомендуемая практика: {tasksWord(a.advice.practice.tasks)}. Контроль:{' '}
           {tasksWord(a.advice.control.tasks)}, цель — не меньше {a.advice.control.passAccuracy}%
           верных.
         </p>
+        {a.advice.successCriterion && (
+          <p style={{ margin: 0 }}>
+            <strong>Проблема решена, когда:</strong> {a.advice.successCriterion}
+          </p>
+        )}
         {a.advice.generic && (
           <p className={styles.note}>
             Это общий совет для такого типа ошибок: точного совета именно для этого номера в базе

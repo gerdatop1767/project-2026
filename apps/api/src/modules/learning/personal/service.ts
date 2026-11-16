@@ -2,7 +2,7 @@ import type { Database } from '@zybrilka/db';
 import { localDateOf, userTimezone } from '@zybrilka/db';
 import {
   accuracySeries,
-  adviceFor,
+  adviceForSkill,
   currentScoringRules,
   diagnoseSkill,
   displayMastery,
@@ -22,11 +22,7 @@ import { getRecommendations } from '../engine/service.js';
 import { loadSkillAttempts, type SkillAttemptFacts } from './data.js';
 import { activePlanSummaries, planFocusView } from './plans.js';
 
-export function problemSummary(
-  subjectId: string,
-  examNumber: number | null,
-  d: Diagnosis,
-): ProblemSummary {
+export function problemSummary(skillKey: string, d: Diagnosis): ProblemSummary {
   if (d.attempts === 0) {
     // Not «needs diagnostics» — there is nothing to diagnose yet.
     return {
@@ -36,12 +32,13 @@ export function problemSummary(
       evidence: ['По этому номеру ещё нет ответов.'],
     };
   }
-  const advice = adviceFor(subjectId, examNumber, d.type);
+  const advice = adviceForSkill(skillKey, d.type, d.detail ?? null);
   return {
     type: d.type,
     title: advice.title,
     summary: d.evidence[0] ?? advice.whatIsWrong,
     evidence: d.evidence,
+    focus: advice.focus?.label ?? null,
   };
 }
 
@@ -103,7 +100,7 @@ export async function getPersonalRecommendations(
       priority: r.priority,
       priorityLevel: priorityLevel(r.priority),
       reason: r.reason,
-      problem: problemSummary(r.subjectId, r.examNumber, d),
+      problem: problemSummary(r.skillKey, d),
       progress: {
         mastery: skill ? displayMastery(skill.level, skill.mastery) : null,
         level: skill?.level ?? 'none',
@@ -172,18 +169,25 @@ export async function getAdvice(
   const ctx = await skillContext(db, userId, skillKey, now);
   if (!ctx) return null;
   const { info, skill, facts, diagnosis } = ctx;
-  const advice = adviceFor(info.subjectId, info.examNumber, diagnosis.type);
+  const advice = adviceForSkill(skillKey, diagnosis.type, diagnosis.detail ?? null);
   return {
     skillKey,
     subjectId: info.subjectId,
     examNumber: info.examNumber,
     title: info.title,
-    problem: problemSummary(info.subjectId, info.examNumber, diagnosis),
+    problem: problemSummary(skillKey, diagnosis),
     alsoProblems: diagnosis.also,
     advice,
+    // Every math and Russian skill has a theory page: by number, or — for a
+    // math topic no current number names — by topic.
     theory:
-      advice.linksTheory && info.examNumber !== null
-        ? { subjectId: info.subjectId, taskNumber: info.examNumber }
+      advice.linksTheory && (info.examNumber !== null || info.subjectId === 'math')
+        ? {
+            subjectId: info.subjectId,
+            taskNumber: info.examNumber,
+            topic: info.examNumber === null ? skillKey : null,
+            sections: advice.theorySections ?? [],
+          }
         : null,
     stats: summaryOf(skill, facts),
     availableTasks: skill.availableTasks,
@@ -218,7 +222,7 @@ export async function getSkillProgress(
     examNumber: info.examNumber,
     title: info.title,
     stats: summaryOf(skill, facts),
-    problem: problemSummary(info.subjectId, info.examNumber, diagnosis),
+    problem: problemSummary(skillKey, diagnosis),
     dynamics: dynamicsOf(dated, today),
     series: accuracySeries(dated, today, 30),
     history: [...byDate.entries()]

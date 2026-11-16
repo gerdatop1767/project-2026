@@ -14,6 +14,8 @@ export interface ProblemSummary {
   readonly summary: string;
   /** The student's numbers behind it. */
   readonly evidence: readonly string[];
+  /** The subtype or part the cause concerns («НН», «Деепричастный оборот»). */
+  readonly focus?: string | null;
 }
 
 export interface PersonalRecommendation {
@@ -69,7 +71,14 @@ export interface AdviceResponse {
   readonly alsoProblems: readonly ProblemType[];
   readonly advice: Advice;
   /** Theory page of the number in the learning centre, null without one. */
-  readonly theory: { readonly subjectId: string; readonly taskNumber: number } | null;
+  /** The theory page: by number, or by topic for a math topic without a
+   * current number; `sections` are its headings the advice points to. */
+  readonly theory: {
+    readonly subjectId: string;
+    readonly taskNumber: number | null;
+    readonly topic: string | null;
+    readonly sections: readonly string[];
+  } | null;
   readonly stats: SkillProgressSummary;
   readonly availableTasks: number;
 }

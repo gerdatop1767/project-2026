@@ -2,8 +2,15 @@ import type { Database } from '@zybrilka/db';
 import { schema } from '@zybrilka/db';
 import {
   allExamSkills,
+  cardPartKeys,
+  cardSubtypeOf,
+  gradeMultiPart,
   isNearMiss,
   isPartialDigitAnswer,
+  numberCard,
+  parseMultiPartSpec,
+  parseMultiPartUserAnswer,
+  setAnswerDiff,
   type DiagnosisAttempt,
 } from '@zybrilka/shared';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -21,7 +28,9 @@ export interface SkillAttemptFacts extends DiagnosisAttempt {
  * PERSONAL-PLANS.md § Диагностика). Facts come only from data the server
  * has: the submitted and the correct answer, whether the task's solution
  * had been opened before the attempt (`task_answer_reveals`, or a mistake
- * whose explanation was opened), the task's subtype from its condition.
+ * whose explanation was opened), the task's subtype from its condition (the
+ * number's card, `numberCards.ts`), how a set answer differs from the key,
+ * and which parts of a multi-part answer were right.
  */
 export async function loadSkillAttempts(
   db: Database,
@@ -80,7 +89,31 @@ export async function loadSkillAttempts(
         ),
       ),
   ]);
-  const subtypeOf = new Map(tasks.map((t) => [t.id, featuresOf(t).subtype]));
+  const taskOf = new Map(tasks.map((t) => [t.id, t]));
+  // Subtype per (skill, task): the skill's card decides which subtypes exist.
+  const subtypeCache = new Map<string, string | null>();
+  const subtypeFor = (slug: string, taskId: string): string | null => {
+    const key = `${slug}|${taskId}`;
+    if (subtypeCache.has(key)) return subtypeCache.get(key)!;
+    const card = numberCard(slug);
+    const t = taskOf.get(taskId);
+    const value = card && t ? (cardSubtypeOf(card, featuresOf(t))?.key ?? null) : null;
+    subtypeCache.set(key, value);
+    return value;
+  };
+  const partKeysCache = new Map<string, Map<string, string>>();
+  const partKeysFor = (slug: string, taskId: string, correctAnswer: string) => {
+    const key = `${slug}|${taskId}`;
+    let keys = partKeysCache.get(key);
+    if (!keys) {
+      const card = numberCard(slug);
+      const spec = parseMultiPartSpec(correctAnswer);
+      const t = taskOf.get(taskId);
+      keys = card && spec && t ? cardPartKeys(card, t.conditionMd, spec.parts) : new Map();
+      partKeysCache.set(key, keys);
+    }
+    return keys;
+  };
   const revealedAt = new Map(reveals.map((r) => [r.taskId, r.at.getTime()]));
   const explanationOpened = new Set(opened.map((o) => o.taskId));
 
@@ -102,17 +135,30 @@ export async function loadSkillAttempts(
       ((revealed !== undefined && revealed < t) ||
         (explanationOpened.has(r.taskId) && t > firstAttemptAt.get(r.taskId)!));
     const shortAnswer = r.answerType === 'short_answer';
+    let parts: { key: string; ok: boolean }[] | undefined;
+    if (r.answerType === 'multi_part') {
+      const keys = partKeysFor(r.slug, r.taskId, r.correctAnswer);
+      const spec = keys.size ? parseMultiPartSpec(r.correctAnswer) : null;
+      const answer = spec ? parseMultiPartUserAnswer(r.answerRaw) : null;
+      if (spec && answer) {
+        parts = gradeMultiPart(spec, answer)
+          .parts.filter((p) => keys.has(p.id))
+          .map((p) => ({ key: keys.get(p.id)!, ok: p.correct }));
+      }
+    }
     const facts: SkillAttemptFacts = {
       slug: r.slug,
       taskId: r.taskId,
       isCorrect: r.isCorrect,
       createdAt: r.createdAt,
       difficulty: r.difficulty,
-      subtype: subtypeOf.get(r.taskId) ?? null,
+      subtype: subtypeFor(r.slug, r.taskId),
       nearMiss: !r.isCorrect && shortAnswer && isNearMiss(r.answerRaw, r.correctAnswer),
       partial: !r.isCorrect && shortAnswer && isPartialDigitAnswer(r.answerRaw, r.correctAnswer),
       blank: !r.isCorrect && r.answerRaw.trim() === '',
       afterExplanation,
+      setDiff: !r.isCorrect && shortAnswer ? setAnswerDiff(r.answerRaw, r.correctAnswer) : null,
+      ...(parts ? { parts } : {}),
     };
     const list = out.get(r.slug);
     if (list) list.push(facts);

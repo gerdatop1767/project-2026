@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { schema, syncTaskSkills } from '@zybrilka/db';
 import { createFullContentTestDb } from '@zybrilka/db/testing';
 import {
+  parseMultiPartSpec,
   YASHCHENKO_2027_PROJECT_SOURCE,
   type AdviceResponse,
   type PersonalRecommendationsResponse,
@@ -88,7 +89,7 @@ describe('personal recommendations, plans and progress (real content, production
       headers: cookie ? { cookie } : {},
       ...(payload ? { payload } : {}),
     });
-  const answer = (cookie: string, task: TaskRow, value: string) =>
+  const answer = (cookie: string, task: TaskRow, value: string | Record<string, string>) =>
     call(cookie, 'POST', `/tasks/${task.id}/attempt`, { answer: value });
 
   /** Wrong answers a sign away from the right one, on different tasks. */
@@ -147,7 +148,73 @@ describe('personal recommendations, plans and progress (real content, production
     ).json() as AdviceResponse;
     expect(advice.problem.type).toBe('insufficient_data');
     expect(advice.advice.title).toBe('Нужна диагностика');
-    expect(advice.theory).toEqual({ subjectId: 'math', taskNumber: 6 });
+    expect(advice.theory).toMatchObject({ subjectId: 'math', taskNumber: 6, topic: null });
+    expect(advice.theory!.sections.length).toBeGreaterThan(0);
+  });
+
+  it('№8: one error type keeps failing while the other letters hold → advice for that type', async () => {
+    const { cookie } = await student();
+    const tasks8 = (
+      await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'russian'),
+            eq(schema.tasks.taskNumber, 8),
+            eq(schema.tasks.status, 'published'),
+          ),
+        )
+    ).filter((t) => /[А-Д]\) [^\n]*деепричастн/.test(t.conditionMd));
+    expect(tasks8.length).toBeGreaterThanOrEqual(4);
+    for (const t of tasks8.slice(0, 4)) {
+      const spec = parseMultiPartSpec(t.correctAnswer)!;
+      const gerund = spec.parts.find((p) =>
+        new RegExp(`${p.label}\\) [^\\n]*деепричастн`).test(t.conditionMd),
+      )!;
+      const value = Object.fromEntries(
+        spec.parts.map((p) => [
+          p.id,
+          p === gerund ? (p.correctAnswer === '9' ? '8' : '9') : p.correctAnswer,
+        ]),
+      );
+      expect((await answer(cookie, t, value)).statusCode).toBe(200);
+    }
+    const advice = (
+      await call(cookie, 'GET', '/me/learning/skills/russian.08-syntax-norms/advice')
+    ).json() as AdviceResponse;
+    expect(advice.problem.type).toBe('weak_part');
+    expect(advice.problem.focus).toBe('Деепричастный оборот');
+    expect(advice.advice.focus).toMatchObject({ kind: 'part', key: 'gerund' });
+    expect(advice.theory?.sections).toEqual(['2. Деепричастный оборот']);
+  });
+
+  it('№13: answers that lose a root on the segment → «Потерянные корни»', async () => {
+    const { cookie } = await student();
+    const tasks13 = (
+      await testDb.db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.subjectId, 'math'),
+            eq(schema.tasks.taskNumber, 13),
+            eq(schema.tasks.status, 'published'),
+            eq(schema.tasks.answerType, 'short_answer'),
+          ),
+        )
+    ).filter((t) => /π/.test(t.correctAnswer) && t.correctAnswer.split(/;|,\s/).length >= 2);
+    expect(tasks13.length).toBeGreaterThanOrEqual(4);
+    for (const t of tasks13.slice(0, 4)) {
+      const roots = t.correctAnswer.split(/;|,\s/).map((x) => x.trim());
+      expect((await answer(cookie, t, roots.slice(0, -1).join('; '))).statusCode).toBe(200);
+    }
+    const advice = (
+      await call(cookie, 'GET', '/me/learning/skills/math.equations-advanced/advice')
+    ).json() as AdviceResponse;
+    expect(advice.problem.type).toBe('missed_items');
+    expect(advice.advice.title).toBe('Потерянные корни');
+    expect(advice.advice.generic).toBe(false);
   });
 
   it('progress by number: one right answer is not 100 %; chart, dynamics, history', async () => {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { adviceForSkill } from '@zybrilka/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
@@ -144,6 +145,60 @@ describe('advice, plan and progress screens', () => {
     await user.click(screen.getByRole('button', { name: 'Открыть теорию №13' }));
     expect(screen.getByTestId('overlay')).toHaveTextContent('"screen":"theory"');
     expect(screen.getByTestId('overlay')).toHaveTextContent('"taskNumber":13');
+  });
+
+  it('advice of a number card: focus part, manifestation, exercises, success criterion', async () => {
+    const advice = adviceForSkill('russian.08-syntax-norms', 'weak_part', {
+      kind: 'part',
+      key: 'gerund',
+    });
+    stubApi({
+      'GET /me/learning/skills/russian.08-syntax-norms/advice': () =>
+        adviceFixture({
+          skillKey: 'russian.08-syntax-norms',
+          subjectId: 'russian',
+          examNumber: 8,
+          advice,
+          theory: {
+            subjectId: 'russian',
+            taskNumber: 8,
+            topic: null,
+            sections: ['2. Деепричастный оборот'],
+          },
+        }),
+    });
+    const user = userEvent.setup();
+    renderWith(<AdviceScreen skillKey="russian.08-syntax-norms" />);
+    expect(await screen.findByText('Деепричастный оборот')).toBeInTheDocument();
+    expect(screen.getByText(advice.howItShows!)).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Упражнения' })).toHaveTextContent(
+      advice.exercises![0]!,
+    );
+    expect(screen.getByText(advice.successCriterion!)).toBeInTheDocument();
+    expect(screen.queryByText(/точного совета именно для этого номера/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Открыть теорию №8' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('"taskNumber":8');
+  });
+
+  it('a math topic without a current number links its theory by topic', async () => {
+    stubApi({
+      'GET /me/learning/skills/math.random-variables/advice': () =>
+        adviceFixture({
+          skillKey: 'math.random-variables',
+          examNumber: null,
+          advice: adviceForSkill('math.random-variables', 'formula_misuse'),
+          theory: {
+            subjectId: 'math',
+            taskNumber: null,
+            topic: 'math.random-variables',
+            sections: [],
+          },
+        }),
+    });
+    const user = userEvent.setup();
+    renderWith(<AdviceScreen skillKey="math.random-variables" />);
+    await user.click(await screen.findByRole('button', { name: 'Открыть теорию темы' }));
+    expect(screen.getByTestId('overlay')).toHaveTextContent('"topic":"math.random-variables"');
   });
 
   it('plan: choose a week plan when there is none', async () => {
