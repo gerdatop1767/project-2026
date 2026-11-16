@@ -243,9 +243,14 @@ export async function closeSupportByUser(
 export async function disableRemindersFor(db: Database, telegramUserId: number): Promise<boolean> {
   const userId = await accountOf(db, telegramUserId);
   if (!userId) return false;
+  // Upsert: an account with no saved settings gets «Давно не виделись»
+  // nudges by default, and this button must switch those off too.
   await db
-    .update(schema.reminderSettings)
-    .set({ enabled: false, updatedAt: sql`now()` })
-    .where(eq(schema.reminderSettings.userId, userId));
+    .insert(schema.reminderSettings)
+    .values({ userId, enabled: false })
+    .onConflictDoUpdate({
+      target: schema.reminderSettings.userId,
+      set: { enabled: false, updatedAt: sql`now()` },
+    });
   return true;
 }

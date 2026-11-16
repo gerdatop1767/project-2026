@@ -12,6 +12,7 @@ import {
 import * as api from '../../lib/api.js';
 
 vi.mock('../../lib/api.js', () => ({
+  getSimilarTasks: vi.fn(() => Promise.resolve([])),
   getTask: vi.fn(),
   listTasksByNumber: vi.fn(),
   getVariant: vi.fn(),

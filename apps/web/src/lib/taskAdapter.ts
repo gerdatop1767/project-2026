@@ -43,10 +43,22 @@ function shortCode(id: string): string {
 export function toSampleTask(
   task: TaskPublic | TaskWithSolution,
   siblings: readonly TaskPublic[],
+  /** Task ids from `GET /tasks/:id/similar`, closest first: the preview
+   * cards follow this order (the rest keep the list order after them). */
+  similarOrder: readonly string[] = [],
 ): SampleTask {
   const subject = subjects.find((s) => s.id === task.subjectId);
   const hasSolution = 'correctAnswer' in task;
-  const others = siblings.filter((t) => t.id !== task.id);
+  const rank = new Map(similarOrder.map((id, i) => [id, i]));
+  const others = siblings
+    .filter((t) => t.id !== task.id)
+    .map((t, i) => ({ t, i }))
+    .sort(
+      (a, b) =>
+        (rank.get(a.t.id) ?? similarOrder.length + a.i) -
+        (rank.get(b.t.id) ?? similarOrder.length + b.i),
+    )
+    .map(({ t }) => t);
 
   return {
     id: task.id,

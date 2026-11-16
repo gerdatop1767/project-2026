@@ -5,6 +5,7 @@ import { handleUpdate } from './bot/handleUpdate.js';
 import { BotPhotos } from './bot/photos.js';
 import { startPolling } from './bot/polling.js';
 import { BroadcastSender } from './broadcasts/sender.js';
+import { InactivityReminderScheduler } from './reminders/inactivity.js';
 import { ReminderScheduler } from './reminders/scheduler.js';
 import { SupportSender } from './support/sender.js';
 import { AdminNotifier } from './notifications/adminNotifier.js';
@@ -139,7 +140,25 @@ export async function startWorker({
     const reminders = new ReminderScheduler({ db, telegram, logger, siteUrl });
     await reminders.recoverInterrupted();
     stops.push(every(60_000, () => reminders.run(), logger, 'daily reminders'));
-    logger.info('support replies and daily reminders on');
+
+    // «Давно не виделись» (docs/REMINDERS.md): every 5 minutes, at most a
+    // batch of 30 sends per run — a few thousand a day, never all at once.
+    const inactivity = new InactivityReminderScheduler({ db, telegram, logger, siteUrl });
+    await inactivity.recoverInterrupted();
+    stops.push(
+      every(
+        5 * 60_000,
+        async () => {
+          const r = await inactivity.run();
+          if (r.due || r.sent || r.failed || r.skipped) {
+            logger.info(r, 'inactivity reminders');
+          }
+        },
+        logger,
+        'inactivity reminders',
+      ),
+    );
+    logger.info('support replies, daily and inactivity reminders on');
   }
 
   // Tells the admin panel what this worker does (no secrets, booleans only),

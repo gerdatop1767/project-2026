@@ -9,6 +9,7 @@ import { LearningSessionProvider } from '../../lib/learningSessionContext.js';
 import * as api from '../../lib/api.js';
 
 vi.mock('../../lib/api.js', () => ({
+  getSimilarTasks: vi.fn(() => Promise.resolve([])),
   listCollections: vi.fn(),
   getRandomTask: vi.fn(),
   getProgressByTopic: vi.fn(),

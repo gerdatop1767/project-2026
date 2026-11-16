@@ -103,7 +103,7 @@ export function MistakesDesktop() {
         if (items.length === 0) {
           showToast({
             variant: 'info',
-            message: 'Похожих заданий этого номера пока нет.',
+            message: 'Похожих заданий по этой теме пока нет.',
           });
           return;
         }

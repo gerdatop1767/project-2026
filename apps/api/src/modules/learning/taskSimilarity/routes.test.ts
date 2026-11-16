@@ -29,6 +29,28 @@ describe('GET /tasks/:taskId/similar (ZUBRILKA LEARNING INTELLIGENCE Phase 6)', 
     expect(res.statusCode).toBe(404);
   });
 
+  it('`exclude` leaves out the tasks the client is already showing; a bad list is a 400', async () => {
+    const task = await anyRealTask();
+    const all = (
+      await app.inject({ method: 'GET', url: `/api/v1/tasks/${task.id}/similar?limit=20` })
+    ).json().items as { taskId: string }[];
+    if (all.length > 0) {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/tasks/${task.id}/similar?limit=20&exclude=${all[0]!.taskId}`,
+      });
+      expect(res.statusCode).toBe(200);
+      const ids = (res.json().items as { taskId: string }[]).map((i) => i.taskId);
+      expect(ids).not.toContain(all[0]!.taskId);
+      expect(res.headers['cache-control']).toContain('no-store');
+    }
+    const bad = await app.inject({
+      method: 'GET',
+      url: `/api/v1/tasks/${task.id}/similar?exclude=not-a-uuid`,
+    });
+    expect(bad.statusCode).toBe(400);
+  });
+
   it('400s for a malformed id', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/tasks/not-a-uuid/similar' });
     expect(res.statusCode).toBe(400);

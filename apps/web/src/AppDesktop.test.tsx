@@ -6,6 +6,7 @@ import { NavigationProvider, useNavigation } from './lib/navigation.js';
 import * as api from './lib/api.js';
 
 vi.mock('./lib/api.js', () => ({
+  getSimilarTasks: vi.fn(() => Promise.resolve([])),
   getRandomTask: vi.fn(),
   getTask: vi.fn(),
   listTasksByNumber: vi.fn(),

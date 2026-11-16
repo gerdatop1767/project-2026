@@ -142,7 +142,7 @@ describe('MistakesDesktop — "Решить похожее" (deterministic simil
 
     await user.click(screen.getAllByRole('button', { name: 'Решить похожее' })[0]!);
 
-    expect(await screen.findByText('Похожих заданий этого номера пока нет.')).toBeInTheDocument();
+    expect(await screen.findByText('Похожих заданий по этой теме пока нет.')).toBeInTheDocument();
     expect(screen.getByTestId('overlay')).toHaveTextContent('none');
   });
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { daysWordRu, examCountdown, type ExamCountdown } from './examCalendar.js';
 
 /**
  * Daily Telegram reminders (docs/REMINDERS.md): the site's settings and
@@ -11,6 +12,36 @@ export const REMINDER_DEFAULT_TIMEZONE = 'Europe/Moscow';
 export const REMINDER_LATE_WINDOW_MINUTES = 120;
 
 export const reminderText = '📚 Время потренироваться! Реши несколько заданий ЕГЭ сегодня.';
+
+/**
+ * «Давно не виделись» (docs/REMINDERS.md § Напоминания неактивным): sent by
+ * the worker after INACTIVITY_REMINDER_DAYS without activity, then at most
+ * once per the same interval while the student stays away.
+ */
+export const INACTIVITY_REMINDER_DAYS = 5;
+
+/**
+ * The inactivity message, or null while the main exam period is running
+ * (no «не забывай готовиться» to someone sitting the exams). The day count
+ * comes only from `examCountdown`; without a configured date the line is
+ * left out — never a guessed number.
+ */
+export function inactivityReminderText(
+  now: Date,
+  countdown: ExamCountdown = examCountdown(now),
+): string | null {
+  if (countdown.kind === 'during') return null;
+  const lines = ['Привет! Давно не виделись 👋'];
+  if (countdown.kind === 'before') {
+    const draft = countdown.period.status === 'project' ? ' (по проекту расписания)' : '';
+    lines.push(`До первого ЕГЭ осталось ${countdown.days} ${daysWordRu(countdown.days)}${draft}.`);
+  }
+  lines.push(
+    'Не забывай готовиться! Даже 15–20 минут занятий сегодня помогут приблизиться к цели.',
+    'Загляни в Зубрилку и продолжай свой прогресс 💙',
+  );
+  return lines.join('\n\n');
+}
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 

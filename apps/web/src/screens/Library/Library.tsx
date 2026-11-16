@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   libraryItem,
   libraryItems,
@@ -181,9 +181,8 @@ export interface LibraryProps {
  * (with the filter) — the learning centre's search covers everything.
  */
 export function Library({ section, itemId, subject }: LibraryProps) {
-  const { navigate } = useNavigation();
+  const { navigate, backTo } = useNavigation();
   const [query, setQuery] = useState('');
-  const openedFromList = useRef(false);
   const item = itemId ? libraryItem(itemId) : null;
   const shownItem = item && item.section === section ? item : null;
 
@@ -201,17 +200,11 @@ export function Library({ section, itemId, subject }: LibraryProps) {
     .filter((g) => g.items.length > 0);
 
   function open(next: LibraryItem) {
-    openedFromList.current = true;
     navigate({ screen: 'library', section, ...(subject ? { subject } : {}), itemId: next.id });
   }
 
   function back() {
-    if (openedFromList.current) {
-      openedFromList.current = false;
-      window.history.back();
-    } else {
-      navigate({ screen: 'library', section, ...(subject ? { subject } : {}) }, { replace: true });
-    }
+    backTo({ screen: 'library', section, ...(subject ? { subject } : {}) }, 'replace');
   }
 
   if (shownItem) {

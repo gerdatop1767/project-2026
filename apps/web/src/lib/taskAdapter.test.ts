@@ -174,6 +174,15 @@ describe('toSampleTask — otherVariants preview (Similar Tasks raw-LaTeX bugfix
     expect(dollarCount % 2).toBe(0);
   });
 
+  it('«Похожие на это задание» follow the similarity order, the rest keep the list order', () => {
+    const sib = (id: string) => ({ ...task, id, conditionMd: id });
+    const siblings = [task, sib('a'), sib('b'), sib('c'), sib('d')];
+    const ordered = toSampleTask(task, siblings, ['c', 'zz-other-number', 'a']);
+    expect(ordered.otherVariants.map((v) => v.id)).toEqual(['c', 'a', 'b']);
+    // without a similarity answer the list order stays
+    expect(toSampleTask(task, siblings).otherVariants.map((v) => v.id)).toEqual(['a', 'b', 'c']);
+  });
+
   it('passes a task.passage through to sample.passage unchanged', () => {
     const passage = {
       id: 'passage-1',

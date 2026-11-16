@@ -118,12 +118,11 @@ function RussianTheoryCatalog({
   section,
   taskNumber,
 }: Omit<TheoryCatalogProps, 'subject' | 'year'>) {
-  const { navigate } = useNavigation();
+  const { navigate, backTo } = useNavigation();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const search = useSearch(deferredQuery);
   const kinds = allKinds;
-  const pushedFromList = useRef(false);
   const readerRef = useRef<HTMLDivElement>(null);
 
   const selected = russianTheory.find((t) => t.taskNumber === taskNumber) ?? null;
@@ -139,17 +138,11 @@ function RussianTheoryCatalog({
   }, [taskNumber, section]);
 
   function open(task: TheoryTask) {
-    pushedFromList.current = true;
     navigate({ screen: 'theory', section, taskNumber: task.taskNumber });
   }
 
   function backToList() {
-    if (pushedFromList.current) {
-      pushedFromList.current = false;
-      window.history.back();
-    } else {
-      navigate({ screen: 'theory', section }, { replace: true });
-    }
+    backTo({ screen: 'theory', section }, 'replace');
   }
 
   const count = (task: TheoryTask) => task.materials.filter((m) => kinds.includes(m.kind)).length;

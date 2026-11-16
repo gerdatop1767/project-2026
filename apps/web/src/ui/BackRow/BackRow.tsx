@@ -39,7 +39,7 @@ export interface BackRowProps {
  * instead, or `onBack` for a purely local step-back.
  */
 export function BackRow({ to, label, onBack }: BackRowProps) {
-  const { tab, back, navigate } = useNavigation();
+  const { tab, back, backTo } = useNavigation();
   const resolvedLabel = label ?? (mainTabIds.includes(tab) ? tabLabels[tab] : tabLabels.home);
 
   // No "← Главная" row anywhere: the home screen is always one click away
@@ -53,7 +53,9 @@ export function BackRow({ to, label, onBack }: BackRowProps) {
     if (onBack) {
       onBack();
     } else if (to) {
-      navigate(to);
+      // Back when `to` is the page right behind this one, so «Предметы →
+      // Математика → К предметам» never stacks a second «Предметы».
+      backTo(to);
     } else {
       back();
     }

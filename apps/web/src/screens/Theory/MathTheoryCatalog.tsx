@@ -76,13 +76,12 @@ export function MathTheoryCatalog({
   taskNumber,
   topic,
 }: MathTheoryCatalogProps) {
-  const { navigate } = useNavigation();
+  const { navigate, backTo } = useNavigation();
   const edition = editionProp ?? DEFAULT_MATH_EDITION;
   const editionInfo = examEdition(edition)!;
   const [query, setQuery] = useState('');
   const q = useDeferredValue(query).trim().toLowerCase().replace(/^№\s*/, '');
   const readerRef = useRef<HTMLDivElement>(null);
-  const pushedFromList = useRef(false);
 
   const specs = EXAM_TASK_SPECS.filter((s) => s.subjectId === 'math' && s.edition === edition);
   const extras = codifierExtras(edition);
@@ -141,22 +140,15 @@ export function MathTheoryCatalog({
   }
 
   function open(spec: ExamTaskSpec) {
-    pushedFromList.current = true;
     go({ taskNumber: spec.number });
   }
 
   function openTopic(topicKey: string) {
-    pushedFromList.current = true;
     go({ topic: topicKey });
   }
 
   function backToList() {
-    if (pushedFromList.current) {
-      pushedFromList.current = false;
-      window.history.back();
-    } else {
-      go({}, true);
-    }
+    backTo({ screen: 'theory', section, subject: 'math', edition }, 'replace');
   }
 
   return (
