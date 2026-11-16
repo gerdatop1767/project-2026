@@ -20,7 +20,7 @@ import { outsideSourcesOf, sourceScope } from '../../tasks/repo.js';
 const FEATURE_CACHE_LIMIT = 5000;
 const featureCache = new Map<string, { version: number; features: TaskFeatures }>();
 
-function featuresOf(row: {
+export function featuresOf(row: {
   id: string;
   subjectId: string;
   conditionMd: string;

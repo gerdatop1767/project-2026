@@ -42,6 +42,8 @@ export interface StartLearningSessionContext {
   readonly focusSkill?: string;
   /** Learning Engine bucket shares (default 50/25/15/10). */
   readonly mix?: TrainingMix;
+  /** With `focusSkill`: a plan day's difficulty 1..3. */
+  readonly difficulty?: 1 | 2 | 3;
 }
 
 /**
@@ -75,6 +77,7 @@ export async function startLearningSession(
     focusSkill: context.focusSkill,
     mix: context.mix,
     unseenOnly: context.unseenOnly,
+    difficulty: context.difficulty,
   });
   if (planned) {
     const row = await tasksRepo.getTaskById(db, planned.taskId);

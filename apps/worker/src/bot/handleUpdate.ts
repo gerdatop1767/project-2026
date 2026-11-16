@@ -13,6 +13,7 @@ import {
   CALLBACK_IOS_GUIDE,
   CALLBACK_LINK_NO,
   CALLBACK_LINK_PREFIX,
+  CALLBACK_PROGRESS_OFF,
   CALLBACK_REMINDERS_OFF,
   CALLBACK_SUPPORT_CLOSE,
   linkClaimedKeyboard,
@@ -23,6 +24,7 @@ import {
   linkQuestionText,
   linkResultText,
   remindersNoAccountText,
+  progressOffText,
   remindersOffText,
   supportAlreadyOpenText,
   supportCloseKeyboard,
@@ -44,6 +46,7 @@ import { errorSummary } from '../errorSummary.js';
 import type { BotPhotos } from './photos.js';
 import {
   closeSupportByUser,
+  disableProgressNotificationsFor,
   disableRemindersFor,
   openThreadOf,
   receiveSupportMessage,
@@ -258,6 +261,7 @@ type Action =
   | 'support'
   | 'support_message'
   | 'reminders_off'
+  | 'progress_off'
   | 'ios'
   | 'help'
   | 'unknown_command'
@@ -487,6 +491,20 @@ export async function handleUpdate(ctx: BotContext, update: TelegramUpdate): Pro
         );
         await measure(timings, 'text', () =>
           ctx.telegram.sendMessage(privateChat, done ? remindersOffText : remindersNoAccountText, {
+            replyMarkup: persistentKeyboard,
+          }),
+        );
+      } else if (query.data === CALLBACK_PROGRESS_OFF && privateChat !== null) {
+        action = 'progress_off';
+        const done = await measure(timings, 'db', () =>
+          withTimeout(
+            disableProgressNotificationsFor(ctx.db, query.from.id),
+            DB_TIMEOUT_MS,
+            'progress',
+          ),
+        );
+        await measure(timings, 'text', () =>
+          ctx.telegram.sendMessage(privateChat, done ? progressOffText : remindersNoAccountText, {
             replyMarkup: persistentKeyboard,
           }),
         );

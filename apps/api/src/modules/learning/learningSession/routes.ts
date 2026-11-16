@@ -44,6 +44,8 @@ const startSessionBodySchema = z.object({
     })
     .refine((m) => m.weak + m.mistakes + m.stale + m.strong > 0, 'empty_mix')
     .optional(),
+  /** A plan day's training: authored difficulty 1..3 (with `focusSkill`). */
+  difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
 });
 
 const sessionParamsSchema = z.object({ sessionId: z.uuid() });
@@ -84,6 +86,7 @@ export const learningSessionRoutes: FastifyPluginAsync<LearningSessionRoutesOpti
       total: body.data.limit,
       focusSkill: body.data.focusSkill,
       mix: body.data.mix,
+      difficulty: body.data.difficulty,
       unseenOnly: body.data.unseenOnly,
       randomizeTopTier: body.data.randomizeTopTier,
     });

@@ -1,4 +1,8 @@
 import { DesktopShell } from './ui/DesktopShell/DesktopShell.js';
+import { AdviceScreen } from './screens/PersonalLearning/AdviceScreen.js';
+import { PlanScreen } from './screens/PersonalLearning/PlanScreen.js';
+import { RecommendationsScreen } from './screens/PersonalLearning/RecommendationsScreen.js';
+import { SkillProgressScreen } from './screens/PersonalLearning/SkillProgressScreen.js';
 import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
 import { TaskDesktop } from './screens/Task/TaskDesktop.js';
 import { ResultDesktop } from './screens/Result/ResultDesktop.js';
@@ -101,6 +105,12 @@ export function AppDesktop() {
         {overlay.screen === 'rating' && <RatingDesktop />}
         {overlay.screen === 'level' && <Level />}
         {overlay.screen === 'learningCenter' && <LearningCenterDesktop />}
+        {overlay.screen === 'recommendations' && (
+          <RecommendationsScreen subjectId={overlay.subjectId} />
+        )}
+        {overlay.screen === 'skillAdvice' && <AdviceScreen skillKey={overlay.skillKey} />}
+        {overlay.screen === 'learningPlan' && <PlanScreen subjectId={overlay.subjectId} />}
+        {overlay.screen === 'skillProgress' && <SkillProgressScreen skillKey={overlay.skillKey} />}
         {overlay.screen === 'theory' && (
           <TheoryCatalog
             section={overlay.section}

@@ -306,6 +306,9 @@ export interface TrainingPlan {
   readonly masteryAtStart: Readonly<Record<string, number>>;
   /** Slot counts per bucket after redistribution. */
   readonly counts: Readonly<Record<TrainingBucket, number>>;
+  /** A plan day's training (docs/learning/PERSONAL-PLANS.md): the authored
+   * difficulty 1..3 every slot aims at, instead of the one from mastery. */
+  readonly difficulty?: 1 | 2 | 3;
 }
 
 /** Largest-remainder split of `total` by the mix shares. */
@@ -369,7 +372,7 @@ function bucketCandidates(subject: SubjectState): Record<TrainingBucket, string[
 export function planTraining(
   subject: SubjectState,
   total: number,
-  options: { mix?: TrainingMix; focusSkill?: string } = {},
+  options: { mix?: TrainingMix; focusSkill?: string; difficulty?: 1 | 2 | 3 } = {},
 ): TrainingPlan {
   const masteryAtStart = Object.fromEntries(subject.skills.map((s) => [s.key, s.mastery]));
   if (options.focusSkill) {
@@ -380,6 +383,7 @@ export function planTraining(
       })),
       masteryAtStart,
       counts: { weak: total, mistakes: 0, stale: 0, strong: 0 },
+      ...(options.difficulty ? { difficulty: options.difficulty } : {}),
     };
   }
   const wanted = splitByMix(total, options.mix ?? DEFAULT_TRAINING_MIX);

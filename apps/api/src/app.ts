@@ -30,6 +30,7 @@ import { learningPathRoutes } from './modules/learning/learningPath/routes.js';
 import { learningSessionRoutes } from './modules/learning/learningSession/routes.js';
 import { difficultyRatingRoutes } from './modules/learning/difficultyRating/routes.js';
 import { learningEngineRoutes } from './modules/learning/engine/routes.js';
+import { personalLearningRoutes } from './modules/learning/personal/routes.js';
 import { mistakesRoutes } from './modules/mistakes/routes.js';
 import { enqueueNotification } from './modules/notifications/outbox.js';
 import { errorKind, SiteErrorNotifier } from './modules/notifications/siteErrors.js';
@@ -163,6 +164,7 @@ export function buildApp({
       scope.register(learningSessionRoutes, { db, prefix: '/api/v1' });
       scope.register(difficultyRatingRoutes, { db, prefix: '/api/v1' });
       scope.register(learningEngineRoutes, { db, prefix: '/api/v1' });
+      scope.register(personalLearningRoutes, { db, prefix: '/api/v1' });
     };
 
     if (authConfig) {

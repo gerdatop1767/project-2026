@@ -43,6 +43,13 @@ export type OverlayRoute =
    * or Yandex OAuth redirect (`?vk=` / `?yandex=`) can land here directly. */
   | { screen: 'login' }
   | { screen: 'learningCenter' }
+  /** Personal learning (docs/learning/PERSONAL-PLANS.md): every
+   * recommendation, the advice of one number, the 7/30-day plan and the
+   * progress of one EGE number. */
+  | { screen: 'recommendations'; subjectId?: 'math' | 'russian' }
+  | { screen: 'skillAdvice'; skillKey: string }
+  | { screen: 'learningPlan'; subjectId: 'math' | 'russian' }
+  | { screen: 'skillProgress'; skillKey: string }
   /** The theory catalog (docs/THEORY.md): «Теория» — конспекты by EGE task
    * number, «Полезные материалы» — справочные списки и практика. The
    * chosen number lives here, so Back and a refresh keep it. */
@@ -240,6 +247,10 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   achievements: 'Достижения',
   login: 'Вход',
   learningCenter: 'Учебный центр',
+  recommendations: 'Рекомендации',
+  skillAdvice: 'Совет',
+  learningPlan: 'План подготовки',
+  skillProgress: 'Прогресс по номеру',
   theory: 'Теория',
   library: 'Полезные материалы',
   learningSession: 'Тренировка',

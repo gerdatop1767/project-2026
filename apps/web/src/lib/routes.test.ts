@@ -53,6 +53,11 @@ describe('pathForRoute', () => {
 describe('routeFromPath', () => {
   it('round-trips every addressable route through pathForRoute', () => {
     const routes: Route[] = [
+      { screen: 'recommendations' },
+      { screen: 'recommendations', subjectId: 'russian' },
+      { screen: 'learningPlan', subjectId: 'math' },
+      { screen: 'skillAdvice', skillKey: 'math.equations-advanced' },
+      { screen: 'skillProgress', skillKey: 'russian.15-n-nn' },
       { screen: 'home' },
       { screen: 'training' },
       { screen: 'statistics' },
