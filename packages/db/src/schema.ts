@@ -1643,6 +1643,130 @@ export const inactivityReminders = pgTable(
 );
 
 /**
+ * Personal plans (docs/learning/PERSONAL-PLANS.md). A plan is a list of days,
+ * each asking for N tasks of one skill; what was actually done is NOT stored
+ * — it is counted from `attempts` on the day's date, so a plan can never claim
+ * more than the student solved. `focus` keeps the baseline (mastery, accuracy)
+ * of each focus number at the start, for the before/after comparison; at the
+ * end `result` keeps the final snapshot. One active plan per subject.
+ */
+export const learningPlanKinds = ['week', 'month'] as const;
+export const learningPlanStatuses = ['active', 'completed', 'cancelled'] as const;
+
+export const learningPlans = pgTable(
+  'learning_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    subjectId: text('subject_id')
+      .notNull()
+      .references(() => subjects.id),
+    kind: text('kind', { enum: learningPlanKinds }).notNull(),
+    status: text('status', { enum: learningPlanStatuses }).notNull().default('active'),
+    startDate: date('start_date', { mode: 'string' }).notNull(),
+    /** IANA zone the days' dates are counted in. */
+    timezone: text('timezone').notNull().default('Europe/Moscow'),
+    focus: jsonb('focus').$type<readonly PlanFocusSnapshot[]>().notNull(),
+    movesUsed: integer('moves_used').notNull().default(0),
+    result: jsonb('result').$type<Record<string, unknown> | null>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('learning_plans_user_status_idx').on(table.userId, table.status),
+    uniqueIndex('learning_plans_one_active_idx')
+      .on(table.userId, table.subjectId)
+      .where(sql`${table.status} = 'active'`),
+  ],
+);
+
+export interface PlanFocusSnapshot {
+  readonly skillKey: string;
+  readonly subjectId: string;
+  readonly title: string;
+  readonly examNumber: number | null;
+  readonly problem: string;
+  readonly mastery: number;
+  readonly accuracy: number | null;
+  readonly attempts: number;
+  readonly availableTasks: number;
+}
+
+export const learningPlanDays = pgTable(
+  'learning_plan_days',
+  {
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => learningPlans.id),
+    dayIndex: integer('day_index').notNull(),
+    date: date('date', { mode: 'string' }).notNull(),
+    skillKey: text('skill_key'),
+    activity: text('activity').notNull(),
+    targetTasks: integer('target_tasks').notNull(),
+    difficulty: integer('difficulty').notNull(),
+    skipped: boolean('skipped').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planId, table.dayIndex] }),
+    index('learning_plan_days_plan_date_idx').on(table.planId, table.date),
+    check('learning_plan_days_target_range', sql`${table.targetTasks} BETWEEN 0 AND 8`),
+    check('learning_plan_days_difficulty_range', sql`${table.difficulty} BETWEEN 1 AND 3`),
+  ],
+);
+
+/**
+ * Progress notifications settings, separate from the daily reminder
+ * (`reminder_settings`): a student can keep one and switch off the other.
+ * No row = defaults (on), unless `reminder_settings.enabled = false` says the
+ * student switched notifications off altogether.
+ */
+export const notificationPreferences = pgTable('notification_preferences', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id),
+  progressEnabled: boolean('progress_enabled').notNull().default(true),
+  planRemindersEnabled: boolean('plan_reminders_enabled').notNull().default(true),
+  frequency: text('frequency', { enum: ['normal', 'important'] })
+    .notNull()
+    .default('normal'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Progress notifications journal: `dedup_key` makes each message exist at most
+ * once (claimed before sending), so a restart or a second worker never sends
+ * it twice. Statuses as in `reminder_deliveries`, plus `skipped`.
+ */
+export const progressNotifications = pgTable(
+  'progress_notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    kind: text('kind').notNull(),
+    dedupKey: text('dedup_key').notNull().unique(),
+    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+    localDate: date('local_date', { mode: 'string' }).notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    status: text('status', { enum: inactivityReminderStatuses }).notNull().default('sending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('progress_notifications_user_date_idx').on(table.userId, table.localDate),
+    index('progress_notifications_status_idx').on(table.status, table.nextAttemptAt),
+  ],
+);
+
+/**
  * One-time links that attach a Telegram account to a site account through
  * the bot (`t.me/<bot>?start=link_<token>`). Only the SHA-256 of the token
  * is stored; a token lives a few minutes and is finished (`consumedAt`) by

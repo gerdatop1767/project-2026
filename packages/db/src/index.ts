@@ -53,3 +53,10 @@ export {
   R26_SOURCE,
 } from './importRussianDoshchinsky2026Book36.js';
 export { r26Variants } from './russianDoshchinsky2026/index.js';
+export {
+  loadPlanDays,
+  localDateOf,
+  planDayActuals,
+  userTimezone,
+  type LearningPlanRow,
+} from './learningPlans.js';

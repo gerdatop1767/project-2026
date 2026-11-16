@@ -34,6 +34,7 @@ export * from './learning/adviceBase.js';
 export * from './learning/plans.js';
 export * from './learning/skillProgress.js';
 export * from './learning/progressNotifications.js';
+export * from './learning/personalDto.js';
 export * from './learning/streak.js';
 export * from './learning/recommendation.js';
 export * from './learning/nextTaskRecommendation.js';

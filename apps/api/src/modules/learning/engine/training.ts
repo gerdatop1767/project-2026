@@ -81,7 +81,7 @@ export async function pickForSlot(
       skillKey: s.skillKey,
       count: 1,
       bucket: slot.bucket,
-      targetDifficulty: targetDifficultyFor(skill.mastery, skill.level),
+      targetDifficulty: input.plan.difficulty ?? targetDifficultyFor(skill.mastery, skill.level),
       excludeTaskIds: input.consumed,
       unseenOnly: input.unseenOnly,
     });
@@ -110,12 +110,17 @@ export async function startPlannedTraining(
     focusSkill?: string;
     mix?: TrainingMix;
     unseenOnly?: boolean;
+    difficulty?: 1 | 2 | 3;
   },
 ): Promise<PlannedStart | null> {
   const model = await buildStudentModel(db, userId, new Date(), { allSubjects: true });
   const subject = model.subjects.find((s) => s.subjectId === input.subjectId);
   if (!subject) return null;
-  const plan = planTraining(subject, input.total, { mix: input.mix, focusSkill: input.focusSkill });
+  const plan = planTraining(subject, input.total, {
+    mix: input.mix,
+    focusSkill: input.focusSkill,
+    difficulty: input.focusSkill ? input.difficulty : undefined,
+  });
   if (plan.slots.length === 0) return null;
   const first = await pickForSlot(db, userId, {
     subjectId: input.subjectId,
