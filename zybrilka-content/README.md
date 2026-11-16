@@ -11,7 +11,8 @@ idea → script (voiceover.json) → TTS → word timings → storyboard (build.
 | Инструмент | Статус | Решение |
 |---|---|---|
 | **Higgsfield MCP** (видео Seedance/Kling, TTS ElevenLabs/MiniMax, lip-sync, image-to-video) | Подключён. Тариф starter, **10 кредитов**, бесплатного безлимита нет (`unlim.available=false`) | Сейчас не используется: на 10 кредитов не хватит даже одного ролика. Это апгрейд «на потом» (см. §7) |
-| **Piper TTS** (MIT) + голос `ru_RU-dmitri-medium` (датасет CC0) | Работает офлайн, бесплатно, разрешено коммерческое использование | **Голос Зубра** |
+| **Fish Audio API**, модель `s2.1-pro-free`, голос «Игровой Рассказчик» | Ключ в Network secrets, модель бесплатная | **Голос Зубра** (`tools/tts_fish.py`) |
+| **Piper TTS** (MIT) + `ru_RU-dmitri-medium` (CC0) | Офлайн, бесплатно | Резервный голос (`tools/tts.py`) |
 | Piper `ru_RU-denis-medium` (CC0) | Работает, но по ASR-тесту хуже разборчивость | Запасной голос |
 | Piper `ru_RU-ruslan` | Лицензия CC BY-NC-SA | ❌ Нельзя: реклама — коммерческое использование |
 | Silero TTS | Лицензия некоммерческая | ❌ |

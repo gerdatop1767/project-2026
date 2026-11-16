@@ -40,9 +40,9 @@
   ],
   "engine": "fish",
   "fish": {
-    "reference_id": "6ada82e315e648b6a30a2e2210844cbf",
-    "voice_title": "Дерзкий Парень (Fish Audio, обезличенный голос)",
-    "model": "s1",
-    "speed": 1.05
+    "reference_id": "ad345871bcbd4ab0af5f3af9940287d2",
+    "voice_title": "Игровой Рассказчик (Fish Audio, обезличенный голос)",
+    "model": "s2.1-pro-free",
+    "speed": 1.0
   }
 }
