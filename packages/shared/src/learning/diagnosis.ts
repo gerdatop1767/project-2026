@@ -14,7 +14,15 @@ import { calculateSkillMastery, skillLevel, type SkillLevel } from './mastery.js
  * - `blank` — nothing entered;
  * - `afterExplanation` — a wrong answer on a task whose solution the student
  *   had already opened;
- * - `subtype` — what the task asks / which rule (`taskFeatures`).
+ * - `subtype` — what the task asks / which rule (the number's card,
+ *   `numberCards.ts`, over `taskFeatures`);
+ * - `setDiff` — for an answer that is a set (roots of №13, digits of a
+ *   «запишите номера» task): every entered item is right but some are
+ *   missing (`missing`), or every right item is there plus wrong ones
+ *   (`extra`); `mixed` otherwise;
+ * - `parts` — for a multi-part task, each part's own key (the error type of
+ *   №8, the device group of №22, «а/б/в» of a number-theory task) and
+ *   whether that part was right.
  */
 export const problemTypes = [
   'theory_gap',
@@ -26,6 +34,9 @@ export const problemTypes = [
   'careless',
   'hard_tasks',
   'forgetting',
+  'missed_items',
+  'extra_items',
+  'weak_part',
   'unclear',
   'insufficient_data',
   'none',
@@ -48,6 +59,20 @@ export interface DiagnosisAttempt {
   readonly partial?: boolean;
   readonly blank?: boolean;
   readonly afterExplanation?: boolean;
+  readonly setDiff?: SetDiff | null;
+  readonly parts?: readonly { readonly key: string; readonly ok: boolean }[];
+}
+
+export type SetDiff = 'missing' | 'extra' | 'mixed';
+
+/**
+ * What exactly inside the number the cause concerns, when the evidence
+ * names it: the weakest subtype (`confuses_methods`) or the weakest part
+ * (`weak_part`). Keys are those of the number's card.
+ */
+export interface DiagnosisDetail {
+  readonly kind: 'subtype' | 'part';
+  readonly key: string;
 }
 
 export interface Diagnosis {
@@ -56,6 +81,8 @@ export interface Diagnosis {
   readonly also: readonly ProblemType[];
   /** The student's own numbers behind the conclusion, in Russian. */
   readonly evidence: readonly string[];
+  /** The subtype or part the main cause concerns, when known. */
+  readonly detail?: DiagnosisDetail | null;
   readonly mastery: number;
   readonly level: SkillLevel;
   readonly attempts: number;
@@ -108,7 +135,7 @@ export function diagnoseSkill(input: {
     };
   }
 
-  const found: { type: ProblemType; evidence: string }[] = [];
+  const found: { type: ProblemType; evidence: string; detail?: DiagnosisDetail }[] = [];
 
   // Forgetting: solid before a long break, clearly worse after it.
   for (let i = 1; i < n; i++) {
@@ -135,6 +162,60 @@ export function diagnoseSkill(input: {
     });
   }
 
+  // One part of a multi-part number keeps failing while the others hold:
+  // e.g. the «деепричастный оборот» letter of №8, or «в)» of №19.
+  const byPart = new Map<string, { n: number; ok: number }>();
+  for (const a of list) {
+    for (const part of a.parts ?? []) {
+      const s = byPart.get(part.key) ?? { n: 0, ok: 0 };
+      byPart.set(part.key, { n: s.n + 1, ok: s.ok + (part.ok ? 1 : 0) });
+    }
+  }
+  const weakParts = [...byPart]
+    .map(([key, s]) => {
+      let restN = 0;
+      let restOk = 0;
+      for (const [k, o] of byPart) {
+        if (k === key) continue;
+        restN += o.n;
+        restOk += o.ok;
+      }
+      return {
+        key,
+        n: s.n,
+        fails: s.n - s.ok,
+        acc: pct(s.ok, s.n),
+        restN,
+        rest: pct(restOk, restN),
+      };
+    })
+    .filter((w) => w.n >= 3 && w.fails >= 2 && w.acc <= 50 && w.restN >= 3 && w.rest - w.acc >= 30)
+    .sort((a, b) => a.acc - b.acc || b.n - a.n);
+  if (weakParts.length > 0) {
+    const w = weakParts[0]!;
+    found.push({
+      type: 'weak_part',
+      evidence: `Одна часть задания неверна в ${w.fails} из ${w.n} случаев, остальные части — ${w.rest}% верных.`,
+      detail: { kind: 'part', key: w.key },
+    });
+  }
+
+  // Set answers: every entered item right, but some missing / extra.
+  const missing = wrong.filter((a) => a.setDiff === 'missing').length;
+  if (missing >= 2 && missing / wrong.length >= 0.4) {
+    found.push({
+      type: 'missed_items',
+      evidence: `В ${plural(missing, 'ответе', 'ответах', 'ответах')} из ${wrong.length} всё записанное верно, но часть верных вариантов не записана.`,
+    });
+  }
+  const extra = wrong.filter((a) => a.setDiff === 'extra').length;
+  if (extra >= 2 && extra / wrong.length >= 0.4) {
+    found.push({
+      type: 'extra_items',
+      evidence: `В ${plural(extra, 'ответе', 'ответах', 'ответах')} из ${wrong.length} все верные варианты есть, но добавлены лишние.`,
+    });
+  }
+
   // Confusing similar methods / rules: one subtype fine, a sibling one not.
   const bySubtype = new Map<string, { n: number; ok: number }>();
   for (const a of list) {
@@ -153,6 +234,7 @@ export function diagnoseSkill(input: {
       found.push({
         type: 'confuses_methods',
         evidence: `Задания одного вида решаются на ${best.acc}%, похожего на него — на ${worst.acc}%.`,
+        detail: { kind: 'subtype', key: worst.k },
       });
     }
   }
@@ -165,7 +247,10 @@ export function diagnoseSkill(input: {
     });
   }
 
-  const cond = wrong.filter((a) => a.partial || a.blank).length;
+  // Partial answers not already explained as «missing» / «extra».
+  const cond = wrong.filter(
+    (a) => (a.partial && a.setDiff !== 'missing' && a.setDiff !== 'extra') || a.blank,
+  ).length;
   if (cond >= 2 && cond / wrong.length >= 0.4) {
     found.push({
       type: 'condition',
@@ -232,6 +317,7 @@ export function diagnoseSkill(input: {
     type: found[0]!.type,
     also: found.slice(1).map((f) => f.type),
     evidence: found.map((f) => f.evidence),
+    detail: found[0]!.detail ?? null,
   };
 }
 
@@ -267,4 +353,39 @@ export function isPartialDigitAnswer(answer: string, correct: string): boolean {
   const shared = [...u].filter((d) => c.has(d)).length;
   const same = shared === c.size && u.size === c.size;
   return shared > 0 && !same;
+}
+
+/**
+ * Splits a set answer into items: «-4π; -3π; -8π/3», «π, 3π/2», «135» (a
+ * «запишите номера» answer, one digit per item). A comma between two
+ * digits is a decimal comma, not a separator.
+ */
+export function answerItems(answer: string): string[] | null {
+  const t = answer.trim().replace(/−/g, '-').toLowerCase();
+  if (t === '') return null;
+  if (/^\d+$/.test(t)) return [...new Set(t.split(''))];
+  if (/^[\d\s,;]+$/.test(t) && /[,;\s]/.test(t))
+    return [...new Set(t.replace(/\D/g, '').split(''))];
+  const items = t
+    .split(/;|,(?!\d)|(?<!\d),/)
+    .map((x) => x.replace(/\s+/g, ''))
+    .filter(Boolean);
+  return items.length ? [...new Set(items)] : null;
+}
+
+/**
+ * How a wrong set answer differs from the key: only when the key has two or
+ * more items and items compare exactly (no guessing about equal forms like
+ * «1.5π» and «3π/2» — a different spelling is `mixed`, never «missing»).
+ */
+export function setAnswerDiff(answer: string, correct: string): SetDiff | null {
+  const u = answerItems(answer);
+  const c = answerItems(correct);
+  if (!u || !c || c.length < 2) return null;
+  const inKey = u.filter((x) => c.includes(x)).length;
+  const covered = c.filter((x) => u.includes(x)).length;
+  if (inKey === u.length && covered === c.length) return null; // same set
+  if (inKey === u.length && covered < c.length) return 'missing';
+  if (covered === c.length && inKey < u.length) return 'extra';
+  return inKey > 0 ? 'mixed' : null;
 }

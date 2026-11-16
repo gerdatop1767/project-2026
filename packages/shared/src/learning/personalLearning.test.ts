@@ -230,14 +230,14 @@ describe('advice base', () => {
       }
     }
   });
-  it('a specific entry wins; otherwise the subject entry, marked generic (a gap of the base)', () => {
+  it('every math and Russian number answers from its own card; another subject falls back', () => {
     expect(adviceFor('math', 14, 'confuses_methods')).toMatchObject({
       generic: false,
-      id: 'math:14:confuses_methods',
+      id: 'math.stereometry-proof:confuses_methods',
     });
-    expect(adviceFor('math', 6, 'confuses_methods').generic).toBe(true);
+    expect(adviceFor('math', 6, 'confuses_methods').generic).toBe(false);
     expect(adviceFor('history', 3, 'careless').title).toBe('Нужна диагностика');
-    expect(adviceCoverage().specific).toContain('russian:15:confuses_methods');
+    expect(adviceCoverage().specific).toContain('russian.15-n-nn:confuses_methods');
   });
 });
 

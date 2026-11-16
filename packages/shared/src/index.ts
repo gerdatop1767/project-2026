@@ -31,6 +31,7 @@ export * from './learning/taskFeatures.js';
 export * from './learning/similarRanking.js';
 export * from './learning/diagnosis.js';
 export * from './learning/adviceBase.js';
+export * from './learning/numberCards.js';
 export * from './learning/plans.js';
 export * from './learning/skillProgress.js';
 export * from './learning/progressNotifications.js';
