@@ -4,3 +4,5 @@ character/voice/models/*.onnx
 videos/*/render/
 videos/*/audio/voiceover_raw.wav
 __pycache__/
+
+videos/*/audio/fish_cache/*.wav
