@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useState } from 'react';
+import { ProgressNotificationSettings } from '../../ui/PersonalLearning/ProgressNotificationSettings.js';
 import {
   REMINDER_DEFAULT_TIMEZONE,
   isValidTimezone,
@@ -287,6 +288,8 @@ export function Notifications() {
                 : ''}
         </p>
       </section>
+
+      <ProgressNotificationSettings />
 
       <section className={styles.card} aria-labelledby="tg-link-title">
         <h2 id="tg-link-title" className={styles.title}>

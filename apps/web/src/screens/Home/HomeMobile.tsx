@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { HomeRecommendations } from '../../ui/PersonalLearning/PersonalPlanBlock.js';
 import { useNavigation } from '../../lib/navigation.js';
 import { useAccountGate } from '../../lib/accountGate.js';
 import { subjects } from '../../data/subjects.js';
@@ -223,6 +224,8 @@ export function HomeMobile() {
           </span>
         </button>
       </div>
+
+      <HomeRecommendations />
     </SlideUp>
   );
 }

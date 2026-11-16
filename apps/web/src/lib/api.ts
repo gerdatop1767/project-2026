@@ -1,5 +1,10 @@
 import { metrikaGoal } from './metrika.js';
 import type {
+  AdviceResponse,
+  NotificationPreferences,
+  PersonalRecommendationsResponse,
+  PlanResponse,
+  SkillProgressResponse,
   ReminderSettingsRequest,
   ReminderSettingsResponse,
   TelegramLinkConfirmResponse,
@@ -544,6 +549,8 @@ export function startLearningSession(params: {
   randomizeTopTier?: boolean;
   /** A recommendation's «Начать»: every task from this EGE skill. */
   focusSkill?: string;
+  /** A plan day's training: authored difficulty 1..3 (with `focusSkill`). */
+  difficulty?: 1 | 2 | 3;
 }): Promise<LearningSessionResponse> {
   return apiFetch('/me/learning/sessions', { method: 'POST', body: JSON.stringify(params) });
 }
@@ -807,4 +814,70 @@ export function finishStressRound(sessionId: string, firstTryCorrect: number): P
 
 export function getStressProgress(): Promise<StressProgressResponse> {
   return rawApiFetch('/games/stress/progress');
+}
+
+// ------------------------------------------------ personal learning
+// docs/learning/PERSONAL-PLANS.md — never cached: changes with every answer.
+
+export function getPersonalRecommendations(
+  params: { subjectId?: string; limit?: number } = {},
+): Promise<PersonalRecommendationsResponse> {
+  const qs = new URLSearchParams();
+  if (params.subjectId) qs.set('subject', params.subjectId);
+  if (params.limit) qs.set('limit', String(params.limit));
+  const q = qs.toString();
+  return apiFetch(`/me/learning/personal${q ? `?${q}` : ''}`);
+}
+
+export function getSkillAdvice(skillKey: string): Promise<AdviceResponse> {
+  return apiFetch(`/me/learning/skills/${encodeURIComponent(skillKey)}/advice`);
+}
+
+export function getSkillProgress(skillKey: string): Promise<SkillProgressResponse> {
+  return apiFetch(`/me/learning/skills/${encodeURIComponent(skillKey)}/progress`);
+}
+
+export function getCurrentPlan(subjectId: string): Promise<{ plan: PlanResponse | null }> {
+  return apiFetch(`/me/learning/plans/current?subject=${encodeURIComponent(subjectId)}`);
+}
+
+export function createLearningPlan(params: {
+  subjectId: string;
+  kind: 'week' | 'month';
+  replace?: boolean;
+}): Promise<{ plan: PlanResponse }> {
+  let timezone: string | undefined;
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    timezone = undefined;
+  }
+  return apiFetch('/me/learning/plans', {
+    method: 'POST',
+    body: JSON.stringify({ ...params, ...(timezone ? { timezone } : {}) }),
+  });
+}
+
+export function changePlanDay(
+  planId: string,
+  dayIndex: number,
+  action: 'skip' | 'move',
+): Promise<{ plan: PlanResponse }> {
+  return apiFetch(`/me/learning/plans/${planId}/days/${dayIndex}/${action}`, { method: 'POST' });
+}
+
+export function cancelLearningPlan(planId: string): Promise<{ ok: true }> {
+  return apiFetch(`/me/learning/plans/${planId}/cancel`, { method: 'POST' });
+}
+
+export function getProgressNotificationPreferences(): Promise<
+  NotificationPreferences & { explicit: boolean }
+> {
+  return apiFetch('/me/notifications/progress');
+}
+
+export function saveProgressNotificationPreferences(
+  prefs: NotificationPreferences,
+): Promise<NotificationPreferences & { explicit: boolean }> {
+  return apiFetch('/me/notifications/progress', { method: 'PUT', body: JSON.stringify(prefs) });
 }

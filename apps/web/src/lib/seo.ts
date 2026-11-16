@@ -141,6 +141,10 @@ const NOINDEX_TITLES: ReadonlyArray<[RegExp, string]> = [
   [/^\/notifications$/, 'Уведомления'],
   [/^\/friends(\/|$)/, 'Друзья'],
   [/^\/learning\/session\//, 'Тренировка'],
+  [/^\/learning\/recommendations$/, 'Рекомендации'],
+  [/^\/learning\/plan$/, 'План подготовки'],
+  [/^\/learning\/advice\//, 'Совет по номеру'],
+  [/^\/learning\/progress\//, 'Прогресс по номеру'],
   [/^\/onboarding$/, 'Знакомство'],
 ];
 
@@ -150,7 +154,7 @@ const NOINDEX_TITLES: ReadonlyArray<[RegExp, string]> = [
  * checks both directions, and that nginx.conf carries this exact pattern.
  */
 export const APP_ROUTE_PATTERN =
-  '^/(training(/(topic|random|variants|mistakes|by-number))?|statistics(/variants/[0-9a-f-]+)?|achievements|subjects(/[a-z-]+)?|profile|theory|materials|strategies|learning(/session/[A-Za-z0-9_-]+)?|friends(/[A-Za-z0-9_-]+)?|login|rating|level|favorites|mock-exams|topics|settings|help|faq|privacy|terms|notifications|games(/stress)?|onboarding|landing|telegram-return|admin(/[A-Za-z0-9/_-]*)?)$';
+  '^/(training(/(topic|random|variants|mistakes|by-number))?|statistics(/variants/[0-9a-f-]+)?|achievements|subjects(/[a-z-]+)?|profile|theory|materials|strategies|learning(/session/[A-Za-z0-9_-]+|/recommendations|/plan|/(advice|progress)/[a-z0-9.-]+)?|friends(/[A-Za-z0-9_-]+)?|login|rating|level|favorites|mock-exams|topics|settings|help|faq|privacy|terms|notifications|games(/stress)?|onboarding|landing|telegram-return|admin(/[A-Za-z0-9/_-]*)?)$';
 
 const appRoute = new RegExp(APP_ROUTE_PATTERN);
 

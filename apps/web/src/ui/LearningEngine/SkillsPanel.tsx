@@ -3,6 +3,7 @@ import type { SkillLevel, SubjectState } from '@zybrilka/shared';
 import { getLearningOverview } from '../../lib/api.js';
 import { useAuth } from '../../lib/authContext.js';
 import { clsx } from '../../lib/clsx.js';
+import { useOptionalNavigation } from '../../lib/navigation.js';
 import { Button } from '../Button/Button.js';
 import { Skeleton } from '../Skeleton/Skeleton.js';
 import styles from './LearningEngine.module.css';
@@ -35,6 +36,7 @@ type State =
  */
 export function SkillsPanel({ subjectId }: { subjectId: string }) {
   const { user } = useAuth();
+  const nav = useOptionalNavigation();
   const [attempt, setAttempt] = useState(0);
   const key = `${subjectId}|${attempt}`;
   const [result, setResult] = useState<{ key: string; state: State } | null>(null);
@@ -105,7 +107,18 @@ export function SkillsPanel({ subjectId }: { subjectId: string }) {
             <li key={k.key} className={styles.skillRow}>
               <span className={styles.number}>{k.examNumber ? `№${k.examNumber}` : '—'}</span>
               <span className={styles.skillText}>
-                <span className={clsx('text-body-sm', styles.skillTitle)}>{k.title}</span>
+                {nav && k.examNumber !== null ? (
+                  <button
+                    type="button"
+                    className={clsx('text-body-sm', styles.skillTitle, styles.skillLink)}
+                    onClick={() => nav.navigate({ screen: 'skillProgress', skillKey: k.key })}
+                    aria-label={`Прогресс по номеру ${k.examNumber}: ${k.title}`}
+                  >
+                    {k.title}
+                  </button>
+                ) : (
+                  <span className={clsx('text-body-sm', styles.skillTitle)}>{k.title}</span>
+                )}
                 <span className={styles.bar} aria-hidden="true">
                   <span
                     className={clsx(styles.barFill, styles[k.level])}

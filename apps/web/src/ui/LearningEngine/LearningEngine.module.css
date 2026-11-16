@@ -206,3 +206,17 @@
     transition: none;
   }
 }
+
+/* A skill's title opens its progress page (docs/learning/PERSONAL-PLANS.md). */
+.skillLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}

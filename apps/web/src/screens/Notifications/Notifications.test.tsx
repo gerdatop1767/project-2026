@@ -12,6 +12,13 @@ vi.mock('../../lib/api.js', () => ({
   saveReminders: vi.fn(),
   createTelegramLink: vi.fn(),
   confirmTelegramLink: vi.fn(),
+  getProgressNotificationPreferences: vi.fn(async () => ({
+    progressEnabled: true,
+    planRemindersEnabled: true,
+    frequency: 'normal',
+    explicit: false,
+  })),
+  saveProgressNotificationPreferences: vi.fn(async (p: object) => ({ ...p, explicit: true })),
 }));
 
 const settings = (over: Partial<ReminderSettingsResponse> = {}): ReminderSettingsResponse => ({
@@ -155,5 +162,27 @@ describe('Уведомления', () => {
     renderScreen(null);
     expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
     expect(api.getReminders).not.toHaveBeenCalled();
+  });
+
+  it('progress notifications are switched separately from the daily reminder', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getReminders).mockResolvedValue(settings());
+    renderScreen();
+    const progress = await screen.findByRole('switch', { name: 'Прогресс и цели' });
+    expect(progress).toHaveAttribute('aria-checked', 'true');
+    await user.click(progress);
+    expect(api.saveProgressNotificationPreferences).toHaveBeenLastCalledWith({
+      progressEnabled: false,
+      planRemindersEnabled: true,
+      frequency: 'normal',
+    });
+    expect(progress).toHaveAttribute('aria-checked', 'false');
+    await user.selectOptions(screen.getByLabelText('Частота'), 'important');
+    expect(api.saveProgressNotificationPreferences).toHaveBeenLastCalledWith({
+      progressEnabled: false,
+      planRemindersEnabled: true,
+      frequency: 'important',
+    });
+    expect(api.saveReminders).not.toHaveBeenCalled();
   });
 });

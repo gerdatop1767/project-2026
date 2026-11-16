@@ -145,6 +145,15 @@ export function pathForRoute(route: Route): string | null {
     return `${learningSessionPathPrefix}${route.sessionId}`;
   }
 
+  if (route.screen === 'recommendations') {
+    return route.subjectId
+      ? `/learning/recommendations?s=${route.subjectId}`
+      : '/learning/recommendations';
+  }
+  if (route.screen === 'learningPlan') return `/learning/plan?s=${route.subjectId}`;
+  if (route.screen === 'skillAdvice') return `/learning/advice/${route.skillKey}`;
+  if (route.screen === 'skillProgress') return `/learning/progress/${route.skillKey}`;
+
   if (route.screen === 'variantAttempt') {
     return `${variantAttemptPathPrefix}${route.sessionId}`;
   }
@@ -310,6 +319,24 @@ export function routeFromPath(pathname: string): Route {
       ...(math && ed && isExamEditionId(ed) ? { edition: ed } : {}),
       ...(math && topic && /^math\.[a-z-]+$/.test(topic) ? { topic } : {}),
     };
+  }
+
+  if (path === '/learning/recommendations') {
+    const s = params.get('s');
+    return {
+      screen: 'recommendations',
+      ...(s === 'math' || s === 'russian' ? { subjectId: s } : {}),
+    };
+  }
+  if (path === '/learning/plan') {
+    const s = params.get('s');
+    return { screen: 'learningPlan', subjectId: s === 'russian' ? 'russian' : 'math' };
+  }
+  const skillPath = path.match(/^\/learning\/(advice|progress)\/((?:math|russian)\.[a-z0-9-]+)$/);
+  if (skillPath) {
+    return skillPath[1] === 'advice'
+      ? { screen: 'skillAdvice', skillKey: skillPath[2]! }
+      : { screen: 'skillProgress', skillKey: skillPath[2]! };
   }
 
   if (path.startsWith(learningSessionPathPrefix)) {

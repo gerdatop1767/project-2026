@@ -6,6 +6,7 @@ import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
 import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 import { subjectIconSrc, type SubjectIconId } from '../../ui/SubjectIcon/subjectIcons.js';
+import { personalFixture } from '../../ui/PersonalLearning/fixtures.js';
 
 function OverlayMarker() {
   const { overlay } = useNavigation();
@@ -68,39 +69,25 @@ describe('LearningCenterDesktop', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('subject');
   });
 
-  it('«Рекомендации для тебя» shows the Learning Engine’s real picks with their reason', async () => {
+  it('«Твой персональный план» shows the real recommendations with the diagnosed problem', async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (String(url).includes('/me/learning/recommendations')) {
-        return new Response(
-          JSON.stringify({
-            recommendations: [
-              {
-                subjectId: 'math',
-                skillKey: 'math.equations-advanced',
-                examNumber: 13,
-                title: 'Уравнения (развёрнутый ответ)',
-                kind: 'weak',
-                priority: 80,
-                reason: 'За последние 7 попыток — 3 ошибки. Освоение 35%.',
-                benefit: 'Задание второй части.',
-                suggestedTasks: 5,
-                taskIds: ['t1', 't2', 't3', 't4', 't5'],
-              },
-            ],
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
+      if (String(url).includes('/me/learning/personal')) {
+        return new Response(JSON.stringify(personalFixture), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
       }
       return new Response('{}', { status: 404 });
     });
     vi.stubGlobal('fetch', fetchMock);
     try {
       renderLearningCenter();
-      expect(
-        await screen.findByText('За последние 7 попыток — 3 ошибки. Освоение 35%.'),
-      ).toBeInTheDocument();
-      expect(screen.getByText('№13')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Начать · 5 заданий/ })).toBeInTheDocument();
+      expect(await screen.findByText('Твой персональный план')).toBeInTheDocument();
+      expect(await screen.findByText('Уравнения (развёрнутый ответ)')).toBeInTheDocument();
+      expect(screen.getByText('Вычислительные ошибки.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Начать: Уравнения/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Все рекомендации' })).toBeInTheDocument();
+      expect(String(fetchMock.mock.calls[0]![0])).toContain('/me/learning/personal?limit=3');
       expect(screen.queryByText('Рекомендации появятся позже')).not.toBeInTheDocument();
     } finally {
       vi.unstubAllGlobals();

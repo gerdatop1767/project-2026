@@ -36,6 +36,10 @@ export function accountFeatureForRoute(route: Route): AccountFeature | null {
     case 'favorites':
       return 'favorites';
     case 'learningSession':
+    case 'recommendations':
+    case 'skillAdvice':
+    case 'learningPlan':
+    case 'skillProgress':
       return 'smartTraining';
     case 'level':
       return 'level';

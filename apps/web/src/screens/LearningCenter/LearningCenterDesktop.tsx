@@ -18,7 +18,7 @@ import {
   LearningSearchBox,
   LearningSearchResults,
 } from '../../ui/LearningSearch/LearningSearch.js';
-import { RecommendationsList } from '../../ui/LearningEngine/RecommendationsList.js';
+import { PersonalPlanBlock } from '../../ui/PersonalLearning/PersonalPlanBlock.js';
 import styles from './LearningCenterDesktop.module.css';
 
 interface LearningSection {
@@ -150,10 +150,9 @@ export function LearningCenterDesktop() {
         ))}
       </div>
 
-      <Card hidden={searching} className={styles.recommendCard}>
-        <p className="text-h3">Рекомендации для тебя</p>
-        <RecommendationsList limit={4} />
-      </Card>
+      <div hidden={searching} className={styles.recommendCard}>
+        <PersonalPlanBlock limit={3} showAllLink />
+      </div>
     </div>
   );
 }

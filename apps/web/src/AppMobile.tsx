@@ -1,4 +1,8 @@
 import { MobileShell } from './ui/MobileShell/MobileShell.js';
+import { AdviceScreen } from './screens/PersonalLearning/AdviceScreen.js';
+import { PlanScreen } from './screens/PersonalLearning/PlanScreen.js';
+import { RecommendationsScreen } from './screens/PersonalLearning/RecommendationsScreen.js';
+import { SkillProgressScreen } from './screens/PersonalLearning/SkillProgressScreen.js';
 import { BottomNav } from './ui/BottomNav/BottomNav.js';
 import { defaultBottomNavItems } from './ui/BottomNav/defaultItems.js';
 import { WipPlaceholder } from './ui/WipPlaceholder/WipPlaceholder.js';
@@ -201,6 +205,18 @@ export function AppMobile() {
               />
             )}
             {contentOverlay.screen === 'learningCenter' && <LearningCenterMobile />}
+            {contentOverlay.screen === 'recommendations' && (
+              <RecommendationsScreen subjectId={contentOverlay.subjectId} />
+            )}
+            {contentOverlay.screen === 'skillAdvice' && (
+              <AdviceScreen skillKey={contentOverlay.skillKey} />
+            )}
+            {contentOverlay.screen === 'learningPlan' && (
+              <PlanScreen subjectId={contentOverlay.subjectId} />
+            )}
+            {contentOverlay.screen === 'skillProgress' && (
+              <SkillProgressScreen skillKey={contentOverlay.skillKey} />
+            )}
             {contentOverlay.screen === 'onboarding' && <Onboarding />}
             {contentOverlay.screen === 'favorites' && (
               <WipPlaceholder title="Избранное" note="Экран в разработке — следующий блок." />

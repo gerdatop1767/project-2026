@@ -10,7 +10,7 @@ import {
   LearningSearchResults,
 } from '../../ui/LearningSearch/LearningSearch.js';
 import { learningSections } from './LearningCenterDesktop.js';
-import { RecommendationsList } from '../../ui/LearningEngine/RecommendationsList.js';
+import { PersonalPlanBlock } from '../../ui/PersonalLearning/PersonalPlanBlock.js';
 import styles from './LearningCenterMobile.module.css';
 
 /**
@@ -59,10 +59,10 @@ export function LearningCenterMobile() {
       )}
       {!searching && (
         <section aria-labelledby="lc-recs" className={styles.recs}>
-          <h2 id="lc-recs" className="text-h3">
+          <h2 id="lc-recs" className="visually-hidden">
             Рекомендации для тебя
           </h2>
-          <RecommendationsList limit={3} />
+          <PersonalPlanBlock limit={3} showAllLink />
         </section>
       )}
     </div>
