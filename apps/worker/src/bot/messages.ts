@@ -71,6 +71,28 @@ export function reminderKeyboard(siteUrl: string): InlineKeyboard {
   };
 }
 
+export const CALLBACK_PROGRESS_OFF = 'progress_off';
+
+/** Under every progress / plan message (docs/learning/PERSONAL-PLANS.md). */
+export function progressKeyboard(siteUrl: string, subjectId?: string): InlineKeyboard {
+  const plan = new URL('/learning/plan', siteUrl);
+  if (subjectId) plan.searchParams.set('s', subjectId);
+  const url = plan.toString();
+  return {
+    inline_keyboard: [
+      [
+        siteUrl.startsWith('https://')
+          ? { text: 'Открыть план', web_app: { url } }
+          : { text: 'Открыть план', url },
+      ],
+      [{ text: 'Не присылать о прогрессе', callback_data: CALLBACK_PROGRESS_OFF }],
+    ],
+  };
+}
+
+export const progressOffText =
+  'Уведомления о прогрессе и плане отключены. Ежедневное напоминание это не меняет. Включить снова: Профиль → Уведомления.';
+
 export const remindersOffText =
   'Напоминания отключены. Включить их снова можно на сайте: Профиль → Уведомления.';
 export const remindersNoAccountText =

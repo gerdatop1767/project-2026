@@ -254,3 +254,24 @@ export async function disableRemindersFor(db: Database, telegramUserId: number):
     });
   return true;
 }
+
+/**
+ * «Не присылать о прогрессе» under a progress message: switches off progress
+ * and plan notifications only — the daily reminder stays as it is
+ * (docs/learning/PERSONAL-PLANS.md § Уведомления).
+ */
+export async function disableProgressNotificationsFor(
+  db: Database,
+  telegramUserId: number,
+): Promise<boolean> {
+  const userId = await accountOf(db, telegramUserId);
+  if (!userId) return false;
+  await db
+    .insert(schema.notificationPreferences)
+    .values({ userId, progressEnabled: false, planRemindersEnabled: false })
+    .onConflictDoUpdate({
+      target: schema.notificationPreferences.userId,
+      set: { progressEnabled: false, planRemindersEnabled: false, updatedAt: sql`now()` },
+    });
+  return true;
+}

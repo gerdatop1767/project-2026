@@ -6,6 +6,7 @@ import { BotPhotos } from './bot/photos.js';
 import { startPolling } from './bot/polling.js';
 import { BroadcastSender } from './broadcasts/sender.js';
 import { InactivityReminderScheduler } from './reminders/inactivity.js';
+import { ProgressNotifier } from './reminders/progress.js';
 import { ReminderScheduler } from './reminders/scheduler.js';
 import { SupportSender } from './support/sender.js';
 import { AdminNotifier } from './notifications/adminNotifier.js';
@@ -158,7 +159,23 @@ export async function startWorker({
         'inactivity reminders',
       ),
     );
-    logger.info('support replies, daily and inactivity reminders on');
+
+    // Progress and plan messages (docs/learning/PERSONAL-PLANS.md): every
+    // 5 minutes, 30 sends per run at most, two a day per student.
+    const progress = new ProgressNotifier({ db, telegram, logger, siteUrl });
+    await progress.recoverInterrupted();
+    stops.push(
+      every(
+        5 * 60_000,
+        async () => {
+          const r = await progress.run();
+          if (r.sent || r.failed) logger.info(r, 'progress notifications');
+        },
+        logger,
+        'progress notifications',
+      ),
+    );
+    logger.info('support replies, daily, inactivity and progress notifications on');
   }
 
   // Tells the admin panel what this worker does (no secrets, booleans only),
