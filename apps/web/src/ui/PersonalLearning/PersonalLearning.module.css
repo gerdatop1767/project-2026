@@ -247,8 +247,10 @@
 }
 
 .startButton {
-  border-color: var(--pl-cyan, #3ec9f5) !important;
-  box-shadow: 0 0 16px -6px var(--pl-cyan, #3ec9f5);
+  border: 1.5px solid #3ec9f5 !important;
+  color: #e6f8ff !important;
+  background: color-mix(in srgb, #3ec9f5 10%, transparent) !important;
+  box-shadow: 0 0 18px -6px #3ec9f5;
   border-radius: 999px !important;
   white-space: nowrap;
 }
@@ -336,6 +338,7 @@
 
 .homeHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
@@ -389,6 +392,18 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   padding: var(--space-3);
   gap: var(--space-3);
+}
+
+/* Narrow phones: the button goes under the text instead of squeezing it. */
+@media (max-width: 400px) {
+  .rec[data-compact] {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .rec[data-compact] .recActions {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
 }
 
 .rec[data-compact] .recIcon {

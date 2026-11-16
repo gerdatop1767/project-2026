@@ -27,6 +27,15 @@ export function problemSummary(
   examNumber: number | null,
   d: Diagnosis,
 ): ProblemSummary {
+  if (d.attempts === 0) {
+    // Not «needs diagnostics» — there is nothing to diagnose yet.
+    return {
+      type: d.type,
+      title: 'Ещё не решал',
+      summary: 'Ты ещё не решал задания этого номера — начни с трёх заданий.',
+      evidence: ['По этому номеру ещё нет ответов.'],
+    };
+  }
   const advice = adviceFor(subjectId, examNumber, d.type);
   return {
     type: d.type,
