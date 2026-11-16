@@ -1,0 +1,6 @@
+# Voice models are downloaded (see character/voice/VOICE.md), 60 MB each
+character/voice/models/*.onnx
+# Intermediate renders and preview stills
+videos/*/render/
+videos/*/audio/voiceover_raw.wav
+__pycache__/

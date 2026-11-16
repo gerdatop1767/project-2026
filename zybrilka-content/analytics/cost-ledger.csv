@@ -1,0 +1,2 @@
+id,title,tools,paid_generations,cost_rub,duration_s,status,created
+001,Что такое Зубрилка,"Piper TTS (dmitri), bison_rig, Playwright, Pillow, ffmpeg, faster-whisper",0,0,30.6,draft-ready-for-review,2026-11-16
