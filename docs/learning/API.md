@@ -99,3 +99,6 @@
 - `GET /me/learning/mastery` — строки `user_skill_statistics`.
 - `GET /me/learning/next-task`, `GET /me/learning/path` — фазы 7–8. Теперь читают заполненные навыки.
 - `GET /me/learning/errors` — сигнатуры ошибок.
+
+## Персональное обучение
+Маршруты рекомендаций с диагнозом, советов, планов, прогресса по номеру и настроек уведомлений описаны в `PERSONAL-PLANS.md` § API.
