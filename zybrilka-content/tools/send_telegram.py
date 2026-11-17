@@ -58,8 +58,14 @@ def main():
     vd = Path(sys.argv[1]); sb = json.loads((vd / "storyboard.json").read_text())
     slug = sb.get("slug", vd.name); mp4 = vd / f"final/{slug}.mp4"
     meta = sb.get("telegram", {})
-    cap = meta.get("caption") or f"🦬 {slug}"
-    r = call("sendDocument", {"chat_id": CHAT, "caption": cap[:1024], "disable_content_type_detection": "true"},
+    if meta.get("tiktok_description"):  # fixed format: tiktok_api.py publishes exactly the text after the marker
+        cap = f"{meta.get('header') or '🦬 ' + slug}\n\n📝 Описание для TikTok:\n{meta['tiktok_description']}"
+    else:
+        cap = meta.get("caption") or f"🦬 {slug}"
+    buttons = {"inline_keyboard": [[{"text": "✅ Опубликовать в TikTok", "callback_data": "publish"},
+                                    {"text": "❌ Не надо", "callback_data": "skip"}]]}
+    r = call("sendDocument", {"chat_id": CHAT, "caption": cap[:1024], "disable_content_type_detection": "true",
+                              "reply_markup": json.dumps(buttons, ensure_ascii=False)},
              {"document": (mp4.name, mp4.read_bytes(), "video/mp4")})
     print("sent", mp4.name, r.get("ok"))
     if meta.get("details"):
