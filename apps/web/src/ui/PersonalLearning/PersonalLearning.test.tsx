@@ -10,6 +10,8 @@ import { PlanScreen } from '../../screens/PersonalLearning/PlanScreen.js';
 import { SkillProgressScreen } from '../../screens/PersonalLearning/SkillProgressScreen.js';
 import { adviceFixture, personalFixture, planFixture, progressFixture } from './fixtures.js';
 import { HomeRecommendations, PersonalPlanBlock } from './PersonalPlanBlock.js';
+import { resetPlanSubjectForTests } from './planSubject.js';
+import { RecommendationsScreen } from '../../screens/PersonalLearning/RecommendationsScreen.js';
 
 type Handler = (url: string, init?: RequestInit) => unknown;
 
@@ -53,7 +55,11 @@ function renderWith(node: React.ReactNode, user = makeAuthUser()) {
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.localStorage.clear();
+  resetPlanSubjectForTests();
+});
 
 describe('«Твой персональный план»', () => {
   it('header numbers, cards with the diagnosed problem, priority and honest progress', async () => {
@@ -62,7 +68,13 @@ describe('«Твой персональный план»', () => {
     expect(await screen.findByText('Уравнения (развёрнутый ответ)')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('приоритетных тем')).toBeInTheDocument();
-    expect(screen.getByText('до +4')).toBeInTheDocument();
+    // The ЕГЭ gain is in test points with its table — never primary points.
+    expect(screen.getByText('до +12')).toBeInTheDocument();
+    expect(
+      screen.getByText('тестовых баллов ЕГЭ по этим темам: было 58 → станет 70'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Тестовый балл · ориентир по шкале ЕГЭ-2026')).toBeInTheDocument();
+    expect(screen.queryByText(/первичн/)).not.toBeInTheDocument();
     expect(screen.getByText(/≈ 7 дней/)).toBeInTheDocument();
     const cards = screen.getAllByRole('listitem').filter((li) => li.getAttribute('data-priority'));
     expect(cards).toHaveLength(3);
@@ -265,5 +277,59 @@ describe('advice, plan and progress screens', () => {
     expect(screen.getAllByText('мало данных для сравнения')).toHaveLength(2);
     expect(screen.getByText('1 из 1 верно')).toBeInTheDocument();
     expect(screen.getByText(/Ближайшая цель — освоение 55%/)).toBeInTheDocument();
+  });
+
+  it('without a fitting table: no number, the reason instead', async () => {
+    stubApi({
+      'GET /me/learning/personal': () => ({
+        ...personalFixture,
+        summary: {
+          ...personalFixture.summary,
+          potentialTestPoints: { available: false, reason: 'Растягивать шкалу нельзя.' },
+        },
+      }),
+    });
+    renderWith(<PersonalPlanBlock limit={4} />);
+    expect(await screen.findByText('прирост в баллах ЕГЭ не рассчитывается')).toBeInTheDocument();
+    expect(screen.getByText('Растягивать шкалу нельзя.')).toBeInTheDocument();
+    expect(screen.queryByText(/до \+/)).not.toBeInTheDocument();
+  });
+
+  it('the subject switch: one subject per request, remembered across the plan views', async () => {
+    const calls = stubApi({ 'GET /me/learning/personal': () => personalFixture });
+    const user = userEvent.setup();
+    const { unmount } = renderWith(<PersonalPlanBlock limit={3} />);
+    const tabs = await screen.findByRole('tablist', { name: 'Предмет плана' });
+    expect(within(tabs).getByRole('tab', { name: 'Профильная математика' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await user.click(within(tabs).getByRole('tab', { name: 'Русский язык' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.includes('/me/learning/personal?subject=russian'))).toBe(true),
+    );
+    // Never a request without a subject (that would mix both).
+    expect(calls.every((c) => /subject=(math|russian)/.test(c.url))).toBe(true);
+    expect(window.localStorage.getItem('zybrilka.personalPlan.subject')).toBe('russian');
+    unmount();
+    // The home widget and «Все рекомендации» open on the same subject.
+    renderWith(<HomeRecommendations />);
+    await waitFor(() =>
+      expect(calls.filter((c) => c.url.includes('subject=russian&limit=2'))).toHaveLength(1),
+    );
+  });
+
+  it('«Все рекомендации»: Русский язык / Профильная математика, no mixed «Все» tab', async () => {
+    stubApi({ 'GET /me/learning/personal': () => personalFixture });
+    const user = userEvent.setup();
+    renderWith(<RecommendationsScreen />);
+    const tabs = await screen.findByRole('tablist', { name: 'Предмет' });
+    expect(
+      within(tabs)
+        .getAllByRole('tab')
+        .map((t) => t.textContent),
+    ).toEqual(['Русский язык', 'Профильная математика']);
+    await user.click(within(tabs).getByRole('tab', { name: 'Русский язык' }));
+    expect(window.localStorage.getItem('zybrilka.personalPlan.subject')).toBe('russian');
   });
 });

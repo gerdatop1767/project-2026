@@ -1,0 +1,356 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: 760px;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.head h1 {
+  margin: 0;
+  /* «Грамматические нормы», «Слитно, раздельно, через дефис»: long
+     words must fit a 320 px screen. */
+  font-size: clamp(1.625rem, 7.5vw, 2.25rem);
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--color-accent-primary);
+}
+
+.menu,
+.summary,
+.question,
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.menu p,
+.summary p,
+.progress h2 {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-error);
+}
+
+.stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-2);
+}
+
+.stats li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+}
+
+.stats span {
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.track {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  overflow: hidden;
+}
+
+.track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent-primary);
+  transition: width 240ms ease;
+}
+
+.points {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-accent-primary);
+}
+
+.instruction {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.text p {
+  margin: 0;
+}
+
+.sentence {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 2.2;
+  overflow-wrap: anywhere;
+}
+
+.slot {
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  margin: 0 2px;
+  padding: 0 6px;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: 10px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.slot:focus-visible,
+.option:focus-visible,
+.word:focus-visible {
+  outline: 2px solid var(--color-accent-ring);
+  outline-offset: 2px;
+}
+
+.slotOn {
+  border-style: solid;
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+  background: var(--color-accent-soft);
+}
+
+.slotRight {
+  border-style: solid;
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.slotWrong {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.optionsWide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .optionsWide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.option {
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 14px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.option:not(:disabled):hover {
+  border-color: var(--color-accent-primary);
+}
+
+.option:disabled {
+  cursor: default;
+}
+
+.optionRight {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, var(--color-bg-elevated));
+}
+
+.optionWrong {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 14%, var(--color-bg-elevated));
+}
+
+.inputRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 1.0625rem;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--color-accent-ring);
+  outline-offset: 1px;
+}
+
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: 14px;
+}
+
+.feedback p {
+  margin: 0;
+}
+
+.good {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.bad {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+}
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.good .verdict {
+  color: var(--color-success);
+}
+
+.bad .verdict {
+  color: var(--color-error);
+}
+
+.summary {
+  align-items: flex-start;
+}
+
+.bigScore {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-accent-primary);
+}
+
+/* `words` questions: every word of the text is tappable; only a quiet
+   dotted underline marks it, so the text still reads as text. No side
+   padding: punctuation stays attached to its word. */
+.word {
+  display: inline;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted color-mix(in srgb, var(--color-accent-primary) 45%, transparent);
+  text-underline-offset: 5px;
+}
+
+.word:disabled {
+  cursor: default;
+}
+
+.wordOn {
+  text-decoration: none;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-primary);
+  font-weight: 700;
+}
+
+.explanation {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.explanation summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.explanation p {
+  margin: var(--space-1) 0 0;
+  white-space: pre-line;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track > span {
+    transition: none;
+  }
+}

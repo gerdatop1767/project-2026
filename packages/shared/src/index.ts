@@ -54,5 +54,6 @@ export * from './examCalendar.js';
 export * from './support.js';
 export * from './examSpecs.js';
 export * from './miniGames.js';
+export * from './quizGames.js';
 export * from './examScoring.js';
 export * from './broadcastAudience.js';

@@ -39,6 +39,11 @@ import type {
   VariantDetail,
   VariantAttemptDetail,
   MiniGamesResponse,
+  QuizAnswerRequest,
+  QuizAnswerResponse,
+  QuizMode,
+  QuizProgressResponse,
+  QuizRoundResponse,
   StressAnswerRequest,
   StressAnswerResponse,
   StressMode,
@@ -814,6 +819,38 @@ export function finishStressRound(sessionId: string, firstTryCorrect: number): P
 
 export function getStressProgress(): Promise<StressProgressResponse> {
   return rawApiFetch('/games/stress/progress');
+}
+
+// ------------------------------------------------------- quiz mini-games (docs/MINI_GAMES.md)
+
+export function getQuizRound(
+  gameId: string,
+  mode: QuizMode,
+  size = 10,
+): Promise<QuizRoundResponse> {
+  return rawApiFetch(`/games/quiz/${encodeURIComponent(gameId)}/round?mode=${mode}&size=${size}`);
+}
+
+export function answerQuiz(gameId: string, body: QuizAnswerRequest): Promise<QuizAnswerResponse> {
+  return apiFetch(`/games/quiz/${encodeURIComponent(gameId)}/answer`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function finishQuizRound(
+  gameId: string,
+  sessionId: string,
+  firstTryCorrect: number,
+): Promise<void> {
+  return apiFetch<void>(`/games/quiz/${encodeURIComponent(gameId)}/finish`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, firstTryCorrect }),
+  }).catch(() => undefined);
+}
+
+export function getQuizProgress(gameId: string): Promise<QuizProgressResponse> {
+  return rawApiFetch(`/games/quiz/${encodeURIComponent(gameId)}/progress`);
 }
 
 // ------------------------------------------------ personal learning

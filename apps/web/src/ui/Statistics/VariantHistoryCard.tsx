@@ -1,4 +1,4 @@
-import type { VariantProgressItem } from '@zybrilka/shared';
+import { scaleShortLabel, type VariantProgressItem } from '@zybrilka/shared';
 import { formatDateShort } from '../../lib/formatDate.js';
 import { errorSignatureLabel, formatDurationLong } from '../../lib/statisticsDetailFormat.js';
 import { useNavigation } from '../../lib/navigation.js';
@@ -48,6 +48,30 @@ export function VariantHistoryCard({ item }: VariantHistoryCardProps) {
           {item.accuracyPercent !== null ? `${item.accuracyPercent}%` : '—'}
         </span>
       </div>
+
+      {item.examScore && (
+        <p
+          className="text-body-sm"
+          title={item.examScore.scaleLabel ?? item.examScore.noScaleReason ?? undefined}
+        >
+          {item.examScore.testScore !== null && item.examScore.scaleLabel ? (
+            <>
+              <b>{item.examScore.testScore}</b> тестовых баллов ·{' '}
+              <span className="text-secondary">{scaleShortLabel(item.examScore.scaleLabel)}</span> ·{' '}
+              {item.examScore.primary} из {item.examScore.examMaxTotal} первичных
+            </>
+          ) : (
+            <>
+              <b>{item.examScore.primary}</b> из {item.examScore.examMaxTotal} первичных баллов
+              <span className="text-secondary"> · тестовый балл не считается</span>
+            </>
+          )}
+          {item.examScore.notGradedMax > 0 && (
+            <span className="text-secondary"> · без сочинения</span>
+          )}
+          {item.examScore.preliminary && <span className="text-secondary"> · предварительно</span>}
+        </p>
+      )}
 
       {item.totalTimeMs !== null && (
         <p className="text-body-sm text-secondary">Время: {formatDurationLong(item.totalTimeMs)}</p>

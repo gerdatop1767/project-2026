@@ -27,6 +27,18 @@
   margin: 0;
 }
 
+.scaleLabel {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  color: var(--color-accent-primary);
+}
+
+.scaleSource summary {
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
 .scoreValue {
   font-size: 2.5rem;
   font-weight: 800;

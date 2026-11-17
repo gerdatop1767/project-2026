@@ -138,28 +138,28 @@ describe('VariantAttempt — one attempt’s full result', () => {
   });
 });
 
-describe('VariantAttempt — «Первичные баллы ЕГЭ»', () => {
-  it('shows primary points, the part split and the per-task breakdown; no test score without a scale', async () => {
+describe('VariantAttempt — «Баллы ЕГЭ»', () => {
+  it('without a fitting table (33-point format): primary points, named as primary, and the reason', async () => {
     vi.mocked(api.getVariantAttempt).mockResolvedValue(
       attemptDetail({ scoring: attemptScoring() }),
     );
     renderAttempt();
-    const card = (await screen.findByRole('heading', { name: 'Первичные баллы ЕГЭ' })).closest(
+    const card = (await screen.findByRole('heading', { name: 'Баллы ЕГЭ' })).closest(
       'div',
     )!.parentElement!;
     expect(within(card).getByText('9')).toBeInTheDocument();
-    expect(within(card).getByText('из 33')).toBeInTheDocument();
+    expect(within(card).getByText('из 33 первичных')).toBeInTheDocument();
     expect(within(card).getByText('1 / 13')).toBeInTheDocument();
     expect(within(card).getByText('8 / 18')).toBeInTheDocument();
-    expect(
-      within(card).getByText(/шкала перевода ЕГЭ-2027 ещё не опубликована/),
-    ).toBeInTheDocument();
+    expect(within(card).getByText(/Растягивать шкалу нельзя/)).toBeInTheDocument();
     expect(within(card).getByText(/№17 сейчас на проверке/)).toBeInTheDocument();
     expect(within(card).getByText(/Часть 2 оценена только по ответу/)).toBeInTheDocument();
     expect(within(card).getByText(/не официальные критерии/)).toBeInTheDocument();
     expect(within(card).getByText(/№20: По ответам пунктов/)).toBeInTheDocument();
     // Primary points are never presented as the 0–100 test score.
-    expect(within(card).getByText('Первичные баллы — не тестовые (0–100)')).toBeInTheDocument();
+    expect(
+      within(card).getByText(/Это первичные баллы, а не тестовые \(0–100\)/),
+    ).toBeInTheDocument();
     expect(within(card).getByText('Тестовый балл (0–100)').nextSibling).toHaveTextContent('—');
     expect(within(card).getByText(/по проекту КИМ ЕГЭ 2027/)).toBeInTheDocument();
     expect(within(card).queryByText('Предварительно')).not.toBeInTheDocument();
@@ -191,15 +191,99 @@ describe('VariantAttempt — «Первичные баллы ЕГЭ»', () => {
             status: 'approximate',
             source: 'тестовая шкала',
             updatedAt: '2027-07-01',
+            examYear: 2027,
+            label: 'Тестовый балл · приблизительно, по шкале ЕГЭ-2027',
           },
         }),
       }),
     );
     renderAttempt();
-    expect(await screen.findByText('≈ 50')).toBeInTheDocument();
+    const main = (await screen.findByText('тестовых баллов из 100')).parentElement!;
+    expect(main).toHaveTextContent('50 тестовых баллов из 100');
     expect(
       screen.getByText(/Оценка приблизительная, официальная шкала может отличаться/),
     ).toBeInTheDocument();
+  });
+
+  it('the ЕГЭ result is the test score by the 2026 table, labelled as a guide; primary apart', async () => {
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({
+        scoring: attemptScoring({
+          rulesId: 'ege-math-profile-2026@v1',
+          rulesStatus: 'official',
+          format: 'ege-math-profile-2026',
+          examMaxTotal: 32,
+          conversion: {
+            available: true,
+            testScore: 52,
+            scaleId: 'ege-math-profile-2026@rosobrnadzor-2026-04',
+            status: 'official',
+            source: 'Решения комиссии Рособрнадзора … таблица № 6',
+            updatedAt: '2026-04-17',
+            examYear: 2026,
+            label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+          },
+        }),
+      }),
+    );
+    renderAttempt();
+    const main = (await screen.findByText('тестовых баллов из 100')).parentElement!;
+    expect(main).toHaveTextContent('52 тестовых баллов из 100');
+    expect(screen.getByText('Тестовый балл · ориентир по шкале ЕГЭ-2026')).toBeInTheDocument();
+    expect(screen.getByText('Первичные баллы: 9 из 32.')).toBeInTheDocument();
+    expect(screen.getByText(/Шкалу ЕГЭ-2027 утвердят только после экзамена/)).toBeInTheDocument();
+    expect(screen.getByText('Источник шкалы')).toBeInTheDocument();
+  });
+
+  it('Russian: the essay is not graded and is said to be left out of the score', async () => {
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({
+        scoring: attemptScoring({
+          rulesId: 'ege-russian-2027@v1',
+          rulesStatus: 'official',
+          format: 'ege-russian-2027',
+          primary: 24,
+          maxAvailable: 50,
+          examMaxTotal: 50,
+          partOne: { awarded: 24, max: 28 },
+          partTwo: { awarded: 0, max: 22 },
+          unavailableTaskNumbers: [],
+          notGradedMax: 22,
+          tasks: [
+            {
+              taskId: 'task-27',
+              taskNumber: 27,
+              max: 22,
+              awarded: 0,
+              status: 'not_graded',
+              estimated: false,
+              note: null,
+            },
+          ],
+          conversion: {
+            available: true,
+            testScore: 49,
+            scaleId: 'ege-russian-2026@rosobrnadzor-2026-04',
+            status: 'official',
+            source: 'Решения комиссии Рособрнадзора … таблица № 6',
+            updatedAt: '2026-04-17',
+            examYear: 2026,
+            label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+          },
+        }),
+      }),
+    );
+    renderAttempt();
+    const main = (await screen.findByText('тестовых баллов из 100')).parentElement!;
+    expect(main).toHaveTextContent('49 тестовых баллов из 100');
+    expect(
+      screen.getByText('Первичные баллы: 24 из 50 (без сочинения — до 22 баллов).'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Сочинение, не оценивается')).toBeInTheDocument();
+    expect(screen.getByText('— / 22')).toBeInTheDocument();
+    expect(screen.getByText('Не оценивается')).toBeInTheDocument();
+    expect(screen.getByText('— из 22')).toBeInTheDocument();
+    expect(screen.queryByText(/оценена только по ответу/)).not.toBeInTheDocument();
   });
 
   it('«Разобрать ошибки» opens the first wrong task’s explanation in place', async () => {

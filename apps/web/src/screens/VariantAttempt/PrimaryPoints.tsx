@@ -1,4 +1,8 @@
-import type { TaskScoreStatus, VariantAttemptScoring } from '@zybrilka/shared';
+import {
+  TARGET_EXAM_YEAR,
+  type TaskScoreStatus,
+  type VariantAttemptScoring,
+} from '@zybrilka/shared';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -9,13 +13,16 @@ const statusLabel: Record<TaskScoreStatus, string> = {
   partial: 'Частично',
   zero: 'Неверно',
   unanswered: 'Нет ответа',
+  not_graded: 'Не оценивается',
 };
 
 /**
- * «Первичные баллы ЕГЭ» of one variant attempt: primary points from the attempt's
- * frozen rules, the part split, the conversion to a test score only when
- * a confirmed scale exists (otherwise why not), and a per-task
- * breakdown. Says plainly what is an estimate.
+ * «Баллы ЕГЭ» of one variant attempt. The ЕГЭ result is the TEST score
+ * (0–100) by the table stored with the attempt, shown large with its
+ * label («Тестовый балл · ориентир по шкале ЕГЭ-2026»); primary points
+ * are shown apart and named as primary. Without a fitting table only
+ * primary points are shown, with the reason. Then the part split and a
+ * per-task breakdown; what is an estimate is said plainly.
  */
 export function PrimaryPoints({
   scoring: s,
@@ -26,19 +33,39 @@ export function PrimaryPoints({
   onReviewMistakes: (() => void) | null;
 }) {
   const missing = s.unavailableTaskNumbers;
+  const essay = s.notGradedMax > 0;
+  const estimated = s.tasks.some((t) => t.estimated);
   return (
     <Card className={styles.score} aria-labelledby="points-title">
       <div className={styles.pointsHead}>
         <h2 id="points-title" className={styles.sectionTitle}>
-          Первичные баллы ЕГЭ
+          Баллы ЕГЭ
         </h2>
         {s.preliminary && <span className={styles.badge}>Предварительно</span>}
       </div>
-      <p className={styles.scoreMain}>
-        <span className={styles.scoreValue}>{s.primary}</span>
-        <span className="text-body text-secondary"> из {s.examMaxTotal}</span>
-      </p>
-      <p className="text-body-sm text-secondary">Первичные баллы — не тестовые (0–100)</p>
+      {s.conversion.available ? (
+        <>
+          <p className={styles.scoreMain}>
+            <span className={styles.scoreValue}>{s.conversion.testScore}</span>
+            <span className="text-body text-secondary"> тестовых баллов из 100</span>
+          </p>
+          <p className={styles.scaleLabel}>{s.conversion.label}</p>
+          <p className="text-body-sm text-secondary">
+            Первичные баллы: {s.primary} из {s.examMaxTotal}
+            {essay ? ` (без сочинения — до ${s.notGradedMax} баллов)` : ''}.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className={styles.scoreMain}>
+            <span className={styles.scoreValue}>{s.primary}</span>
+            <span className="text-body text-secondary"> из {s.examMaxTotal} первичных</span>
+          </p>
+          <p className="text-body-sm text-secondary">
+            Это первичные баллы, а не тестовые (0–100). Тестовый балл не считается: причина ниже.
+          </p>
+        </>
+      )}
       <dl className={styles.scoreGrid}>
         <div className={styles.stat}>
           <dt className="text-body-sm text-secondary">Часть 1</dt>
@@ -47,29 +74,48 @@ export function PrimaryPoints({
           </dd>
         </div>
         <div className={styles.stat}>
-          <dt className="text-body-sm text-secondary">Часть 2, по ответу</dt>
+          <dt className="text-body-sm text-secondary">
+            {essay ? 'Сочинение, не оценивается' : 'Часть 2, по ответу'}
+          </dt>
           <dd className={styles.statValue}>
-            {s.partTwo.awarded} / {s.partTwo.max}
+            {essay ? `— / ${s.partTwo.max}` : `${s.partTwo.awarded} / ${s.partTwo.max}`}
           </dd>
         </div>
         <div className={styles.stat}>
           <dt className="text-body-sm text-secondary">Тестовый балл (0–100)</dt>
           <dd className={styles.statValue}>
-            {s.conversion.available ? `≈ ${s.conversion.testScore}` : '—'}
+            {s.conversion.available ? s.conversion.testScore : '—'}
           </dd>
         </div>
       </dl>
 
       <ul className={styles.pointsNotes}>
         {s.conversion.available ? (
-          s.conversion.status === 'approximate' && (
+          s.conversion.status === 'approximate' ? (
             <li>
               Оценка приблизительная, официальная шкала может отличаться. Шкала:{' '}
               {s.conversion.source}.
             </li>
+          ) : (
+            s.conversion.examYear < TARGET_EXAM_YEAR && (
+              <li>
+                Шкалу ЕГЭ-{TARGET_EXAM_YEAR} утвердят только после экзамена, поэтому тестовый балл
+                посчитан по официальной шкале ЕГЭ-{s.conversion.examYear} — как ориентир.
+                <details className={styles.scaleSource}>
+                  <summary>Источник шкалы</summary>
+                  {s.conversion.source}.
+                </details>
+              </li>
+            )
           )
         ) : (
           <li>{s.conversion.reason}</li>
+        )}
+        {essay && (
+          <li>
+            Сочинение (до {s.notGradedMax} первичных баллов) проверяют эксперты, приложение его не
+            оценивает: баллы и тестовый балл посчитаны без него.
+          </li>
         )}
         {s.preliminary && <li>Вариант не завершён — баллы могут измениться.</li>}
         {missing.length > 0 && (
@@ -79,16 +125,18 @@ export function PrimaryPoints({
             вариант: доступно {s.maxAvailable} из {s.examMaxTotal} баллов.
           </li>
         )}
-        <li>
-          Часть 2 оценена только по ответу: решение и доказательство здесь не проверяются, поэтому
-          балл за неё ориентировочный — это наши правила, а не официальные критерии.
-          {partTwoRules(s).map((r) => (
-            <span key={r.note} className={styles.pointsRule}>
-              {' '}
-              №{r.numbers.join(', №')}: {r.note}
-            </span>
-          ))}
-        </li>
+        {estimated && (
+          <li>
+            Часть 2 оценена только по ответу: решение и доказательство здесь не проверяются, поэтому
+            балл за неё ориентировочный — это наши правила, а не официальные критерии.
+            {partTwoRules(s).map((r) => (
+              <span key={r.note} className={styles.pointsRule}>
+                {' '}
+                №{r.numbers.join(', №')}: {r.note}
+              </span>
+            ))}
+          </li>
+        )}
         {s.rulesStatus === 'project' && (
           <li>
             Баллы — по проекту КИМ ЕГЭ {s.format.slice(-4)} (ФИПИ, август 2026), по которому
@@ -115,7 +163,7 @@ export function PrimaryPoints({
               <th scope="row">{t.taskNumber}</th>
               <td>{statusLabel[t.status]}</td>
               <td className={styles.breakdownPoints}>
-                {t.awarded} из {t.max}
+                {t.status === 'not_graded' ? `— из ${t.max}` : `${t.awarded} из ${t.max}`}
               </td>
             </tr>
           ))}

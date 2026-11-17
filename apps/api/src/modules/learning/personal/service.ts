@@ -5,6 +5,7 @@ import {
   adviceForSkill,
   currentScoringRules,
   diagnoseSkill,
+  testScoreGain,
   displayMastery,
   dynamicsOf,
   examSkillInfo,
@@ -46,10 +47,76 @@ function priorityLevel(p: number): 'high' | 'medium' | 'low' {
   return p >= 70 ? 'high' : p >= 45 ? 'medium' : 'low';
 }
 
-/** Primary points a math number gives at most (ЕГЭ-2026/2027 format). */
+/**
+ * The exam format a subject's plan is counted by: the format of ЕГЭ-2027.
+ * Math: the final 2027 specification keeps the 2026 format (19 tasks,
+ * 32 points). Russian: the 2027 specification (27 tasks, 50 points).
+ */
+const PLAN_FORMAT: Readonly<Record<string, string>> = {
+  math: 'ege-math-profile-2026',
+  russian: 'ege-russian-2027',
+};
+
+const ESSAY_GAIN_NOTE =
+  'Без сочинения (№27, до 22 первичных баллов): его оценивают эксперты, приложение его не проверяет.';
+
+/** Primary points a number gives at most; null for a number with no known
+ * rule, or one only experts grade (the essay — the app cannot measure it). */
 function maxPrimaryPoints(subjectId: string, examNumber: number | null): number | null {
-  if (subjectId !== 'math' || examNumber === null) return null;
-  return currentScoringRules('ege-math-profile-2026')?.tasks[examNumber]?.max ?? null;
+  const format = PLAN_FORMAT[subjectId];
+  if (!format || examNumber === null) return null;
+  const rule = currentScoringRules(format)?.tasks[examNumber];
+  return rule && rule.kind !== 'expert' ? rule.max : null;
+}
+
+/**
+ * The plan's ЕГЭ gain in TEST points (`testScoreGain`, docs/SCORING.md):
+ * the estimated primary level now (every number's max × mastery) and
+ * after the recommended numbers are mastered, each counted once. Both
+ * are estimates, rounded HERE, once, to whole primary points; the «after»
+ * level is rounded as a whole, so it never passes the exam's maximum.
+ */
+function planTestGain(
+  subjectId: string | null,
+  masteryOf: (examNumber: number) => number,
+  recommendedNumbers: readonly (number | null)[],
+): PersonalRecommendationsResponse['summary']['potentialTestPoints'] {
+  const format = subjectId ? PLAN_FORMAT[subjectId] : undefined;
+  const rules = format ? currentScoringRules(format) : null;
+  if (!format || !rules) {
+    return {
+      available: false,
+      reason:
+        'Для этого предмета нет правил первичных баллов — прирост в баллах ЕГЭ не рассчитывается.',
+    };
+  }
+  let current = 0;
+  for (const [n, rule] of Object.entries(rules.tasks)) {
+    if (rule.kind === 'expert') continue;
+    current += rule.max * (masteryOf(Number(n)) / 100);
+  }
+  let potential = 0;
+  for (const n of new Set(recommendedNumbers)) {
+    if (n === null) continue;
+    const max = maxPrimaryPoints(subjectId!, n);
+    if (max !== null) potential += max * (1 - masteryOf(n) / 100);
+  }
+  const fromPrimary = Math.round(current);
+  const toPrimary = Math.round(current + potential);
+  const gain = testScoreGain(format, fromPrimary, toPrimary - fromPrimary);
+  return gain.available
+    ? {
+        available: true,
+        points: gain.gain,
+        from: gain.from,
+        to: gain.to,
+        approximate: gain.status !== 'official',
+        label: gain.label,
+        ...(Object.values(rules.tasks).some((r) => r.kind === 'expert')
+          ? { note: ESSAY_GAIN_NOTE }
+          : {}),
+      }
+    : { available: false, reason: gain.reason };
 }
 
 function summaryOf(skill: SkillState, facts: readonly SkillAttemptFacts[]): SkillProgressSummary {
@@ -120,6 +187,18 @@ export async function getPersonalRecommendations(
       return max === null ? null : max * (1 - mastery / 100);
     })
     .filter((x): x is number => x !== null);
+  const subjectOf = options.subjectId ?? items[0]?.subjectId ?? null;
+  const masteryOf = (examNumber: number) =>
+    model.subjects
+      .find((s) => s.subjectId === subjectOf)
+      ?.skills.find((k) => k.examNumber === examNumber)?.mastery ?? 0;
+  const potentialTestPoints = planTestGain(
+    subjectOf,
+    masteryOf,
+    items
+      .filter((i) => i.priorityLevel !== 'low' && i.subjectId === subjectOf)
+      .map((i) => i.examNumber),
+  );
   const plans = await activePlanSummaries(db, userId, now);
   const plan = options.subjectId
     ? (plans.find((p) => p.subjectId === options.subjectId) ?? null)
@@ -130,6 +209,7 @@ export async function getPersonalRecommendations(
       potentialPrimaryPoints: potentialParts.length
         ? Math.max(1, Math.round(potentialParts.reduce((a, b) => a + b, 0)))
         : null,
+      potentialTestPoints,
       etaDays: plan ? plan.daysLeft : items.length ? 7 : null,
       etaBasis: plan ? 'active_plan' : items.length ? 'week_plan' : null,
       activePlan: plan

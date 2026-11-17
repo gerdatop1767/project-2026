@@ -43,6 +43,7 @@ export const R26_CONFIG: RussianBookConfig = {
   variantTitle: (n) => `ЕГЭ 2026 — Дощинский, 36 вариантов — Вариант ${n}`,
   variantCount: R26_VARIANT_COUNT,
   tasksPerVariant: 27,
+  examFormat: 'ege-russian-2026',
 };
 
 export function validateR26Variants(variants: readonly RussianBookVariant[]): void {

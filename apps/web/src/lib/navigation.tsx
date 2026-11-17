@@ -186,6 +186,8 @@ export type OverlayRoute =
   /** «Мини-игры» (entry in «Задания») and the games themselves. */
   | { screen: 'miniGames' }
   | { screen: 'stressGame' }
+  /** A quiz mini-game (`/games/:gameId`; packages/shared quizGames). */
+  | { screen: 'quizGame'; gameId: string }
   /** Addressable placeholders for training modes not yet built as
    * their own screens — routing needs a real page for each one so
    * refresh/direct-link/Back-Forward work, even though the mode
@@ -257,6 +259,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   variantAttempt: 'Результат варианта',
   miniGames: 'Мини-игры',
   stressGame: 'Ударения',
+  quizGame: 'Мини-игра',
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',
   rating: 'Рейтинг',

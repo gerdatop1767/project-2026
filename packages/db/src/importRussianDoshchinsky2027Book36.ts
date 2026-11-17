@@ -50,6 +50,7 @@ export const R36_CONFIG: RussianBookConfig = {
   variantTitle: (n) => `ЕГЭ 2027 — Дощинский, 36 вариантов — Вариант ${n}`,
   variantCount: R36_VARIANT_COUNT,
   tasksPerVariant: 26,
+  examFormat: 'ege-russian-2027',
 };
 
 /**

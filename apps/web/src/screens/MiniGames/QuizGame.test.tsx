@@ -1,0 +1,305 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MINI_GAMES, type QuizRoundResponse } from '@zybrilka/shared';
+import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
+import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
+import { AccountGateProvider } from '../../lib/accountGate.js';
+import * as api from '../../lib/api.js';
+import { MiniGames, questionsWord } from './MiniGames.js';
+import { QuizGame, splitSlots, splitWords } from './QuizGame.js';
+
+vi.mock('../../lib/api.js', () => ({
+  getMiniGames: vi.fn(),
+  getQuizRound: vi.fn(),
+  answerQuiz: vi.fn(),
+  finishQuizRound: vi.fn(),
+  getQuizProgress: vi.fn(),
+  ApiError: class extends Error {},
+}));
+
+function Where() {
+  const { overlay } = useNavigation();
+  return <p data-testid="where">{overlay ? JSON.stringify(overlay) : 'none'}</p>;
+}
+
+function renderWith(ui: React.ReactNode, user: ReturnType<typeof makeAuthUser> | null) {
+  return render(
+    <NavigationProvider>
+      <TestAuthProvider user={user}>
+        <AccountGateProvider>
+          {ui}
+          <Where />
+        </AccountGateProvider>
+      </TestAuthProvider>
+    </NavigationProvider>,
+  );
+}
+
+const SESSION = '0b5d6a7e-1111-4222-8333-444455556666';
+const ID1 = '11111111-1111-5111-8111-111111111111';
+const ID2 = '22222222-2222-5222-8222-222222222222';
+
+beforeEach(() => {
+  window.localStorage.clear();
+  vi.mocked(api.getQuizRound).mockReset();
+  vi.mocked(api.answerQuiz).mockReset();
+  vi.mocked(api.finishQuizRound).mockReset().mockResolvedValue(undefined);
+  vi.mocked(api.getQuizProgress).mockReset().mockResolvedValue({
+    gameId: 'nn',
+    bankSize: 99,
+    learned: 4,
+    seen: 20,
+    answers: 30,
+    correct: 24,
+    accuracyPercent: 80,
+    mistakes: 3,
+    bestScore: 90,
+    rounds: 2,
+  });
+});
+
+describe('«Мини-игры»: subjects and topics', () => {
+  it('Russian by default, math in its own tab; topics; real question counts; the tab is remembered', async () => {
+    vi.mocked(api.getMiniGames).mockResolvedValue({
+      games: MINI_GAMES.map((g) => ({
+        ...g,
+        progress: null,
+        questionCount: g.id === 'gap-word' ? 1 : 90,
+      })),
+    });
+    const user = userEvent.setup();
+    renderWith(<MiniGames />, makeAuthUser());
+    const tabs = await screen.findByRole('tablist', { name: 'Предмет' });
+    expect(within(tabs).getByRole('tab', { name: /Русский язык/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(within(tabs).getByRole('tab', { name: /Русский язык/ })).toHaveTextContent('16');
+    const orth = screen.getByRole('heading', { name: 'Орфография' }).closest('section')!;
+    expect(within(orth).getByRole('heading', { name: 'Н и НН' })).toBeInTheDocument();
+    const text = screen.getByRole('heading', { name: 'Текст и лексика' }).closest('section')!;
+    const gap = within(text).getByRole('heading', { name: 'Пропущенное слово' }).closest('li')!;
+    expect(within(gap).getByText('1 вопрос')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Теория вероятностей' })).not.toBeInTheDocument();
+    await user.click(within(tabs).getByRole('tab', { name: /Математика/ }));
+    expect(screen.getByRole('heading', { name: 'Вычисления' })).toBeInTheDocument();
+    expect(window.localStorage.getItem('zybrilka.miniGames.category')).toBe('math');
+    await user.click(screen.getByRole('button', { name: 'Играть: Теория вероятностей' }));
+    expect(screen.getByTestId('where')).toHaveTextContent('"gameId":"probability-blitz"');
+  });
+
+  it('question words', () => {
+    expect([1, 2, 5, 11, 21, 22, 25, 112].map(questionsWord)).toEqual([
+      '1 вопрос',
+      '2 вопроса',
+      '5 вопросов',
+      '11 вопросов',
+      '21 вопрос',
+      '22 вопроса',
+      '25 вопросов',
+      '112 вопросов',
+    ]);
+  });
+});
+
+describe('a quiz game', () => {
+  it('choice: one answer per question, the right answer and explanation, 10 points, the summary', async () => {
+    const round: QuizRoundResponse = {
+      gameId: 'nn',
+      mode: 'all',
+      bankSize: 99,
+      sessionId: SESSION,
+      questions: [
+        { itemId: ID1, kind: 'choice', text: 'Утре▢ие улицы', options: ['Н', 'НН'] },
+        { itemId: ID2, kind: 'choice', text: 'прониза▢ы запахом', options: ['Н', 'НН'] },
+      ],
+    };
+    vi.mocked(api.getQuizRound).mockResolvedValue(round);
+    vi.mocked(api.answerQuiz)
+      .mockResolvedValueOnce({
+        correct: true,
+        display: 'НН',
+        correctOption: 'НН',
+        taskId: 't',
+        recorded: true,
+      })
+      .mockResolvedValueOnce({
+        correct: false,
+        display: 'Н',
+        correctOption: 'Н',
+        explanation: '(2) пронизаны — краткое причастие, одна Н.',
+        explanationSource: 'task',
+        taskId: 't',
+        recorded: true,
+      });
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    const progress = await screen.findByLabelText('Твой прогресс');
+    expect(progress).toHaveTextContent('4 из 99');
+    expect(progress).toHaveTextContent('90 очк.');
+    await user.click(screen.getByRole('button', { name: /Играть/ }));
+    expect(await screen.findByText('Вопрос 1 из 2')).toBeInTheDocument();
+    expect(screen.getByText('Утре_____ие улицы')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'НН' }));
+    expect(api.answerQuiz).toHaveBeenLastCalledWith(
+      'nn',
+      expect.objectContaining({ itemId: ID1, answer: 'НН', sessionId: SESSION }),
+    );
+    expect(await screen.findByText('Верно!')).toBeInTheDocument();
+    expect(screen.getByText('+10 очк.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Дальше' }));
+    await user.click(screen.getByRole('button', { name: 'НН' }));
+    expect(await screen.findByText('Неверно. Правильно: Н')).toBeInTheDocument();
+    expect(screen.getByText(/краткое причастие, одна Н/)).toBeInTheDocument();
+    expect(screen.getByText('Разбор из задания')).toBeInTheDocument();
+    // Locked after the first answer.
+    expect(screen.getByRole('button', { name: 'Н' })).toBeDisabled();
+    expect(api.answerQuiz).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole('button', { name: 'Итог раунда' }));
+    const summary = screen.getByLabelText('Итог раунда');
+    expect(within(summary).getByText('10')).toBeInTheDocument();
+    expect(within(summary).getByText('Верно 1 из 2')).toBeInTheDocument();
+    expect(api.finishQuizRound).toHaveBeenCalledWith('nn', SESSION, 1);
+    await user.click(within(summary).getByRole('button', { name: /Ещё раунд/ }));
+    expect(await screen.findByText('Вопрос 1 из 2')).toBeInTheDocument();
+  });
+
+  it('a perfect round: 10 per question +20', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'nn',
+      mode: 'all',
+      bankSize: 99,
+      sessionId: SESSION,
+      questions: [{ itemId: ID1, kind: 'choice', text: 'Утре▢ие', options: ['Н', 'НН'] }],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValue({
+      correct: true,
+      display: 'НН',
+      correctOption: 'НН',
+      taskId: 't',
+      recorded: true,
+    });
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    await user.click(await screen.findByRole('button', { name: 'НН' }));
+    await user.click(await screen.findByRole('button', { name: 'Итог раунда' }));
+    const summary = screen.getByLabelText('Итог раунда');
+    expect(within(summary).getByText('30')).toBeInTheDocument();
+    expect(within(summary).getByText(/идеальный раунд, \+20/)).toBeInTheDocument();
+  });
+
+  it('slots: tap the places, check; words: tap the words, sent in text order', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValueOnce({
+      gameId: 'commas',
+      mode: 'all',
+      bankSize: 72,
+      sessionId: SESSION,
+      questions: [{ itemId: ID1, kind: 'slots', text: 'А (1) б (2) в (3) г.', slots: [1, 2, 3] }],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValueOnce({
+      correct: true,
+      display: '1, 3',
+      correctSlots: [1, 3],
+      taskId: 't',
+      recorded: false,
+    });
+    const user = userEvent.setup();
+    const { unmount } = renderWith(<QuizGame gameId="commas" />, null);
+    expect(screen.getByText(/Войди, чтобы сохранять прогресс/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Играть/ }));
+    await user.click(await screen.findByRole('button', { name: 'Место 3' }));
+    await user.click(screen.getByRole('button', { name: 'Место 1' }));
+    await user.click(screen.getByRole('button', { name: 'Проверить' }));
+    expect(api.answerQuiz).toHaveBeenCalledWith(
+      'commas',
+      expect.objectContaining({ answer: '13' }),
+    );
+    expect(api.getQuizProgress).not.toHaveBeenCalled(); // a guest has no saved progress
+    unmount();
+
+    vi.mocked(api.getQuizRound).mockResolvedValueOnce({
+      gameId: 'find-in-text',
+      mode: 'all',
+      bankSize: 14,
+      sessionId: SESSION,
+      questions: [
+        {
+          itemId: ID2,
+          kind: 'words',
+          text: '(6)Свои и чужие ушли.',
+          prompt: 'Из предложения 6 выпишите антонимы.',
+        },
+      ],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValueOnce({
+      correct: true,
+      display: 'свои чужие',
+      taskId: 't',
+      recorded: true,
+    });
+    renderWith(<QuizGame gameId="find-in-text" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    expect(await screen.findByText('Из предложения 6 выпишите антонимы.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'чужие' }));
+    await user.click(screen.getByRole('button', { name: 'Свои' }));
+    await user.click(screen.getByRole('button', { name: 'Проверить' }));
+    expect(api.answerQuiz).toHaveBeenLastCalledWith(
+      'find-in-text',
+      expect.objectContaining({ answer: 'Свои чужие' }),
+    );
+  });
+
+  it('a guest asking for «Мои ошибки» is asked to sign in; an unknown game says so', async () => {
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, null);
+    await user.click(screen.getByRole('button', { name: 'Мои ошибки' }));
+    expect(api.getQuizRound).not.toHaveBeenCalled();
+    renderWith(<QuizGame gameId="nope" />, null);
+    expect(screen.getByText('Такой игры нет.')).toBeInTheDocument();
+  });
+
+  it('splits sentences into places and words', () => {
+    expect(splitSlots('А (1) б (12) в')).toEqual(['А ', 1, ' б ', 12, ' в']);
+    expect(splitWords('Свои, чужие.').map((t) => t.text)).toEqual(['Свои', ', ', 'чужие', '.']);
+  });
+
+  it('an automatic note says so; an option accepted by another task’s key counts as right', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'grammar-detective',
+      mode: 'all',
+      bankSize: 700,
+      sessionId: SESSION,
+      questions: [
+        {
+          itemId: ID1,
+          kind: 'choice',
+          text: 'Всё верно в этом предложении.',
+          options: ['Ошибка с числительным', 'Ни одной из этих ошибок'],
+        },
+      ],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValue({
+      correct: true,
+      display: 'Ни одной из этих ошибок',
+      correctOption: 'Ни одной из этих ошибок',
+      explanation: 'По ключу задания этого предложения нет среди ответов.',
+      explanationSource: 'auto',
+      alsoCorrect: ['Ошибка с числительным'],
+      taskId: 't',
+      recorded: true,
+    });
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="grammar-detective" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    await user.click(await screen.findByRole('button', { name: 'Ни одной из этих ошибок' }));
+    expect(
+      await screen.findByText('Пояснение по ключу (сформировано автоматически)'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Разбор из задания')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Тоже верно по ключу другого задания источника: Ошибка с числительным/),
+    ).toBeInTheDocument();
+  });
+});
