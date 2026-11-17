@@ -244,4 +244,13 @@ describe('theory routes — subject, edition, topic', () => {
       section: 'materials',
     });
   });
+
+  describe('quiz mini-games', () => {
+    it('/games/:gameId opens a quiz game; /games/stress stays «Ударения»', () => {
+      expect(pathForRoute({ screen: 'quizGame', gameId: 'nn' })).toBe('/games/nn');
+      expect(routeFromPath('/games/nn')).toEqual({ screen: 'quizGame', gameId: 'nn' });
+      expect(routeFromPath('/games/stress')).toEqual({ screen: 'stressGame' });
+      expect(routeFromPath('/games')).toEqual({ screen: 'miniGames' });
+    });
+  });
 });

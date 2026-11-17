@@ -77,13 +77,17 @@ beforeEach(() => {
 describe('Мини-игры', () => {
   it('the hub shows each game card with subject, description and progress; «Играть» opens it', async () => {
     vi.mocked(api.getMiniGames).mockResolvedValue({
-      games: MINI_GAMES.map((g) => ({ ...g, progress: { learned: 12, total: 200 } })),
+      games: MINI_GAMES.map((g) => ({
+        ...g,
+        progress: { learned: 12, total: 200 },
+        questionCount: 200,
+      })),
     });
     const user = userEvent.setup();
     renderWith(<MiniGames />, makeAuthUser());
     const card = (await screen.findByRole('heading', { name: 'Ударения' })).closest('li')!;
-    expect(within(card).getByText('Русский язык')).toBeInTheDocument();
     expect(within(card).getByText('Задание 4')).toBeInTheDocument();
+    expect(within(card).getByText('200 вопросов')).toBeInTheDocument();
     expect(within(card).getByText('Выучено 12 из 200')).toBeInTheDocument();
     await user.click(within(card).getByRole('button', { name: 'Играть: Ударения' }));
     expect(screen.getByTestId('where')).toHaveTextContent('stressGame');

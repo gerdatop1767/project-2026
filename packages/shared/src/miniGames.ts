@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { QUIZ_GAMES, type QuizTopic } from './quizGames.js';
 
 /**
  * Mini-games (docs/MINI_GAMES.md). The registry is data: a new game is one
@@ -15,6 +16,8 @@ export interface MiniGameInfo {
   readonly description: string;
   /** Which EGE task it trains, when there is one. */
   readonly egeTask: string | null;
+  /** The group it is shown in inside its subject's tab. */
+  readonly topic: QuizTopic;
 }
 
 export const MINI_GAMES: readonly MiniGameInfo[] = [
@@ -25,7 +28,17 @@ export const MINI_GAMES: readonly MiniGameInfo[] = [
     subjectName: 'Русский язык',
     description: 'Ставь ударение в словах из «Орфоэпического списка – 2026» ФИПИ — задание 4 ЕГЭ.',
     egeTask: 'Задание 4',
+    topic: 'norms',
   },
+  ...QUIZ_GAMES.map((g) => ({
+    id: g.id,
+    title: g.title,
+    subjectId: g.subjectId,
+    subjectName: g.subjectId === 'math' ? 'Математика' : 'Русский язык',
+    description: g.description,
+    egeTask: g.egeTask,
+    topic: g.topic,
+  })),
 ];
 
 export const miniGameById = (id: string): MiniGameInfo | undefined =>
@@ -240,5 +253,7 @@ export interface MiniGamesResponse {
   readonly games: readonly (MiniGameInfo & {
     /** For the signed-in player; null for a guest. */
     readonly progress: { learned: number; total: number } | null;
+    /** Questions the game has now (from the published tasks). */
+    readonly questionCount: number;
   })[];
 }

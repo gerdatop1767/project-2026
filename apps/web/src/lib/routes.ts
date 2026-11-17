@@ -154,6 +154,9 @@ export function pathForRoute(route: Route): string | null {
   if (route.screen === 'skillAdvice') return `/learning/advice/${route.skillKey}`;
   if (route.screen === 'skillProgress') return `/learning/progress/${route.skillKey}`;
 
+  if (route.screen === 'quizGame') {
+    return `/games/${route.gameId}`;
+  }
   if (route.screen === 'variantAttempt') {
     return `${variantAttemptPathPrefix}${route.sessionId}`;
   }
@@ -347,6 +350,9 @@ export function routeFromPath(pathname: string): Route {
   const attemptMatch = path.match(/^\/statistics\/variants\/([0-9a-f-]{36})$/);
   if (attemptMatch) return { screen: 'variantAttempt', sessionId: attemptMatch[1]! };
 
+  const quizMatch = path.match(/^\/games\/([a-z0-9-]+)$/);
+  if (quizMatch && quizMatch[1] !== 'stress') return { screen: 'quizGame', gameId: quizMatch[1]! };
+
   const friendMatch = path.match(/^\/friends\/([a-zA-Z0-9_-]+)$/);
   if (friendMatch) {
     return { screen: 'friendProfile', friendId: friendMatch[1]! };
@@ -367,6 +373,7 @@ export function isAddressableScreen(screen: string): boolean {
     screen === 'friendProfile' ||
     screen === 'learningSession' ||
     screen === 'variantAttempt' ||
+    screen === 'quizGame' ||
     simpleOverlayScreens.has(screen)
   );
 }

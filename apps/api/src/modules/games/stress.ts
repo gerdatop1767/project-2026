@@ -329,3 +329,12 @@ export async function stressSummary(db: Database, userId: string) {
   ]);
   return { learned: learned[0]?.n ?? 0, total: total[0]?.n ?? 0 };
 }
+
+/** Playable words (the hub's question count for a guest). */
+export async function stressWordCount(db: Database): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(schema.stressWords)
+    .where(playable);
+  return row?.n ?? 0;
+}
