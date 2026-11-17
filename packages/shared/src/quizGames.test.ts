@@ -216,9 +216,11 @@ describe('parsers — questions only from the task’s own text, key and explana
     const items = grammarItems(row({ conditionMd: condition, correctAnswer: answer }));
     expect(items).toHaveLength(7);
     expect(items[0]!.correct).toBe('Ошибка с числительным');
-    expect(items[1]!.correct).toBe('Ошибки нет');
-    expect(items[1]!.explanation).toMatch(/По ключу задания/);
-    expect(items[0]!.options).toContain('Ошибки нет');
+    // The key says only that none of the five errors is there.
+    expect(items[1]!.correct).toBe('Ни одной из этих ошибок');
+    expect(items[1]!.explanation).toMatch(/По ключу задания[\s\S]*Других ошибок ключ не проверяет/);
+    expect(items[1]!.explanationSource).toBe('auto');
+    expect(items[0]!.options).toContain('Ни одной из этих ошибок');
   });
 
   it('№22: the means of each fragment by the key', () => {
@@ -319,5 +321,68 @@ describe('parsers — questions only from the task’s own text, key and explana
     const b = inputItems(row({ id: 'b', conditionMd: 'Найдите 2+2.', correctAnswer: '4' }));
     expect(dedupeItems([...a, ...b])).toHaveLength(1);
     expect(normalizeWord('Ёлка-палка!')).toBe('елкапалка');
+  });
+
+  describe('audit fixes', () => {
+    it('a question whose own explanation calls its key doubtful is not asked', () => {
+      const items = rowItems(
+        row({
+          conditionMd:
+            'Укажите варианты ответов, в которых во всех словах одного ряда пропущена одна и та же буква.\n\n1) а..б\n\n2) об..ход, беспр..зорник\n\n3) в..г\n\n4) д..е\n\n5) ж..з',
+          correctAnswer: '13',
+          explanationMd:
+            '1) Везде И. Подходит.\n\n2) первое слово («об..ход») не поддаётся надёжной проверке по скану — ряд исключён.\n\n3) Везде А. Подходит.\n\n4) Разные.\n\n5) Разные.',
+        }),
+      );
+      expect(items.map((i) => i.key)).toEqual(['t1:1', 't1:2', 't1:3', 't1:4', 't1:5']);
+      expect(dedupeItems(items).map((i) => i.key)).toEqual(['t1:1', 't1:3', 't1:4', 't1:5']);
+    });
+
+    it('the same fragment with another key in another task: one question, both keys if both are options', () => {
+      const base = {
+        key: 'a:А',
+        taskId: 'a',
+        kind: 'choice' as const,
+        text: 'Прощай, свободная стихия!',
+        prompt: 'Какое средство выразительности здесь?',
+        options: ['эпитет', 'риторическое обращение', 'литота'],
+        correct: 'риторическое обращение',
+        display: 'риторическое обращение',
+      };
+      const other = { ...base, key: 'b:Б', taskId: 'b', correct: 'эпитет', display: 'эпитет' };
+      const [merged, ...rest] = dedupeItems([base, other]);
+      expect(rest).toEqual([]);
+      expect(merged!.accepted).toEqual(['эпитет']);
+      expect(checkQuizAnswer(merged!, 'эпитет')).toBe(true);
+      expect(checkQuizAnswer(merged!, 'литота')).toBe(false);
+      // Not among this question's options: dropped as a repeat, never accepted.
+      const [only] = dedupeItems([
+        { ...base, options: ['риторическое обращение', 'литота'] },
+        other,
+      ]);
+      expect(only!.accepted ?? []).toEqual([]);
+    });
+
+    it('task explanations are marked as the task’s; keys are shown as written in the explanation', () => {
+      const [gap] = gapWordItems(
+        row({
+          conditionMd:
+            'Самостоятельно подберите неопределённое местоимение, которое должно стоять на месте пропуска.',
+          correctAnswer: 'чтото',
+          explanationMd: 'Нужно «что-то». Ответ: чтото.',
+          passageMd: 'Начало. Он <…> сказал. Конец.',
+        }),
+      );
+      expect(gap).toMatchObject({ display: 'что-то', explanationSource: 'task' });
+      const [par] = paronymItems(
+        row({
+          conditionMd:
+            'В одном из приведённых ниже предложений НЕВЕРНО употреблено выделенное слово.\n\nПроизвёл ДВОЙНОЕ впечатление.\n\nБыл СКРЫТНЫМ.\n\nВспышки РАЗДРАЖИТЕЛЬНОСТИ.\n\nЯБЛОНЕВОЕ дерево.',
+          correctAnswer: 'двойственное',
+          acceptedAnswers: ['двоякое'],
+        }),
+      );
+      expect(par!.display).toBe('ДВОЙНОЕ → ДВОЙСТВЕННОЕ или ДВОЯКОЕ');
+    });
   });
 });

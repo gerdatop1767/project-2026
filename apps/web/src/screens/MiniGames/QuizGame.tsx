@@ -352,7 +352,10 @@ export function QuizGame({ gameId }: { gameId: string }) {
                     type="button"
                     className={clsx(
                       styles.option,
-                      checked && option === checked.correctOption && styles.optionRight,
+                      checked &&
+                        (option === checked.correctOption ||
+                          (checked.correct && option === chosen)) &&
+                        styles.optionRight,
                       checked && option === chosen && !checked.correct && styles.optionWrong,
                     )}
                     disabled={checked !== null || sending}
@@ -427,13 +430,24 @@ export function QuizGame({ gameId }: { gameId: string }) {
                 {checked.correct && (
                   <p className={styles.points}>+{QUIZ_POINTS_PER_CORRECT} очк.</p>
                 )}
+                {checked.alsoCorrect && checked.alsoCorrect.length > 0 && (
+                  <p className={styles.note}>
+                    Тоже верно по ключу другого задания источника: {checked.alsoCorrect.join(', ')}.
+                  </p>
+                )}
                 {checked.explanation ? (
                   <details className={styles.explanation} open={!checked.correct}>
-                    <summary>Разбор из задания</summary>
+                    <summary>
+                      {checked.explanationSource === 'auto'
+                        ? 'Пояснение по ключу (сформировано автоматически)'
+                        : 'Разбор из задания'}
+                    </summary>
                     <p>{checked.explanation}</p>
                   </details>
                 ) : (
-                  <p className={styles.note}>Правильный ответ — по ключу задания ЕГЭ.</p>
+                  <p className={styles.note}>
+                    Правильный ответ — по ключу задания ЕГЭ. Разбора этого вопроса в задании нет.
+                  </p>
                 )}
                 <Button onClick={goNext}>
                   {index + 1 < questions.length ? 'Дальше' : 'Итог раунда'}

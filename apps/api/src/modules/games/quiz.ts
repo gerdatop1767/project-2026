@@ -313,7 +313,10 @@ export async function answerQuiz(
     display: item.display,
     ...(item.kind === 'choice' ? { correctOption: item.correct } : {}),
     ...(item.kind === 'slots' ? { correctSlots: [...item.correct].map(Number) } : {}),
-    ...(item.explanation ? { explanation: item.explanation } : {}),
+    ...(item.explanation
+      ? { explanation: item.explanation, explanationSource: item.explanationSource ?? 'task' }
+      : {}),
+    ...(item.kind === 'choice' && item.accepted?.length ? { alsoCorrect: item.accepted } : {}),
     recorded,
     taskId: item.taskId,
   };

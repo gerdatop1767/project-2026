@@ -129,6 +129,7 @@ describe('a quiz game', () => {
         display: 'Н',
         correctOption: 'Н',
         explanation: '(2) пронизаны — краткое причастие, одна Н.',
+        explanationSource: 'task',
         taskId: 't',
         recorded: true,
       });
@@ -151,6 +152,7 @@ describe('a quiz game', () => {
     await user.click(screen.getByRole('button', { name: 'НН' }));
     expect(await screen.findByText('Неверно. Правильно: Н')).toBeInTheDocument();
     expect(screen.getByText(/краткое причастие, одна Н/)).toBeInTheDocument();
+    expect(screen.getByText('Разбор из задания')).toBeInTheDocument();
     // Locked after the first answer.
     expect(screen.getByRole('button', { name: 'Н' })).toBeDisabled();
     expect(api.answerQuiz).toHaveBeenCalledTimes(2);
@@ -261,5 +263,43 @@ describe('a quiz game', () => {
   it('splits sentences into places and words', () => {
     expect(splitSlots('А (1) б (12) в')).toEqual(['А ', 1, ' б ', 12, ' в']);
     expect(splitWords('Свои, чужие.').map((t) => t.text)).toEqual(['Свои', ', ', 'чужие', '.']);
+  });
+
+  it('an automatic note says so; an option accepted by another task’s key counts as right', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'grammar-detective',
+      mode: 'all',
+      bankSize: 700,
+      sessionId: SESSION,
+      questions: [
+        {
+          itemId: ID1,
+          kind: 'choice',
+          text: 'Всё верно в этом предложении.',
+          options: ['Ошибка с числительным', 'Ни одной из этих ошибок'],
+        },
+      ],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValue({
+      correct: true,
+      display: 'Ни одной из этих ошибок',
+      correctOption: 'Ни одной из этих ошибок',
+      explanation: 'По ключу задания этого предложения нет среди ответов.',
+      explanationSource: 'auto',
+      alsoCorrect: ['Ошибка с числительным'],
+      taskId: 't',
+      recorded: true,
+    });
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="grammar-detective" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    await user.click(await screen.findByRole('button', { name: 'Ни одной из этих ошибок' }));
+    expect(
+      await screen.findByText('Пояснение по ключу (сформировано автоматически)'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Разбор из задания')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Тоже верно по ключу другого задания источника: Ошибка с числительным/),
+    ).toBeInTheDocument();
   });
 });

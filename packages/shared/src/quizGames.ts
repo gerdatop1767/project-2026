@@ -35,6 +35,10 @@ export interface QuizItem {
   readonly display: string;
   /** The task's own explanation of this very question, when it has one. */
   readonly explanation?: string;
+  /** `task`: cut out of the task's own explanation; `auto`: worded by the
+   * app from the task's KEY (no explanation in the source) — the screen
+   * says so. */
+  readonly explanationSource?: 'task' | 'auto';
 }
 
 /** What a game needs from one task row (+ its passage). */
@@ -159,17 +163,46 @@ export function explanationWhole(md: string | null): string | null {
   return t.length >= 8 ? t : null;
 }
 
-/** Drops repeats: the same text + key appears once (books reprint tasks). */
+/**
+ * The task's own explanation of this question says its key cannot be
+ * trusted («не поддаётся надёжной проверке по скану», «написание
+ * неоднозначно») — such a question is not asked.
+ */
+const DOUBTFUL = /не подда[её]тся надёжн|написани[ея][^.]{0,60}неоднозначн/i;
+
+/**
+ * Prepares a game's bank:
+ * - drops questions whose own explanation calls their key doubtful;
+ * - keeps one question per text: books reprint tasks, and the same
+ *   fragment can carry a different key in another task (e.g. «Прощай,
+ *   свободная стихия!» — «риторическое обращение» in one, «эпитет» in
+ *   another). The other key is then ACCEPTED too when it is among the
+ *   options (`choice`), or always for `input` / `words` — every accepted
+ *   answer is a real key of the source, nothing is guessed.
+ */
 export function dedupeItems(items: readonly QuizItem[]): QuizItem[] {
-  const seen = new Set<string>();
-  const out: QuizItem[] = [];
+  const byText = new Map<string, QuizItem>();
+  const order: string[] = [];
   for (const it of items) {
-    const k = `${it.kind}|${it.text.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ')}|${it.prompt ?? ''}|${it.correct}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(it);
+    if (it.explanation && DOUBTFUL.test(it.explanation)) continue;
+    const k = `${it.kind}|${it.text.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ')}|${it.prompt ?? ''}`;
+    const first = byText.get(k);
+    if (!first) {
+      byText.set(k, it);
+      order.push(k);
+      continue;
+    }
+    const others = [it.correct, ...(it.accepted ?? [])].filter(
+      (c) =>
+        c !== first.correct &&
+        !(first.accepted ?? []).includes(c) &&
+        (first.kind !== 'choice' || (first.options ?? []).includes(c)),
+    );
+    if (others.length > 0 && first.kind !== 'slots') {
+      byText.set(k, { ...first, accepted: [...(first.accepted ?? []), ...others] });
+    }
   }
-  return out;
+  return order.map((k) => byText.get(k)!);
 }
 
 const YES = 'Да';
@@ -205,7 +238,7 @@ export function rowItems(row: QuizTaskRow): QuizItem[] {
       options: [YES, NO],
       correct: yes ? YES : NO,
       display: yes ? YES : NO,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     };
   });
 }
@@ -233,7 +266,7 @@ export function neItems(row: QuizTaskRow): QuizItem[] {
         options: ['слитно', 'раздельно'],
         correct: answer,
         display: answer,
-        ...(explanation ? { explanation } : {}),
+        ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
       };
     });
 }
@@ -259,7 +292,7 @@ export function hyphenItems(row: QuizTaskRow): QuizItem[] {
       options: [YES, NO],
       correct: yes ? YES : NO,
       display: yes ? YES : NO,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     };
   });
 }
@@ -288,7 +321,7 @@ export function nnItems(row: QuizTaskRow): QuizItem[] {
       options: ['Н', 'НН'],
       correct: answer,
       display: answer,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     };
   });
 }
@@ -311,7 +344,7 @@ export function oneCommaItems(row: QuizTaskRow): QuizItem[] {
       options: [YES, NO],
       correct: yes ? YES : NO,
       display: yes ? YES : NO,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     };
   });
 }
@@ -334,7 +367,7 @@ export function commaItems(row: QuizTaskRow): QuizItem[] {
       slots: slots.sort((a, b) => a - b),
       correct: key.join(''),
       display: key.join(', '),
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
   ];
 }
@@ -386,8 +419,10 @@ export function paronymItems(row: QuizTaskRow): QuizItem[] {
       prompt: 'Какое выделенное слово употреблено неверно?',
       options: words,
       correct: wrong,
-      display: `${wrong} → ${row.correctAnswer.trim().toUpperCase()}`,
-      ...(explanation ? { explanation } : {}),
+      display: `${wrong} → ${[row.correctAnswer, ...(row.acceptedAnswers ?? [])]
+        .map((w) => w.trim().toUpperCase())
+        .join(' или ')}`,
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
   ];
 }
@@ -414,8 +449,10 @@ export function formErrorItems(row: QuizTaskRow): QuizItem[] {
       prompt: 'В каком выделенном слове ошибка в форме?',
       options: words,
       correct: wrong,
-      display: `${wrong} → ${row.correctAnswer.trim().toLowerCase()}`,
-      ...(explanation ? { explanation } : {}),
+      display: `${wrong} → ${[row.correctAnswer, ...(row.acceptedAnswers ?? [])]
+        .map((w) => w.trim().toLowerCase())
+        .join(' или ')}`,
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
   ];
 }
@@ -440,6 +477,26 @@ function sentenceWith(passage: string, needle: RegExp): string | null {
   return s.length >= 10 && s.length <= 600 ? s : null;
 }
 
+/**
+ * A key written without spaces or hyphens (ЕГЭ answer format: «чтото»)
+ * as the explanation spells it («что-то»); the key itself otherwise.
+ */
+function spelledAs(key: string, md: string | null): string {
+  const k = normalizeWord(key);
+  const text = md ?? '';
+  const words = [...text.matchAll(/[А-Яа-яЁё]+/g)];
+  for (let i = 0; i < words.length; i++) {
+    for (let len = 1; len <= 3 && i + len <= words.length; len++) {
+      const from = words[i]!.index!;
+      const last = words[i + len - 1]!;
+      const piece = text.slice(from, last.index! + last[0].length);
+      if (len > 1 && /[^\s-]{2,}|[^А-Яа-яЁё\s-]/.test(piece.replace(/[А-Яа-яЁё]/g, ''))) break;
+      if (normalizeWord(piece) === k) return piece.toLowerCase();
+    }
+  }
+  return key.trim();
+}
+
 /** №1: type the word that fills the gap «<…>» of the text. */
 export function gapWordItems(row: QuizTaskRow): QuizItem[] {
   if (!row.passageMd || !/месте пропуска/.test(row.conditionMd)) return [];
@@ -461,8 +518,8 @@ export function gapWordItems(row: QuizTaskRow): QuizItem[] {
         .replace(/\s*Запишите.*$/, ''),
       correct: key,
       accepted: (row.acceptedAnswers ?? []).map(normalizeWord).filter(Boolean),
-      display: row.correctAnswer.trim(),
-      ...(explanation ? { explanation } : {}),
+      display: spelledAs(row.correctAnswer, row.explanationMd),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
   ];
 }
@@ -498,7 +555,7 @@ export function wordMeaningItems(row: QuizTaskRow): QuizItem[] {
       options: [YES, NO],
       correct: yes ? YES : NO,
       display: yes ? YES : NO,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     });
   }
   return items;
@@ -524,14 +581,16 @@ export function grammarItems(row: QuizTaskRow): QuizItem[] {
     if (!Number.isInteger(n) || !sentences.has(n) || letterOf.has(n)) return [];
     letterOf.set(n, p.label);
   }
-  const NONE = 'Ошибки нет';
+  // The key says only that none of THIS task's five errors is in the
+  // sentence — not that it has no error at all.
+  const NONE = 'Ни одной из этих ошибок';
   const options = [...[...errors.values()].map((e) => capitalize(e)), NONE];
   return [...sentences].map(([n, text]) => {
     const letter = letterOf.get(n);
     const answer = letter ? capitalize(errors.get(letter)!) : NONE;
     const explanation = letter
       ? explanationLetter(row.explanationMd, letter)
-      : 'По ключу задания в этом предложении нет ни одной из пяти ошибок, перечисленных в задании.';
+      : 'По ключу задания этого предложения нет среди ответов: в нём нет ни одной из пяти ошибок, перечисленных в задании. Других ошибок ключ не проверяет.';
     return {
       key: `${row.id}:${n}`,
       taskId: row.id,
@@ -541,7 +600,9 @@ export function grammarItems(row: QuizTaskRow): QuizItem[] {
       options,
       correct: answer,
       display: answer,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation
+        ? { explanation, explanationSource: letter ? ('task' as const) : ('auto' as const) }
+        : {}),
     };
   });
 }
@@ -578,7 +639,7 @@ export function expressiveItems(row: QuizTaskRow): QuizItem[] {
       options,
       correct: mean,
       display: mean,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     });
   }
   return items;
@@ -651,7 +712,7 @@ export function findInTextItems(row: QuizTaskRow): QuizItem[] {
       correct: normalizeWord(row.correctAnswer),
       accepted: (row.acceptedAnswers ?? []).map(normalizeWord).filter(Boolean),
       display: shown,
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
   ];
 }
@@ -675,7 +736,7 @@ export function inputItems(row: QuizTaskRow): QuizItem[] {
       correct: key,
       accepted,
       display: row.correctAnswer.trim(),
-      ...(explanation ? { explanation } : {}),
+      ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
   ];
 }
@@ -692,7 +753,7 @@ export function checkQuizAnswer(item: QuizItem, answer: string): boolean {
   const keys = [item.correct, ...(item.accepted ?? [])];
   switch (item.kind) {
     case 'choice':
-      return answer === item.correct;
+      return keys.includes(answer);
     case 'slots':
       return digitSet(answer) === digitSet(item.correct);
     case 'input': {
@@ -934,6 +995,10 @@ export interface QuizAnswerResponse {
   readonly correctSlots?: readonly number[];
   /** The task's own explanation of this question, when there is one. */
   readonly explanation?: string;
+  /** Where the explanation comes from (see `QuizItem.explanationSource`). */
+  readonly explanationSource?: 'task' | 'auto';
+  /** `choice`: other options the source's keys also accept (see `dedupeItems`). */
+  readonly alsoCorrect?: readonly string[];
   /** Saved for this account (false for a guest, or a repeat in the same round). */
   readonly recorded: boolean;
   /** The task this question comes from (for «Пожаловаться»). */

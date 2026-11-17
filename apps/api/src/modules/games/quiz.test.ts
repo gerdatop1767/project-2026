@@ -85,10 +85,25 @@ describe('mini-games — quizzes (real content)', () => {
           ).toBe(true);
         }
         expect(checkQuizAnswer(item, rightAnswer(item)), where).toBe(true);
-        // A different answer is never also right.
+        // An option that is not a key of the source is never right.
         if (item.kind === 'choice') {
-          const wrong = item.options!.find((o) => o !== item.correct)!;
-          expect(checkQuizAnswer(item, wrong), where).toBe(false);
+          const keys = [item.correct, ...(item.accepted ?? [])];
+          for (const o of item.options!)
+            expect(checkQuizAnswer(item, o), where).toBe(keys.includes(o));
+          expect(
+            (item.accepted ?? []).every((a) => item.options!.includes(a)),
+            where,
+          ).toBe(true);
+        }
+        // An explanation always says where it comes from; only the key-based
+        // «Ни одной из этих ошибок» note is automatic.
+        if (item.explanation) {
+          expect(item.explanationSource, where).toBe(
+            gameId === 'grammar-detective' && item.correct === 'Ни одной из этих ошибок'
+              ? 'auto'
+              : 'task',
+          );
+          expect(item.explanation, where).not.toMatch(/не подда[её]тся надёжн/i);
         }
         expect(item.text.length, where).toBeGreaterThan(0);
       }
@@ -290,5 +305,23 @@ describe('mini-games — quizzes (real content)', () => {
       for (const w of item.display.split(' ')) expect(text, item.key).toContain(w);
       expect(checkQuizAnswer(item, item.display), item.key).toBe(true);
     }
+  });
+
+  it('«Грамматические нормы»: the key-based note is labelled automatic in the answer', async () => {
+    const bank = await quizBank(testDb.db, 'grammar-detective');
+    const none = bank.items.find((i) => i.correct === 'Ни одной из этих ошибок')!;
+    const round = (
+      await get('/games/quiz/grammar-detective/round?size=5')
+    ).json() as QuizRoundResponse;
+    const res = (
+      await post('/games/quiz/grammar-detective/answer', {
+        itemId: none.id,
+        answer: 'Ни одной из этих ошибок',
+        clientAnswerId: randomUUID(),
+        sessionId: round.sessionId,
+      })
+    ).json() as QuizAnswerResponse;
+    expect(res).toMatchObject({ correct: true, explanationSource: 'auto' });
+    expect(res.explanation).toMatch(/Других ошибок ключ не проверяет/);
   });
 });
