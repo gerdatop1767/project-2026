@@ -8,6 +8,7 @@ tools: WebSearch, WebFetch, Read, Write, Bash, Glob, Grep
 **Сначала прочитай:**
 - `zybrilka-content/pipeline/CREATIVE_RULES.md` — правила тем, список банального, источники, мемы;
 - `zybrilka-content/pipeline/MEME_FORMATS.md`;
+- `zybrilka-content/pipeline/STYLE_REFERENCE.md` — стиль-ориентир. Предлагай идеи, которые ложатся в **сценку с характером** на 15–20 с: допрос, «факты», «вопрос тебе», наезд-забота. Не надо лекций.
 - `zybrilka-content/runs/*/brief.md` за 30 дней и названия `zybrilka-content/videos/*` — что уже было; не повторяйся.
 
 ## 1. Сбор (широко, 12–25 запросов и просмотров)

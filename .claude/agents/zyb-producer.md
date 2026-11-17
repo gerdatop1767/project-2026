@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 ## Вход
 Путь `<video_dir>` с файлами `voiceover.json`, `storyboard.json`, `script.md` и `audio/` (папка уже озвучена). Может прийти и fix-лист от QA.
 
-Правила роликов: `zybrilka-content/pipeline/CREATIVE_RULES.md` (≤ 25 с, разнообразие, лицензии).
+Правила роликов: `zybrilka-content/pipeline/STYLE_REFERENCE.md` (главный стиль) и `pipeline/CREATIVE_RULES.md` (≤ 25 с, разнообразие).
 
 ## Шаги
 1. **Экраны.** Если storyboard ссылается на экраны, которых нет в `<video_dir>/source/screens/`:
@@ -20,6 +20,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 1b. **Внешних картинок нет.** В кадре только зубр (риг и позы из `character/poses/`), сайт zybrilka.ru (мобилка в приоритете, ПК в ноутбуке) и наша графика.
 2. `python3 zybrilka-content/tools/render.py <video_dir> --check` → должно быть `storyboard ok`.
 3. **Превью.** `--preview` для 5–7 моментов: начало каждой сцены + 0,6 с. Открой каждый кадр (Read) и проверь:
+   - заголовок сверху (headline) и карточки сайта не перекрывают морду зубра, зубр крупный;
    - тексты не перекрывают друг друга и лицо зубра;
    - прокрутка сайта плавная и не уходит в пустоту, экран телефона или ноутбука читается;
    - всё в безопасной зоне;

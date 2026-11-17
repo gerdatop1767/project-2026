@@ -324,6 +324,50 @@ def chunk_words(words, max_chars=18, max_words=3):
     return chunks
 
 
+def rays_bg(c1, c2, n=18, seed=0):
+    """Radial gradient with soft sunburst rays (reference-account style). c1 = centre colour, c2 = edge colour."""
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    cx, cy = W / 2, H * 0.62
+    r = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / (H * 0.75)
+    ang = np.arctan2(yy - cy, xx - cx)
+    rays = (np.sin(ang * n) > 0.45).astype(np.float32) * (0.25 + 0.75 * np.clip(r, 0, 1)) * 0.22
+    k = np.clip(r * 1.15, 0, 1)[..., None] ** 0.8
+    base = np.array(c1, np.float32)[None, None] * (1 - k) + np.array(c2, np.float32)[None, None] * k
+    out = base * (1 + rays[..., None])
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).convert("RGBA")
+
+
+def polaroid(img, width=620, border=16, rot=-4):
+    """Screenshot as a tilted white-framed card with shadow (product insert)."""
+    sc = width / img.width; im = img.resize((width, int(img.height * sc)), Image.LANCZOS).convert("RGBA")
+    card = Image.new("RGBA", (im.width + border * 2, im.height + border * 2), (255, 255, 255, 255))
+    card.alpha_composite(im, (border, border))
+    pad = 50; out = Image.new("RGBA", (card.width + pad * 2, card.height + pad * 2), (0, 0, 0, 0))
+    sh = Image.new("RGBA", out.size, (0, 0, 0, 0)); ImageDraw.Draw(sh).rectangle([pad + 10, pad + 18, pad + card.width + 10, pad + card.height + 18], fill=(0, 0, 0, 170))
+    out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(16))); out.alpha_composite(card, (pad, pad))
+    return out.rotate(rot, resample=Image.BICUBIC, expand=True)
+
+
+def draw_headline(canvas, chunks, t, keywords=(), y=300, size=92, max_width=920):
+    """Top 'headline' captions: current phrase in big uppercase, white; keywords in yellow (reference style)."""
+    ch = next((c for c in chunks if c[0]["s"] - 0.05 <= t < c[-1]["e"] + 0.15), None)
+    if not ch:
+        return
+    words = [w["w"].upper() for w in ch if w["s"] <= t + 0.02] or [ch[0]["w"].upper()]
+    f = font(size, 900); space = f.getlength(" ")
+    total = sum(f.getlength(w) for w in words) + space * (len(words) - 1)
+    layer = Image.new("RGBA", (int(total) + 120, size + 120), (0, 0, 0, 0)); d = ImageDraw.Draw(layer); x = 60
+    sh = Image.new("RGBA", layer.size, (0, 0, 0, 0)); sd = ImageDraw.Draw(sh)
+    for w in words:
+        key = w.strip(",.?!—:").lower() in keywords
+        sd.text((x, 68), w, font=f, fill=(0, 0, 0, 200))
+        d.text((x, 60), w, font=f, fill=(YELLOW if key else WHITE) + (255,), stroke_width=6, stroke_fill=(10, 10, 20, 255))
+        x += f.getlength(w) + space
+    out = Image.new("RGBA", layer.size, (0, 0, 0, 0)); out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6))); out.alpha_composite(layer)
+    sc = min(1.0, max_width / out.width) * (0.9 + 0.1 * back_out(prog(t, ch[0]["s"] - 0.05, 0.14)))
+    paste_center(canvas, out, W / 2, y, sc)
+
+
 def draw_subtitle(canvas, chunks, t, y=1330, keywords=(), size=60):
     ch = next((c for c in chunks if c[0]["s"] - 0.05 <= t < c[-1]["e"] + 0.12), None)
     if not ch:

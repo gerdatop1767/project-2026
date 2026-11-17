@@ -42,6 +42,11 @@ Scene extras (see pipeline/CREATIVE_RULES.md):
   "phone": {"screens": [{"screen": "home_tall", "scroll": "auto"|[y0, y1], "scroll_at": "слово", "scroll_until": "слово"}], "x": 620}
            tall mobile shots (capture "tall") scroll smoothly; the site's bottom nav stays fixed
   "laptop": {"screens": [{"screen": "learning_pc"}], "x": 540, "y": 560, "width": 980}   desktop shots (capture device=desktop)
+  "background" also: {"type": "rays", "colors": ["#3a1c6e", "#0b0620"]}   (gradient + sunburst rays, change colour per beat)
+  "subtitles": {"style": "headline", "y": 300, "size": 92}   big uppercase keyword captions at the TOP (reference style);
+               scene key "headline_y" moves them per scene; {"style": "none"} disables captions; default = bottom karaoke
+  bison "hero": huge, centred, lower half of the frame (reference style for talking scenes)
+  item "shot": {"type": "shot", "screen": "home", "box": [x0,y0,x1,y1], "width": 560, "tilt": -4, ...}  tilted white-framed site card
   item "anim": pop|slide_left|slide_right|slide_up|drop|zoom|spin|wiggle|typewriter(text only)
 Word reference: "слово" (first match), "слово#2" (2nd), "слово@lineid", "@line:hook" (line start),
 "@line_end:hook", "@scene:N" (scene N start), number = absolute seconds. Optional "offset" on items: "at_offset".
@@ -61,7 +66,7 @@ COLORS = {"white": S.WHITE, "yellow": S.YELLOW, "red": S.RED, "blue": S.BLUE2, "
 BADGE = {"blue": ((53, 152, 243), (79, 174, 250)), "dark": (20, 28, 64), "green": ((40, 170, 120), (64, 214, 140)), "red": ((220, 50, 80), (255, 76, 106))}
 FACE = np.array([560, 450]); RIG = np.array([1120, 1344])
 LAYOUT = {"closeup": (540, 760, 1.12), "full": (540, 905, 0.76), "left": (330, 930, 0.64), "right": (750, 930, 0.64),
-          "big_left": (380, 800, 0.95), "big_right": (700, 800, 0.95), "corner": (250, 1060, 0.7), "corner_right": (790, 1060, 0.7),
+          "big_left": (380, 800, 0.95), "big_right": (700, 800, 0.95), "hero": (540, 1010, 1.22), "corner": (250, 1060, 0.7), "corner_right": (790, 1060, 0.7),
           "hidden": (205, 2600, 0.5)}
 
 
@@ -154,6 +159,9 @@ class Video:
             im = S.logo(it.get("size", 150))
         elif t == "wordmark":
             im = S.wordmark(it.get("size", 96))
+        elif t == "shot":  # polaroid-style product insert: real site screen (optionally cropped), tilted card
+            src = self.screen(it["screen"]); box = it.get("box")
+            im = S.polaroid(src.crop(tuple(box)) if box else src, it.get("width", 560), rot=it.get("tilt", -4))
         elif t == "callout":
             im = callout(self.screen(it["screen"]), it["box"], it.get("width", 600))
         elif t == "card":
@@ -231,7 +239,11 @@ class Video:
         for it in s.get("items", []):
             if it.get("layer") != "back": self.draw_item(c, t, it)
         if s["idx"] > 0: c = self.transition(c, s.get("transition", "flash"), lt)
-        S.draw_subtitle(c, self.chunks, t, y=1340, keywords=self.keywords)
+        sub = self.sb.get("subtitles", {})
+        if sub.get("style") == "headline":
+            S.draw_headline(c, self.chunks, t, keywords=self.keywords, y=s.get("headline_y", sub.get("y", 300)), size=sub.get("size", 92))
+        elif sub.get("style") != "none":
+            S.draw_subtitle(c, self.chunks, t, y=1340, keywords=self.keywords)
         return c
 
     def draw_bison(self, c, t, i, s, lt):
@@ -274,6 +286,15 @@ class Video:
                 g = np.linspace(0, 1, H)[:, None, None]
                 self.cache[key] = Image.fromarray((a * (1 - g) + b * g).repeat(W, 1).astype(np.uint8)).convert("RGBA")
             return self.cache[key].copy()
+        if isinstance(bg, dict) and bg.get("type") == "rays":
+            key = ("rays", tuple(map(str, bg["colors"])))
+            if key not in self.cache:
+                a, b = (color(x) if isinstance(x, str) else tuple(x) for x in bg["colors"][:2])
+                self.cache[key] = S.rays_bg(a, b)
+            im = self.cache[key]
+            z = 1.0 + 0.03 * prog(lt, 0, max(1.0, self._scene_dur(s)))  # slow push-in
+            cw, ch = int(W / z), int(H / z)
+            return im.crop(((W - cw) // 2, (H - ch) // 2, (W + cw) // 2, (H + ch) // 2)).resize((W, H), Image.BILINEAR)
         return self.bg.frame(t, glyph_alpha=0.0 if bg == "plain" else (0.6 if s.get("phone") else 1.0))
 
     def _scene_dur(self, s):
@@ -304,6 +325,10 @@ class Video:
     def draw_pose(self, c, s, lt):
         name = s["bison"][5:]; path, width, (x, y) = POSES[name]
         im = self.asset({"type": "image", "path": path, "width": s.get("pose_width", width)})
+        if "pose_width" not in s and name in POSE_MOTION:  # owner poses: fit below the headline zone (top ~440, bottom ~1800)
+            fit = min(1000 / im.width, 1360 / im.height)
+            im = self.asset({"type": "image", "path": path, "width": int(im.width * fit)})
+            y = 440 + im.height / 2
         look = s.get("look") or {}
         if look.get("flip"): im = im.transpose(Image.FLIP_LEFT_RIGHT)
         x, y = s.get("pose_x", x), s.get("pose_y", y)
