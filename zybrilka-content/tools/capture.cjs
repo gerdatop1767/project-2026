@@ -1,6 +1,9 @@
 // Real zybrilka.ru screenshots (iPhone-like 390x780 @3x -> 1170x2340) for a video.
 // node capture.js <video_dir>   — reads storyboard.json "captures":
 //   [{"name": "home", "path": "/", "scroll": 0},
+//    {"name": "home_tall", "path": "/", "tall": 3000},              // whole page in one tall shot -> smooth scroll in render
+//    {"name": "home_pc", "path": "/", "device": "desktop"},          // desktop 1440x900 @2x (laptop mockup)
+//    {"name": "home_pc_tall", "path": "/", "device": "desktop", "tall": 2400},
 //    {"preset": "task_flow", "subject": "math", "topic": "Теория вероятностей", "answer": "0,5", "prefix": "t"}]
 // task_flow saves <prefix>1_condition, <prefix>2_typed, <prefix>3_checked, <prefix>4_solution (+ prints the real task & answer).
 const { chromium } = require('playwright');
@@ -25,9 +28,14 @@ async function open(p, url, waitText) {
 
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 390, height: 780 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'ru-RU' });
-  const p = await ctx.newPage();
+  const mobile = await b.newContext({ viewport: { width: 390, height: 780 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'ru-RU' });
+  const desktop = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: 'ru-RU' });
+  const pm = await mobile.newPage(), pd = await desktop.newPage();
+  let p = pm;
   for (const c of sb.captures || []) {
+    p = c.device === 'desktop' ? pd : pm;
+    const base = c.device === 'desktop' ? { width: 1440, height: 900 } : { width: 390, height: 780 };
+    await p.setViewportSize(c.tall ? { width: base.width, height: c.tall } : base);
     if (c.preset === 'task_flow') {
       const pre = c.prefix || 't';
       await open(p, '/subjects/' + (c.subject || 'math'), c.topic);

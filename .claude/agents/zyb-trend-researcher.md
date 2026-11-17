@@ -44,7 +44,7 @@ tools: WebSearch, WebFetch, Read, Write, Bash, Glob, Grep
 Формат JSON:
 ```json
 {"ideas": [{"title": "", "rubric": "польза|юмор|zybrilka|мотивация", "hook": "", "summary": "", "duration": 20,
- "meme_format": "", "visual_ideas": ["фон: …", "образ зубра: …", "поза/эмоции: …"],
+ "meme_format": "", "visual_ideas": ["экран сайта: …", "поза зубра: …", "мем-формат: …"],
  "facts": [{"claim": "", "source": "", "verified": true}], "inspiration": ["url"], "score": 0}]}
 ```
 

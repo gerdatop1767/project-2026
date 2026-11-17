@@ -210,6 +210,49 @@ def phone(screen_img, width=520, crop_y=0, glow=True):
     return im, sc, (pad + 14, pad + 14)
 
 
+def content_end(img, nav_px=0, bg_tol=10):
+    """Last row (above a fixed bottom nav) that has non-background pixels — for scroll limits of tall shots."""
+    a = np.asarray(img.convert("RGB"), np.int16)
+    body = a[: a.shape[0] - nav_px] if nav_px else a
+    bg = np.median(body[-40:].reshape(-1, 3), axis=0)
+    differ = (np.abs(body - bg).max(axis=2) > max(bg_tol, 24)).mean(axis=1)   # share of "content" pixels per row
+    rows = np.nonzero(differ > 0.02)[0]
+    return int(rows[-1]) + 40 if len(rows) else body.shape[0]
+
+
+def phone_scroll(screen_img, width, crop_y, nav_px=232):
+    """Phone with a tall page scrolled to crop_y while the site's bottom nav stays fixed (like a real phone)."""
+    sw = width - 28; sc = sw / screen_img.width; win = int(sw * 2.0 / sc)
+    page = screen_img.crop((0, 0, screen_img.width, screen_img.height - nav_px)) if nav_px else screen_img
+    view = Image.new("RGBA", (screen_img.width, win), BG + (255,))
+    view.alpha_composite(page.crop((0, crop_y, page.width, min(page.height, crop_y + win))).convert("RGBA"), (0, 0))
+    if nav_px:
+        view.alpha_composite(screen_img.crop((0, screen_img.height - nav_px, screen_img.width, screen_img.height)).convert("RGBA"), (0, win - nav_px))
+    return phone(view, width, 0)[0]
+
+
+def laptop(screen_img, width=980, crop_y=0, glow=True):
+    """Laptop mockup for desktop screenshots (2880x1800 -> 16:10 screen); crop_y scrolls a tall desktop shot."""
+    sw = width - 40; sh = int(sw * 10 / 16); sc = sw / screen_img.width
+    crop = screen_img.crop((0, crop_y, screen_img.width, min(screen_img.height, crop_y + int(sh / sc))))
+    crop = crop.resize((sw, int(crop.height * sc)), Image.LANCZOS)
+    pad = 60; base_h = int(width * 0.05)
+    im = Image.new("RGBA", (width + pad * 2 + 80, sh + 40 + base_h + pad * 2), (0, 0, 0, 0))
+    if glow:
+        g = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        ImageDraw.Draw(g).rounded_rectangle([pad + 40, pad, pad + 40 + width, pad + sh + 40], 30, fill=BLUE + (110,))
+        im.alpha_composite(g.filter(ImageFilter.GaussianBlur(40)))
+    d = ImageDraw.Draw(im); x0 = pad + 40
+    d.rounded_rectangle([x0, pad, x0 + width, pad + sh + 40], 26, fill=(18, 20, 30), outline=(70, 80, 110), width=3)
+    scr = Image.new("RGBA", (sw, sh), BG + (255,)); scr.alpha_composite(crop.convert("RGBA"), (0, 0))
+    m = Image.new("L", (sw, sh), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, sw - 1, sh - 1], 10, fill=255)
+    im.paste(scr, (x0 + 20, pad + 20), m)
+    d.ellipse([x0 + width / 2 - 4, pad + 7, x0 + width / 2 + 4, pad + 15], fill=(40, 44, 60))
+    d.rounded_rectangle([pad, pad + sh + 40, pad + width + 80, pad + sh + 40 + base_h], 14, fill=(52, 58, 78), outline=(90, 100, 130), width=2)
+    d.rounded_rectangle([x0 + width / 2 - 70, pad + sh + 40, x0 + width / 2 + 70, pad + sh + 40 + base_h * 0.35], 6, fill=(36, 40, 56))
+    return im
+
+
 def highlight_box(w, h, color=BLUE2, r=26, t=1.0):
     im = Image.new("RGBA", (w + 60, h + 60), (0, 0, 0, 0))
     g = Image.new("RGBA", im.size, (0, 0, 0, 0))

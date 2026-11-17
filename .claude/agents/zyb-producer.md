@@ -13,16 +13,15 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 ## Шаги
 1. **Экраны.** Если storyboard ссылается на экраны, которых нет в `<video_dir>/source/screens/`:
    - есть в `zybrilka-content/library/screens/` — копируй оттуда;
-   - нужны новые — опиши их в `storyboard.json` → `captures` (схема в шапке `tools/capture.js`) и запусти `node zybrilka-content/tools/capture.js <video_dir>`;
+   - нужны новые — опиши их в `storyboard.json` → `captures` (схема в шапке `tools/capture.cjs`) и запусти `node zybrilka-content/tools/capture.cjs <video_dir>`;
    - открой полученные png через Read и подбери `box` для выносок по реальным координатам (скриншоты 1170×2340).
 
    Интерфейс сайта не выдумывай и не рисуй.
-1b. **Внешние картинки** берёшь только через `python3 zybrilka-content/tools/fetch_asset.py`: он пишет CREDITS.json. Скачивать картинки curl'ом с произвольных сайтов нельзя.
+1b. **Внешних картинок нет.** В кадре только зубр (риг и позы из `character/poses/`), сайт zybrilka.ru (мобилка в приоритете, ПК в ноутбуке) и наша графика.
 2. `python3 zybrilka-content/tools/render.py <video_dir> --check` → должно быть `storyboard ok`.
 3. **Превью.** `--preview` для 5–7 моментов: начало каждой сцены + 0,6 с. Открой каждый кадр (Read) и проверь:
    - тексты не перекрывают друг друга и лицо зубра;
-   - аксессуары (очки, шапки, наушники) сидят ровно, худи перекрашено без пятен;
-   - фото-фон не спорит с текстом: если мешает, увеличь `dim` или `blur`;
+   - прокрутка сайта плавная и не уходит в пустоту, экран телефона или ноутбука читается;
    - всё в безопасной зоне;
    - выноски читаемы;
    - нет пустых сцен.

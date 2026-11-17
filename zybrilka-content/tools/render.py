@@ -37,6 +37,9 @@ Scene extras (see pipeline/CREATIVE_RULES.md):
   "background": "glyphs" | "plain" | {"type": "gradient", "colors": ["#0e1640", "#3598f3"]}
                 | {"type": "image", "path": "source/assets/bg_x_1.jpg", "dim": 0.45, "blur": 0, "zoom": [1.0, 1.08], "pan": -1..1}
   "transition": flash|zoom|wipe|glitch|slide|none        (into this scene)
+  "phone": {"screens": [{"screen": "home_tall", "scroll": "auto"|[y0, y1], "scroll_at": "слово", "scroll_until": "слово"}], "x": 620}
+           tall mobile shots (capture "tall") scroll smoothly; the site's bottom nav stays fixed
+  "laptop": {"screens": [{"screen": "learning_pc"}], "x": 540, "y": 560, "width": 980}   desktop shots (capture device=desktop)
   item "anim": pop|slide_left|slide_right|slide_up|drop|zoom|spin|wiggle|typewriter(text only)
 Word reference: "слово" (first match), "слово#2" (2nd), "слово@lineid", "@line:hook" (line start),
 "@line_end:hook", "@scene:N" (scene N start), number = absolute seconds. Optional "offset" on items: "at_offset".
@@ -63,6 +66,15 @@ LAYOUT = {"closeup": (540, 760, 1.12), "full": (540, 905, 0.76), "left": (330, 9
 POSES = {"lying_books": ("apps/web/public/branding/v3/landing-mascot.webp", 1000, (540, 820)),
          "desk_night": ("apps/web/public/branding/v3/hero-mascot-desktop.webp", 1080, (540, 760)),
          "thumbs_up": ("apps/web/public/branding/v3/support-bison.webp", 860, (540, 860))}
+
+
+def _library_poses():
+    """Owner-made poses: character/poses/library/<name>.png -> "pose:<name>" (transparent PNG, any size)."""
+    for f in sorted((S.ROOT / "character/poses/library").glob("*.png")):
+        POSES.setdefault(f.stem, (str(f.relative_to(S.REPO)), 900, (540, 880)))
+
+
+_library_poses()
 
 
 def color(c):
@@ -169,7 +181,7 @@ class Video:
                 x, y = it.get("x", 540), it.get("y", 600)
                 if it["type"] in ("text", "badge", "counter") and not (S.SAFE[1] <= y <= S.SAFE[3]):
                     errs.append(f"scene {s['idx']} '{it.get('text', it['type'])}' y={y} outside safe zone 150..1440")
-            for sc in (s.get("phone") or {}).get("screens", []):
+            for sc in (s.get("phone") or {}).get("screens", []) + (s.get("laptop") or {}).get("screens", []):
                 if not (self.vd / "source/screens" / f"{sc['screen']}.png").exists(): errs.append(f"missing screen {sc['screen']}.png")
         for e in self.sb.get("sfx", []):
             try: self.at(e["at"])
@@ -199,6 +211,7 @@ class Video:
     def frame(self, i):
         t = i / FPS; s = self.scene_at(t); lt = t - s["start"]
         c = self.background(s, t, lt)
+        if s.get("laptop"): self.draw_laptop(c, t, s, lt)
         if s.get("phone"): self.draw_phone(c, t, s, lt)
         for it in s.get("items", []):
             if it.get("layer") == "back": self.draw_item(c, t, it)
@@ -288,17 +301,49 @@ class Video:
         z = 1.0 + 0.06 * prog(lt, 0, dur); a = min(1.0, prog(lt, 0, 0.2))
         paste_center(c, im, x, y + 20 * (1 - ease_out(prog(lt, 0, 0.4))), z, a)
 
+    def _device_state(self, dev, t):
+        """Current screen entry of a phone/laptop block and its scroll position at time t."""
+        cur = dev["screens"][0]
+        for e in dev["screens"][1:]:
+            if t >= self.at(e.get("at")) - 0.1: cur = e
+        crop = dev.get("crop", {}).get(cur["screen"], 0)
+        sc = cur.get("scroll")
+        if sc:
+            img = self.screen(cur["screen"])
+            nav = cur.get("nav_px", 232 if img.width < 2000 else 0)
+            key = ("end", cur["screen"], nav)
+            if key not in self.cache: self.cache[key] = S.content_end(img, nav)
+            win = int(img.width * (2.0 if img.width < 2000 else 10 / 16))
+            y_max = max(0, self.cache[key] - (win - nav))
+            y0, y1 = (sc if isinstance(sc, list) else [0, y_max])
+            t0 = self.at(sc_at, 0.0) if (sc_at := cur.get("scroll_at")) else (self.at(cur.get("at")) if cur.get("at") else self.scene_at(t)["start"] + 0.5)
+            t1 = self.at(cur["scroll_until"]) if cur.get("scroll_until") else t0 + cur.get("scroll_dur", 3.0)
+            crop = int(min(y_max, y0 + (min(y1, y_max) - y0) * ease_in_out(prog(t, t0, max(0.3, t1 - t0)))))
+            return cur, crop, nav
+        return cur, crop, None
+
     def draw_phone(self, c, t, s, lt):
-        ph = s["phone"]; scr = ph["screens"][0]["screen"]
-        for e in ph["screens"][1:]:
-            if t >= self.at(e.get("at")) - 0.1: scr = e["screen"]
+        ph = s["phone"]; cur, crop, nav = self._device_state(ph, t)
         prev_phone = s["idx"] > 0 and self.scenes[s["idx"] - 1].get("phone")
         slide = 1.0 if prev_phone else ease_out(prog(lt, 0, 0.45))
-        crop = ph.get("crop", {}).get(scr, 0); width = ph.get("width", 500)
-        key = ("phone", scr, crop, width)
-        if key not in self.cache: self.cache[key] = S.phone(self.screen(scr), width, crop)[0]
+        width = ph.get("width", 500)
+        if nav is not None:
+            im = S.phone_scroll(self.screen(cur["screen"]), width, crop, nav)
+        else:
+            key = ("phone", cur["screen"], crop, width)
+            if key not in self.cache: self.cache[key] = S.phone(self.screen(cur["screen"]), width, crop)[0]
+            im = self.cache[key]
+        paste_center(c, im, ph.get("x", 620) + (1 - slide) * 700, ph.get("y", 160 + im.height / 2 - 60))
+
+    def draw_laptop(self, c, t, s, lt):
+        lp = s["laptop"]; cur, crop, _ = self._device_state(lp, t)
+        prev = s["idx"] > 0 and self.scenes[s["idx"] - 1].get("laptop")
+        rise = 1.0 if prev else ease_out(prog(lt, 0, 0.45))
+        width = lp.get("width", 980)
+        key = ("laptop", cur["screen"], crop, width)
+        if key not in self.cache: self.cache[key] = S.laptop(self.screen(cur["screen"]), width, crop)
         im = self.cache[key]
-        paste_center(c, im, ph.get("x", 620) + (1 - slide) * 700, 160 + im.height / 2 - 60)
+        paste_center(c, im, lp.get("x", 540), lp.get("y", 560) + (1 - rise) * 500, lp.get("scale", 1.0), min(1.0, rise * 1.5))
 
     def draw_item(self, c, t, it):
         start = self.at(it.get("at"), 0.0) + it.get("at_offset", -0.05)

@@ -76,7 +76,7 @@ cp -r videos/001-what-is-zybrilka videos/002-<slug>    # затем удалит
 # 1) правим voiceover.json (текст по шаблону scripts/TEMPLATE-script.md)
 python3 tools/tts.py videos/002-<slug>                  # озвучка + таймкоды
 # 2) ASR-проверка ударений (см. character/voice/VOICE.md), правим ´ и [[ ]]
-# 3) скриншоты сайта: node videos/001-what-is-zybrilka/capture.js (+ capture-task.js для сценария задания) <out_dir>
+# 3) скриншоты сайта: node videos/001-what-is-zybrilka/capture.cjs (+ capture-task.js для сценария задания) <out_dir>
 python3 videos/002-<slug>/build.py --preview 1.5,8,20   # стоп-кадры, проверить композицию
 python3 videos/002-<slug>/build.py                      # полный рендер (~3,5 мин на 30 с, CPU)
 ```
@@ -130,7 +130,7 @@ python3 videos/002-<slug>/build.py                      # полный ренд�
 - `tools/render.py` — рендер по `storyboard.json`, агенты не пишут Python;
 - `tools/lipsync.py` — визем-lip-sync v2;
 - `tools/qa.py` — автопроверка;
-- `tools/capture.js` — съёмка экранов сайта;
+- `tools/capture.cjs` — съёмка экранов сайта;
 - `tools/send_telegram.py` — отправка в Telegram;
 - `library/screens/` — проверенные экраны и боксы выносок.
 

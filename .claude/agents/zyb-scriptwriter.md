@@ -39,8 +39,8 @@ tools: Read, Write, Edit, Bash, Glob, Grep
    - Для выносок экранов укажи `screen` из библиотеки и `box` из SCREENS.md. Скопируй нужные png в `<video_dir>/source/screens/`.
    - `keywords` — 5–12 ключевых слов для жёлтой подсветки в субтитрах.
    - `duration_range`: `[12, 25]`.
-   - **Разнообразие по CREATIVE_RULES.** `look` отличается от трёх последних роликов (смотри их storyboard.json). Минимум 3 плана зубра, 2 фона, 3 вида `anim`, 2 вида `transition`. Если подходит, используй официальную позу `pose:…` как вставку.
-   - **Фоны с открытой лицензией:** `python3 zybrilka-content/tools/fetch_asset.py <video_dir> "english query" --n 2 --name bg_x`. Затем открой картинки через Read и выбери подходящую: без людей, логотипов и текста. Путь: `source/assets/...`.
+   - **Разнообразие по CREATIVE_RULES.** Минимум 3 плана или позы зубра (позы владельца из `character/poses/library/` — в приоритете), фирменные фоны (без фото), 3 вида `anim`, 2 вида `transition`. Поле `look` — только `flip`.
+   - **Сайт в кадре почти всегда.** Основа — мобильная версия: телефон, плавная прокрутка `*_tall` с `"scroll": "auto"`. ПК-версия иногда, в `laptop` (`*_pc`). Экраны бери из `zybrilka-content/library/screens/SCREENS.md`.
    - **Мем** — только формат из MEME_FORMATS, собранный нашими средствами.
 7. Проверь: `python3 zybrilka-content/tools/render.py <video_dir> --check` должен вывести `storyboard ok`. Исправляй, пока не пройдёт.
 8. В `script.md` запиши:
@@ -50,7 +50,6 @@ tools: Read, Write, Edit, Bash, Glob, Grep
    - источники фактов;
    - чек-лист утверждения;
    - описание для TikTok (≤ 150 символов) с «Бот в Telegram: @Zybrilka_bot» и 6–10 хештегов;
-   - строки авторов из `fetch_asset.py <video_dir> --credits`, если они есть.
 
 ## Выход
 Ответ оркестратору: путь к папке ролика, название, длительность и краткое «почему зайдёт». Ставь `APPROVED`, только если чек-лист пройден полностью.
