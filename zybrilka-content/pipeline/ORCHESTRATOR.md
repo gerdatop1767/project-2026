@@ -39,6 +39,7 @@ b) Сбой на любом шаге: `python3 zybrilka-content/tools/send_teleg
 3. `git push origin chore/add-emil-design-eng-skill`. При сетевой ошибке повтори до 4 раз с паузой. Если на удалённой ветке есть новые коммиты — `git fetch` + `git merge`, без force.
 
 ## Правила
+- CTA во всех новых роликах ведёт в Telegram-бота **@Zybrilka_bot**, а не на сайт (ролик 001 — исключение, не трогать).
 - **Ничего не публиковать в TikTok.** Публикует только владелец.
 - Голос и персонаж не менять (`character/voice/VOICE.md`, `character/CHARACTER.md`).
 - Платные генерации запрещены. Fish Audio — только бесплатная модель из VOICE.md.
