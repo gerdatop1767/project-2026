@@ -14,6 +14,11 @@
 
 .head h1 {
   margin: 0;
+  /* «Грамматические нормы», «Слитно, раздельно, через дефис»: long
+     words must fit a 320 px screen. */
+  font-size: clamp(1.625rem, 7.5vw, 2.25rem);
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .kicker {

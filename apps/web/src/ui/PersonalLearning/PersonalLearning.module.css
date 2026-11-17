@@ -49,6 +49,11 @@
   gap: var(--space-1);
 }
 
+.blockHead > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .blockTitle {
   margin: 0;
   font-size: var(--font-size-h1);
@@ -640,9 +645,29 @@
   gap: var(--space-3);
 }
 
-/* The plan's subject switch: full width under the title, so both
-   subjects stay readable from 320 px. */
+/* The plan's subject switch: full width under the title. On a phone the
+   long «Профильная математика» wraps inside its tab instead of pushing
+   the whole block wider than the screen. */
 .subjectSwitch {
   margin-top: var(--space-2);
   width: 100%;
+  min-width: 0;
+}
+
+.subjectSwitch button {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* Grid children may shrink below their content (long words, the switch). */
+.block > * {
+  min-width: 0;
+}
+
+@media (max-width: 399px) {
+  .block {
+    padding: var(--space-4);
+  }
 }
