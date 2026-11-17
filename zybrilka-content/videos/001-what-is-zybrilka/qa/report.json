@@ -37,23 +37,23 @@
    }
   },
   "lipsync_corr>=0.55": {
-   "ok": false,
-   "value": 0.537
+   "ok": true,
+   "value": 0.678
   },
-  "mouth_smooth_jerk<=0.03": {
-   "ok": false,
-   "value": 0.0556
+  "lipsync_mouth_not_late(lag_frames<=0)": {
+   "ok": true,
+   "value": 0
   },
-  "mouth_closed_in_silence>=0.9": {
-   "ok": false,
-   "value": 0.784
+  "mouth_smooth_jerk<=0.08": {
+   "ok": true,
+   "value": 0.0687
+  },
+  "mouth_closed_in_silence>=0.85": {
+   "ok": true,
+   "value": 0.922
   }
  },
- "fail": [
-  "lipsync_corr>=0.55",
-  "mouth_smooth_jerk<=0.03",
-  "mouth_closed_in_silence>=0.9"
- ],
- "mouth_strip_start": 20.57,
- "passed": false
+ "fail": [],
+ "mouth_strip_start": 0.84,
+ "passed": true
 }

@@ -92,10 +92,18 @@ def main():
     # visual sheets for the QA agent to inspect
     dur = pr["duration"]
     sheet(frames(mp4, list(np.linspace(0.4, dur - 0.4, 12))), 6, q / "contact.png")
-    i = int(np.argmax(np.convolve(o, np.ones(20), "same")))  # busiest speech second
-    rep["mouth_strip_start"] = round(i / 30 - 0.33, 2)
-    fx, fy = 540, 760  # mouth is inside this crop for 'closeup' and 'full'; corner scenes are small on purpose
-    sheet(frames(mp4, [max(0, i / 30 - 0.33 + k / 30) for k in range(16)], crop="560:420:260:600", w=240), 8, q / "mouth.png")
+    # mouth strip: busiest speech second while the bison is big on screen (closeup/full), crop computed from the layout
+    import render
+    v = render.Video(vd)
+    big = np.array([v.scene_at(k / 30).get("bison", "full") in ("closeup", "full") for k in range(len(o))])
+    act = np.convolve(o, np.ones(20), "same") * big
+    i = int(np.argmax(act)) if act.max() > 0 else int(np.argmax(np.convolve(o, np.ones(20), "same")))
+    t0 = max(0.0, i / 30 - 0.33); rep["mouth_strip_start"] = round(t0, 2)
+    fx, fy, sc = v.layout(t0 + 0.25)
+    mx = fx + (595 - render.FACE[0]) * sc; my = fy + (515 - render.FACE[1]) * sc
+    cw, chh = int(300 * sc), int(220 * sc)
+    crop = f"{cw}:{chh}:{int(mx - cw / 2)}:{int(my - chh / 2)}"
+    sheet(frames(mp4, [t0 + k / 30 for k in range(16)], crop=crop, w=240), 8, q / "mouth.png")
     rep["passed"] = not rep["fail"]
     (q / "report.json").write_text(json.dumps(rep, ensure_ascii=False, indent=1))
     print(json.dumps({k: v["value"] if not isinstance(v["value"], dict) else v["value"].get("wer") for k, v in rep["checks"].items()}, ensure_ascii=False))
