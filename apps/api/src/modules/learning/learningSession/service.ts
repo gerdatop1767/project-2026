@@ -529,7 +529,15 @@ async function toVariantProgressItem(
 ): Promise<VariantProgressItem> {
   const summary = await computeSessionSummary(db, session);
 
-  const { rows: attemptRows } = await repo.getAnswersOfSession(db, session);
+  const [{ rows: attemptRows }, identity, planned] = await Promise.all([
+    repo.getAnswersOfSession(db, session),
+    repo.getVariantIdentity(db, session.variantId),
+    repo.getPlannedTasks(db, session.plannedTaskIds),
+  ]);
+  // The same scoring as the attempt's own result screen (first answers only).
+  const scoring = identity
+    ? scoreAttempt(session, identity.examFormat, planned, firstAnswers(attemptRows))
+    : null;
 
   // Time of each task's first answer — the one that counts.
   const timedRows = [...firstAnswers(attemptRows).values()].filter(
@@ -567,6 +575,17 @@ async function toVariantProgressItem(
     accuracyPercent: summary.accuracy,
     totalTimeMs,
     keyErrors,
+    examScore: scoring
+      ? {
+          primary: scoring.primary,
+          examMaxTotal: scoring.examMaxTotal,
+          testScore: scoring.conversion.available ? scoring.conversion.testScore : null,
+          scaleLabel: scoring.conversion.available ? scoring.conversion.label : null,
+          scaleYear: scoring.conversion.available ? scoring.conversion.examYear : null,
+          noScaleReason: scoring.conversion.available ? null : scoring.conversion.reason,
+          preliminary: scoring.preliminary,
+        }
+      : null,
   };
 }
 
@@ -725,14 +744,19 @@ function scoreAttempt(
     { isCorrect: boolean; answerRaw: string; answerType: string; correctAnswer: string }
   >,
 ): VariantAttemptScoring | null {
-  const snapshot =
-    session.scoring ??
-    buildScoringSnapshot(
-      examFormat,
-      (session.plannedTaskIds ?? [])
-        .map((id) => planned.find((p) => p.taskId === id))
-        .filter((p) => p !== undefined),
-    );
+  const rebuilt = session.scoring
+    ? null
+    : buildScoringSnapshot(
+        examFormat,
+        (session.plannedTaskIds ?? [])
+          .map((id) => planned.find((p) => p.taskId === id))
+          .filter((p) => p !== undefined),
+      );
+  // An attempt saved without rules has no table frozen into it either: it
+  // is converted like any attempt from before tables existed (the 2026
+  // table at most), so a table added later never changes its result.
+  const snapshot: VariantScoringSnapshot | null =
+    session.scoring ?? (rebuilt ? { ...rebuilt, scaleId: null, scaleYear: undefined } : null);
   if (!snapshot) return null;
   const answers = new Map<string, FirstAnswer>();
   for (const [taskId, row] of first) {

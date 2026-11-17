@@ -62,7 +62,13 @@ describe('«Твой персональный план»', () => {
     expect(await screen.findByText('Уравнения (развёрнутый ответ)')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('приоритетных тем')).toBeInTheDocument();
-    expect(screen.getByText('до +4')).toBeInTheDocument();
+    // The ЕГЭ gain is in test points with its table — never primary points.
+    expect(screen.getByText('до +12')).toBeInTheDocument();
+    expect(
+      screen.getByText('тестовых баллов ЕГЭ по этим темам: было 58 → станет 70'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Тестовый балл · ориентир по шкале ЕГЭ-2026')).toBeInTheDocument();
+    expect(screen.queryByText(/первичн/)).not.toBeInTheDocument();
     expect(screen.getByText(/≈ 7 дней/)).toBeInTheDocument();
     const cards = screen.getAllByRole('listitem').filter((li) => li.getAttribute('data-priority'));
     expect(cards).toHaveLength(3);
@@ -265,5 +271,21 @@ describe('advice, plan and progress screens', () => {
     expect(screen.getAllByText('мало данных для сравнения')).toHaveLength(2);
     expect(screen.getByText('1 из 1 верно')).toBeInTheDocument();
     expect(screen.getByText(/Ближайшая цель — освоение 55%/)).toBeInTheDocument();
+  });
+
+  it('without a fitting table: no number, the reason instead', async () => {
+    stubApi({
+      'GET /me/learning/personal': () => ({
+        ...personalFixture,
+        summary: {
+          ...personalFixture.summary,
+          potentialTestPoints: { available: false, reason: 'Растягивать шкалу нельзя.' },
+        },
+      }),
+    });
+    renderWith(<PersonalPlanBlock limit={4} />);
+    expect(await screen.findByText('прирост в баллах ЕГЭ не рассчитывается')).toBeInTheDocument();
+    expect(screen.getByText('Растягивать шкалу нельзя.')).toBeInTheDocument();
+    expect(screen.queryByText(/до \+/)).not.toBeInTheDocument();
   });
 });

@@ -11,6 +11,14 @@ export const personalFixture: PersonalRecommendationsResponse = {
   summary: {
     priorityTopics: 3,
     potentialPrimaryPoints: 4,
+    potentialTestPoints: {
+      available: true,
+      points: 12,
+      from: 58,
+      to: 70,
+      approximate: false,
+      label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+    },
     etaDays: 7,
     etaBasis: 'week_plan',
     activePlan: null,

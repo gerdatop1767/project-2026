@@ -8,6 +8,7 @@ import { submitAttempt } from '../../tasks/service.js';
 import {
   finishVariantSession,
   getVariantAttemptDetail,
+  getVariantProgress,
   openVariantTask,
   startVariantSession,
 } from './service.js';
@@ -197,6 +198,71 @@ describe('variant attempt — primary points', () => {
       format: 'ege-math-profile-2026',
       examMaxTotal: 32,
       rulesStatus: 'official',
+    });
+  });
+
+  it('a 2026 attempt stores the 2026 table and its year; result and history show the test score', async () => {
+    const user = await newUser();
+    const sessionId = await start(user, variant2026Id);
+    const [row] = await testDb.db
+      .select()
+      .from(schema.learningSessions)
+      .where(eq(schema.learningSessions.id, sessionId));
+    expect(row!.scoring).toMatchObject({
+      scaleId: 'ege-math-profile-2026@rosobrnadzor-2026-04',
+      scaleYear: 2026,
+    });
+    const d = await detail(user, sessionId);
+    expect(d.scoring!.conversion).toMatchObject({
+      available: true,
+      testScore: 0,
+      examYear: 2026,
+      label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+    });
+    const history = await getVariantProgress(testDb.db, user);
+    expect(history.items[0]!.examScore).toMatchObject({
+      primary: 0,
+      examMaxTotal: 32,
+      testScore: 0,
+      scaleYear: 2026,
+      scaleLabel: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+      noScaleReason: null,
+    });
+  });
+
+  it('the 33-point Yashchenko-2027 attempt never gets the 32-point table; history says why', async () => {
+    const user = await newUser();
+    await start(user);
+    const history = await getVariantProgress(testDb.db, user);
+    expect(history.items[0]!.examScore).toMatchObject({
+      examMaxTotal: 33,
+      testScore: null,
+      scaleYear: null,
+      noScaleReason: expect.stringMatching(/Растягивать шкалу нельзя/),
+    });
+  });
+
+  it('the result uses the table stored in the attempt; an old attempt stays on the 2026 table', async () => {
+    const user = await newUser();
+    const sessionId = await start(user, variant2026Id);
+    const [row] = await testDb.db
+      .select()
+      .from(schema.learningSessions)
+      .where(eq(schema.learningSessions.id, sessionId));
+    // Stored table not in the registry: refused, never swapped for today's.
+    await testDb.db
+      .update(schema.learningSessions)
+      .set({ scoring: { ...row!.scoring!, scaleId: 'some-earlier-table', scaleYear: 2025 } })
+      .where(eq(schema.learningSessions.id, sessionId));
+    expect((await detail(user, sessionId)).scoring!.conversion.available).toBe(false);
+    // Saved before tables existed (no scaleYear): the 2026 table.
+    await testDb.db
+      .update(schema.learningSessions)
+      .set({ scoring: { ...row!.scoring!, scaleId: null, scaleYear: undefined } })
+      .where(eq(schema.learningSessions.id, sessionId));
+    expect((await detail(user, sessionId)).scoring!.conversion).toMatchObject({
+      available: true,
+      examYear: 2026,
     });
   });
 

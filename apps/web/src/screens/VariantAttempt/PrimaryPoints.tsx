@@ -1,4 +1,8 @@
-import type { TaskScoreStatus, VariantAttemptScoring } from '@zybrilka/shared';
+import {
+  TARGET_EXAM_YEAR,
+  type TaskScoreStatus,
+  type VariantAttemptScoring,
+} from '@zybrilka/shared';
 import { Button } from '../../ui/Button/Button.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -12,10 +16,12 @@ const statusLabel: Record<TaskScoreStatus, string> = {
 };
 
 /**
- * «Первичные баллы ЕГЭ» of one variant attempt: primary points from the attempt's
- * frozen rules, the part split, the conversion to a test score only when
- * a confirmed scale exists (otherwise why not), and a per-task
- * breakdown. Says plainly what is an estimate.
+ * «Баллы ЕГЭ» of one variant attempt. The ЕГЭ result is the TEST score
+ * (0–100) by the table stored with the attempt, shown large with its
+ * label («Тестовый балл · ориентир по шкале ЕГЭ-2026»); primary points
+ * are shown apart and named as primary. Without a fitting table only
+ * primary points are shown, with the reason. Then the part split and a
+ * per-task breakdown; what is an estimate is said plainly.
  */
 export function PrimaryPoints({
   scoring: s,
@@ -30,15 +36,32 @@ export function PrimaryPoints({
     <Card className={styles.score} aria-labelledby="points-title">
       <div className={styles.pointsHead}>
         <h2 id="points-title" className={styles.sectionTitle}>
-          Первичные баллы ЕГЭ
+          Баллы ЕГЭ
         </h2>
         {s.preliminary && <span className={styles.badge}>Предварительно</span>}
       </div>
-      <p className={styles.scoreMain}>
-        <span className={styles.scoreValue}>{s.primary}</span>
-        <span className="text-body text-secondary"> из {s.examMaxTotal}</span>
-      </p>
-      <p className="text-body-sm text-secondary">Первичные баллы — не тестовые (0–100)</p>
+      {s.conversion.available ? (
+        <>
+          <p className={styles.scoreMain}>
+            <span className={styles.scoreValue}>{s.conversion.testScore}</span>
+            <span className="text-body text-secondary"> тестовых баллов из 100</span>
+          </p>
+          <p className={styles.scaleLabel}>{s.conversion.label}</p>
+          <p className="text-body-sm text-secondary">
+            Первичные баллы: {s.primary} из {s.examMaxTotal}.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className={styles.scoreMain}>
+            <span className={styles.scoreValue}>{s.primary}</span>
+            <span className="text-body text-secondary"> из {s.examMaxTotal} первичных</span>
+          </p>
+          <p className="text-body-sm text-secondary">
+            Это первичные баллы, а не тестовые (0–100). Тестовый балл не считается: причина ниже.
+          </p>
+        </>
+      )}
       <dl className={styles.scoreGrid}>
         <div className={styles.stat}>
           <dt className="text-body-sm text-secondary">Часть 1</dt>
@@ -55,18 +78,29 @@ export function PrimaryPoints({
         <div className={styles.stat}>
           <dt className="text-body-sm text-secondary">Тестовый балл (0–100)</dt>
           <dd className={styles.statValue}>
-            {s.conversion.available ? `≈ ${s.conversion.testScore}` : '—'}
+            {s.conversion.available ? s.conversion.testScore : '—'}
           </dd>
         </div>
       </dl>
 
       <ul className={styles.pointsNotes}>
         {s.conversion.available ? (
-          s.conversion.status === 'approximate' && (
+          s.conversion.status === 'approximate' ? (
             <li>
               Оценка приблизительная, официальная шкала может отличаться. Шкала:{' '}
               {s.conversion.source}.
             </li>
+          ) : (
+            s.conversion.examYear < TARGET_EXAM_YEAR && (
+              <li>
+                Шкалу ЕГЭ-{TARGET_EXAM_YEAR} утвердят только после экзамена, поэтому тестовый балл
+                посчитан по официальной шкале ЕГЭ-{s.conversion.examYear} — как ориентир.
+                <details className={styles.scaleSource}>
+                  <summary>Источник шкалы</summary>
+                  {s.conversion.source}.
+                </details>
+              </li>
+            )
           )
         ) : (
           <li>{s.conversion.reason}</li>

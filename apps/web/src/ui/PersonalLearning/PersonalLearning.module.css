@@ -106,6 +106,16 @@
   font-size: var(--font-size-body-sm);
 }
 
+/* Which table a number comes from, or why there is none. */
+.statNote {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .recList {
   position: relative;
   display: grid;

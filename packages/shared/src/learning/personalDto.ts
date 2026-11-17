@@ -46,6 +46,25 @@ export interface PersonalRecommendationsResponse {
     /** Primary points these numbers can still give (only numbers with known
      * scoring rules), null when none is known. */
     readonly potentialPrimaryPoints: number | null;
+    /** The ЕГЭ result gain in TEST points (0–100) by the official table of
+     * the subject's format (`testScoreGain`): «было → станет». `available:
+     * false` with the reason when it cannot be counted — then no number is
+     * shown, and primary points are never shown in its place. */
+    readonly potentialTestPoints:
+      | {
+          readonly available: true;
+          /** The gain in test points: `to − from`. */
+          readonly points: number;
+          /** Estimated test score now and after the recommended numbers improve. */
+          readonly from: number;
+          readonly to: number;
+          readonly approximate: boolean;
+          /** «Тестовый балл · ориентир по шкале ЕГЭ-2026» — always shown with the number. */
+          readonly label: string;
+          /** What the estimate leaves out (Russian: the essay). */
+          readonly note?: string;
+        }
+      | { readonly available: false; readonly reason: string };
     /** Days to the nearest goal: the active plan's remaining days, else the
      * length of a week plan. */
     readonly etaDays: number | null;

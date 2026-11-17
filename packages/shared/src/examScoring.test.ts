@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   EXAM_SCALES,
+  testScoreGain,
+  validateScale,
   buildScoringSnapshot,
   convertPrimaryToTest,
   currentScoringRules,
@@ -105,18 +107,21 @@ describe('variant snapshot and score', () => {
   });
 });
 
-describe('primary → test score conversion', () => {
-  it('has no registered scale yet, so 2027 says the conversion is unavailable — never a proportion', () => {
-    expect(EXAM_SCALES).toHaveLength(0);
+describe('primary → test score conversion (mechanics, stand-in tables)', () => {
+  it('the 33-point project format gets no table (the 2026 one has 32) — never a proportion', () => {
     const snap = buildScoringSnapshot('ege-math-profile-2027', planned2027(ALL_2027))!;
     expect(snap.scaleId).toBeNull();
+    expect(snap.scaleYear).toBeNull();
     const conversion = scoreVariantAttempt(snap, new Map([['t1', { correct: true }]])).conversion;
     expect(conversion.available).toBe(false);
-    if (!conversion.available) expect(conversion.reason).toMatch(/ЕГЭ-2027 ещё не опубликована/);
+    if (!conversion.available)
+      expect(conversion.reason).toMatch(/максимум 33 .* ЕГЭ-2026 рассчитана на 32/);
   });
 
+  // A stand-in table — NOT real values, only the mechanics are tested.
   const fixture: ExamScale = {
     id: 'fixture-2027@approx',
+    subjectId: 'math',
     format: 'ege-math-profile-2027',
     examYear: 2027,
     status: 'approximate',
@@ -125,22 +130,49 @@ describe('primary → test score conversion', () => {
     testByPrimary: Array.from({ length: 34 }, (_, p) => Math.min(100, p * 4)),
   };
 
-  it('uses the scale frozen into the attempt; a scale added later never re-scores old attempts', () => {
+  it('uses the table frozen into the attempt; a table added later never re-scores old attempts', () => {
     const before = buildScoringSnapshot('ege-math-profile-2027', planned2027(ALL_2027))!;
-    // An attempt that started with the fixture scale in force:
-    const withScale = { ...before, scaleId: fixture.id };
+    // An attempt that started with the fixture table in force:
+    const withScale = { ...before, scaleId: fixture.id, scaleYear: 2027 };
     const ok = scoreVariantAttempt(withScale, new Map([['t19', { correct: true }]]), [fixture]);
     expect(ok.conversion).toMatchObject({ available: true, testScore: 16, status: 'approximate' });
-    // The older attempt (no scale at its start) stays unconverted.
-    expect(scoreVariantAttempt(before, new Map(), [fixture]).conversion.available).toBe(false);
+    // The older attempt (no table at its start) stays unconverted.
+    const old = scoreVariantAttempt(before, new Map(), [fixture]).conversion;
+    expect(old.available).toBe(false);
+    if (!old.available) expect(old.reason).toMatch(/добавленной позже/);
   });
 
-  it('clamps out-of-range primary points to the table', () => {
-    expect(convertPrimaryToTest(99, fixture.id, fixture.format, [fixture])).toMatchObject({
-      testScore: 100,
+  it('refuses out-of-range and fractional primary points instead of clamping or rounding', () => {
+    for (const p of [34, 99, -1, 2.4, Number.NaN]) {
+      const c = convertPrimaryToTest(p, fixture.id, fixture.format, [fixture]);
+      expect(c.available).toBe(false);
+      if (!c.available) expect(c.reason).toMatch(/некорректен: ожидается целое число от 0 до 33/);
+    }
+  });
+
+  it('a gain is counted in test points by one table, and only with a table', () => {
+    expect(testScoreGain(fixture.format, 10, 5, [fixture])).toMatchObject({
+      available: true,
+      gain: 20,
+      from: 40,
+      to: 60,
+      status: 'approximate',
     });
-    expect(convertPrimaryToTest(-3, fixture.id, fixture.format, [fixture])).toMatchObject({
-      testScore: 0,
-    });
+    // At the top extra primary points add nothing; past the maximum — no number.
+    expect(testScoreGain(fixture.format, 28, 5, [fixture])).toMatchObject({ gain: 0 });
+    expect(testScoreGain(fixture.format, 30, 5, [fixture]).available).toBe(false);
+    const none = testScoreGain('ege-math-profile-2026', 10, 5, []);
+    expect(none.available).toBe(false);
+    if (!none.available) expect(none.reason).toMatch(/шкала перевода/);
+  });
+
+  it('validates tables: count, range, monotonic, ends, source', () => {
+    for (const scale of EXAM_SCALES) expect(validateScale(scale), scale.id).toEqual([]);
+    expect(validateScale(fixture, 33)).toEqual([]);
+    expect(validateScale(fixture, 32)[0]).toMatch(/33 значений/);
+    expect(validateScale({ ...fixture, testByPrimary: [0, 50, 40, 100] }).join(' ')).toMatch(
+      /убывает/,
+    );
+    expect(validateScale({ ...fixture, testByPrimary: [5, 100] }).join(' ')).toMatch(/0 первичных/);
   });
 });

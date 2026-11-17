@@ -129,6 +129,17 @@ describe('personal recommendations, plans and progress (real content, production
     expect(rec.progress.attempts).toBe(6);
     expect(r.summary.priorityTopics).toBeGreaterThan(0);
     expect(r.summary.potentialPrimaryPoints).toBeGreaterThan(0);
+    // The ЕГЭ gain: test points by the 2026 table, «было → станет», a guide label.
+    const gain = r.summary.potentialTestPoints;
+    expect(gain).toMatchObject({
+      available: true,
+      label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+    });
+    if (gain.available) {
+      expect(gain.points).toBe(gain.to - gain.from);
+      expect(gain.points).toBeGreaterThan(0);
+      expect(gain.to).toBeLessThanOrEqual(100);
+    }
     expect(r.summary.etaBasis).toBe('week_plan');
 
     const advice = (

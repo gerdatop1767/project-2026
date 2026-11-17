@@ -131,6 +131,21 @@ export interface VariantProgressItem {
   /** The same deterministic error-signature codes `GET /me/learning/errors`
    * and the task-number detail view use — never an invented error type. */
   readonly keyErrors: readonly { signature: string; count: number }[];
+  /** ЕГЭ result of the attempt (formats with scoring rules only): primary
+   * points and the test score by the table stored with the attempt, or
+   * null when the variant has no exam format. */
+  readonly examScore?: {
+    readonly primary: number;
+    readonly examMaxTotal: number;
+    readonly testScore: number | null;
+    /** «Тестовый балл · ориентир по шкале ЕГЭ-2026», null without a table. */
+    readonly scaleLabel: string | null;
+    /** The table's exam year, null without one. */
+    readonly scaleYear: number | null;
+    /** Why there is no test score (no table / another primary maximum). */
+    readonly noScaleReason: string | null;
+    readonly preliminary: boolean;
+  } | null;
 }
 
 export interface VariantProgressResponse {

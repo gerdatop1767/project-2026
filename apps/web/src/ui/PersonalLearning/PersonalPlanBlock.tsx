@@ -198,16 +198,31 @@ export function PersonalPlanBlock({
             <Icon name="trend" size={22} />
           </span>
           <span>
-            <span className={styles.statValue}>
-              {summary.potentialPrimaryPoints === null
-                ? '—'
-                : `до +${summary.potentialPrimaryPoints}`}
-            </span>
-            <span className={styles.statLabel}>
-              {summary.potentialPrimaryPoints === null
-                ? 'потенциал появится с данными'
-                : 'первичных баллов по этим темам'}
-            </span>
+            {/* The ЕГЭ gain is shown in TEST points only, with its table;
+                primary points never stand in for it. */}
+            {summary.potentialTestPoints.available ? (
+              <>
+                <span className={styles.statValue}>
+                  {summary.potentialTestPoints.points > 0
+                    ? `${summary.potentialTestPoints.approximate ? '≈ ' : ''}до +${summary.potentialTestPoints.points}`
+                    : '0'}
+                </span>
+                <span className={styles.statLabel}>
+                  тестовых баллов ЕГЭ по этим темам: было {summary.potentialTestPoints.from} →
+                  станет {summary.potentialTestPoints.to}
+                </span>
+                <span className={styles.statNote}>
+                  {summary.potentialTestPoints.label}
+                  {summary.potentialTestPoints.note ? `. ${summary.potentialTestPoints.note}` : ''}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className={styles.statValue}>—</span>
+                <span className={styles.statLabel}>прирост в баллах ЕГЭ не рассчитывается</span>
+                <span className={styles.statNote}>{summary.potentialTestPoints.reason}</span>
+              </>
+            )}
           </span>
         </li>
         <li className={styles.stat}>
