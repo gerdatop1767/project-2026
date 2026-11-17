@@ -61,7 +61,7 @@ def main():
     chk("format_1080x1920", pr["width"] == 1080 and pr["height"] == 1920, f"{pr['width']}x{pr['height']}")
     chk("fps_30_or_60", round(pr["fps"]) in (30, 60), pr["fps"])
     chk("codecs_h264_aac", pr["vcodec"] == "h264" and pr["acodec"] == "aac" and pr["pix"] == "yuv420p", f"{pr['vcodec']}/{pr['acodec']}/{pr['pix']}")
-    dmin, dmax = sb.get("duration_range", [10, 60])
+    dmin, dmax = sb.get("duration_range", [12, 25]); dmax = min(dmax, 25.6)  # owner rule: never longer than 25 s
     chk("duration", dmin <= pr["duration"] <= dmax, round(pr["duration"], 2))
     I, pk = loudness(mp4)
     chk("loudness_-14_LUFS", -15.5 <= I <= -12.5, I); chk("true_peak", pk <= -1.0, pk)

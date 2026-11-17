@@ -24,7 +24,7 @@
 
 ## 5. Доставка в Telegram
 a) `APPROVED`. Перед отправкой допиши в `storyboard.json` объект `"telegram"`:
-- `caption` (≤ 1024 символов): `🦬 <название>` · рубрика · длительность; описание для TikTok и хештеги из `script.md`;
+- `caption` (≤ 1024 символов): `🦬 <название>` · рубрика · длительность; описание для TikTok, хештеги и строки авторов фото из `script.md`;
 - `details` — коротко: идея и почему зайдёт (1–2 строки), источники фактов, QA (WER, lip-sync corr, LUFS).
 
 Затем выполни `python3 zybrilka-content/tools/send_telegram.py <video_dir>`. Видео уходит **файлом** (document).
@@ -39,6 +39,7 @@ b) Сбой на любом шаге: `python3 zybrilka-content/tools/send_teleg
 3. `git push origin chore/add-emil-design-eng-skill`. При сетевой ошибке повтори до 4 раз с паузой. Если на удалённой ветке есть новые коммиты — `git fetch` + `git merge`, без force.
 
 ## Правила
+- Все агенты подчиняются `pipeline/CREATIVE_RULES.md`: ролик 12–25 с, небанальная полезная тема, разнообразие образа, планов, фонов и анимаций, только лицензированные материалы.
 - CTA во всех новых роликах ведёт в Telegram-бота **@Zybrilka_bot**, а не на сайт (ролик 001 — исключение, не трогать).
 - **Ничего не публиковать в TikTok.** Публикует только владелец.
 - Голос и персонаж не менять (`character/voice/VOICE.md`, `character/CHARACTER.md`).

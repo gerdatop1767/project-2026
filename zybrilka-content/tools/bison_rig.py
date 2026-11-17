@@ -73,9 +73,11 @@ def base():
     return arr, weight, xx, yy, lids
 
 
-def render(open_=0.0, width=1.0, blink=0.0, smile_up=0.0):
-    """open_ 0..1 jaw opening; width 0.55..1 (rounded vowels narrower); blink 0..1."""
+def render(open_=0.0, width=1.0, blink=0.0, smile_up=0.0, base_arr=None):
+    """open_ 0..1 jaw opening; width 0.55..1 (rounded vowels narrower); blink 0..1.
+    base_arr: pre-styled base (outfit/expression from bison_looks.styled_base), same geometry as the canon art."""
     arr, weight, xx, yy, lids = base()
+    if base_arr is not None: arr = base_arr
     o = float(np.clip(open_, 0, 1))
     out = arr
     if o > 0.02:
