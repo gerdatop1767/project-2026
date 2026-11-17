@@ -40,8 +40,8 @@
   ],
   "engine": "fish",
   "fish": {
-    "reference_id": "22f1ef912fa04918944a848e3e831d9e",
-    "voice_title": "Молодой Рассказчик (Fish Audio, обезличенный голос) — предварительно",
+    "reference_id": "6ccdfb6b21e14501adc1fbcb44e50082",
+    "voice_title": "Мужской Голос Рассказчика (Fish Audio, обезличенный дикторский голос)",
     "model": "s2.1-pro-free",
     "speed": 1.0
   }

@@ -3,7 +3,7 @@
 
 Needs env (set by the owner in the cloud environment settings, never in git):
   TELEGRAM_STUDIO_BOT_TOKEN  — token of the studio bot from @BotFather
-  TELEGRAM_STUDIO_CHAT_ID    — owner's chat id (find it: python3 send_telegram.py --whoami after sending /start to the bot)
+  TELEGRAM_STUDIO_CHAT_ID    — optional; if empty, the single private chat that pressed Start in the bot is used
 
 python3 send_telegram.py <video_dir>     # sends final/<slug>.mp4 + script summary
 python3 send_telegram.py --whoami        # prints chat ids that wrote to the bot
@@ -43,7 +43,16 @@ def main():
             if m.get("chat", {}).get("type") == "private":
                 print(m["chat"]["id"], m["chat"].get("username"), m["chat"].get("first_name"))
         return
-    if not CHAT: sys.exit("TELEGRAM_STUDIO_CHAT_ID is not set")
+    global CHAT
+    saved = Path(__file__).resolve().parent.parent / "pipeline/telegram_chat_id.txt"
+    if not CHAT and saved.exists():
+        CHAT = saved.read_text().strip()
+    if not CHAT:  # auto-detect: the owner pressed Start in the studio bot (only private chats count)
+        ids = {u["message"]["chat"]["id"] for u in call("getUpdates").get("result", [])
+               if (u.get("message") or {}).get("chat", {}).get("type") == "private"}
+        if len(ids) != 1:
+            sys.exit(f"cannot detect owner chat: {len(ids)} private chats found; open the bot, press Start, or set TELEGRAM_STUDIO_CHAT_ID")
+        CHAT = str(ids.pop()); saved.write_text(CHAT + "\n")  # Telegram keeps updates only 24h — remember the chat
     if "--text" in sys.argv:
         call("sendMessage", {"chat_id": CHAT, "text": sys.argv[sys.argv.index("--text") + 1][:4000]}); print("sent text"); return
     vd = Path(sys.argv[1]); sb = json.loads((vd / "storyboard.json").read_text())
