@@ -18,6 +18,9 @@ CONS = {**{c: (0.0, 0.85) for c in "мбп"}, **{c: (0.12, 0.8) for c in "фв"}
 WEIGHT_V, WEIGHT_C = 1.7, 1.0
 
 
+HALLUCINATION = re.compile(r"редактор субтитров|корректор|субтитры (сделал|создавал)|продолжение следует|спасибо за просмотр", re.I)
+
+
 def norm(w):
     return re.sub(r"[^а-яёa-z0-9]", "", w.lower().replace("ё", "е"))
 
@@ -35,10 +38,15 @@ def load_mono16k(path):
                                         capture_output=True, check=True).stdout, np.float32)
 
 
-def asr_words(path, prompt=""):
-    segs, _ = _model().transcribe(load_mono16k(path), language="ru", word_timestamps=True, initial_prompt=prompt or None)
+def asr_words(path, prompt="", max_s=None):
+    x = load_mono16k(path)
+    if max_s: x = x[: int(max_s * 16000)]  # cut music tail: Whisper hallucinates captions credits on it
+    segs, _ = _model().transcribe(x, language="ru", word_timestamps=True, initial_prompt=prompt or None,
+                                  vad_filter=True, condition_on_previous_text=False)
     out = []
     for s in segs:
+        if HALLUCINATION.search(s.text):  # Whisper's classic invented credits on silence/music
+            continue
         for w in s.words:
             out.append(dict(w=w.word.strip(), s=float(w.start), e=float(w.end)))
     return out

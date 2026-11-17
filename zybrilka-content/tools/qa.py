@@ -4,7 +4,7 @@ Exit 0 = all hard checks pass, 1 = failures (see report). The QA agent must also
 
 python3 qa.py <video_dir>
 """
-import difflib, json, subprocess, sys
+import difflib, json, re, subprocess, sys
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -67,8 +67,12 @@ def main():
     chk("loudness_-14_LUFS", -15.5 <= I <= -12.5, I); chk("true_peak", pk <= -1.0, pk)
 
     # speech vs script (word error rate on normalized words)
-    asr = lipsync.asr_words(mp4, " ".join(l["text"] for l in lines))
-    a = [lipsync.norm(w["w"]) for w in asr]; b = [lipsync.norm(w) for l in lines for w in l["text"].split()]
+    asr = lipsync.asr_words(mp4, " ".join(l["text"] for l in lines), max_s=max(l["end"] for l in lines) + 0.4)
+    # ignore Whisper hallucinations in the music tail (e.g. "Редактор субтитров …"): keep words inside the speech span
+    speech_end = max(l["end"] for l in lines) + 0.6
+    asr = [w for w in asr if w["s"] <= speech_end]
+    tok = lambda txt: re.findall(r"[а-яёa-z0-9]+", txt.lower().replace("ё", "е"))  # «мини-игра» == «мини игра»
+    a = [t for w in asr for t in tok(w["w"])]; b = [t for l in lines for t in tok(l["text"])]
     sm = difflib.SequenceMatcher(None, b, a, autojunk=False)
     errs = sum(max(i2 - i1, j2 - j1) for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag != "equal")
     wer = errs / max(1, len(b))
