@@ -29,8 +29,10 @@ Storyboard schema (all times are word references resolved from audio/words.json)
   "sfx": [{"kind": "whoosh", "at": "@scene:2", "offset": -0.15}]   # extra sounds; items may carry "sfx" too
 }
 Scene extras (see pipeline/CREATIVE_RULES.md):
-  "bison": closeup|full|left|right|big_left|big_right|corner|corner_right|hidden|pose:lying_books|pose:desk_night|pose:thumbs_up
-           (pose:* = official static art as a short cutaway, no lip-sync)
+  "bison": closeup|full|left|right|big_left|big_right|corner|corner_right|hidden
+           | pose:<name> — official art (lying_books, desk_night, thumbs_up) or owner poses from character/poses/library
+             (see poses.json: surprised, jump_joy, thumbs_two, wave …). Static art, no lip-sync: use as 1–3 s reactions.
+             Optional: "pose_x", "pose_y", "pose_width", "pose_motion": breathe|bounce|jump|wave|shake
   "look": {"outfit": navy|blue|red|green|purple|white|black|yellow|pink, "accessory": [glasses|sunglasses|grad_cap|headphones|cap|crown|pencil],
            "expression": neutral|happy|surprised|skeptical|angry|sad, "tilt": -3..3, "tilt_wobble": 0..2, "flip": bool}
            (top-level "look" = default for all scenes)
@@ -68,10 +70,17 @@ POSES = {"lying_books": ("apps/web/public/branding/v3/landing-mascot.webp", 1000
          "thumbs_up": ("apps/web/public/branding/v3/support-bison.webp", 860, (540, 860))}
 
 
+POSE_MOTION = {}
+
+
 def _library_poses():
-    """Owner-made poses: character/poses/library/<name>.png -> "pose:<name>" (transparent PNG, any size)."""
-    for f in sorted((S.ROOT / "character/poses/library").glob("*.png")):
-        POSES.setdefault(f.stem, (str(f.relative_to(S.REPO)), 900, (540, 880)))
+    """Owner-made poses: character/poses/library/<name>.png -> "pose:<name>" (transparent PNG, any size).
+    poses.json gives each pose a motion: breathe|bounce|jump|wave|shake."""
+    lib = S.ROOT / "character/poses/library"
+    meta = json.loads((lib / "poses.json").read_text()) if (lib / "poses.json").exists() else {}
+    for f in sorted(lib.glob("*.png")):
+        POSES.setdefault(f.stem, (str(f.relative_to(S.REPO)), 860, (540, 860)))
+        POSE_MOTION[f.stem] = (meta.get(f.stem) or {}).get("motion", "breathe")
 
 
 _library_poses()
@@ -293,13 +302,27 @@ class Video:
         return c
 
     def draw_pose(self, c, s, lt):
-        path, width, (x, y) = POSES[s["bison"][5:]]
-        im = self.asset({"type": "image", "path": path, "width": width})
+        name = s["bison"][5:]; path, width, (x, y) = POSES[name]
+        im = self.asset({"type": "image", "path": path, "width": s.get("pose_width", width)})
         look = s.get("look") or {}
         if look.get("flip"): im = im.transpose(Image.FLIP_LEFT_RIGHT)
-        dur = max(1.0, self._scene_dur(s))
-        z = 1.0 + 0.06 * prog(lt, 0, dur); a = min(1.0, prog(lt, 0, 0.2))
-        paste_center(c, im, x, y + 20 * (1 - ease_out(prog(lt, 0, 0.4))), z, a)
+        x, y = s.get("pose_x", x), s.get("pose_y", y)
+        t = s["start"] + lt; k = min(int(t * FPS), len(self.energy) - 1)
+        e = float(self.energy[k]) if k >= 0 else 0.0
+        motion = s.get("pose_motion", POSE_MOTION.get(name, "breathe"))
+        enter = ease_out(prog(lt, 0, 0.3)); a = min(1.0, prog(lt, 0, 0.15))
+        sx = sy = 1.0 + 0.01 * math.sin(t * 2.2); rot = 0.0; dy = 40 * (1 - enter)
+        if motion == "bounce":  # talks along: squash & stretch with speech energy
+            sy *= 1 + 0.035 * e; sx *= 1 - 0.02 * e; dy -= 14 * e
+        elif motion == "jump":
+            ph = (lt * 1.6) % 1.0; dy -= 120 * abs(math.sin(math.pi * ph)); sy *= 1 + 0.04 * math.sin(math.pi * ph)
+        elif motion == "wave":
+            rot = 3.0 * math.sin(lt * 5.0); dy -= 6 * e
+        elif motion == "shake":
+            rot = 2.0 * math.sin(lt * 38) * max(0.0, 1 - lt / 0.6); sx *= 1 + 0.04 * (1 - enter)
+        sc = 0.85 + 0.15 * back_out(prog(lt, 0, 0.3))
+        im2 = im.resize((max(1, int(im.width * sx * sc)), max(1, int(im.height * sy * sc))), Image.BICUBIC)
+        paste_center(c, im2, x, y + dy - (im2.height - im.height * sc) / 2, 1.0, a, rot)
 
     def _device_state(self, dev, t):
         """Current screen entry of a phone/laptop block and its scroll position at time t."""
