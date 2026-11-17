@@ -61,7 +61,7 @@ COLORS = {"white": S.WHITE, "yellow": S.YELLOW, "red": S.RED, "blue": S.BLUE2, "
 BADGE = {"blue": ((53, 152, 243), (79, 174, 250)), "dark": (20, 28, 64), "green": ((40, 170, 120), (64, 214, 140)), "red": ((220, 50, 80), (255, 76, 106))}
 FACE = np.array([560, 450]); RIG = np.array([1120, 1344])
 LAYOUT = {"closeup": (540, 760, 1.12), "full": (540, 905, 0.76), "left": (330, 930, 0.64), "right": (750, 930, 0.64),
-          "big_left": (380, 800, 0.95), "big_right": (700, 800, 0.95), "corner": (205, 1170, 0.5), "corner_right": (800, 1170, 0.5),
+          "big_left": (380, 800, 0.95), "big_right": (700, 800, 0.95), "corner": (250, 1060, 0.7), "corner_right": (790, 1060, 0.7),
           "hidden": (205, 2600, 0.5)}
 
 
@@ -79,7 +79,7 @@ def _library_poses():
     lib = S.ROOT / "character/poses/library"
     meta = json.loads((lib / "poses.json").read_text()) if (lib / "poses.json").exists() else {}
     for f in sorted(lib.glob("*.png")):
-        POSES.setdefault(f.stem, (str(f.relative_to(S.REPO)), 860, (540, 860)))
+        POSES.setdefault(f.stem, (str(f.relative_to(S.REPO)), 980, (540, 840)))
         POSE_MOTION[f.stem] = (meta.get(f.stem) or {}).get("motion", "breathe")
 
 
