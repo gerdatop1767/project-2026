@@ -73,6 +73,8 @@ describe('exam editions: ЕГЭ-2026, current ЕГЭ-2027, the 2027 project (old
       'ege-math-profile-2026': 'ege-2026',
       // The 20-task rules score the Ященко-2027 book (the August project).
       'ege-math-profile-2027': 'ege-2027-project',
+      'ege-russian-2026': 'ege-2026',
+      'ege-russian-2027': 'ege-2027',
     };
     for (const rules of EXAM_SCORING_RULES) {
       const edition = editionOf[rules.format]!;

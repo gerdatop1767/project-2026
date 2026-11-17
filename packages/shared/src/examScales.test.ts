@@ -11,6 +11,7 @@ import {
   scaleForFormat,
   scaleLabel,
   scaleShortLabel,
+  scoreTask,
   scoreVariantAttempt,
   testScoreGain,
   validateScale,
@@ -223,5 +224,68 @@ describe('table stored with each attempt', () => {
       examYear: LEGACY_SCALE_MAX_YEAR,
       scaleId: MATH.id,
     });
+  });
+});
+
+describe('Russian primary score (FIPI specifications 2026/2027)', () => {
+  it('27 tasks, 50 points: 1 point each, №8 and №22 — 2, essay — 22, in both years', () => {
+    for (const format of ['ege-russian-2026', 'ege-russian-2027'] as const) {
+      const rules = currentScoringRules(format)!;
+      expect(rules).toMatchObject({ subjectId: 'russian', status: 'official', partOneLast: 26 });
+      expect(maxPrimaryTotal(rules)).toBe(50);
+      expect(Object.keys(rules.tasks).map(Number)).toEqual(range(1, 27));
+      expect(rules.tasks[8]).toMatchObject({ max: 2, kind: 'positions' });
+      expect(rules.tasks[22]).toMatchObject({ max: 2, kind: 'positions' });
+      expect(rules.tasks[27]).toMatchObject({ max: 22, kind: 'expert' });
+      const ones = range(1, 26).filter((n) => n !== 8 && n !== 22);
+      expect(ones.every((n) => rules.tasks[n]!.max === 1 && rules.tasks[n]!.kind === 'exact')).toBe(
+        true,
+      );
+      // Part 1 = 28, the essay = 22 (specification, table 2).
+      const part1 = range(1, 26).reduce((a, n) => a + rules.tasks[n]!.max, 0);
+      expect(part1).toBe(28);
+    }
+  });
+
+  it('№8/№22: all positions — 2, one or two wrong — 1, more — 0', () => {
+    const rule = currentScoringRules('ege-russian-2027')!.tasks[8]!;
+    const parts = (wrong: number): FirstAnswer => ({
+      correct: wrong === 0,
+      correctParts: Object.fromEntries(['a', 'b', 'v', 'g', 'd'].map((id, i) => [id, i >= wrong])),
+    });
+    expect([0, 1, 2, 3, 5].map((w) => scoreTask(rule, parts(w)))).toEqual([2, 1, 1, 0, 0]);
+    expect(scoreTask(rule, { correct: false })).toBe(0);
+    expect(scoreTask(rule, undefined)).toBe(0);
+  });
+
+  it('the essay is never scored and is reported as not graded; the test score is without it', () => {
+    const snap = buildScoringSnapshot('ege-russian-2027', planned(range(1, 27)))!;
+    expect(snap).toMatchObject({ examMaxTotal: 50, scaleId: RU.id, scaleYear: 2026 });
+    const all = new Map<string, FirstAnswer>(range(1, 27).map((n) => [`t${n}`, { correct: true }]));
+    const score = scoreVariantAttempt(snap, all);
+    expect(score.primary).toBe(28);
+    expect(score.notGradedMax).toBe(22);
+    expect(score.tasks.find((t) => t.taskNumber === 27)).toMatchObject({
+      status: 'not_graded',
+      awarded: 0,
+      estimated: false,
+    });
+    expect(score.conversion).toMatchObject({
+      available: true,
+      testScore: 55,
+      label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+    });
+  });
+
+  it('ЕГЭ-2027 Russian is converted by the 2026 table (same 50-point maximum), as a guide', () => {
+    expect(scaleForFormat('ege-russian-2027')).toMatchObject({
+      basis: 'reference-year',
+      scale: { id: RU.id },
+    });
+    expect(convertPrimaryToTest(30, null, 'ege-russian-2027')).toMatchObject({
+      testScore: 58,
+      examYear: 2026,
+    });
+    expect(testScoreGain('ege-russian-2027', 20, 5)).toMatchObject({ from: 43, to: 51, gain: 8 });
   });
 });

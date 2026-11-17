@@ -50,18 +50,23 @@ function priorityLevel(p: number): 'high' | 'medium' | 'low' {
 /**
  * The exam format a subject's plan is counted by: the format of ЕГЭ-2027.
  * Math: the final 2027 specification keeps the 2026 format (19 tasks,
- * 32 points), so its rules and table are used.
+ * 32 points). Russian: the 2027 specification (27 tasks, 50 points).
  */
 const PLAN_FORMAT: Readonly<Record<string, string>> = {
   math: 'ege-math-profile-2026',
+  russian: 'ege-russian-2027',
 };
 
-/** Primary points a number gives at most; null for a number with no known rule. */
+const ESSAY_GAIN_NOTE =
+  'Без сочинения (№27, до 22 первичных баллов): его оценивают эксперты, приложение его не проверяет.';
+
+/** Primary points a number gives at most; null for a number with no known
+ * rule, or one only experts grade (the essay — the app cannot measure it). */
 function maxPrimaryPoints(subjectId: string, examNumber: number | null): number | null {
   const format = PLAN_FORMAT[subjectId];
   if (!format || examNumber === null) return null;
   const rule = currentScoringRules(format)?.tasks[examNumber];
-  return rule ? rule.max : null;
+  return rule && rule.kind !== 'expert' ? rule.max : null;
 }
 
 /**
@@ -87,6 +92,7 @@ function planTestGain(
   }
   let current = 0;
   for (const [n, rule] of Object.entries(rules.tasks)) {
+    if (rule.kind === 'expert') continue;
     current += rule.max * (masteryOf(Number(n)) / 100);
   }
   let potential = 0;
@@ -106,6 +112,9 @@ function planTestGain(
         to: gain.to,
         approximate: gain.status !== 'official',
         label: gain.label,
+        ...(Object.values(rules.tasks).some((r) => r.kind === 'expert')
+          ? { note: ESSAY_GAIN_NOTE }
+          : {}),
       }
     : { available: false, reason: gain.reason };
 }

@@ -144,6 +144,8 @@ export interface VariantProgressItem {
     readonly scaleYear: number | null;
     /** Why there is no test score (no table / another primary maximum). */
     readonly noScaleReason: string | null;
+    /** Points only experts grade (the essay) — not in `primary`. */
+    readonly notGradedMax: number;
     readonly preliminary: boolean;
   } | null;
 }

@@ -100,6 +100,60 @@ describe('personal recommendations, plans and progress (real content, production
     }
   }
 
+  it('each subject has its own recommendations, plan and ЕГЭ gain — never mixed', async () => {
+    const { cookie } = await student();
+    await slipOnNumber6(cookie);
+    // Russian: wrong answers on several №9–№12 tasks.
+    const ru = await testDb.db
+      .select()
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.subjectId, 'russian'),
+          eq(schema.tasks.status, 'published'),
+          eq(schema.tasks.answerType, 'short_answer'),
+        ),
+      );
+    const ruWrong = ru.filter((t) => t.taskNumber >= 9 && t.taskNumber <= 12).slice(0, 12);
+    for (const t of ruWrong) expect((await answer(cookie, t, 'xx')).statusCode).toBe(200);
+
+    const plan = async (subjectId: 'math' | 'russian') => {
+      const recs = (
+        await call(cookie, 'GET', `/me/learning/personal?subject=${subjectId}`)
+      ).json() as PersonalRecommendationsResponse;
+      const made = await call(cookie, 'POST', '/me/learning/plans', { subjectId, kind: 'week' });
+      expect([200, 201, 409]).toContain(made.statusCode);
+      return recs;
+    };
+    const m = await plan('math');
+    const r = await plan('russian');
+    expect(m.recommendations.every((x) => x.subjectId === 'math')).toBe(true);
+    expect(r.recommendations.every((x) => x.subjectId === 'russian')).toBe(true);
+    const mathPlan = (
+      await call(cookie, 'GET', '/me/learning/plans/current?subject=math')
+    ).json() as { plan: PlanResponse | null };
+    const ruPlan = (
+      await call(cookie, 'GET', '/me/learning/plans/current?subject=russian')
+    ).json() as { plan: PlanResponse | null };
+    if (mathPlan.plan && ruPlan.plan) {
+      expect(mathPlan.plan.id).not.toBe(ruPlan.plan.id);
+      expect(mathPlan.plan.focus.every((f) => f.skillKey.startsWith('math.'))).toBe(true);
+      expect(ruPlan.plan.focus.every((f) => f.skillKey.startsWith('russian.'))).toBe(true);
+    }
+    // Russian gain: test points by the 2026 table, without the essay.
+    expect(r.summary.potentialTestPoints).toMatchObject({
+      available: true,
+      label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+      note: expect.stringMatching(/Без сочинения/),
+    });
+    expect(m.summary.potentialTestPoints).toMatchObject({ available: true });
+    expect(m.summary.potentialTestPoints).not.toHaveProperty('note');
+    // An unsupported subject is refused.
+    expect((await call(cookie, 'GET', '/me/learning/personal?subject=history')).statusCode).toBe(
+      400,
+    );
+  });
+
   it('a guest gets 401 everywhere', async () => {
     for (const url of [
       '/me/learning/personal',

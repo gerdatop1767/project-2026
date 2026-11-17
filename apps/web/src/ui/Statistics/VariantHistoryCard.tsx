@@ -66,6 +66,9 @@ export function VariantHistoryCard({ item }: VariantHistoryCardProps) {
               <span className="text-secondary"> · тестовый балл не считается</span>
             </>
           )}
+          {item.examScore.notGradedMax > 0 && (
+            <span className="text-secondary"> · без сочинения</span>
+          )}
           {item.examScore.preliminary && <span className="text-secondary"> · предварительно</span>}
         </p>
       )}

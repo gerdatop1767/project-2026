@@ -40,6 +40,7 @@ describe('VariantHistoryCard — баллы ЕГЭ', () => {
         scaleLabel: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
         scaleYear: 2026,
         noScaleReason: null,
+        notGradedMax: 0,
         preliminary: false,
       },
     });
@@ -58,6 +59,7 @@ describe('VariantHistoryCard — баллы ЕГЭ', () => {
         scaleLabel: null,
         scaleYear: null,
         noScaleReason: 'Растягивать шкалу нельзя',
+        notGradedMax: 0,
         preliminary: true,
       },
     });
@@ -66,6 +68,26 @@ describe('VariantHistoryCard — баллы ЕГЭ', () => {
     expect(line).toHaveTextContent('предварительно');
     expect(line).toHaveAttribute('title', 'Растягивать шкалу нельзя');
     expect(screen.queryByText(/тестовых баллов/)).not.toBeInTheDocument();
+  });
+
+  it('Russian: the result says the essay is not in it', () => {
+    renderCard({
+      ...base,
+      subjectId: 'russian',
+      examScore: {
+        primary: 24,
+        examMaxTotal: 50,
+        testScore: 49,
+        scaleLabel: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+        scaleYear: 2026,
+        noScaleReason: null,
+        notGradedMax: 22,
+        preliminary: false,
+      },
+    });
+    expect(screen.getByText(/тестовых баллов/).closest('p')!).toHaveTextContent(
+      '49 тестовых баллов · ориентир по шкале ЕГЭ-2026 · 24 из 50 первичных · без сочинения',
+    );
   });
 
   it('a variant without an exam format shows no ЕГЭ line', () => {

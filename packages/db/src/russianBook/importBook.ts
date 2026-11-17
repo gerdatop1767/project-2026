@@ -34,6 +34,8 @@ export interface RussianBookConfig {
   variantCount: number;
   /** Tasks per variant, numbered 1…N (26 without the essay, 27 with it). */
   tasksPerVariant: number;
+  /** Exam scoring format of the book's variants (packages/shared examScoring). */
+  examFormat: 'ege-russian-2026' | 'ege-russian-2027';
 }
 
 const SUBJECT_ID = 'russian';
@@ -379,10 +381,16 @@ export async function importRussianBook(
         publisher: config.publisher,
         year: config.year,
         status: 'published',
+        examFormat: config.examFormat,
       })
       .onConflictDoUpdate({
         target: schema.collections.slug,
-        set: { title: config.collectionTitle, publisher: config.publisher, year: config.year },
+        set: {
+          title: config.collectionTitle,
+          publisher: config.publisher,
+          year: config.year,
+          examFormat: config.examFormat,
+        },
       })
       .returning();
 

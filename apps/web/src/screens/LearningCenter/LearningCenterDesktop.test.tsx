@@ -87,7 +87,11 @@ describe('LearningCenterDesktop', () => {
       expect(screen.getByText('Вычислительные ошибки.')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Начать: Уравнения/ })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Все рекомендации' })).toBeInTheDocument();
-      expect(String(fetchMock.mock.calls[0]![0])).toContain('/me/learning/personal?limit=3');
+      // Always one subject (the remembered choice, math by default) — never mixed.
+      expect(String(fetchMock.mock.calls[0]![0])).toContain(
+        '/me/learning/personal?subject=math&limit=3',
+      );
+      expect(screen.getByRole('tablist', { name: 'Предмет плана' })).toBeInTheDocument();
       expect(screen.queryByText('Рекомендации появятся позже')).not.toBeInTheDocument();
     } finally {
       vi.unstubAllGlobals();

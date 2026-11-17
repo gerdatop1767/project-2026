@@ -639,3 +639,10 @@
   justify-content: space-between;
   gap: var(--space-3);
 }
+
+/* The plan's subject switch: full width under the title, so both
+   subjects stay readable from 320 px. */
+.subjectSwitch {
+  margin-top: var(--space-2);
+  width: 100%;
+}

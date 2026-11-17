@@ -934,10 +934,17 @@ export async function importRussianVariant9(db: Database) {
       publisher: COLLECTION_PUBLISHER,
       year: SOURCE_YEAR,
       status: 'published',
+      // Scored by the ЕГЭ-2027 Russian rules (packages/shared examScoring).
+      examFormat: 'ege-russian-2027',
     })
     .onConflictDoUpdate({
       target: schema.collections.slug,
-      set: { title: COLLECTION_TITLE, publisher: COLLECTION_PUBLISHER, year: SOURCE_YEAR },
+      set: {
+        title: COLLECTION_TITLE,
+        publisher: COLLECTION_PUBLISHER,
+        year: SOURCE_YEAR,
+        examFormat: 'ege-russian-2027',
+      },
     })
     .returning();
 

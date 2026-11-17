@@ -7,6 +7,8 @@ import { useNavigation } from '../../lib/navigation.js';
 import { Button } from '../Button/Button.js';
 import { Icon } from '../Icon/Icon.js';
 import { Skeleton } from '../Skeleton/Skeleton.js';
+import { Tabs } from '../Tabs/Tabs.js';
+import { PLAN_SUBJECTS, isPlanSubject, usePlanSubject } from './planSubject.js';
 import { SUBJECT_NAMES, daysWord, skillIcon, tasksWord, useStartSkillTraining } from './shared.js';
 import styles from './PersonalLearning.module.css';
 
@@ -128,9 +130,13 @@ function RecommendationCard({
  * numbers, then the recommendations — each with the diagnosed problem, its
  * priority and progress, «Начать» and «Подробнее». Everything comes from the
  * server; an empty or failed load says so.
+ *
+ * Always ONE subject: the `subjectId` given by the screen, or else the
+ * student's choice in the block's own switcher (remembered across screens,
+ * `usePlanSubject`). Numbers of two subjects are never mixed.
  */
 export function PersonalPlanBlock({
-  subjectId,
+  subjectId: fixedSubject,
   limit = 4,
   showAllLink = false,
 }: {
@@ -139,6 +145,8 @@ export function PersonalPlanBlock({
   showAllLink?: boolean;
 }) {
   const { navigate } = useNavigation();
+  const [chosen, choose] = usePlanSubject();
+  const subjectId = fixedSubject ?? chosen;
   const { user, state, retry } = usePersonalRecommendations(subjectId, limit);
   const { start, starting, failed } = useStartSkillTraining();
 
@@ -156,6 +164,15 @@ export function PersonalPlanBlock({
     <header className={styles.blockHead}>
       <h2 className={styles.blockTitle}>Твой персональный план</h2>
       <p className={styles.blockLead}>Составлен по твоим ответам — без догадок</p>
+      {!fixedSubject && (
+        <Tabs
+          aria-label="Предмет плана"
+          className={styles.subjectSwitch}
+          items={PLAN_SUBJECTS}
+          activeId={subjectId}
+          onChange={(id) => isPlanSubject(id) && choose(id)}
+        />
+      )}
     </header>
   );
   if (user === undefined || state.status === 'loading') {
@@ -179,7 +196,7 @@ export function PersonalPlanBlock({
     );
   }
   const { summary, recommendations } = state.data;
-  const planSubject = summary.activePlan?.subjectId ?? recommendations[0]?.subjectId ?? 'math';
+  const planSubject = subjectId;
   return (
     <section className={styles.block} aria-label="Персональный план">
       {header}
@@ -313,9 +330,7 @@ export function PersonalPlanBlock({
         {showAllLink && (
           <Button
             variant="ghost"
-            onClick={() =>
-              navigate({ screen: 'recommendations', ...(subjectId ? { subjectId } : {}) })
-            }
+            onClick={() => navigate({ screen: 'recommendations', subjectId })}
           >
             Все рекомендации
           </Button>
@@ -331,7 +346,8 @@ export function PersonalPlanBlock({
  */
 export function HomeRecommendations() {
   const { navigate } = useNavigation();
-  const { user, state } = usePersonalRecommendations(undefined, 2);
+  const [subjectId] = usePlanSubject();
+  const { user, state } = usePersonalRecommendations(subjectId, 2);
   const { start, starting } = useStartSkillTraining();
   if (!user) return null;
   return (
@@ -341,7 +357,7 @@ export function HomeRecommendations() {
         <button
           type="button"
           className={styles.homeLink}
-          onClick={() => navigate({ screen: 'recommendations' })}
+          onClick={() => navigate({ screen: 'recommendations', subjectId })}
         >
           Все рекомендации <Icon name="chevronRight" size={16} />
         </button>

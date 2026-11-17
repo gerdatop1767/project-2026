@@ -36,8 +36,13 @@ export type ExamFormatId =
  * - `abc`: a/б/в multi-part task (number theory): each correct part
  *   earns its weight (`partPoints`, by part id), as the official
  *   criteria count «results»; the sum never exceeds `max`. An estimate.
+ * - `positions`: an answer of several positions (Russian №8, №22) — the
+ *   FIPI rule: `max` when every position is right, `max − 1` when one or
+ *   two positions are wrong, else 0. Exact, not an estimate.
+ * - `expert`: graded only by experts (the essay, Russian №27) — the app
+ *   never awards points for it; shown as «не оценивается».
  */
-export type TaskScoringKind = 'exact' | 'answer' | 'abc';
+export type TaskScoringKind = 'exact' | 'answer' | 'abc' | 'positions' | 'expert';
 
 export interface TaskScoringRule {
   readonly max: number;
@@ -80,6 +85,40 @@ function partOne(count: number): Record<number, TaskScoringRule> {
   const out: Record<number, TaskScoringRule> = {};
   for (let n = 1; n <= count; n++) out[n] = { max: 1, kind: 'exact' };
   return out;
+}
+
+const POSITIONS_NOTE =
+  'По правилу ФИПИ: все позиции верны — 2 балла, ошибка в одной или двух позициях — 1 балл, иначе 0.';
+const ESSAY_NOTE =
+  'Сочинение проверяют эксперты по критериям К1–К10 (до 22 баллов). Приложение его не оценивает: эти баллы не входят в посчитанный результат.';
+
+const RUSSIAN_SPEC_2026 =
+  'Спецификация КИМ ЕГЭ 2026 по русскому языку (ФИПИ, архив ru_11_2026.zip, sha256 8d4d4d19…2c716f), раздел 9: 27 заданий, максимум 50 первичных баллов — задания 1–7, 9–21, 23–26 по 1 баллу, 8 и 22 — по 2 балла (1 балл при ошибке в одной-двух позициях), 27 (сочинение) — 22 балла.';
+const RUSSIAN_SPEC_2027 =
+  'Спецификация КИМ ЕГЭ 2027 по русскому языку (ФИПИ, архив ru_11_2027.zip от 13.11.2026, sha256 6070bfd7…3e2e68), раздел 9: 27 заданий, максимум 50 первичных баллов — задания 1–7, 9–21, 23–26 по 1 баллу, 8 и 22 — по 2 балла (1 балл при ошибке в одной-двух позициях), 27 (сочинение) — 22 балла. Совпадает с 2026 годом.';
+
+/** ЕГЭ по русскому языку (the 2026 and 2027 specifications are identical here). */
+function russianRules(
+  examYear: 2026 | 2027,
+  format: ExamFormatId,
+  source: string,
+): ExamScoringRules {
+  const tasks: Record<number, TaskScoringRule> = partOne(26);
+  tasks[8] = { max: 2, kind: 'positions', note: POSITIONS_NOTE };
+  tasks[22] = { max: 2, kind: 'positions', note: POSITIONS_NOTE };
+  tasks[27] = { max: 22, kind: 'expert', note: ESSAY_NOTE };
+  return {
+    id: `${format}@v1`,
+    format,
+    subjectId: 'russian',
+    examYear,
+    title: `ЕГЭ ${examYear}, русский язык`,
+    status: 'official',
+    source,
+    checkedAt: '2026-11-17',
+    partOneLast: 26,
+    tasks,
+  };
 }
 
 export const EXAM_SCORING_RULES: readonly ExamScoringRules[] = [
@@ -127,6 +166,8 @@ export const EXAM_SCORING_RULES: readonly ExamScoringRules[] = [
       20: { max: 4, kind: 'abc', partPoints: { a: 1, b: 1, c: 2 }, note: ABC_NOTE },
     },
   },
+  russianRules(2026, 'ege-russian-2026', RUSSIAN_SPEC_2026),
+  russianRules(2027, 'ege-russian-2027', RUSSIAN_SPEC_2027),
 ];
 
 /** The rules a new attempt of this format uses (the latest version). */
@@ -540,7 +581,8 @@ export interface FirstAnswer {
   readonly correctParts?: Readonly<Record<string, boolean>>;
 }
 
-export type TaskScoreStatus = 'full' | 'partial' | 'zero' | 'unanswered';
+/** `not_graded`: graded only by experts (the essay) — never scored here. */
+export type TaskScoreStatus = 'full' | 'partial' | 'zero' | 'unanswered' | 'not_graded';
 
 export interface TaskScore {
   readonly taskId: string;
@@ -564,6 +606,9 @@ export interface VariantScore {
   readonly partOne: { readonly awarded: number; readonly max: number };
   readonly partTwo: { readonly awarded: number; readonly max: number };
   readonly unavailableTaskNumbers: readonly number[];
+  /** Points of tasks only experts grade (the essay): part of the maximum,
+   * never part of `primary`. 0 when there are none. */
+  readonly notGradedMax: number;
   readonly tasks: readonly TaskScore[];
   readonly conversion: ScaleConversion;
 }
@@ -571,6 +616,17 @@ export interface VariantScore {
 export function scoreTask(rule: TaskScoringRule, answer: FirstAnswer | undefined): number {
   if (!answer) return 0;
   switch (rule.kind) {
+    case 'expert':
+      return 0;
+    case 'positions': {
+      if (answer.correct) return rule.max;
+      const parts = answer.correctParts;
+      if (!parts) return 0;
+      const total = Object.keys(parts).length;
+      const wrong = Object.values(parts).filter((ok) => !ok).length;
+      if (wrong === 0 && total > 0) return rule.max;
+      return wrong <= 2 && wrong < total ? Math.max(0, rule.max - 1) : 0;
+    }
     case 'exact':
       return answer.correct ? rule.max : 0;
     case 'answer':
@@ -604,14 +660,17 @@ export function scoreVariantAttempt(
       taskNumber,
       max: rule.max,
       awarded,
-      status: !answer
-        ? 'unanswered'
-        : awarded === rule.max
-          ? 'full'
-          : awarded > 0
-            ? 'partial'
-            : 'zero',
-      estimated: rule.kind !== 'exact',
+      status:
+        rule.kind === 'expert'
+          ? 'not_graded'
+          : !answer
+            ? 'unanswered'
+            : awarded === rule.max
+              ? 'full'
+              : awarded > 0
+                ? 'partial'
+                : 'zero',
+      estimated: rule.kind === 'answer' || rule.kind === 'abc',
       note: rule.note ?? null,
     };
   });
@@ -630,6 +689,7 @@ export function scoreVariantAttempt(
     partOne: { awarded: sum(one, 'awarded'), max: sum(one, 'max') },
     partTwo: { awarded: sum(two, 'awarded'), max: sum(two, 'max') },
     unavailableTaskNumbers: snapshot.unavailableTaskNumbers,
+    notGradedMax: tasks.filter((t) => t.status === 'not_graded').reduce((a, t) => a + t.max, 0),
     tasks,
     conversion: attemptConversion(snapshot, primary, scales),
   };

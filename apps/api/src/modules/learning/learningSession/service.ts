@@ -583,6 +583,7 @@ async function toVariantProgressItem(
           scaleLabel: scoring.conversion.available ? scoring.conversion.label : null,
           scaleYear: scoring.conversion.available ? scoring.conversion.examYear : null,
           noScaleReason: scoring.conversion.available ? null : scoring.conversion.reason,
+          notGradedMax: scoring.notGradedMax,
           preliminary: scoring.preliminary,
         }
       : null,

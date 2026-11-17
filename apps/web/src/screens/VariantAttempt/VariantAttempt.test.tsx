@@ -235,6 +235,57 @@ describe('VariantAttempt — «Баллы ЕГЭ»', () => {
     expect(screen.getByText('Источник шкалы')).toBeInTheDocument();
   });
 
+  it('Russian: the essay is not graded and is said to be left out of the score', async () => {
+    vi.mocked(api.getVariantAttempt).mockResolvedValue(
+      attemptDetail({
+        scoring: attemptScoring({
+          rulesId: 'ege-russian-2027@v1',
+          rulesStatus: 'official',
+          format: 'ege-russian-2027',
+          primary: 24,
+          maxAvailable: 50,
+          examMaxTotal: 50,
+          partOne: { awarded: 24, max: 28 },
+          partTwo: { awarded: 0, max: 22 },
+          unavailableTaskNumbers: [],
+          notGradedMax: 22,
+          tasks: [
+            {
+              taskId: 'task-27',
+              taskNumber: 27,
+              max: 22,
+              awarded: 0,
+              status: 'not_graded',
+              estimated: false,
+              note: null,
+            },
+          ],
+          conversion: {
+            available: true,
+            testScore: 49,
+            scaleId: 'ege-russian-2026@rosobrnadzor-2026-04',
+            status: 'official',
+            source: 'Решения комиссии Рособрнадзора … таблица № 6',
+            updatedAt: '2026-04-17',
+            examYear: 2026,
+            label: 'Тестовый балл · ориентир по шкале ЕГЭ-2026',
+          },
+        }),
+      }),
+    );
+    renderAttempt();
+    const main = (await screen.findByText('тестовых баллов из 100')).parentElement!;
+    expect(main).toHaveTextContent('49 тестовых баллов из 100');
+    expect(
+      screen.getByText('Первичные баллы: 24 из 50 (без сочинения — до 22 баллов).'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Сочинение, не оценивается')).toBeInTheDocument();
+    expect(screen.getByText('— / 22')).toBeInTheDocument();
+    expect(screen.getByText('Не оценивается')).toBeInTheDocument();
+    expect(screen.getByText('— из 22')).toBeInTheDocument();
+    expect(screen.queryByText(/оценена только по ответу/)).not.toBeInTheDocument();
+  });
+
   it('«Разобрать ошибки» opens the first wrong task’s explanation in place', async () => {
     const user = userEvent.setup();
     Element.prototype.scrollIntoView = vi.fn();

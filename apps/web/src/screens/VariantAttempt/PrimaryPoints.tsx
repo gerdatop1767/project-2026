@@ -13,6 +13,7 @@ const statusLabel: Record<TaskScoreStatus, string> = {
   partial: 'Частично',
   zero: 'Неверно',
   unanswered: 'Нет ответа',
+  not_graded: 'Не оценивается',
 };
 
 /**
@@ -32,6 +33,8 @@ export function PrimaryPoints({
   onReviewMistakes: (() => void) | null;
 }) {
   const missing = s.unavailableTaskNumbers;
+  const essay = s.notGradedMax > 0;
+  const estimated = s.tasks.some((t) => t.estimated);
   return (
     <Card className={styles.score} aria-labelledby="points-title">
       <div className={styles.pointsHead}>
@@ -48,7 +51,8 @@ export function PrimaryPoints({
           </p>
           <p className={styles.scaleLabel}>{s.conversion.label}</p>
           <p className="text-body-sm text-secondary">
-            Первичные баллы: {s.primary} из {s.examMaxTotal}.
+            Первичные баллы: {s.primary} из {s.examMaxTotal}
+            {essay ? ` (без сочинения — до ${s.notGradedMax} баллов)` : ''}.
           </p>
         </>
       ) : (
@@ -70,9 +74,11 @@ export function PrimaryPoints({
           </dd>
         </div>
         <div className={styles.stat}>
-          <dt className="text-body-sm text-secondary">Часть 2, по ответу</dt>
+          <dt className="text-body-sm text-secondary">
+            {essay ? 'Сочинение, не оценивается' : 'Часть 2, по ответу'}
+          </dt>
           <dd className={styles.statValue}>
-            {s.partTwo.awarded} / {s.partTwo.max}
+            {essay ? `— / ${s.partTwo.max}` : `${s.partTwo.awarded} / ${s.partTwo.max}`}
           </dd>
         </div>
         <div className={styles.stat}>
@@ -105,6 +111,12 @@ export function PrimaryPoints({
         ) : (
           <li>{s.conversion.reason}</li>
         )}
+        {essay && (
+          <li>
+            Сочинение (до {s.notGradedMax} первичных баллов) проверяют эксперты, приложение его не
+            оценивает: баллы и тестовый балл посчитаны без него.
+          </li>
+        )}
         {s.preliminary && <li>Вариант не завершён — баллы могут измениться.</li>}
         {missing.length > 0 && (
           <li>
@@ -113,16 +125,18 @@ export function PrimaryPoints({
             вариант: доступно {s.maxAvailable} из {s.examMaxTotal} баллов.
           </li>
         )}
-        <li>
-          Часть 2 оценена только по ответу: решение и доказательство здесь не проверяются, поэтому
-          балл за неё ориентировочный — это наши правила, а не официальные критерии.
-          {partTwoRules(s).map((r) => (
-            <span key={r.note} className={styles.pointsRule}>
-              {' '}
-              №{r.numbers.join(', №')}: {r.note}
-            </span>
-          ))}
-        </li>
+        {estimated && (
+          <li>
+            Часть 2 оценена только по ответу: решение и доказательство здесь не проверяются, поэтому
+            балл за неё ориентировочный — это наши правила, а не официальные критерии.
+            {partTwoRules(s).map((r) => (
+              <span key={r.note} className={styles.pointsRule}>
+                {' '}
+                №{r.numbers.join(', №')}: {r.note}
+              </span>
+            ))}
+          </li>
+        )}
         {s.rulesStatus === 'project' && (
           <li>
             Баллы — по проекту КИМ ЕГЭ {s.format.slice(-4)} (ФИПИ, август 2026), по которому
@@ -149,7 +163,7 @@ export function PrimaryPoints({
               <th scope="row">{t.taskNumber}</th>
               <td>{statusLabel[t.status]}</td>
               <td className={styles.breakdownPoints}>
-                {t.awarded} из {t.max}
+                {t.status === 'not_graded' ? `— из ${t.max}` : `${t.awarded} из ${t.max}`}
               </td>
             </tr>
           ))}

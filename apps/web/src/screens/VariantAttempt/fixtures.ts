@@ -111,6 +111,7 @@ export const attemptScoring = (
       note: 'По ответам пунктов: а) — 1 балл, б) — 1 балл, в) — 2 балла.',
     },
   ],
+  notGradedMax: 0,
   conversion: {
     available: false,
     reason:
