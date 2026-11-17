@@ -1,0 +1,59 @@
+{
+ "video": "final/001-what-is-zybrilka.mp4",
+ "checks": {
+  "format_1080x1920": {
+   "ok": true,
+   "value": "1080x1920"
+  },
+  "fps_30_or_60": {
+   "ok": true,
+   "value": 30.0
+  },
+  "codecs_h264_aac": {
+   "ok": true,
+   "value": "h264/aac/yuv420p"
+  },
+  "duration": {
+   "ok": true,
+   "value": 27.93
+  },
+  "loudness_-14_LUFS": {
+   "ok": true,
+   "value": -13.9
+  },
+  "true_peak": {
+   "ok": true,
+   "value": -2.2
+  },
+  "speech_matches_script_WER<=0.12": {
+   "ok": true,
+   "value": {
+    "wer": 0.041,
+    "diffs": [
+     "insert: '' -> ''",
+     "replace: 'миниигра' -> 'мини игра'"
+    ],
+    "asr": "Решаешь ЕГЭ наугад и даже не знаешь, где ошибся? Так себе план. Я — Зубр. А это Зубрилка — бесплатный тренажёр для подготовки к ЕГЭ. Больше трёх тысяч заданий по профильной математике и русскому языку. Решаешь и сразу видишь — верно или нет. Ошибся? Не страшно. Тут же разбор по шагам. Темы, полный вариант на время, мини -игра на ударения и теория. И всё без подписок. Заходи на Зубрилка точка ру и проверь себя прямо сейчас!"
+   }
+  },
+  "lipsync_corr>=0.55": {
+   "ok": false,
+   "value": 0.537
+  },
+  "mouth_smooth_jerk<=0.03": {
+   "ok": false,
+   "value": 0.0556
+  },
+  "mouth_closed_in_silence>=0.9": {
+   "ok": false,
+   "value": 0.784
+  }
+ },
+ "fail": [
+  "lipsync_corr>=0.55",
+  "mouth_smooth_jerk<=0.03",
+  "mouth_closed_in_silence>=0.9"
+ ],
+ "mouth_strip_start": 20.57,
+ "passed": false
+}

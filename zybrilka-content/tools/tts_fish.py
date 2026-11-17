@@ -22,7 +22,7 @@ def synth(text, fish):
     for k in ("temperature", "top_p"):
         if k in fish: body[k] = fish[k]
     req = urllib.request.Request(API, data=json.dumps(body).encode(), method="POST", headers={
-        "Authorization": "Bearer proxy-injected", "Content-Type": "application/json", "model": fish.get("model", "s1")})
+        "Authorization": "Bearer proxy-injected", "Content-Type": "application/json", "model": fish.get("model", "s2.1-pro-free")})
     try:
         with urllib.request.urlopen(req, timeout=180) as r:
             return r.read()
@@ -64,7 +64,12 @@ def main():
                     "loudnorm=I=-14:TP=-1.5:LRA=7", "-ar", "48000", str(out / "voiceover.wav")], check=True)
     (out / "lines.json").write_text(json.dumps({"duration": round(t, 3), "lines": lines, "engine": "fish", "voice": fish},
                                                ensure_ascii=False, indent=1))
-    print(f"voiceover {t:.2f}s, billed chars this run: {chars}")
+    # word timings from the real audio (Whisper + alignment onto the script) for lip-sync, captions, events
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import lipsync
+    words = lipsync.align(lines, lipsync.asr_words(out / "voiceover_raw.wav", " ".join(l["text"] for l in lines)))
+    (out / "words.json").write_text(json.dumps(words, ensure_ascii=False, indent=0))
+    print(f"voiceover {t:.2f}s, {len(words)} words aligned, billed chars this run: {chars}")
 
 
 if __name__ == "__main__":

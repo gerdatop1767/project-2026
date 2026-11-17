@@ -1,0 +1,45 @@
+{
+  "slug": "001-what-is-zybrilka",
+  "music": "zybrilka-theme-a",
+  "keywords": ["егэ", "наугад", "зубр", "зубрилка", "бесплатный", "трёх", "тысяч", "сразу", "разбор", "шагам", "мини-игра", "теория", "подписок", "сейчас", "видишь"],
+  "scenes": [
+    {"lines": ["hook"], "bison": "closeup", "items": [
+      {"type": "text", "text": "ЕГЭ", "size": 120, "x": 400, "y": 250, "at": "ЕГЭ", "at_offset": -0.15, "until": "так", "sfx": "pop"},
+      {"type": "text", "text": "наугад?", "size": 120, "color": "yellow", "x": 520, "y": 385, "at": "наугад", "until": "так"},
+      {"type": "icon", "icon": "cross", "x": 800, "y": 240, "at": "ошибся", "until": "так", "sfx": "buzz"},
+      {"type": "text", "text": "Так себе план", "size": 84, "color": "red", "x": 520, "y": 330, "at": "так", "rot": -4, "shake": true}]},
+    {"lines": ["intro"], "bison": "full", "items": [
+      {"type": "logo", "size": 170, "x": 220, "y": 290, "at": "это@intro", "sfx": "pop"},
+      {"type": "wordmark", "size": 96, "x": 590, "y": 290, "at": "это@intro"},
+      {"type": "text", "text": "тренажёр для подготовки к ЕГЭ", "size": 40, "color": "muted", "weight": 500, "x": 540, "y": 420, "at": "тренажёр"},
+      {"type": "badge", "text": "БЕСПЛАТНО", "size": 50, "x": 540, "y": 520, "at": "бесплатный", "rot": -3, "sfx": "ding"}]},
+    {"lines": ["tasks"], "bison": "corner", "phone": {"screens": [{"screen": "home"}, {"screen": "home_scrolled", "at": "математике"}]}, "items": [
+      {"type": "counter", "to": 3064, "size": 92, "x": 230, "y": 300, "at": "больше"},
+      {"type": "text", "text": "заданий", "size": 44, "color": "muted", "weight": 600, "x": 210, "y": 385, "at": "больше", "at_offset": 0.2},
+      {"type": "badge", "text": "Математика · 678", "size": 34, "style": "dark", "x": 230, "y": 500, "at": "математике", "rot": -2, "sfx": "pop"},
+      {"type": "badge", "text": "Русский · 2 386", "size": 34, "style": "dark", "x": 230, "y": 600, "at": "русскому", "rot": 2, "sfx": "pop"},
+      {"type": "callout", "screen": "home_scrolled", "box": [40, 840, 1130, 1340], "width": 600, "x": 610, "y": 760, "at": "математике", "at_offset": 0.05, "scale": 0.95}]},
+    {"lines": ["check"], "bison": "corner", "phone": {"screens": [{"screen": "t1_condition"}, {"screen": "t2_typed", "at": "сразу"}, {"screen": "t3_checked", "at": "верно"}], "crop": {"t1_condition": 420, "t3_checked": 330}}, "items": [
+      {"type": "icon", "icon": "check", "x": 200, "y": 420, "at": "верно", "until": "нет", "sfx": "ding"},
+      {"type": "icon", "icon": "cross", "x": 200, "y": 420, "at": "нет", "sfx": "buzz"},
+      {"type": "callout", "screen": "t3_checked", "box": [60, 1330, 1110, 2330], "width": 560, "x": 620, "y": 820, "at": "нет", "at_offset": 0.05, "scale": 0.95}]},
+    {"lines": ["explain"], "bison": "corner", "phone": {"screens": [{"screen": "t3_checked"}, {"screen": "t4_solution", "at": "страшно"}], "crop": {"t3_checked": 330}}, "items": [
+      {"type": "callout", "screen": "t4_solution", "box": [40, 360, 1130, 1350], "width": 640, "x": 600, "y": 760, "at": "страшно", "at_offset": 0.1, "scale": 0.95},
+      {"type": "badge", "text": "Разбор по шагам", "size": 40, "style": "green", "x": 540, "y": 420, "at": "разбор", "rot": -3, "sfx": "ding"}]},
+    {"lines": ["modes"], "bison": "corner", "phone": {"screens": [{"screen": "training"}, {"screen": "games", "at": "мини-игра"}, {"screen": "learning", "at": "теория"}]}, "items": [
+      {"type": "badge", "text": "Темы", "size": 38, "style": "dark", "x": 210, "y": 330, "at": "темы", "rot": -2, "sfx": "pop"},
+      {"type": "badge", "text": "Вариант на время", "size": 38, "style": "dark", "x": 250, "y": 430, "at": "полный", "rot": 2, "sfx": "pop"},
+      {"type": "badge", "text": "Ударения", "size": 38, "style": "dark", "x": 210, "y": 530, "at": "мини-игра", "rot": -2, "sfx": "pop"},
+      {"type": "badge", "text": "Теория", "size": 38, "style": "dark", "x": 210, "y": 630, "at": "теория", "rot": 2, "sfx": "pop"},
+      {"type": "callout", "screen": "training", "box": [40, 700, 1130, 1600], "width": 600, "x": 620, "y": 800, "at": "полный", "until": "мини-игра", "until_offset": -0.15, "scale": 0.95},
+      {"type": "callout", "screen": "games", "box": [40, 540, 1130, 1130], "width": 640, "x": 610, "y": 800, "at": "мини-игра", "until": "теория", "until_offset": -0.15, "scale": 0.95},
+      {"type": "callout", "screen": "learning", "box": [40, 690, 1130, 960], "width": 640, "x": 610, "y": 800, "at": "теория", "until": "подписок", "until_offset": -0.4, "scale": 0.95},
+      {"type": "badge", "text": "0 ₽ · без подписок", "size": 46, "x": 560, "y": 820, "at": "всё", "rot": -3, "sfx": "ding"}]},
+    {"lines": ["cta"], "bison": "full", "items": [
+      {"type": "logo", "size": 130, "x": 240, "y": 250, "at": "@scene:6", "at_offset": 0.05},
+      {"type": "wordmark", "size": 82, "x": 600, "y": 250, "at": "@scene:6", "at_offset": 0.1},
+      {"type": "badge", "text": "zybrilka.ru", "size": 72, "x": 540, "y": 430, "at": "заходи", "at_offset": 0.1, "pulse": true, "sfx": "pop"},
+      {"type": "text", "text": "Проверь себя", "size": 64, "x": 540, "y": 560, "at": "проверь"}]}
+  ],
+  "sfx": [{"kind": "riser", "at": "@scene:6", "offset": -1.1}]
+}

@@ -6,3 +6,7 @@ videos/*/audio/voiceover_raw.wav
 __pycache__/
 
 videos/*/audio/fish_cache/*.wav
+# auto-produced videos go to Telegram; everything needed to re-render is committed
+videos/*/final/*.mp4
+!videos/001-what-is-zybrilka/final/*.mp4
+videos/*/qa_log.txt

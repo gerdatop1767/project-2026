@@ -24,11 +24,24 @@ CAVITY = (58, 18, 24)
 TONGUE = (214, 98, 104)
 
 
+def _spline(P, k=24):
+    """Catmull-Rom through the smile points -> smooth lip curve (no visible kinks)."""
+    P = np.r_[P[:1] * 2 - P[1:2], P, P[-1:] * 2 - P[-2:-1]]
+    out = []
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
+        for t in np.linspace(0, 1, k, endpoint=False):
+            out.append(0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3))
+    out.append(P[-2])
+    return np.array(out)
+
+
 def _curve(n=48):
-    """Resample the smile polyline into n points + unit normals (pointing 'down' in head space)."""
-    d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(SMILE, axis=0), axis=1))]
+    """Resample the smoothed smile into n points + unit normals (pointing 'down' in head space)."""
+    C = _spline(SMILE)
+    d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(C, axis=0), axis=1))]
     t = np.linspace(0, d[-1], n)
-    pts = np.c_[np.interp(t, d, SMILE[:, 0]), np.interp(t, d, SMILE[:, 1])]
+    pts = np.c_[np.interp(t, d, C[:, 0]), np.interp(t, d, C[:, 1])]
     tan = np.gradient(pts, axis=0); tan /= np.linalg.norm(tan, axis=1, keepdims=True)
     nrm = np.c_[-tan[:, 1], tan[:, 0]]
     nrm[nrm[:, 1] < 0] *= -1
@@ -69,42 +82,61 @@ def render(open_=0.0, width=1.0, blink=0.0, smile_up=0.0):
         disp = weight * (o * MAX_OPEN)
         out = cv2.remap(arr, xx, yy - disp, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
     img = Image.fromarray(out)
-    d = ImageDraw.Draw(img)
     if o > 0.02:
-        pts, nrm = _curve()
-        n = len(pts)
-        tt = np.linspace(0, 1, n)
-        lo, hi = 0.5 - 0.5 * width * 0.88, 0.5 + 0.5 * width * 0.88
-        sel = (tt >= lo - 0.04) & (tt <= hi + 0.04)
-        p, nm, ts = pts[sel], nrm[sel], (tt[sel] - lo) / (hi - lo)
-        bulge = np.clip(np.sin(np.pi * np.clip(ts, 0, 1)), 0, 1) ** 0.75
-        top = p + nm * (bulge * o * 2.5 * S)[:, None] * -0.25
-        bot = p + nm * (bulge * o * MAX_OPEN * (0.95 + 0.1 * (1 - width)))[:, None]
-        poly = [tuple(v) for v in np.r_[top, bot[::-1]]]
-        layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        ld = ImageDraw.Draw(layer)
-        ld.polygon(poly, fill=CAVITY + (255,))
-        # tongue: lower part of cavity
-        mid = len(p) // 2
-        tc = (p[mid] + nm[mid] * o * MAX_OPEN * 0.78)
-        trx, try_ = (hi - lo) * 0.3 * (pts[-1, 0] - pts[0, 0]), max(2, o * MAX_OPEN * 0.42)
-        tongue = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        ImageDraw.Draw(tongue).ellipse([tc[0] - trx, tc[1] - try_, tc[0] + trx, tc[1] + try_], fill=TONGUE + (255,))
-        mask = Image.new("L", img.size, 0); ImageDraw.Draw(mask).polygon(poly, fill=255)
-        layer.paste(tongue, (0, 0), Image.composite(tongue, Image.new("RGBA", img.size), mask).getchannel("A"))
-        if o > 0.45:  # hint of upper teeth on wide vowels
-            teeth = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            tp = [tuple(v) for v in np.r_[top, (top + nm * (o * 2.6 * S))[::-1]]]
-            ImageDraw.Draw(teeth).polygon(tp, fill=(250, 244, 236, 235))
-            layer.alpha_composite(Image.composite(teeth, Image.new("RGBA", img.size), mask))
-        layer = layer.filter(ImageFilter.GaussianBlur(0.6))
-        img.alpha_composite(layer)
-        d = ImageDraw.Draw(img)
-        d.line([tuple(v) for v in top], fill=LIP, width=int(2.4 * S), joint="curve")
-        d.line([tuple(v) for v in bot], fill=LIP + (200,), width=int(1.6 * S), joint="curve")
+        img.alpha_composite(*_mouth_layer(o, width))
     if blink > 0.05:
         img = _blink(img, blink, lids)
     return img
+
+
+SS = 3  # supersampling factor for the mouth layer (smooth anti-aliased edges)
+
+
+def _mouth_layer(o, width):
+    """Mouth cavity + tongue + teeth + lips drawn at SSx on a local canvas, then downsampled."""
+    pts, nrm = _curve(96)
+    tt = np.linspace(0, 1, len(pts))
+    half = 0.5 * (0.46 + 0.5 * width)            # rounded vowels pull the corners in
+    lo, hi = 0.5 - half, 0.5 + half
+    sel = (tt >= lo) & (tt <= hi)
+    p, nm, ts = pts[sel], nrm[sel], (tt[sel] - lo) / (hi - lo)
+    rnd = 1 - width                               # 0 wide .. 0.6 round
+    prof = np.sin(np.pi * ts) ** (0.85 - 0.45 * rnd)   # rounder (more "O") profile for round vowels
+    depth = o * MAX_OPEN * (0.92 + 0.35 * rnd)
+    top = p - nm * (prof * o * 1.6 * S)[:, None]       # upper lip lifts a little
+    bot = p + nm * (prof * depth)[:, None]
+    x0, y0 = np.floor(np.r_[top, bot].min(0) - 12 * S).astype(int)
+    x1, y1 = np.ceil(np.r_[top, bot].max(0) + 12 * S).astype(int)
+    w, h = (x1 - x0) * SS, (y1 - y0) * SS
+    T = [tuple((v - (x0, y0)) * SS) for v in top]; B = [tuple((v - (x0, y0)) * SS) for v in bot]
+    poly = T + B[::-1]
+    mask = Image.new("L", (w, h), 0); ImageDraw.Draw(mask).polygon(poly, fill=255)
+    # cavity: vertical gradient, darker at the top (shadow under the upper lip)
+    g = np.linspace(0, 1, h)[:, None, None]
+    cav = (np.array((34, 8, 14))[None, None] * (1 - g) + np.array((96, 30, 40))[None, None] * g).repeat(w, 1)
+    lay = Image.fromarray(np.dstack([cav, np.zeros((h, w))]).astype(np.uint8), "RGBA")
+    inner = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(inner)
+    mid = len(p) // 2
+    if o > 0.12:  # tongue rests on the lower lip
+        tc = (bot[mid] - nm[mid] * depth * 0.18 - (x0, y0)) * SS
+        trx = (hi - lo) * 0.26 * (pts[-1, 0] - pts[0, 0]) * SS; tr_y = max(2, depth * 0.38) * SS
+        d.ellipse([tc[0] - trx, tc[1] - tr_y, tc[0] + trx, tc[1] + tr_y], fill=TONGUE + (255,))
+        d.ellipse([tc[0] - trx * 0.5, tc[1] - tr_y * 0.6, tc[0] + trx * 0.5, tc[1] - tr_y * 0.05], fill=(236, 132, 136, 140))
+    if o > 0.3:  # upper teeth strip
+        th = min(o * 3.0 * S, depth * 0.3)
+        tp = T + [tuple((v + nm[i] * th - (x0, y0)) * SS) for i, v in reversed(list(enumerate(top)))]
+        d.polygon(tp, fill=(250, 246, 240, 240))
+    lay.alpha_composite(inner)
+    lay.putalpha(mask)
+    ld = ImageDraw.Draw(lay)
+    ld.line(T, fill=LIP + (255,), width=int(2.2 * S * SS), joint="curve")     # upper lip line (the original smile)
+    ld.line(B, fill=(150, 88, 70, 170), width=int(1.3 * S * SS), joint="curve")  # soft lower lip
+    for c in (T[0], T[-1]):                                                  # rounded corners
+        r = 1.1 * S * SS; ld.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=LIP + (255,))
+    lay = lay.resize((x1 - x0, y1 - y0), Image.LANCZOS)
+    full = Image.new("RGBA", base()[0].shape[1::-1], (0, 0, 0, 0))
+    full.alpha_composite(lay, (int(x0), int(y0)))
+    return (full,)
 
 
 def _blink(img, b, lids):
