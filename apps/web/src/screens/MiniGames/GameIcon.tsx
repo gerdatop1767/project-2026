@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   AudioLines,
   BookOpenText,
+  CaseSensitive,
   Calculator,
   Combine,
   Dices,
@@ -27,14 +28,14 @@ import styles from './GameIcon.module.css';
  * Each mini-game's emblem: a lucide icon chosen for what the game trains
  * (no hand-drawn art), on a soft gradient tile in its topic's colour.
  */
-const ICONS: Record<string, LucideIcon> = {
+export const GAME_ICONS: Record<string, LucideIcon> = {
   stress: AudioLines, // ударение — звучание слова
   'root-vowels': Sprout, // корень
   prefixes: DoorOpen, // приставка — «вход» в слово
   'suffixes-endings': Puzzle, // части слова
   'ne-together': Unlink, // слитно / раздельно
   hyphen: Combine, // слитно, раздельно, через дефис
-  nn: SpellCheck, // Н или НН
+  nn: CaseSensitive, // Н или НН — выбор буквы
   'one-comma': Pilcrow, // одна запятая
   commas: PenLine, // расставить знаки
   'grammar-detective': SearchCheck, // найти ошибку
@@ -69,7 +70,7 @@ export function GameIcon({
   /** Position in the list, to stagger the appearance. */
   index?: number;
 }) {
-  const Icon = ICONS[gameId] ?? Calculator;
+  const Icon = GAME_ICONS[gameId] ?? Calculator;
   const [from, to] = TONES[topic] ?? TONES.orthography!;
   return (
     <span

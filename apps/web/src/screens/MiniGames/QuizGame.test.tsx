@@ -385,3 +385,11 @@ describe('mini-games: speed, empty games, formulas, round size', () => {
     ).toHaveAttribute('aria-checked', 'true');
   });
 });
+
+describe('game emblems', () => {
+  it('every game has its own icon', async () => {
+    const { GAME_ICONS } = await import('./GameIcon.js');
+    expect(Object.keys(GAME_ICONS).sort()).toEqual(MINI_GAMES.map((g) => g.id).sort());
+    expect(new Set(Object.values(GAME_ICONS)).size).toBe(MINI_GAMES.length);
+  });
+});
