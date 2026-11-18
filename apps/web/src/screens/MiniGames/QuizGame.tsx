@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   QUIZ_PERFECT_BONUS,
+  QUIZ_ROUND_SIZE,
   QUIZ_POINTS_PER_CORRECT,
   quizGameById,
   quizRoundScore,
@@ -18,6 +19,9 @@ import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { SlideUp } from '../../ui/motion/motion.js';
+import { AnswerMathText, InlineMathText, MathText } from '../../ui/MathText/MathText.js';
+import { GameIcon } from './GameIcon.js';
+import { RoundSizePicker, useRoundSize } from './RoundSize.js';
 import styles from './QuizGame.module.css';
 
 type Phase =
@@ -29,6 +33,9 @@ type Phase =
   | { kind: 'summary' };
 
 const newId = () => crypto.randomUUID();
+
+/** Round sizes a player can pick (the API allows 5–20). */
+export const QUIZ_SIZES = [5, 10, 15, 20] as const;
 
 /** «А (1) б (2) в» → text pieces and slot numbers. */
 export function splitSlots(text: string): (string | number)[] {
@@ -84,6 +91,7 @@ export function QuizGame({ gameId }: { gameId: string }) {
   const [progress, setProgress] = useState<QuizProgressResponse | null>(null);
   const sessionId = useRef<string | null>(null);
   const answerId = useRef(newId());
+  const [roundSize, setRoundSize] = useRoundSize(gameId, QUIZ_SIZES, QUIZ_ROUND_SIZE);
 
   const loadProgress = useCallback(() => {
     if (isGuest) return;
@@ -116,7 +124,7 @@ export function QuizGame({ gameId }: { gameId: string }) {
     if (mode === 'mistakes' && !requireAccount('gameProgress')) return;
     setPhase({ kind: 'loading' });
     try {
-      const round = await getQuizRound(gameId, mode);
+      const round = await getQuizRound(gameId, mode, roundSize);
       if (round.questions.length === 0) {
         setPhase({ kind: 'empty', mode });
         return;
@@ -167,24 +175,29 @@ export function QuizGame({ gameId }: { gameId: string }) {
   };
 
   const right = results.filter(Boolean).length;
+  /** Math games store formulas as `$…$` (and a little markdown): typeset them. */
+  const math = game.subjectId === 'math';
   const points = results.filter(Boolean).length * QUIZ_POINTS_PER_CORRECT;
 
   return (
     <SlideUp className={styles.page}>
       <BackRow to={{ screen: 'miniGames' }} label="Мини-игры" />
       <header className={styles.head}>
-        <p className={styles.kicker}>
-          {game.subjectId === 'math' ? 'Математика' : 'Русский язык'} · {game.egeTask}
-        </p>
-        <h1 className="text-h1">{game.title}</h1>
+        <GameIcon gameId={game.id} topic={game.topic} size="lg" />
+        <div className={styles.headText}>
+          <p className={styles.kicker}>
+            {game.subjectId === 'math' ? 'Математика' : 'Русский язык'} · {game.egeTask}
+          </p>
+          <h1 className="text-h1">{game.title}</h1>
+        </div>
       </header>
 
       {phase.kind === 'menu' && (
         <Card className={styles.menu}>
           <p className="text-body">{game.description}</p>
           <p className={styles.note}>
-            Раунд — 10 вопросов из настоящих заданий ЕГЭ. Засчитывается первый ответ: 10 очков за
-            верный, +{QUIZ_PERFECT_BONUS} за раунд без ошибок.
+            Вопросы — из настоящих заданий ЕГЭ. Засчитывается первый ответ: 10 очков за верный, +
+            {QUIZ_PERFECT_BONUS} за раунд без ошибок.
           </p>
           {isGuest ? (
             <p className={styles.note}>Войди, чтобы сохранять прогресс и проходить свои ошибки.</p>
@@ -217,6 +230,7 @@ export function QuizGame({ gameId }: { gameId: string }) {
               </section>
             )
           )}
+          <RoundSizePicker choices={QUIZ_SIZES} value={roundSize} onChange={setRoundSize} />
           <div className={styles.actions}>
             <Button onClick={() => void play('all')}>
               <Icon name="play" size={18} /> Играть
@@ -328,6 +342,10 @@ export function QuizGame({ gameId }: { gameId: string }) {
                   ),
                 )}
               </p>
+            ) : math ? (
+              <div className={styles.text}>
+                <MathText text={question.text.replace(/\n(?!\n)/g, '\n\n')} />
+              </div>
             ) : (
               <div className={styles.text}>
                 {showGap(question.text)
@@ -361,7 +379,7 @@ export function QuizGame({ gameId }: { gameId: string }) {
                     disabled={checked !== null || sending}
                     onClick={() => void send(option, option)}
                   >
-                    {option}
+                    {math ? <InlineMathText text={option} /> : option}
                   </button>
                 ))}
               </div>
@@ -425,7 +443,14 @@ export function QuizGame({ gameId }: { gameId: string }) {
               >
                 <p className={styles.verdict}>
                   <Icon name={checked.correct ? 'success' : 'errorCircle'} size={20} />
-                  {checked.correct ? 'Верно!' : `Неверно. Правильно: ${checked.display}`}
+                  {checked.correct ? (
+                    'Верно!'
+                  ) : (
+                    <span>
+                      Неверно. Правильно:{' '}
+                      {math ? <AnswerMathText text={checked.display} /> : checked.display}
+                    </span>
+                  )}
                 </p>
                 {checked.correct && (
                   <p className={styles.points}>+{QUIZ_POINTS_PER_CORRECT} очк.</p>
@@ -442,7 +467,9 @@ export function QuizGame({ gameId }: { gameId: string }) {
                         ? 'Пояснение по ключу (сформировано автоматически)'
                         : 'Разбор из задания'}
                     </summary>
-                    <p>{checked.explanation}</p>
+                    <div className={styles.explanationText}>
+                      <MathText text={checked.explanation} />
+                    </div>
                   </details>
                 ) : (
                   <p className={styles.note}>

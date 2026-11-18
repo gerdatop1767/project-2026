@@ -20,6 +20,8 @@ import { Card } from '../../ui/Card/Card.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { SlideUp } from '../../ui/motion/motion.js';
+import { GameIcon } from './GameIcon.js';
+import { RoundSizePicker, useRoundSize } from './RoundSize.js';
 import {
   currentQuestion,
   isFinished,
@@ -57,6 +59,9 @@ const newAnswerId = () => crypto.randomUUID();
  * at once and comes back later in the round. Progress (learned words,
  * accuracy, the words confused most) is kept for signed-in players.
  */
+/** Words per round a player can pick (the API allows 5–40). */
+export const STRESS_SIZES = [10, 20, 30, 40] as const;
+
 export function StressGame() {
   const { navigate } = useNavigation();
   const { isGuest, requireAccount } = useAccountGate();
@@ -73,6 +78,7 @@ export function StressGame() {
   const answerId = useRef(newAnswerId());
   /** The round's launch record on the server (admin statistics). */
   const sessionId = useRef<string | null>(null);
+  const [roundSize, setRoundSize] = useRoundSize('stress', STRESS_SIZES, 20);
 
   const loadProgress = useCallback(() => {
     if (isGuest) return;
@@ -87,7 +93,7 @@ export function StressGame() {
     setChecked(null);
     setMarkedOf(new Map());
     try {
-      const data = await getStressRound(mode);
+      const data = await getStressRound(mode, roundSize);
       if (data.questions.length === 0) {
         setPhase({ kind: 'empty', mode });
         return;
@@ -243,7 +249,10 @@ export function StressGame() {
     <SlideUp className={styles.page}>
       {back}
       <header className={styles.head}>
-        <h1 className="text-h1">Ударения</h1>
+        <div className={styles.headRow}>
+          <GameIcon gameId="stress" topic="norms" size="lg" />
+          <h1 className="text-h1">Ударения</h1>
+        </div>
         <p className="text-body-sm text-secondary">
           Слова из «Орфоэпического списка – 2026» ФИПИ для задания 4 ЕГЭ по русскому языку. Слова в
           раунде перемешаны, ошибки возвращаются.
@@ -266,6 +275,12 @@ export function StressGame() {
         </Card>
       )}
 
+      <RoundSizePicker
+        choices={STRESS_SIZES}
+        value={roundSize}
+        onChange={setRoundSize}
+        unit="слов"
+      />
       <div className={styles.modes}>
         <Button fullWidth onClick={() => void play('all')}>
           <Icon name="play" size={18} />{' '}
