@@ -44,7 +44,7 @@ def chat_id():
     return env or (f.read_text().strip() if f.exists() else "")
 
 
-def tg(method, payload=None, raw=False):
+def tg(method, payload=None, raw=False, soft=False):
     if not TG: die("TELEGRAM_STUDIO_BOT_TOKEN is not set")
     req = urllib.request.Request(f"https://api.telegram.org/bot{TG}/{method}", data=json.dumps(payload or {}).encode(),
                                  headers={"Content-Type": "application/json"})
@@ -52,6 +52,8 @@ def tg(method, payload=None, raw=False):
         with urllib.request.urlopen(req, timeout=120) as r:
             return json.loads(r.read())
     except urllib.error.HTTPError as e:  # never print the URL: it contains the bot token
+        if soft:  # non-critical calls (stale button spinners, cosmetic edits) must never stop the run
+            print(f"warn: Telegram {method}: {e.code}"); return {}
         die(f"Telegram {method}: {e.code} {e.read()[:200]!r}")
 
 
@@ -159,17 +161,22 @@ def caption_description(caption):
 # ---------------- commands ----------------
 def cmd_poll():
     ups = tg("getUpdates", {"allowed_updates": ["callback_query", "message"], "timeout": 0})["result"]
-    last = None
+    last = None; done = set()
     for u in ups:
         last = u["update_id"]; cq = u.get("callback_query")
         if not cq or str(cq["message"]["chat"]["id"]) != str(chat_id()): continue
         msg = cq["message"]; action = cq.get("data", "")
-        tg("answerCallbackQuery", {"callback_query_id": cq["id"], "text": "Принято, работаю…"})
+        if msg["message_id"] in done or not (msg.get("reply_markup") or {}).get("inline_keyboard"):
+            tg("answerCallbackQuery", {"callback_query_id": cq["id"], "text": "Уже обработано"}, soft=True)
+            tg("getUpdates", {"offset": last + 1, "timeout": 0}); continue  # repeated taps: one publish per message
+        done.add(msg["message_id"])
+        tg("answerCallbackQuery", {"callback_query_id": cq["id"], "text": "Принято, работаю…"}, soft=True)
+        tg("getUpdates", {"offset": last + 1, "timeout": 0})  # acknowledge now: a crash later must not replay this press
         markup_off = {"chat_id": chat_id(), "message_id": msg["message_id"], "reply_markup": {"inline_keyboard": []}}
         if action == "skip":
-            tg("editMessageReplyMarkup", markup_off); say("❌ Ок, этот ролик не публикую.", msg["message_id"]); continue
+            tg("editMessageReplyMarkup", markup_off, soft=True); say("❌ Ок, этот ролик не публикую.", msg["message_id"]); continue
         if action != "publish" or not msg.get("document"): continue
-        tg("editMessageReplyMarkup", markup_off)
+        tg("editMessageReplyMarkup", markup_off, soft=True)
         say("⏳ Публикую в TikTok…", msg["message_id"])
         try:
             ok, res, privacy = publish(tg_file(msg["document"]["file_id"]), caption_description(msg.get("caption", "")))
@@ -177,6 +184,7 @@ def cmd_poll():
             ok, res, privacy = False, f"{type(e).__name__}: {e}", "?"
         note = " (приватно: приложение TikTok ещё на проверке)" if ok and privacy == "SELF_ONLY" else ""
         say((f"✅ Опубликовано{note}: {res}" if ok else f"⚠️ Не получилось опубликовать: {res}"), msg["message_id"])
+        print("publish:", "ok" if ok else "fail", privacy, str(res)[:160])
     if last is not None:
         tg("getUpdates", {"offset": last + 1, "timeout": 0})  # acknowledge processed updates
     print(f"poll: {len(ups)} updates processed")
