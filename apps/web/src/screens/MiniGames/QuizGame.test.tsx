@@ -6,6 +6,7 @@ import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { AccountGateProvider } from '../../lib/accountGate.js';
 import * as api from '../../lib/api.js';
+import { resetPrivateCaches } from '../../lib/privateCaches.js';
 import { MiniGames, questionsWord } from './MiniGames.js';
 import { QuizGame, splitSlots, splitWords } from './QuizGame.js';
 
@@ -42,6 +43,7 @@ const ID2 = '22222222-2222-5222-8222-222222222222';
 
 beforeEach(() => {
   window.localStorage.clear();
+  resetPrivateCaches();
   vi.mocked(api.getQuizRound).mockReset();
   vi.mocked(api.answerQuiz).mockReset();
   vi.mocked(api.finishQuizRound).mockReset().mockResolvedValue(undefined);
@@ -301,5 +303,93 @@ describe('a quiz game', () => {
     expect(
       screen.getByText(/Тоже верно по ключу другого задания источника: Ошибка с числительным/),
     ).toBeInTheDocument();
+  });
+});
+
+describe('mini-games: speed, empty games, formulas, round size', () => {
+  it('a game without questions says so instead of a faint button; a return shows the list at once', async () => {
+    vi.mocked(api.getMiniGames).mockResolvedValue({
+      games: MINI_GAMES.map((g) => ({
+        ...g,
+        progress: null,
+        questionCount: g.id === 'nn' ? 0 : 50,
+      })),
+    });
+    const first = renderWith(<MiniGames />, makeAuthUser());
+    const nn = (await screen.findByRole('heading', { name: 'Н и НН' })).closest('li')!;
+    expect(within(nn).queryByRole('button', { name: /Играть/ })).not.toBeInTheDocument();
+    expect(within(nn).getByText(/Вопросы скоро появятся/)).toBeInTheDocument();
+    first.unmount();
+    // Second visit: the refresh never answers, the cached list is shown anyway.
+    vi.mocked(api.getMiniGames).mockReturnValue(new Promise(() => undefined));
+    renderWith(<MiniGames />, makeAuthUser());
+    expect(screen.getByRole('button', { name: 'Играть: Ударения' })).toBeInTheDocument();
+  });
+
+  it('math questions, answers and explanations are typeset, not shown as raw $…$', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'expressions-blitz',
+      mode: 'all',
+      bankSize: 40,
+      sessionId: SESSION,
+      questions: [
+        {
+          itemId: ID1,
+          kind: 'input',
+          text: 'Найдите значение выражения $\\log_a(a^3b^{14})$, если $\\log_b a = -2$.',
+        },
+      ],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValue({
+      correct: false,
+      display: '$-4$',
+      explanation: 'Так как $\\log_a b = -\\dfrac12$, получаем $3+14\\cdot(-\\dfrac12)=-4$.',
+      explanationSource: 'task',
+      taskId: 't',
+      recorded: true,
+    });
+    const user = userEvent.setup();
+    const { container } = renderWith(<QuizGame gameId="expressions-blitz" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    await screen.findByText(/Найдите значение выражения/);
+    expect(container.querySelector('.katex')).not.toBeNull();
+    expect(container.textContent).not.toContain('$\\log');
+    await user.type(screen.getByRole('textbox', { name: 'Ответ' }), '5');
+    await user.click(screen.getByRole('button', { name: 'Проверить' }));
+    await screen.findByText('Разбор из задания');
+    expect(container.textContent).not.toMatch(/\$/);
+  });
+
+  it('the player picks how many questions a round has; the choice is remembered per game', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'nn',
+      mode: 'all',
+      bankSize: 99,
+      sessionId: SESSION,
+      questions: [{ itemId: ID1, kind: 'choice', text: 'Утре▢ие', options: ['Н', 'НН'] }],
+    });
+    const user = userEvent.setup();
+    const view = renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    const picker = await screen.findByRole('radiogroup');
+    expect(within(picker).getByRole('radio', { name: '10' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await user.click(within(picker).getByRole('radio', { name: '15' }));
+    await user.click(screen.getByRole('button', { name: /Играть/ }));
+    expect(api.getQuizRound).toHaveBeenCalledWith('nn', 'all', 15);
+    view.unmount();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    expect(
+      within(await screen.findByRole('radiogroup')).getByRole('radio', { name: '15' }),
+    ).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+describe('game emblems', () => {
+  it('every game has its own icon', async () => {
+    const { GAME_ICONS } = await import('./GameIcon.js');
+    expect(Object.keys(GAME_ICONS).sort()).toEqual(MINI_GAMES.map((g) => g.id).sort());
+    expect(new Set(Object.values(GAME_ICONS)).size).toBe(MINI_GAMES.length);
   });
 });

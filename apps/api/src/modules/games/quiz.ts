@@ -83,16 +83,50 @@ interface Bank {
 
 const CACHE_MS = 5 * 60 * 1000;
 const banks = new Map<string, { at: number; bank: Bank }>();
+const building = new Map<string, Promise<Bank>>();
 
 /** Forget cached banks (tests, a content sync). */
 export function resetQuizBanks(): void {
   banks.clear();
+  building.clear();
 }
 
-/** The game's questions from the published tasks it is built on (cached 5 min). */
+/**
+ * The game's questions from the published tasks it is built on. Cached:
+ * a bank older than 5 minutes is still served at once and rebuilt in the
+ * background (content changes only with an import), so no player waits
+ * for a rebuild; concurrent builds of one game are shared.
+ */
 export async function quizBank(db: Database, gameId: string, now = Date.now()): Promise<Bank> {
   const cached = banks.get(gameId);
-  if (cached && now - cached.at < CACHE_MS) return cached.bank;
+  if (cached) {
+    if (now - cached.at >= CACHE_MS && !building.has(gameId)) {
+      void rebuildBank(db, gameId).catch(() => undefined);
+    }
+    return cached.bank;
+  }
+  return rebuildBank(db, gameId);
+}
+
+function rebuildBank(db: Database, gameId: string): Promise<Bank> {
+  const running = building.get(gameId);
+  if (running) return running;
+  const job = buildBank(db, gameId)
+    .then((bank) => {
+      banks.set(gameId, { at: Date.now(), bank });
+      return bank;
+    })
+    .finally(() => building.delete(gameId));
+  building.set(gameId, job);
+  return job;
+}
+
+/** Builds every game's bank (server start): the first player never waits. */
+export async function warmQuizBanks(db: Database): Promise<void> {
+  await Promise.all(QUIZ_GAME_IDS.map((id) => quizBank(db, id)));
+}
+
+async function buildBank(db: Database, gameId: string): Promise<Bank> {
   const source = SOURCES[gameId]!;
   const t = schema.tasks;
   const base = db
@@ -119,9 +153,7 @@ export async function quizBank(db: Database, gameId: string, now = Date.now()): 
   const items = dedupeItems(
     rows.flatMap((r) => source.toItems({ ...r, passageMd: r.passageMd ?? null })),
   ).map((it) => ({ ...it, id: quizItemId(gameId, it.key) }));
-  const bank: Bank = { items, byId: new Map(items.map((it) => [it.id, it])) };
-  banks.set(gameId, { at: now, bank });
-  return bank;
+  return { items, byId: new Map(items.map((it) => [it.id, it])) };
 }
 
 const toQuestion = (it: QuizItem & { id: string }): QuizQuestion => ({
@@ -387,8 +419,29 @@ export async function quizProgress(
   };
 }
 
-/** Learned / total for the hub card. */
-export async function quizSummary(db: Database, userId: string, gameId: string) {
-  const p = await quizProgress(db, userId, gameId);
-  return { learned: p.learned, total: p.bankSize };
+/**
+ * Learned / total of every quiz game for the hub, in ONE query of the
+ * player's progress (instead of one per game).
+ */
+export async function quizSummaries(
+  db: Database,
+  userId: string,
+): Promise<Map<string, { learned: number; total: number }>> {
+  const p = schema.miniGameItemProgress;
+  const [rows, bankList] = await Promise.all([
+    db
+      .select({ gameId: p.gameId, itemId: p.itemId, streak: p.streak })
+      .from(p)
+      .where(and(eq(p.userId, userId), inArray(p.gameId, QUIZ_GAME_IDS))),
+    Promise.all(QUIZ_GAME_IDS.map(async (id) => [id, await quizBank(db, id)] as const)),
+  ]);
+  const out = new Map<string, { learned: number; total: number }>();
+  for (const [id, bank] of bankList) out.set(id, { learned: 0, total: bank.items.length });
+  for (const r of rows) {
+    const bank = bankList.find(([id]) => id === r.gameId)?.[1];
+    if (bank?.byId.has(r.itemId) && r.streak >= MINI_GAME_LEARNED_STREAK) {
+      out.get(r.gameId)!.learned += 1;
+    }
+  }
+  return out;
 }

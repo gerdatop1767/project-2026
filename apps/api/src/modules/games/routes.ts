@@ -24,7 +24,7 @@ import {
   quizBank,
   quizProgress,
   quizRound,
-  quizSummary,
+  quizSummaries,
 } from './quiz.js';
 
 export interface MiniGamesRoutesOptions {
@@ -49,21 +49,18 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
 
   app.get('/games', async (request, reply): Promise<MiniGamesResponse> => {
     const userId = userOf(request);
-    const stress = userId ? await stressSummary(db, userId) : null;
+    const [stress, quiz, stressTotal] = await Promise.all([
+      userId ? stressSummary(db, userId) : null,
+      userId ? quizSummaries(db, userId) : null,
+      userId ? null : stressCount(db),
+    ]);
     const games = await Promise.all(
       MINI_GAMES.map(async (g) => {
         if (!isQuizGame(g.id)) {
-          return {
-            ...g,
-            progress: stress,
-            questionCount: stress?.total ?? (await stressCount(db)),
-          };
+          return { ...g, progress: stress, questionCount: stress?.total ?? stressTotal ?? 0 };
         }
-        const [bank, progress] = await Promise.all([
-          quizBank(db, g.id),
-          userId ? quizSummary(db, userId, g.id) : null,
-        ]);
-        return { ...g, progress, questionCount: bank.items.length };
+        const bank = await quizBank(db, g.id);
+        return { ...g, progress: quiz?.get(g.id) ?? null, questionCount: bank.items.length };
       }),
     );
     reply.header('cache-control', 'no-store');

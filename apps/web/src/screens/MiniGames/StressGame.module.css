@@ -12,6 +12,16 @@
   gap: var(--space-1);
 }
 
+.headRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.headRow h1 {
+  margin: 0;
+}
+
 .modes {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

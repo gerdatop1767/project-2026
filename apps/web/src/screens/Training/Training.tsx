@@ -1,3 +1,4 @@
+import { prefetchMiniGames } from '../MiniGames/MiniGames.js';
 import { useEffect, useState } from 'react';
 import { trackSubject } from '../../lib/analytics.js';
 import { useNavigation } from '../../lib/navigation.js';
@@ -460,6 +461,9 @@ export function Training() {
       <button
         type="button"
         className={styles.gamesEntry}
+        onPointerEnter={prefetchMiniGames}
+        onTouchStart={prefetchMiniGames}
+        onFocus={prefetchMiniGames}
         onClick={() => navigate({ screen: 'miniGames' })}
       >
         <span className={styles.gamesIcon} aria-hidden="true">
