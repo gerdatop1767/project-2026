@@ -202,61 +202,96 @@ export function PersonalPlanBlock({
       {header}
       <ul className={styles.stats} aria-label="Сводка">
         <li className={styles.stat}>
-          <span className={styles.statIcon} aria-hidden="true">
-            <Icon name="target" size={22} />
+          <span className={styles.statHead}>
+            <span className={styles.statIcon} aria-hidden="true">
+              <Icon name="target" size={18} />
+            </span>
+            <span className={styles.statLabel}>В фокусе</span>
           </span>
-          <span>
+          <span className={styles.statMain}>
             <span className={styles.statValue}>{summary.priorityTopics}</span>
-            <span className={styles.statLabel}>приоритетных тем</span>
+            <span className={styles.statUnit}>приоритетных тем</span>
           </span>
         </li>
         <li className={styles.stat}>
-          <span className={styles.statIcon} aria-hidden="true">
-            <Icon name="trend" size={22} />
+          <span className={styles.statHead}>
+            <span className={styles.statIcon} aria-hidden="true">
+              <Icon name="trend" size={18} />
+            </span>
+            <span className={styles.statLabel}>Можно поднять</span>
           </span>
-          <span>
-            {/* The ЕГЭ gain is shown in TEST points only, with its table;
-                primary points never stand in for it. */}
-            {summary.potentialTestPoints.available ? (
-              <>
+          {/* The ЕГЭ gain is shown in TEST points only, with its table;
+              primary points never stand in for it. */}
+          {summary.potentialTestPoints.available ? (
+            <>
+              <span className={styles.statMain}>
+                {summary.potentialTestPoints.points > 0 &&
+                  summary.potentialTestPoints.approximate && (
+                    <span className={styles.statUnit}>≈</span>
+                  )}
                 <span className={styles.statValue}>
                   {summary.potentialTestPoints.points > 0
-                    ? `${summary.potentialTestPoints.approximate ? '≈ ' : ''}до +${summary.potentialTestPoints.points}`
+                    ? `+${summary.potentialTestPoints.points}`
                     : '0'}
                 </span>
-                <span className={styles.statLabel}>
-                  тестовых баллов ЕГЭ по этим темам: было {summary.potentialTestPoints.from} →
-                  станет {summary.potentialTestPoints.to}
-                </span>
-                <span className={styles.statNote}>
+                <span className={styles.statUnit}>тестовых баллов</span>
+              </span>
+              <span
+                className={styles.statShift}
+                aria-label={`было ${summary.potentialTestPoints.from}, станет ${summary.potentialTestPoints.to}`}
+              >
+                {summary.potentialTestPoints.from} → <b>{summary.potentialTestPoints.to}</b>
+              </span>
+              <details className={styles.statMore}>
+                <summary>Как считали</summary>
+                <p>
+                  До +{summary.potentialTestPoints.points} по этим темам, если их освоить.{' '}
                   {summary.potentialTestPoints.label}
                   {summary.potentialTestPoints.note ? `. ${summary.potentialTestPoints.note}` : ''}
-                </span>
-              </>
-            ) : (
-              <>
+                </p>
+              </details>
+            </>
+          ) : (
+            <>
+              <span className={styles.statMain}>
                 <span className={styles.statValue}>—</span>
-                <span className={styles.statLabel}>прирост в баллах ЕГЭ не рассчитывается</span>
-                <span className={styles.statNote}>{summary.potentialTestPoints.reason}</span>
-              </>
-            )}
-          </span>
+                <span className={styles.statUnit}>не рассчитывается</span>
+              </span>
+              <details className={styles.statMore}>
+                <summary>Почему</summary>
+                <p>{summary.potentialTestPoints.reason}</p>
+              </details>
+            </>
+          )}
         </li>
         <li className={styles.stat}>
-          <span className={styles.statIcon} aria-hidden="true">
-            <Icon name="calendar" size={22} />
-          </span>
-          <span>
-            <span className={styles.statValue}>
-              {summary.etaDays === null ? '—' : `≈ ${daysWord(summary.etaDays)}`}
+          <span className={styles.statHead}>
+            <span className={styles.statIcon} aria-hidden="true">
+              <Icon name="calendar" size={18} />
             </span>
             <span className={styles.statLabel}>
               {summary.etaBasis === 'active_plan'
-                ? 'до конца твоего плана'
+                ? 'До конца плана'
                 : summary.etaBasis === 'week_plan'
-                  ? 'до ближайшей цели с недельным планом'
-                  : 'срок появится с данными'}
+                  ? 'До цели в недельном темпе'
+                  : 'Срок'}
             </span>
+          </span>
+          <span className={styles.statMain}>
+            {summary.etaDays === null ? (
+              <>
+                <span className={styles.statValue}>—</span>
+                <span className={styles.statUnit}>появится с данными</span>
+              </>
+            ) : (
+              <>
+                <span className={styles.statUnit}>≈</span>
+                <span className={styles.statValue}>{summary.etaDays}</span>
+                <span className={styles.statUnit}>
+                  {daysWord(summary.etaDays).replace(/^\d+ /, '')}
+                </span>
+              </>
+            )}
           </span>
         </li>
       </ul>

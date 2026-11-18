@@ -69,13 +69,15 @@ describe('«Твой персональный план»', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('приоритетных тем')).toBeInTheDocument();
     // The ЕГЭ gain is in test points with its table — never primary points.
-    expect(screen.getByText('до +12')).toBeInTheDocument();
-    expect(
-      screen.getByText('тестовых баллов ЕГЭ по этим темам: было 58 → станет 70'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Тестовый балл · ориентир по шкале ЕГЭ-2026')).toBeInTheDocument();
+    expect(screen.getByText('+12')).toHaveClass(/statValue/);
+    expect(screen.getByText('тестовых баллов')).toBeInTheDocument();
+    expect(screen.getByLabelText('было 58, станет 70')).toHaveTextContent('58 → 70');
+    // The scale's name is there, but tucked into «Как считали».
+    expect(screen.getByText('Как считали')).toBeInTheDocument();
+    expect(screen.getByText(/Тестовый балл · ориентир по шкале ЕГЭ-2026/)).toBeInTheDocument();
     expect(screen.queryByText(/первичн/)).not.toBeInTheDocument();
-    expect(screen.getByText(/≈ 7 дней/)).toBeInTheDocument();
+    expect(screen.getByText('7')).toHaveClass(/statValue/);
+    expect(screen.getByText('дней')).toBeInTheDocument();
     const cards = screen.getAllByRole('listitem').filter((li) => li.getAttribute('data-priority'));
     expect(cards).toHaveLength(3);
     const first = within(cards[0]!);
@@ -290,7 +292,7 @@ describe('advice, plan and progress screens', () => {
       }),
     });
     renderWith(<PersonalPlanBlock limit={4} />);
-    expect(await screen.findByText('прирост в баллах ЕГЭ не рассчитывается')).toBeInTheDocument();
+    expect(await screen.findByText('не рассчитывается')).toBeInTheDocument();
     expect(screen.getByText('Растягивать шкалу нельзя.')).toBeInTheDocument();
     expect(screen.queryByText(/до \+/)).not.toBeInTheDocument();
   });
