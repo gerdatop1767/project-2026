@@ -76,6 +76,7 @@ POSES = {"lying_books": ("apps/web/public/branding/v3/landing-mascot.webp", 1000
 
 
 POSE_MOTION = {}
+POSE_ANCHOR = {}
 
 
 def _library_poses():
@@ -86,6 +87,7 @@ def _library_poses():
     for f in sorted(lib.glob("*.png")):
         POSES.setdefault(f.stem, (str(f.relative_to(S.REPO)), 980, (540, 840)))
         POSE_MOTION[f.stem] = (meta.get(f.stem) or {}).get("motion", "breathe")
+        POSE_ANCHOR[f.stem] = (meta.get(f.stem) or {}).get("anchor")
 
 
 _library_poses()
@@ -326,9 +328,14 @@ class Video:
         name = s["bison"][5:]; path, width, (x, y) = POSES[name]
         im = self.asset({"type": "image", "path": path, "width": s.get("pose_width", width)})
         if "pose_width" not in s and name in POSE_MOTION:  # owner poses: fit below the headline zone (top ~440, bottom ~1800)
-            fit = min(1000 / im.width, 1360 / im.height)
-            im = self.asset({"type": "image", "path": path, "width": int(im.width * fit)})
-            y = 440 + im.height / 2
+            if POSE_ANCHOR.get(name) == "bottom":  # close-up cut at the bottom: sits on the frame edge
+                fit = min(1080 / im.width, 1480 / im.height)
+                im = self.asset({"type": "image", "path": path, "width": int(im.width * fit)})
+                y = H - im.height / 2 + 4
+            else:
+                fit = min(1000 / im.width, 1360 / im.height)
+                im = self.asset({"type": "image", "path": path, "width": int(im.width * fit)})
+                y = 440 + im.height / 2
         look = s.get("look") or {}
         if look.get("flip"): im = im.transpose(Image.FLIP_LEFT_RIGHT)
         x, y = s.get("pose_x", x), s.get("pose_y", y)
