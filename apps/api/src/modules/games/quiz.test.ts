@@ -11,10 +11,10 @@ import {
   type QuizRoundResponse,
 } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../app.js';
 import { loadConfig } from '../../config.js';
-import { QUIZ_GAME_IDS, quizBank, resetQuizBanks } from './quiz.js';
+import { QUIZ_GAME_IDS, quizBank, resetQuizBanks, warmQuizBanks } from './quiz.js';
 
 /** The answer a player gives to get `item` right, in the form the screen sends. */
 function rightAnswer(item: QuizItem): string {
@@ -65,6 +65,20 @@ describe('mini-games — quizzes (real content)', () => {
       headers: cookie ? { cookie } : {},
       payload,
     });
+
+  it('banks: warmed once, served from memory, a stale one served at once and rebuilt behind', async () => {
+    resetQuizBanks();
+    await warmQuizBanks(testDb.db);
+    const warm = await quizBank(testDb.db, 'nn');
+    expect(warm.items.length).toBeGreaterThan(0);
+    expect(await quizBank(testDb.db, 'nn')).toBe(warm);
+    // Ten minutes later: the old bank is returned immediately (no wait)…
+    const later = Date.now() + 10 * 60 * 1000;
+    expect(await quizBank(testDb.db, 'nn', later)).toBe(warm);
+    // …while a fresh one is built in the background and then served.
+    await vi.waitFor(async () => expect(await quizBank(testDb.db, 'nn')).not.toBe(warm));
+    expect((await quizBank(testDb.db, 'nn')).items.length).toBe(warm.items.length);
+  });
 
   it('every one of the 17 games has questions; every question is answerable by its own key', async () => {
     expect(QUIZ_GAME_IDS).toHaveLength(17);
