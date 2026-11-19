@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { OFFICIAL_SOURCES, PLATFORM_SUBJECTS, mskDate, type SeoDeps } from '../deps.js';
 import type { TaskHandler } from '../queue.js';
 import { rows } from '../sql.js';
+import { MIN_RESEARCH_CHARS } from './content.js';
 
 /**
  * SEO Research Agent: finds topics and queries (docs/SEO_CENTER.md §5).
@@ -89,17 +90,21 @@ export function researchHandler(deps: SeoDeps): TaskHandler {
     );
 
     const subjects = settings.prioritySubjects.filter((s) => s in PLATFORM_SUBJECTS);
-    const notes = await ai.cached('research', { today, subjects }, 20, async () => {
-      const r = await ai.text({
-        agent: 'research',
-        purpose: 'research.web',
-        taskId: ctx.task.id,
-        tier: 'strong',
-        system: SYSTEM,
-        effort: 'medium',
-        maxTokens: 12_000,
-        webSearch: { maxUses: settings.maxSearchesPerResearch },
-        prompt: `Сегодня ${today}. Исследуй поисковый спрос и обсуждения вокруг ЕГЭ для предметов: ${subjects.map((s) => PLATFORM_SUBJECTS[s]).join(', ')} и общих тем подготовки.
+    const notes = await ai.cached(
+      'research',
+      { today, subjects },
+      20,
+      async () => {
+        const r = await ai.text({
+          agent: 'research',
+          purpose: 'research.web',
+          taskId: ctx.task.id,
+          tier: 'strong',
+          system: SYSTEM,
+          effort: 'medium',
+          maxTokens: 12_000,
+          webSearch: { maxUses: settings.maxSearchesPerResearch },
+          prompt: `Сегодня ${today}. Исследуй поисковый спрос и обсуждения вокруг ЕГЭ для предметов: ${subjects.map((s) => PLATFORM_SUBJECTS[s]).join(', ')} и общих тем подготовки.
 Найди:
 1) актуальные изменения ЕГЭ 2026/2027 (только официальные источники) и ближайшие даты;
 2) сезонные темы на ближайшие 4–8 недель;
@@ -107,9 +112,11 @@ export function researchHandler(deps: SeoDeps): TaskHandler {
 4) информационные запросы с потенциалом и слабой конкуренцией;
 5) что публикуют конкуренты (Решу ЕГЭ, Фоксфорд, Умскул, Сотка, Максимум) и какие темы раскрыты слабо.
 Ответь заметками: тема — почему важна — какие запросы — какие источники. Без вступлений.`,
-      });
-      return { text: r.text, sources: r.sources.slice(0, 40) };
-    });
+        });
+        return { text: r.text, sources: r.sources.slice(0, 40) };
+      },
+      (v) => v.text.trim().length >= MIN_RESEARCH_CHARS,
+    );
 
     const { data } = await ai.json(
       {
@@ -317,6 +324,7 @@ export function competitorsHandler(deps: SeoDeps): TaskHandler {
               prompt: `Изучи публичные материалы сайта ${c.domain} (${c.name}) о ЕГЭ через поиск: какие статьи и разделы ранжируются, какие форматы, как устроена перелинковка, какие темы раскрыты слабо или устарели. Не копируй тексты — только наблюдения. Заметки, без вступлений.`,
             })
           ).text,
+        (text) => text.trim().length >= MIN_RESEARCH_CHARS,
       );
       const { data } = await ai.json(
         {

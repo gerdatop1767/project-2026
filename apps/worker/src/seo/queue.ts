@@ -4,12 +4,17 @@ import type { SeoAgent } from '@zybrilka/shared';
 import { and, eq, lt, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { rows } from './sql.js';
-import { AiBlocked, AiInvalidOutput } from './ai.js';
+import { AiBlocked } from './ai.js';
+import { runInTaskScope } from './taskScope.js';
 
 export type SeoTask = typeof schema.seoTasks.$inferSelect;
 
 export interface TaskContext {
   task: SeoTask;
+  /** Aborted on timeout or emergency stop; the AI gateway and fetch already honour it. */
+  signal: AbortSignal;
+  /** True when this run is the task's last allowed attempt. */
+  lastAttempt: boolean;
   /** Enqueue a follow-up task (idempotent by key). */
   enqueue: (t: {
     kind: string;
@@ -36,14 +41,34 @@ export type TaskHandler = (ctx: TaskContext) => Promise<Record<string, unknown> 
 /** Errors that will not get better by retrying. */
 export class PermanentError extends Error {}
 
-const LEASE_MS = 20 * 60_000;
-const TASK_TIMEOUT_MS = 15 * 60_000;
+/** Why a running task was cancelled (AbortSignal.reason). */
+export class TaskAborted extends Error {
+  constructor(public reasonCode: 'timeout' | 'emergency_stop') {
+    super(reasonCode === 'timeout' ? 'task timed out and was cancelled' : 'emergency stop');
+  }
+}
+
+const DEFAULTS = {
+  /** A lease is short and renewed by the heartbeat while the task really runs. */
+  leaseMs: 5 * 60_000,
+  heartbeatMs: 60_000,
+  taskTimeoutMs: 15 * 60_000,
+  /** Retry pauses: 1, 4, 16 … minutes. */
+  backoffBaseMs: 60_000,
+};
 
 /**
- * The SEO agent's queue on Postgres (docs/SEO_CENTER.md §2). Claiming is a
- * single UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED), so two
- * workers never take the same task. A task holds a lease; if the worker
- * dies, `recoverExpired` puts it back. Retries back off 1 / 4 / 16 min.
+ * The SEO agent's queue on Postgres (docs/SEO_CENTER.md §2).
+ * - Claiming is one UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED):
+ *   two workers never take the same task, a re-delivered task runs once.
+ * - A running task holds a short lease that a heartbeat renews while the
+ *   handler is alive. Only a dead worker's lease expires, and only then is
+ *   the task re-queued (`recoverExpired`) — a live, slow task is never
+ *   started a second time in parallel.
+ * - Timeout and emergency stop ABORT the handler (AbortSignal reaches the
+ *   model request and HTTP calls); the queue waits until the handler has
+ *   actually stopped before releasing the task.
+ * - Results are written only while this worker still owns the lease.
  */
 export class SeoQueue {
   private readonly workerId = `w-${randomUUID().slice(0, 8)}`;
@@ -54,8 +79,21 @@ export class SeoQueue {
       logger: Logger;
       handlers: Partial<Record<string, TaskHandler>>;
       now?: () => Date;
+      leaseMs?: number;
+      heartbeatMs?: number;
+      taskTimeoutMs?: number;
+      backoffBaseMs?: number;
     },
   ) {}
+
+  private get cfg() {
+    return {
+      leaseMs: this.opts.leaseMs ?? DEFAULTS.leaseMs,
+      heartbeatMs: this.opts.heartbeatMs ?? DEFAULTS.heartbeatMs,
+      taskTimeoutMs: this.opts.taskTimeoutMs ?? DEFAULTS.taskTimeoutMs,
+      backoffBaseMs: this.opts.backoffBaseMs ?? DEFAULTS.backoffBaseMs,
+    };
+  }
 
   private now() {
     return this.opts.now?.() ?? new Date();
@@ -76,7 +114,7 @@ export class SeoQueue {
 
   async claim(): Promise<SeoTask | null> {
     const now = this.now();
-    const lease = new Date(now.getTime() + LEASE_MS);
+    const lease = new Date(now.getTime() + this.cfg.leaseMs);
     const [row] = await rows<{ id: string }>(
       this.opts.db,
       sql`UPDATE seo_tasks SET status = 'running', attempts = attempts + 1, locked_until = ${lease.toISOString()},
@@ -107,10 +145,12 @@ export class SeoQueue {
     return ran;
   }
 
-  private context(task: SeoTask): TaskContext {
+  private context(task: SeoTask, signal: AbortSignal): TaskContext {
     const db = this.opts.db;
     return {
       task,
+      signal,
+      lastAttempt: task.attempts >= task.maxAttempts,
       enqueue: async (t) => {
         const r = await db
           .insert(schema.seoTasks)
@@ -143,40 +183,69 @@ export class SeoQueue {
 
   async runOne(task: SeoTask) {
     const handler = this.opts.handlers[task.kind];
-    const ctx = this.context(task);
+    const controller = new AbortController();
+    const ctx = this.context(task, controller.signal);
+    const db = this.opts.db;
+    // Writes the outcome only if this worker still owns the task.
     const finish = (set: Partial<typeof schema.seoTasks.$inferInsert>) =>
-      this.opts.db
+      db
         .update(schema.seoTasks)
         .set({ lockedUntil: null, lockedBy: null, finishedAt: this.now(), ...set })
-        .where(eq(schema.seoTasks.id, task.id));
+        .where(
+          and(
+            eq(schema.seoTasks.id, task.id),
+            eq(schema.seoTasks.status, 'running'),
+            eq(schema.seoTasks.lockedBy, this.workerId),
+          ),
+        );
     if (!handler) {
       await finish({ status: 'failed', error: `no handler for ${task.kind}` });
       return;
     }
-    let timer: NodeJS.Timeout | undefined;
+
+    const { leaseMs, heartbeatMs, taskTimeoutMs, backoffBaseMs } = this.cfg;
+    // Heartbeat: renew the lease while the handler lives; abort it on emergency stop.
+    let beating = Promise.resolve();
+    const heartbeat = setInterval(() => {
+      beating = (async () => {
+        await db
+          .update(schema.seoTasks)
+          .set({ lockedUntil: new Date(this.now().getTime() + leaseMs) })
+          .where(and(eq(schema.seoTasks.id, task.id), eq(schema.seoTasks.lockedBy, this.workerId)));
+        if (!controller.signal.aborted && (await loadSeoSettings(db)).emergencyStop) {
+          controller.abort(new TaskAborted('emergency_stop'));
+        }
+      })().catch((err: unknown) => this.opts.logger.warn({ err }, 'seo task heartbeat failed'));
+    }, heartbeatMs);
+    const timer = setTimeout(() => controller.abort(new TaskAborted('timeout')), taskTimeoutMs);
+
     try {
-      const result = await Promise.race([
+      // Awaited to the end: after an abort the handler unwinds (its model and
+      // HTTP calls reject with the abort) before the task is released.
+      const result = await runInTaskScope({ signal: controller.signal, taskId: task.id }, () =>
         handler(ctx),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error(`timeout after ${TASK_TIMEOUT_MS / 60000} min`)),
-            TASK_TIMEOUT_MS,
-          );
-        }),
-      ]);
+      );
+      if (controller.signal.aborted) throw controller.signal.reason;
       await finish({ status: 'done', result: result ?? {}, error: null });
-    } catch (err) {
+    } catch (caught) {
+      const err = controller.signal.aborted ? (controller.signal.reason as unknown) : caught;
       const message = err instanceof Error ? err.message : String(err);
       // Budget/stop/missing key: not the task's fault — park it, don't burn attempts.
-      if (err instanceof AiBlocked && err.reason !== 'refusal') {
+      const blockedReason =
+        err instanceof AiBlocked && err.reason !== 'refusal'
+          ? err.reason
+          : err instanceof TaskAborted && err.reasonCode === 'emergency_stop'
+            ? 'emergency_stop'
+            : null;
+      if (blockedReason) {
         await finish({
           status: 'blocked',
-          error: err.reason,
+          error: blockedReason,
           attempts: Math.max(0, task.attempts - 1),
         });
         await ctx.log(
           'task.blocked',
-          `Задача ${task.kind} остановлена: ${blockedText[err.reason]}`,
+          `Задача ${task.kind} остановлена: ${blockedText[blockedReason]}`,
           { level: 'warn' },
         );
         return;
@@ -185,7 +254,7 @@ export class SeoQueue {
         err instanceof PermanentError || (err instanceof AiBlocked && err.reason === 'refusal');
       const retry = !permanent && task.attempts < task.maxAttempts;
       if (retry) {
-        const delay = 60_000 * 4 ** (task.attempts - 1) * (err instanceof AiInvalidOutput ? 1 : 1);
+        const delay = backoffBaseMs * 4 ** (task.attempts - 1);
         await finish({
           status: 'queued',
           error: message.slice(0, 1000),
@@ -199,12 +268,12 @@ export class SeoQueue {
       await ctx.log(
         'task.failed',
         `Ошибка ${task.kind} (попытка ${task.attempts}/${task.maxAttempts})${retry ? ', повторим позже' : ''}: ${message.slice(0, 300)}`,
-        {
-          level: retry ? 'warn' : 'error',
-        },
+        { level: retry ? 'warn' : 'error' },
       );
     } finally {
       clearTimeout(timer);
+      clearInterval(heartbeat);
+      await beating;
     }
   }
 }

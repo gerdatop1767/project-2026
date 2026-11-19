@@ -10,6 +10,8 @@ import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 import { analyticsHandlers } from './agents/index.js';
 import { mskDate, type SeoDeps } from './deps.js';
 import { SeoQueue, type TaskHandler } from './queue.js';
+import { PENDING } from './ai.js';
+import { taskScopedFetch } from './taskScope.js';
 
 export const SEO_HEARTBEAT_KEY = 'seo.agent.heartbeat';
 
@@ -97,13 +99,73 @@ export function cycleHandlers(): Record<string, TaskHandler> {
 
 export class SeoScheduler {
   readonly queue: SeoQueue;
-  constructor(private readonly deps: SeoDeps) {
+  constructor(
+    private readonly deps: SeoDeps,
+    queueOptions: Partial<
+      Pick<
+        ConstructorParameters<typeof SeoQueue>[0],
+        'leaseMs' | 'heartbeatMs' | 'taskTimeoutMs' | 'backoffBaseMs'
+      >
+    > = {},
+  ) {
+    // Agents' HTTP calls are cancelled together with their task (timeout / stop).
+    const agentDeps: SeoDeps = { ...deps, fetch: taskScopedFetch(deps.fetch) };
     this.queue = new SeoQueue({
       db: deps.db,
       logger: deps.logger,
       now: deps.now,
-      handlers: { ...cycleHandlers(), ...analyticsHandlers(deps) },
+      handlers: { ...cycleHandlers(), ...analyticsHandlers(agentDeps) },
+      ...queueOptions,
     });
+  }
+
+  /**
+   * Housekeeping, safe to run any time (also during an emergency stop):
+   * - an AI budget reservation older than an hour belongs to a worker that
+   *   died mid-request: it keeps its worst-case cost (the real spend is
+   *   unknown, so the budget errs on the safe side) and is marked abandoned;
+   * - an article left in «Исследование»/«Генерация» with no queued or
+   *   running task for it (a crash before this fix, or a lost task) gets
+   *   «Ошибка» with the reason, instead of hanging there forever.
+   */
+  async sweep() {
+    const { db } = this.deps;
+    const now = this.deps.now();
+    await db
+      .update(schema.seoAiUsage)
+      .set({ error: 'abandoned' })
+      .where(
+        and(
+          eq(schema.seoAiUsage.error, PENDING),
+          lte(schema.seoAiUsage.at, new Date(now.getTime() - 3600_000)),
+        ),
+      );
+    const stuck = await db
+      .update(schema.seoArticles)
+      .set({
+        status: 'error',
+        error: 'Генерация прервалась без активной задачи — запустите «Написать» ещё раз',
+        updatedAt: now,
+      })
+      .where(
+        and(
+          inArray(schema.seoArticles.status, ['research', 'generating']),
+          lte(schema.seoArticles.updatedAt, new Date(now.getTime() - 30 * 60_000)),
+          sql`NOT EXISTS (SELECT 1 FROM seo_tasks t WHERE t.article_id = ${schema.seoArticles.id}
+                AND t.status IN ('queued', 'running'))`,
+        ),
+      )
+      .returning({ id: schema.seoArticles.id, title: schema.seoArticles.title });
+    for (const a of stuck) {
+      await writeSeoLog(db, {
+        agent: 'content',
+        level: 'warn',
+        action: 'article.stuck_recovered',
+        message: `«${a.title}»: генерация прервалась, статья переведена в «Ошибка»`,
+        articleId: a.id,
+      });
+    }
+    return { stuckArticles: stuck.length };
   }
 
   async init() {
@@ -124,6 +186,7 @@ export class SeoScheduler {
   async tick() {
     const { db } = this.deps;
     const now = this.deps.now();
+    await this.sweep();
     const settings = await loadSeoSettings(db);
     await db
       .insert(schema.appSettings)

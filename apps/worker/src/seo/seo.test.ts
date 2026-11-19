@@ -130,7 +130,7 @@ function pipelineModel(p: Anthropic.MessageStreamParams): Anthropic.Message {
   );
   if (!structured)
     return message(
-      'Заметки: задание 13, ФИПИ, изменения 2027 — без изменений. https://fipi.ru/ege',
+      'Заметки исследования: задание 13 профильной математики (тригонометрические уравнения, отбор корней), по демоверсии ФИПИ 2027 — без изменений относительно 2026. Частые вопросы школьников: как отбирать корни, сколько баллов. https://fipi.ru/ege',
     );
   if (system.includes('SEO-исследователь')) {
     return message(
@@ -264,16 +264,22 @@ describe('SEO agent (worker)', () => {
       webSearch: { maxUses: 2 },
     });
     expect(r.text).toBe('часть 1 часть 2');
-    const [u] = await testDb.db.select().from(schema.seoAiUsage);
-    expect(u).toMatchObject({
-      model: 'claude-opus-5-5',
-      inputTokens: 2000,
-      outputTokens: 1000,
-      webSearches: 2,
-      ok: true,
-    });
-    // 2000 in × $4/M + 1000 out × $20/M + 2 searches × $0.01
-    expect(Number(u!.costUsd)).toBeCloseTo(0.008 + 0.02 + 0.02, 5);
+    // One row per API request (the continuation is its own request, reserved and settled).
+    const usage = await testDb.db.select().from(schema.seoAiUsage);
+    expect(usage).toHaveLength(2);
+    for (const u of usage) {
+      expect(u).toMatchObject({
+        model: 'claude-opus-5-5',
+        inputTokens: 1000,
+        outputTokens: 500,
+        webSearches: 1,
+        ok: true,
+        error: null,
+      });
+    }
+    // per request: 1000 in × $4/M + 500 out × $20/M + 1 search × $0.01
+    const total = usage.reduce((a, u) => a + Number(u.costUsd), 0);
+    expect(total).toBeCloseTo(2 * (0.004 + 0.01 + 0.01), 5);
   });
 
   it('queue: idempotent keys, retries with backoff, lease recovery, budget parks without burning attempts', async () => {

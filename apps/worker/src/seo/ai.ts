@@ -9,17 +9,28 @@ import {
   type Database,
 } from '@zybrilka/db';
 import { usageCostUsd, worstCaseCostUsd, type SeoAgent } from '@zybrilka/shared';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import type { z } from 'zod';
+import { currentTaskSignal, throwIfTaskAborted } from './taskScope.js';
 
 /**
  * The only door from the SEO agent to an AI model (docs/SEO_CENTER.md §3).
- * Before every call: the emergency stop and both budgets are checked
- * against the WORST case of this call (all input uncached, full
- * max_tokens, every allowed web search). After every call — success or
- * not — the real usage is written to seo_ai_usage, which is what the
- * budget sums. A call that would not fit is never made.
+ *
+ * Budget: before EVERY request to the API (each `pause_turn` continuation
+ * is a separate request) the gateway RESERVES the request's worst-case
+ * cost: under a Postgres advisory lock it sums today's/this month's spend
+ * (settled calls + open reservations of every worker and task) and inserts
+ * a `seo_ai_usage` row with `error = 'pending'` and the worst-case cost.
+ * Two concurrent calls are serialised by the lock, so together they can
+ * never pass a limit only one of them fits. When the request ends the row
+ * is settled to the real usage (unused reserve released); a failed request
+ * with no usage settles to 0. A reservation left by a crashed worker keeps
+ * its worst-case cost (unknown real spend — the safe side) and is marked
+ * `abandoned` by the scheduler.
+ *
+ * Cancellation: the queue task's AbortSignal (taskScope.ts) is passed to
+ * the SDK, so a timeout or an emergency stop aborts the HTTP request.
  */
 
 export class AiBlocked extends Error {
@@ -36,7 +47,10 @@ export class AiInvalidOutput extends Error {}
 /** The subset of the SDK the gateway uses — a fake in tests. */
 export interface AiClient {
   messages: {
-    stream: (params: Anthropic.MessageStreamParams) => {
+    stream: (
+      params: Anthropic.MessageStreamParams,
+      options?: { signal?: AbortSignal },
+    ) => {
       finalMessage: () => Promise<Anthropic.Message>;
     };
   };
@@ -68,7 +82,38 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 2.2) + 50;
 }
 
+/** Input tokens one web search may add (result pages fed back to the model). */
+export const WEB_SEARCH_INPUT_TOKENS = 25_000;
+/** `pg_advisory_xact_lock` key of the AI budget (any constant bigint). */
+export const AI_BUDGET_LOCK = 7_340_211;
+export const PENDING = 'pending';
+
+/** Worst-case cost of ONE request: every input token uncached, full max_tokens, every search. */
+export function requestWorstCaseUsd(
+  model: string,
+  promptText: string,
+  maxTokens: number,
+  maxSearches: number,
+): number {
+  return worstCaseCostUsd(
+    model,
+    estimateTokens(promptText) + maxSearches * WEB_SEARCH_INPUT_TOKENS,
+    maxTokens,
+    maxSearches,
+  );
+}
+
 const MAX_CONTINUATIONS = 4;
+
+function usageOf(u: Anthropic.Usage | null | undefined) {
+  return {
+    inputTokens: u?.input_tokens ?? 0,
+    outputTokens: u?.output_tokens ?? 0,
+    cacheReadTokens: u?.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: u?.cache_creation_input_tokens ?? 0,
+    webSearches: u?.server_tool_use?.web_search_requests ?? 0,
+  };
+}
 
 export class SeoAi {
   constructor(
@@ -84,59 +129,59 @@ export class SeoAi {
     return this.opts.client !== null;
   }
 
-  private async guard(model: string, call: AiCall) {
+  /**
+   * Atomically checks the stop switch and both budgets and reserves the
+   * request's worst case. Returns the reservation row id.
+   */
+  async reserve(call: AiCall, model: string, worstUsd: number): Promise<string> {
     if (!this.opts.client) throw new AiBlocked('not_configured');
-    const settings = await loadSeoSettings(this.opts.db);
-    if (settings.emergencyStop) throw new AiBlocked('emergency_stop');
-    const worst = worstCaseCostUsd(
-      model,
-      estimateTokens(call.system + call.prompt) * (call.webSearch ? 4 : 1),
-      call.maxTokens * (call.webSearch ? 2 : 1),
-      call.webSearch?.maxUses ?? 0,
-    );
+    throwIfTaskAborted();
     const { day, month } = moscowPeriodStarts(this.opts.now?.() ?? new Date());
-    const [daySpent, monthSpent] = await Promise.all([
-      seoSpendSince(this.opts.db, day),
-      seoSpendSince(this.opts.db, month),
-    ]);
-    if (daySpent + worst > settings.dailyBudgetUsd) throw new AiBlocked('budget_daily');
-    if (monthSpent + worst > settings.monthlyBudgetUsd) throw new AiBlocked('budget_monthly');
-    return settings;
+    return this.opts.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${AI_BUDGET_LOCK})`);
+      const settings = await loadSeoSettings(tx);
+      if (settings.emergencyStop) throw new AiBlocked('emergency_stop');
+      const [daySpent, monthSpent] = [await seoSpendSince(tx, day), await seoSpendSince(tx, month)];
+      if (daySpent + worstUsd > settings.dailyBudgetUsd) throw new AiBlocked('budget_daily');
+      if (monthSpent + worstUsd > settings.monthlyBudgetUsd) throw new AiBlocked('budget_monthly');
+      const [row] = await tx
+        .insert(schema.seoAiUsage)
+        .values({
+          agent: call.agent,
+          purpose: call.purpose,
+          model,
+          taskId: call.taskId ?? null,
+          costUsd: worstUsd,
+          ok: false,
+          error: PENDING,
+        })
+        .returning({ id: schema.seoAiUsage.id });
+      return row!.id;
+    });
   }
 
-  private async record(
-    call: AiCall,
+  /** Replaces a reservation with the real usage of the request (0 if it produced none). */
+  private async settle(
+    id: string,
     model: string,
     usage: Anthropic.Usage | null,
     error: string | null,
   ) {
-    const u = {
-      inputTokens: usage?.input_tokens ?? 0,
-      outputTokens: usage?.output_tokens ?? 0,
-      cacheReadTokens: usage?.cache_read_input_tokens ?? 0,
-      cacheWriteTokens: usage?.cache_creation_input_tokens ?? 0,
-      webSearches: usage?.server_tool_use?.web_search_requests ?? 0,
-    };
+    const u = usageOf(usage);
     const costUsd = usageCostUsd(model, u);
-    await this.opts.db.insert(schema.seoAiUsage).values({
-      agent: call.agent,
-      purpose: call.purpose,
-      model,
-      taskId: call.taskId ?? null,
-      ...u,
-      costUsd,
-      ok: error === null,
-      error,
-    });
+    await this.opts.db
+      .update(schema.seoAiUsage)
+      .set({ ...u, costUsd, ok: error === null, error })
+      .where(eq(schema.seoAiUsage.id, id));
     return costUsd;
   }
 
-  /** Runs a call to completion (resuming `pause_turn`), summing usage across continuations. */
+  /** Runs a call to completion (resuming `pause_turn`); every request is reserved and settled. */
   private async run(call: AiCall, extra: Partial<Anthropic.MessageStreamParams> = {}) {
     const settings = await loadSeoSettings(this.opts.db);
     const model = call.tier === 'strong' ? settings.strongModel : settings.cheapModel;
-    await this.guard(model, call);
-    const client = this.opts.client!;
+    if (!this.opts.client) throw new AiBlocked('not_configured');
+    const client = this.opts.client;
     const tools: Anthropic.MessageStreamParams['tools'] = call.webSearch
       ? [
           {
@@ -150,60 +195,60 @@ export class SeoAi {
         ]
       : undefined;
     const messages: Anthropic.MessageParam[] = [{ role: 'user', content: call.prompt }];
-    const total: Anthropic.Usage = {
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
-      server_tool_use: { web_search_requests: 0, web_fetch_requests: 0 },
-    } as unknown as Anthropic.Usage;
-    const add = (u: Anthropic.Usage) => {
-      total.input_tokens += u.input_tokens;
-      total.output_tokens += u.output_tokens;
-      total.cache_creation_input_tokens =
-        (total.cache_creation_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
-      total.cache_read_input_tokens =
-        (total.cache_read_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
-      if (total.server_tool_use && u.server_tool_use) {
-        total.server_tool_use.web_search_requests += u.server_tool_use.web_search_requests ?? 0;
-      }
-    };
     const content: Anthropic.ContentBlock[] = [];
-    try {
-      let message: Anthropic.Message | null = null;
-      for (let i = 0; i <= MAX_CONTINUATIONS; i++) {
-        message = await client.messages
-          .stream({
-            model,
-            max_tokens: call.maxTokens,
-            // Stable system prompt first → cacheable prefix across calls of one agent.
-            system: [{ type: 'text', text: call.system, cache_control: { type: 'ephemeral' } }],
-            messages,
-            ...(tools ? { tools } : {}),
-            output_config: { effort: call.effort ?? 'medium', ...(extra.output_config ?? {}) },
-          })
-          .finalMessage();
-        add(message.usage);
-        content.push(...message.content);
-        if (message.stop_reason !== 'pause_turn') break;
-        // Resume: resend the conversation with the paused assistant turn.
-        messages.push({ role: 'assistant', content: message.content });
-      }
-      if (message?.stop_reason === 'refusal') throw new AiBlocked('refusal');
-      if (message?.stop_reason === 'max_tokens') {
-        throw new AiInvalidOutput(`output cut at max_tokens (${call.maxTokens})`);
-      }
-      const costUsd = await this.record(call, model, total, null);
-      return { content, costUsd, model };
-    } catch (err) {
-      await this.record(
-        call,
+    let costUsd = 0;
+    let message: Anthropic.Message | null = null;
+    for (let i = 0; i <= MAX_CONTINUATIONS; i++) {
+      const worst = requestWorstCaseUsd(
         model,
-        total,
-        err instanceof Error ? err.message.slice(0, 500) : 'error',
-      ).catch((e: unknown) => this.opts.logger.error({ err: e }, 'seo ai usage not recorded'));
-      throw err;
+        call.system + JSON.stringify(messages),
+        call.maxTokens,
+        call.webSearch?.maxUses ?? 0,
+      );
+      const reservation = await this.reserve(call, model, worst);
+      try {
+        const signal = currentTaskSignal();
+        message = await client.messages
+          .stream(
+            {
+              model,
+              max_tokens: call.maxTokens,
+              // Stable system prompt first → cacheable prefix across calls of one agent.
+              system: [{ type: 'text', text: call.system, cache_control: { type: 'ephemeral' } }],
+              messages,
+              ...(tools ? { tools } : {}),
+              output_config: { effort: call.effort ?? 'medium', ...(extra.output_config ?? {}) },
+            },
+            signal ? { signal } : undefined,
+          )
+          .finalMessage();
+      } catch (err) {
+        // The request produced no usable response: the reservation is released.
+        await this.settle(
+          reservation,
+          model,
+          null,
+          err instanceof Error ? err.message.slice(0, 500) : 'error',
+        ).catch((e: unknown) => this.opts.logger.error({ err: e }, 'seo ai usage not settled'));
+        throw err;
+      }
+      const failure =
+        message.stop_reason === 'refusal'
+          ? 'refusal'
+          : message.stop_reason === 'max_tokens'
+            ? `output cut at max_tokens (${call.maxTokens})`
+            : null;
+      costUsd += await this.settle(reservation, model, message.usage, failure);
+      content.push(...message.content);
+      if (message.stop_reason !== 'pause_turn') break;
+      // Resume: resend the conversation with the paused assistant turn.
+      messages.push({ role: 'assistant', content: message.content });
     }
+    if (message?.stop_reason === 'refusal') throw new AiBlocked('refusal');
+    if (message?.stop_reason === 'max_tokens') {
+      throw new AiInvalidOutput(`output cut at max_tokens (${call.maxTokens})`);
+    }
+    return { content, costUsd, model };
   }
 
   async text(call: AiCall): Promise<AiTextResult> {
@@ -257,12 +302,18 @@ export class SeoAi {
     return { data: result.data, costUsd };
   }
 
-  /** Research cache: the same question is answered once per TTL. */
+  /**
+   * Research cache: the same question is answered once per TTL. A result
+   * `isValid` rejects (e.g. an empty research answer) is NOT cached — the
+   * call throws AiInvalidOutput, so the task retries instead of reusing
+   * nothing for a whole day.
+   */
   async cached<T>(
     kind: string,
     keyParts: unknown,
     ttlHours: number,
     produce: () => Promise<T>,
+    isValid: (value: T) => boolean = () => true,
   ): Promise<T> {
     const key = `${kind}:${createHash('sha256').update(JSON.stringify(keyParts)).digest('hex').slice(0, 40)}`;
     const now = this.opts.now?.() ?? new Date();
@@ -272,6 +323,8 @@ export class SeoAi {
       .where(eq(schema.seoResearchCache.key, key));
     if (hit && hit.expiresAt > now) return hit.value as T;
     const value = await produce();
+    if (!isValid(value))
+      throw new AiInvalidOutput(`${kind}: empty or too short result, not cached`);
     const expiresAt = new Date(now.getTime() + ttlHours * 3600_000);
     await this.opts.db
       .insert(schema.seoResearchCache)
@@ -286,5 +339,7 @@ export class SeoAi {
 
 export function createAnthropicClient(apiKey: string | undefined): AiClient | null {
   if (!apiKey) return null;
-  return new Anthropic({ apiKey, maxRetries: 2, timeout: 10 * 60_000 }) as unknown as AiClient;
+  // One request may take at most 6 min (× 2 SDK attempts); the queue's task
+  // timeout (15 min) aborts anything longer through the task signal.
+  return new Anthropic({ apiKey, maxRetries: 1, timeout: 6 * 60_000 }) as unknown as AiClient;
 }
