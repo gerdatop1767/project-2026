@@ -1730,7 +1730,7 @@ export const notificationPreferences = pgTable('notification_preferences', {
     .references(() => users.id),
   progressEnabled: boolean('progress_enabled').notNull().default(true),
   planRemindersEnabled: boolean('plan_reminders_enabled').notNull().default(true),
-  frequency: text('frequency', { enum: ['normal', 'important'] })
+  frequency: text('frequency', { enum: ['important', 'normal', 'extended'] })
     .notNull()
     .default('normal'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

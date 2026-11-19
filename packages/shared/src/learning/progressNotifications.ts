@@ -14,9 +14,36 @@ export const progressNotificationKinds = [
 ] as const;
 export type ProgressNotificationKind = (typeof progressNotificationKinds)[number];
 
-/** `important`: no daily plan reminders, only results. */
-export const progressFrequencies = ['normal', 'important'] as const;
+/**
+ * How often progress messages come («Частота уведомлений»):
+ * - `important` («Минимальная»): results only — no daily plan reminders, at most 1 a day;
+ * - `normal` («Обычная»): plan reminders from 16:00, at most 2 a day;
+ * - `extended` («Расширенная»): plan reminders from 14:00, smaller improvements
+ *   (+10 points of mastery instead of +15) are reported too, at most 3 a day.
+ */
+export const progressFrequencies = ['important', 'normal', 'extended'] as const;
 export type ProgressFrequency = (typeof progressFrequencies)[number];
+
+export interface FrequencyRules {
+  readonly maxPerDay: number;
+  readonly planReminders: boolean;
+  /** Local minute from which «Сегодня по плану» may go out. */
+  readonly planFromMinute: number;
+  /** Mastery growth (points vs two weeks ago) worth a message. */
+  readonly improvementPoints: number;
+}
+
+export const FREQUENCY_RULES: Record<ProgressFrequency, FrequencyRules> = {
+  important: { maxPerDay: 1, planReminders: false, planFromMinute: 16 * 60, improvementPoints: 15 },
+  normal: { maxPerDay: 2, planReminders: true, planFromMinute: 16 * 60, improvementPoints: 15 },
+  extended: { maxPerDay: 3, planReminders: true, planFromMinute: 14 * 60, improvementPoints: 10 },
+};
+
+export const FREQUENCY_LABELS: Record<ProgressFrequency, string> = {
+  important: 'Минимальная',
+  normal: 'Обычная',
+  extended: 'Расширенная',
+};
 
 export const notificationPreferencesSchema = z.object({
   /** Progress, goal and control messages. */

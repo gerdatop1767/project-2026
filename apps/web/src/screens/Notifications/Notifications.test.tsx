@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReminderSettingsResponse } from '@zybrilka/shared';
 import { Notifications } from './Notifications.js';
@@ -177,12 +177,68 @@ describe('Уведомления', () => {
       frequency: 'normal',
     });
     expect(progress).toHaveAttribute('aria-checked', 'false');
-    await user.selectOptions(screen.getByLabelText('Частота'), 'important');
+    const freq = screen.getByRole('radiogroup', { name: 'Частота уведомлений' });
+    expect(within(freq).getByRole('radio', { name: /Обычная/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await user.click(within(freq).getByRole('radio', { name: 'Минимальная' }));
     expect(api.saveProgressNotificationPreferences).toHaveBeenLastCalledWith({
       progressEnabled: false,
       planRemindersEnabled: true,
       frequency: 'important',
     });
     expect(api.saveReminders).not.toHaveBeenCalled();
+  });
+
+  it('«Расширенная» is saved and explained; the chosen option is marked', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getReminders).mockResolvedValue(settings());
+    renderScreen();
+    const freq = await screen.findByRole('radiogroup', { name: 'Частота уведомлений' });
+    expect(screen.getByText(/До 2 сообщений в день/)).toBeInTheDocument();
+    await user.click(within(freq).getByRole('radio', { name: 'Расширенная' }));
+    expect(api.saveProgressNotificationPreferences).toHaveBeenLastCalledWith(
+      expect.objectContaining({ frequency: 'extended' }),
+    );
+    expect(within(freq).getByRole('radio', { name: /Расширенная/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByText(/До 3 сообщений в день/)).toBeInTheDocument();
+    expect(screen.getByText(/после 14:00/)).toBeInTheDocument();
+    await user.click(within(freq).getByRole('radio', { name: 'Минимальная' }));
+    expect(screen.getByText(/До 1 сообщения в день/)).toBeInTheDocument();
+    expect(screen.getByText(/Без ежедневных напоминаний по плану/)).toBeInTheDocument();
+  });
+
+  it('a saved setting is shown on open; a failed save puts the old one back', async () => {
+    vi.mocked(api.getProgressNotificationPreferences).mockResolvedValue({
+      progressEnabled: true,
+      planRemindersEnabled: false,
+      frequency: 'extended',
+    } as Awaited<ReturnType<typeof api.getProgressNotificationPreferences>>);
+    vi.mocked(api.saveProgressNotificationPreferences).mockRejectedValueOnce(new Error('offline'));
+    vi.mocked(api.getReminders).mockResolvedValue(settings({ enabled: true, time: '07:30' }));
+    const user = userEvent.setup();
+    renderScreen();
+    const freq = await screen.findByRole('radiogroup', { name: 'Частота уведомлений' });
+    expect(within(freq).getByRole('radio', { name: /Расширенная/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: 'Напоминания по плану' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.getByLabelText('Время')).toHaveValue('07:30');
+    await user.click(within(freq).getByRole('radio', { name: 'Обычная' }));
+    await waitFor(() =>
+      expect(within(freq).getByRole('radio', { name: /Расширенная/ })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      ),
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось сохранить');
   });
 });
