@@ -4,7 +4,7 @@
  * caching, Telegram HTML and the trainer links. Real PGlite database, fake
  * model and network — no paid API is called.
  */
-import type Anthropic from '@anthropic-ai/sdk';
+import Anthropic from '@anthropic-ai/sdk';
 import {
   createSeoCampaign,
   enqueueSeoTask,
@@ -364,10 +364,12 @@ describe('stage 1: queue, AI gateway and article lifecycle', () => {
     const tk = await task('r');
     expect(tk).toMatchObject({ status: 'queued', attempts: 1 });
     expect(tk.error).toContain('timed out');
-    // The aborted request's reservation was released (no usage → 0).
+    // Aborted before any byte arrived: the real cost is unknown, so the
+    // request is settled to its input estimate (never a silent $0, never left pending).
     const [u] = await t.db.select().from(schema.seoAiUsage);
-    expect(u).toMatchObject({ ok: false, costUsd: 0 });
-    expect(u!.error).not.toBe(PENDING);
+    expect(u!.ok).toBe(false);
+    expect(u!.error).toMatch(/^unknown_estimated: /);
+    expect(Number(u!.costUsd)).toBeGreaterThan(0);
     await sleep(50);
     expect(seen).toHaveLength(1);
   });
@@ -516,12 +518,14 @@ describe('stage 1: queue, AI gateway and article lifecycle', () => {
     expect(await t.db.select().from(schema.seoAiUsage)).toHaveLength(1);
   });
 
-  it('a failed request releases its reservation (cost 0, reason kept)', async () => {
-    const ai = new SeoAi({
-      db: t.db,
-      client: client(async () => Promise.reject(new Error('429 rate_limit_error'))),
-      logger,
-    });
+  it('a request the API refused (HTTP error) releases its reservation: cost 0, reason kept', async () => {
+    const refused = new Anthropic.RateLimitError(
+      429,
+      { type: 'error', error: { type: 'rate_limit_error', message: 'slow down' } },
+      '429 rate_limit_error',
+      new Headers(),
+    );
+    const ai = new SeoAi({ db: t.db, client: client(async () => Promise.reject(refused)), logger });
     await expect(
       ai.text({
         agent: 'content',
@@ -533,7 +537,29 @@ describe('stage 1: queue, AI gateway and article lifecycle', () => {
       }),
     ).rejects.toThrow('429');
     const [u] = await t.db.select().from(schema.seoAiUsage);
-    expect(u).toMatchObject({ ok: false, costUsd: 0, error: '429 rate_limit_error' });
+    expect(u).toMatchObject({ ok: false, costUsd: 0 });
+    expect(u!.error).toMatch(/^refused: /);
+  });
+
+  it('a network failure before any answer keeps an input-cost estimate (unknown spend, safe side)', async () => {
+    const ai = new SeoAi({
+      db: t.db,
+      client: client(async () => Promise.reject(new TypeError('fetch failed'))),
+      logger,
+    });
+    await expect(
+      ai.text({
+        agent: 'content',
+        purpose: 'p',
+        tier: 'cheap',
+        system: 's',
+        prompt: 'p',
+        maxTokens: 1000,
+      }),
+    ).rejects.toThrow('fetch failed');
+    const [u] = await t.db.select().from(schema.seoAiUsage);
+    expect(u!.error).toMatch(/^unknown_estimated: /);
+    expect(Number(u!.costUsd)).toBeGreaterThan(0);
   });
 
   it('a reservation left by a crashed worker is kept at its worst case and marked abandoned', async () => {

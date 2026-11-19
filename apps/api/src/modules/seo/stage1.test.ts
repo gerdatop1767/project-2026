@@ -241,3 +241,117 @@ describe('stage 1: SEO analytics, trainer links, blog URLs', () => {
     expect((await app.inject({ method: 'GET', url: '/blog/nonexistent' })).statusCode).toBe(404);
   });
 });
+
+describe('stage 1 audit: admin writes race safely', () => {
+  let t: Awaited<ReturnType<typeof createTestDb>>;
+  let app: ReturnType<typeof buildApp>;
+  let cookie: string;
+  beforeAll(async () => {
+    t = await createTestDb();
+    const f = fixtures(t.db);
+    const owner = await f.user('2026-01-01T10:00:00+03:00', 'email');
+    cookie = await f.session(owner);
+    app = buildApp({
+      version: 't',
+      db: t.db,
+      authConfig: loadConfig({ NODE_ENV: 'test', WEB_BASE_URL: WEB, ADMIN_OWNER_USER_IDS: owner }),
+    });
+  });
+  afterAll(async () => {
+    await app.close();
+    await t.close();
+  });
+  const send = (url: string, payload: unknown, method: 'POST' | 'PATCH' = 'POST') =>
+    app.inject({
+      method,
+      url,
+      headers: { cookie, 'x-zybrilka-admin': '1' },
+      payload: payload as object,
+    });
+
+  it('an edit made on an outdated version is refused (409), so the newer text is not lost', async () => {
+    const [a] = await t.db
+      .insert(schema.seoArticles)
+      .values({ slug: 'race', title: 'Race', status: 'draft' })
+      .returning();
+    // The owner opened version 1; the agent saved version 2 meanwhile.
+    await t.db
+      .update(schema.seoArticles)
+      .set({ bodyMd: 'текст агента', version: 2 })
+      .where(eq(schema.seoArticles.id, a!.id));
+    const stale = await send(
+      `/api/v1/admin/seo/articles/${a!.id}`,
+      { version: 1, title: 'Правка по старой версии' },
+      'PATCH',
+    );
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().error).toBe('article_changed');
+    const [kept] = await t.db
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, a!.id));
+    expect(kept).toMatchObject({ bodyMd: 'текст агента', title: 'Race', version: 2 });
+    const fresh = await send(
+      `/api/v1/admin/seo/articles/${a!.id}`,
+      { version: 2, title: 'Правка по свежей версии' },
+      'PATCH',
+    );
+    expect(fresh.statusCode).toBe(200);
+    expect(fresh.json().article).toMatchObject({ title: 'Правка по свежей версии', version: 3 });
+    expect(
+      (await send(`/api/v1/admin/seo/articles/${a!.id}`, { version: 'x' }, 'PATCH')).statusCode,
+    ).toBe(400);
+  });
+
+  it('simultaneous edits never lose an update: each lands on its own version with a revision', async () => {
+    const [a] = await t.db
+      .insert(schema.seoArticles)
+      .values({ slug: 'race2', title: 'Race2', status: 'draft' })
+      .returning();
+    const results = await Promise.all([
+      send(`/api/v1/admin/seo/articles/${a!.id}`, { version: 1, title: 'Первая' }, 'PATCH'),
+      send(`/api/v1/admin/seo/articles/${a!.id}`, { version: 1, title: 'Вторая' }, 'PATCH'),
+    ]);
+    // Both opened version 1: exactly one wins, the other is told to reload.
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    const [after] = await t.db
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, a!.id));
+    expect(after!.version).toBe(2);
+  });
+
+  it('a double click on «Применить обновление» applies it once', async () => {
+    const [a] = await t.db
+      .insert(schema.seoArticles)
+      .values({
+        slug: 'upd',
+        title: 'Upd',
+        status: 'needs_update',
+        publishedAt: new Date(),
+        bodyMd: 'old',
+      })
+      .returning();
+    const [rev] = await t.db
+      .insert(schema.seoArticleRevisions)
+      .values({
+        articleId: a!.id,
+        version: 2,
+        snapshot: { bodyMd: 'new text' },
+        reason: 'pending_update',
+        actor: 'agent',
+      })
+      .returning();
+    const url = `/api/v1/admin/seo/articles/${a!.id}/revisions/${rev!.id}/apply`;
+    const [r1, r2] = await Promise.all([
+      send(url, { confirm: true }),
+      send(url, { confirm: true }),
+    ]);
+    expect([r1.statusCode, r2.statusCode].sort()).toEqual([200, 409]);
+    const [after] = await t.db
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, a!.id));
+    expect(after).toMatchObject({ status: 'published', bodyMd: 'new text', version: 2 });
+  });
+});

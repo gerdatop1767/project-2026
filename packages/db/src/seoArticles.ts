@@ -262,3 +262,82 @@ export async function countArticlesSince(
     );
   return row?.n ?? 0;
 }
+
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/**
+ * Applies a pending article update (written by the SEO agent for a live
+ * article) exactly once. The revision is claimed by a conditional UPDATE
+ * (pending_update → applied_update) and the article row is locked, in one
+ * transaction: a second caller — another worker, or the owner clicking at
+ * the same moment — finds nothing to claim and gets null. An article taken
+ * off the site meanwhile stays off (the owner decides). `review` given →
+ * the fact-check verdict is stored with it.
+ */
+export async function applyPendingArticleRevision(
+  db: Database,
+  o: {
+    articleId: string;
+    revisionId: string;
+    actor: string;
+    now: Date;
+    review?: Record<string, unknown>;
+    tx?: Tx;
+  },
+): Promise<Article | null> {
+  const run = async (t: Tx): Promise<Article | null> => {
+    const [rev] = await t
+      .update(schema.seoArticleRevisions)
+      .set({ reason: 'applied_update' })
+      .where(
+        and(
+          eq(schema.seoArticleRevisions.id, o.revisionId),
+          eq(schema.seoArticleRevisions.articleId, o.articleId),
+          eq(schema.seoArticleRevisions.reason, 'pending_update'),
+        ),
+      )
+      .returning();
+    if (!rev) return null;
+    const [fresh] = await t
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, o.articleId))
+      .for('update');
+    if (!fresh) return null;
+    await saveArticleRevision(t, fresh, 'before_update', o.actor);
+    const { wordCount, qualityIssues, ...fields } = rev.snapshot as {
+      wordCount?: number;
+      qualityIssues?: string[];
+    } & Record<string, unknown>;
+    const live = fresh.status === 'published' || fresh.status === 'needs_update';
+    const [updated] = await t
+      .update(schema.seoArticles)
+      .set({
+        ...(fields as object),
+        slug: fresh.slug,
+        wordCount: wordCount ?? fresh.wordCount,
+        qualityIssues: qualityIssues ?? [],
+        status: live ? 'published' : fresh.status,
+        ...(o.review ? { factCheckPassed: true, reviewNotes: o.review } : {}),
+        version: fresh.version + 1,
+        updatedAt: o.now,
+      })
+      .where(eq(schema.seoArticles.id, fresh.id))
+      .returning();
+    if (live) {
+      await t
+        .insert(schema.seoTasks)
+        .values({
+          kind: 'post_publish_check',
+          agent: 'technical',
+          idempotencyKey: `post_publish_check:${fresh.id}:v${fresh.version + 1}`,
+          articleId: fresh.id,
+          payload: { articleId: fresh.id },
+          priority: 80,
+        })
+        .onConflictDoNothing();
+    }
+    return updated ?? null;
+  };
+  return o.tx ? run(o.tx) : db.transaction(run);
+}

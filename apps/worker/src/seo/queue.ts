@@ -8,6 +8,8 @@ import { AiBlocked } from './ai.js';
 import { runInTaskScope } from './taskScope.js';
 
 export type SeoTask = typeof schema.seoTasks.$inferSelect;
+/** A transaction handle (the callback argument of `db.transaction`). */
+export type SeoTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 export interface TaskContext {
   task: SeoTask;
@@ -15,6 +17,13 @@ export interface TaskContext {
   signal: AbortSignal;
   /** True when this run is the task's last allowed attempt. */
   lastAttempt: boolean;
+  /**
+   * Fenced write: runs `fn` in a transaction that first locks this task's
+   * row and checks this worker still owns it (status running, lockedBy = me).
+   * A worker that lost its lease gets TaskAborted('lease_lost') and writes
+   * nothing — the new owner's result is the only one that lands.
+   */
+  commit: <T>(fn: (tx: SeoTx) => Promise<T>) => Promise<T>;
   /** Enqueue a follow-up task (idempotent by key). */
   enqueue: (t: {
     kind: string;
@@ -43,8 +52,14 @@ export class PermanentError extends Error {}
 
 /** Why a running task was cancelled (AbortSignal.reason). */
 export class TaskAborted extends Error {
-  constructor(public reasonCode: 'timeout' | 'emergency_stop') {
-    super(reasonCode === 'timeout' ? 'task timed out and was cancelled' : 'emergency stop');
+  constructor(public reasonCode: 'timeout' | 'emergency_stop' | 'lease_lost') {
+    super(
+      reasonCode === 'timeout'
+        ? 'task timed out and was cancelled'
+        : reasonCode === 'lease_lost'
+          ? 'lease lost: another worker owns the task'
+          : 'emergency stop',
+    );
   }
 }
 
@@ -151,6 +166,22 @@ export class SeoQueue {
       task,
       signal,
       lastAttempt: task.attempts >= task.maxAttempts,
+      commit: (fn) =>
+        db.transaction(async (tx) => {
+          const [own] = await tx
+            .select({ id: schema.seoTasks.id })
+            .from(schema.seoTasks)
+            .where(
+              and(
+                eq(schema.seoTasks.id, task.id),
+                eq(schema.seoTasks.status, 'running'),
+                eq(schema.seoTasks.lockedBy, this.workerId),
+              ),
+            )
+            .for('update');
+          if (!own) throw new TaskAborted('lease_lost');
+          return fn(tx);
+        }),
       enqueue: async (t) => {
         const r = await db
           .insert(schema.seoTasks)
@@ -208,10 +239,23 @@ export class SeoQueue {
     let beating = Promise.resolve();
     const heartbeat = setInterval(() => {
       beating = (async () => {
-        await db
+        const renewed = await db
           .update(schema.seoTasks)
           .set({ lockedUntil: new Date(this.now().getTime() + leaseMs) })
-          .where(and(eq(schema.seoTasks.id, task.id), eq(schema.seoTasks.lockedBy, this.workerId)));
+          .where(
+            and(
+              eq(schema.seoTasks.id, task.id),
+              eq(schema.seoTasks.status, 'running'),
+              eq(schema.seoTasks.lockedBy, this.workerId),
+            ),
+          )
+          .returning({ id: schema.seoTasks.id });
+        // Someone else owns the task now (our lease expired and it was re-claimed):
+        // stop spending on a result that can no longer be saved.
+        if (renewed.length === 0 && !controller.signal.aborted) {
+          controller.abort(new TaskAborted('lease_lost'));
+          return;
+        }
         if (!controller.signal.aborted && (await loadSeoSettings(db)).emergencyStop) {
           controller.abort(new TaskAborted('emergency_stop'));
         }
@@ -230,6 +274,14 @@ export class SeoQueue {
     } catch (caught) {
       const err = controller.signal.aborted ? (controller.signal.reason as unknown) : caught;
       const message = err instanceof Error ? err.message : String(err);
+      // Not ours any more: the new owner records the outcome. Nothing to write.
+      if (err instanceof TaskAborted && err.reasonCode === 'lease_lost') {
+        this.opts.logger.warn(
+          { task: task.id, kind: task.kind },
+          'seo task: lease lost, result dropped',
+        );
+        return;
+      }
       // Budget/stop/missing key: not the task's fault — park it, don't burn attempts.
       const blockedReason =
         err instanceof AiBlocked && err.reason !== 'refusal'

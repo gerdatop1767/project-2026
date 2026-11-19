@@ -52,6 +52,8 @@ export interface AiClient {
       options?: { signal?: AbortSignal },
     ) => {
       finalMessage: () => Promise<Anthropic.Message>;
+      /** The SDK's running snapshot (usage from message_start / message_delta so far). */
+      readonly currentMessage?: Anthropic.Message | undefined;
     };
   };
 }
@@ -160,6 +162,41 @@ export class SeoAi {
     });
   }
 
+  /**
+   * What a request that did not complete cost. Anthropic bills a request
+   * that reached the model even if the stream was cut (timeout, stop,
+   * network): with a `message_start` the input tokens are known and the
+   * output so far is estimated from the text received. An HTTP error answer
+   * (4xx/5xx status) means the request was refused — not billed. A failure
+   * before any byte arrived is unknown: the input estimate is kept (safe side).
+   */
+  private failedUsage(
+    err: unknown,
+    snapshot: Anthropic.Message | undefined,
+    promptText: string,
+  ): { usage: Anthropic.Usage | null; note: string } {
+    if (snapshot?.usage) {
+      const received = snapshot.content
+        .map((b) => (b.type === 'text' ? b.text : b.type === 'thinking' ? b.thinking : ''))
+        .join('');
+      const usage = {
+        ...snapshot.usage,
+        output_tokens: Math.max(
+          snapshot.usage.output_tokens ?? 0,
+          received ? estimateTokens(received) : 0,
+        ),
+      } as Anthropic.Usage;
+      return { usage, note: 'partial' };
+    }
+    if (err instanceof Anthropic.APIError && typeof err.status === 'number') {
+      return { usage: null, note: 'refused' };
+    }
+    return {
+      usage: { input_tokens: estimateTokens(promptText), output_tokens: 0 } as Anthropic.Usage,
+      note: 'unknown_estimated',
+    };
+  }
+
   /** Replaces a reservation with the real usage of the request (0 if it produced none). */
   private async settle(
     id: string,
@@ -206,29 +243,34 @@ export class SeoAi {
         call.webSearch?.maxUses ?? 0,
       );
       const reservation = await this.reserve(call, model, worst);
+      let stream: ReturnType<AiClient['messages']['stream']> | undefined;
       try {
         const signal = currentTaskSignal();
-        message = await client.messages
-          .stream(
-            {
-              model,
-              max_tokens: call.maxTokens,
-              // Stable system prompt first → cacheable prefix across calls of one agent.
-              system: [{ type: 'text', text: call.system, cache_control: { type: 'ephemeral' } }],
-              messages,
-              ...(tools ? { tools } : {}),
-              output_config: { effort: call.effort ?? 'medium', ...(extra.output_config ?? {}) },
-            },
-            signal ? { signal } : undefined,
-          )
-          .finalMessage();
+        stream = client.messages.stream(
+          {
+            model,
+            max_tokens: call.maxTokens,
+            // Stable system prompt first → cacheable prefix across calls of one agent.
+            system: [{ type: 'text', text: call.system, cache_control: { type: 'ephemeral' } }],
+            messages,
+            ...(tools ? { tools } : {}),
+            output_config: { effort: call.effort ?? 'medium', ...(extra.output_config ?? {}) },
+          },
+          signal ? { signal } : undefined,
+        );
+        message = await stream.finalMessage();
       } catch (err) {
-        // The request produced no usable response: the reservation is released.
+        // Settle to what the request really cost (partial / refused / estimated) — never a silent $0.
+        const failed = this.failedUsage(
+          err,
+          stream?.currentMessage,
+          call.system + JSON.stringify(messages),
+        );
         await this.settle(
           reservation,
           model,
-          null,
-          err instanceof Error ? err.message.slice(0, 500) : 'error',
+          failed.usage,
+          `${failed.note}: ${err instanceof Error ? err.message : 'error'}`.slice(0, 500),
         ).catch((e: unknown) => this.opts.logger.error({ err: e }, 'seo ai usage not settled'));
         throw err;
       }

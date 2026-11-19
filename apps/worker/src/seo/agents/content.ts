@@ -1,4 +1,5 @@
 import {
+  applyPendingArticleRevision,
   enqueueSeoTask,
   loadSeoSettings,
   saveArticleRevision,
@@ -23,7 +24,7 @@ import {
   nextMoscowTime,
   type SeoDeps,
 } from '../deps.js';
-import { PermanentError, type TaskHandler } from '../queue.js';
+import { PermanentError, TaskAborted, type SeoTx, type TaskHandler } from '../queue.js';
 
 /**
  * Content Agent (docs/SEO_CENTER.md §5): facts first (web search, official
@@ -286,125 +287,170 @@ ${insights.map((i) => `- ${i.dimension}=${i.value}: ${JSON.stringify(i.metrics)}
           `Внешние ссылки не из найденных источников: ${unknownExternal.slice(0, 3).join(', ')}`,
         );
 
-      const [current] = await db
-        .select()
-        .from(schema.seoArticles)
-        .where(eq(schema.seoArticles.id, a.id));
-      const slug = live ? current!.slug : await uniqueArticleSlug(db, seoSlug(data.slugHint), a.id);
-      const fields = {
-        title: data.title,
-        seoTitle: data.seoTitle,
-        metaDescription: data.metaDescription,
-        h1: data.h1,
-        slug,
-        format: data.format,
-        bodyMd: data.bodyMd,
-        faq: data.faq,
-        sources: data.sources,
-        ogTitle: data.ogTitle,
-        ogDescription: data.ogDescription,
-        primaryKeyword: data.primaryKeyword,
-        secondaryKeywords: data.secondaryKeywords,
-        ctaPath: data.ctaPath,
-        coverMediaId: current!.coverMediaId,
-        subjectId: current!.subjectId,
-      };
-      let pendingRevisionId: string | null = null;
-      if (live) {
-        // An article that is (or was) on the site is never overwritten by
-        // unreviewed text: the new version waits as a pending revision.
-        const [rev] = await db
-          .insert(schema.seoArticleRevisions)
-          .values({
+      const slugCandidate = live
+        ? a.slug
+        : await uniqueArticleSlug(db, seoSlug(data.slugHint), a.id);
+      // Fenced, atomic save: only the task's current owner writes, the
+      // article row is locked, and an edit made meanwhile (version changed)
+      // is never overwritten — the generated text is kept as a revision.
+      const saved = await ctx.commit(async (tx) => {
+        const [current] = await tx
+          .select()
+          .from(schema.seoArticles)
+          .where(eq(schema.seoArticles.id, a.id))
+          .for('update');
+        if (!current) throw new PermanentError('article was deleted during generation');
+        const fields = {
+          title: data.title,
+          seoTitle: data.seoTitle,
+          metaDescription: data.metaDescription,
+          h1: data.h1,
+          slug: live ? current.slug : slugCandidate,
+          format: data.format,
+          bodyMd: data.bodyMd,
+          faq: data.faq,
+          sources: data.sources,
+          ogTitle: data.ogTitle,
+          ogDescription: data.ogDescription,
+          primaryKeyword: data.primaryKeyword,
+          secondaryKeywords: data.secondaryKeywords,
+          ctaPath: data.ctaPath,
+          coverMediaId: current.coverMediaId,
+          subjectId: current.subjectId,
+        };
+        const snapshot = { ...fields, wordCount: rendered.wordCount, qualityIssues: issues };
+        if (current.version !== a.version) {
+          await tx.insert(schema.seoArticleRevisions).values({
             articleId: a.id,
-            version: current!.version + 1,
-            snapshot: { ...fields, wordCount: rendered.wordCount, qualityIssues: issues },
-            reason: 'pending_update',
+            version: current.version,
+            snapshot,
+            reason: 'agent_draft_conflict',
             actor: 'agent:content',
-          })
-          .returning({ id: schema.seoArticleRevisions.id });
-        pendingRevisionId = rev!.id;
-        await db
-          .update(schema.seoArticles)
-          .set({
-            status: current!.status === 'published' ? 'needs_update' : current!.status,
-            error: null,
-            updatedAt: deps.now(),
-          })
-          .where(eq(schema.seoArticles.id, a.id));
-      } else {
-        if (current!.bodyMd)
-          await saveArticleRevision(
-            db,
-            current!,
-            payload.instructions ? 'agent_rewrite' : 'agent_generate',
-            'agent:content',
-          );
-        await db
-          .update(schema.seoArticles)
-          .set({
-            ...fields,
-            wordCount: rendered.wordCount,
-            qualityIssues: issues,
-            status: 'draft',
-            factCheckPassed: null,
-            generatedBy: current!.generatedBy ?? 'agent',
-            version: current!.version + 1,
-            error: null,
-            updatedAt: deps.now(),
-          })
-          .where(eq(schema.seoArticles.id, a.id));
-      }
-
-      // Keywords of this article now count as covered (one article per query — anti-cannibalisation).
-      for (const q of [data.primaryKeyword, ...data.secondaryKeywords]) {
-        const normalized = normalizeQuery(q);
-        await db
-          .insert(schema.seoKeywords)
+          });
+          return { conflict: true as const };
+        }
+        let pendingRevisionId: string | null = null;
+        if (live) {
+          // An article that is (or was) on the site is never overwritten by
+          // unreviewed text: the new version waits as a pending revision.
+          const [rev] = await tx
+            .insert(schema.seoArticleRevisions)
+            .values({
+              articleId: a.id,
+              version: current.version + 1,
+              snapshot,
+              reason: 'pending_update',
+              actor: 'agent:content',
+            })
+            .returning({ id: schema.seoArticleRevisions.id });
+          pendingRevisionId = rev!.id;
+          await tx
+            .update(schema.seoArticles)
+            .set({
+              status: current.status === 'published' ? 'needs_update' : current.status,
+              error: null,
+              updatedAt: deps.now(),
+            })
+            .where(eq(schema.seoArticles.id, a.id));
+        } else {
+          if (current.bodyMd) {
+            await saveArticleRevision(
+              tx,
+              current,
+              payload.instructions ? 'agent_rewrite' : 'agent_generate',
+              'agent:content',
+            );
+          }
+          await tx
+            .update(schema.seoArticles)
+            .set({
+              ...fields,
+              wordCount: rendered.wordCount,
+              qualityIssues: issues,
+              status: 'draft',
+              factCheckPassed: null,
+              generatedBy: current.generatedBy ?? 'agent',
+              version: current.version + 1,
+              error: null,
+              updatedAt: deps.now(),
+            })
+            .where(eq(schema.seoArticles.id, a.id));
+        }
+        // Keywords of this article now count as covered (one article per query — anti-cannibalisation).
+        for (const q of [data.primaryKeyword, ...data.secondaryKeywords]) {
+          const normalized = normalizeQuery(q);
+          await tx
+            .insert(schema.seoKeywords)
+            .values({
+              query: q,
+              normalized,
+              subjectId: a.subjectId,
+              articleId: a.id,
+              source: 'article',
+            })
+            .onConflictDoNothing();
+          await tx
+            .update(schema.seoKeywords)
+            .set({ articleId: a.id })
+            .where(eq(schema.seoKeywords.normalized, normalized));
+        }
+        await tx
+          .insert(schema.seoTasks)
           .values({
-            query: q,
-            normalized,
-            subjectId: a.subjectId,
+            kind: 'review_article',
+            agent: 'content',
+            idempotencyKey: `review_article:${a.id}:v${current.version + 1}`,
             articleId: a.id,
-            source: 'article',
+            payload: { articleId: a.id, pendingRevisionId },
+            priority: 65,
+            parentId: ctx.task.id,
           })
           .onConflictDoNothing();
-        await db
-          .update(schema.seoKeywords)
-          .set({ articleId: a.id })
-          .where(and(eq(schema.seoKeywords.normalized, normalized)));
+        return { conflict: false as const };
+      });
+      if (saved.conflict) {
+        throw new PermanentError(
+          'статью отредактировали во время генерации — правка владельца сохранена, текст агента лежит в ревизиях',
+        );
       }
       await ctx.log(
         'article.generated',
         `Черновик «${data.title}»: ${rendered.wordCount} слов, ${issues.length ? `замечаний ${issues.length}` : 'без замечаний'}`,
         { articleId: a.id, details: { issues } },
       );
-      await ctx.enqueue({
-        kind: 'review_article',
-        agent: 'content',
-        key: `review_article:${a.id}:v${current!.version + 1}`,
-        articleId: a.id,
-        payload: { articleId: a.id, pendingRevisionId },
-        priority: 65,
-      });
       return { articleId: a.id, words: rendered.wordCount, issues: issues.length };
     } catch (err) {
       // Never leave the article in «Исследование»/«Генерация»: back to where it
-      // was (a retry follows), or «Ошибка» when no attempt is left.
+      // was (a retry follows), or «Ошибка» when no attempt is left. Fenced: a
+      // worker that lost the task touches nothing; only our own progress
+      // status is reverted (an article someone moved on is left alone).
       const reason = err instanceof Error ? err.message : String(err);
       const final = ctx.lastAttempt || err instanceof PermanentError;
-      await db
-        .update(schema.seoArticles)
-        .set({
-          status: live ? a.status : final ? 'error' : statusBefore,
-          error:
-            `${final ? 'Генерация не удалась' : `Попытка ${ctx.task.attempts} из ${ctx.task.maxAttempts} не удалась, будет повтор`}: ${reason}`.slice(
-              0,
-              1000,
-            ),
-          updatedAt: deps.now(),
-        })
-        .where(eq(schema.seoArticles.id, a.id));
+      if (!(err instanceof TaskAborted && err.reasonCode === 'lease_lost')) {
+        await ctx
+          .commit((tx) =>
+            tx
+              .update(schema.seoArticles)
+              .set({
+                ...(live ? {} : { status: final ? 'error' : statusBefore }),
+                error:
+                  `${final ? 'Генерация не удалась' : `Попытка ${ctx.task.attempts} из ${ctx.task.maxAttempts} не удалась, будет повтор`}: ${reason}`.slice(
+                    0,
+                    1000,
+                  ),
+                updatedAt: deps.now(),
+              })
+              .where(
+                live
+                  ? eq(schema.seoArticles.id, a.id)
+                  : and(
+                      eq(schema.seoArticles.id, a.id),
+                      inArray(schema.seoArticles.status, ['research', 'generating']),
+                    ),
+              ),
+          )
+          .catch(() => undefined);
+      }
       throw err;
     }
   };
@@ -501,17 +547,22 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
       verified.factualIssues.length === 0 &&
       a.qualityIssues.length === 0;
     const autoPublish = passed && settings.mode === 'auto' && !settings.publishingPaused;
-    if (pending) {
-      if (autoPublish) {
-        await applyPendingRevision(deps, stored, pendingRevisionId!, verified);
-      } else {
-        await db
+    // Fenced and conditional: only the task's owner writes, and only if the
+    // article is still what was reviewed. An article the owner published,
+    // scheduled or edited meanwhile keeps the owner's state.
+    const applied = await ctx.commit(async (tx) => {
+      if (pending) {
+        if (autoPublish) {
+          return applyPendingRevision(deps, stored, pendingRevisionId!, verified, tx);
+        }
+        const rows = await tx
           .update(schema.seoArticles)
           .set({ reviewNotes: { ...verified, pendingRevisionId, passed }, updatedAt: deps.now() })
-          .where(eq(schema.seoArticles.id, a.id));
+          .where(eq(schema.seoArticles.id, a.id))
+          .returning({ id: schema.seoArticles.id });
+        return rows.length > 0;
       }
-    } else {
-      await db
+      const rows = await tx
         .update(schema.seoArticles)
         .set({
           status: autoPublish ? 'scheduled' : 'review',
@@ -520,7 +571,23 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
           reviewNotes: verified,
           updatedAt: deps.now(),
         })
-        .where(eq(schema.seoArticles.id, a.id));
+        .where(
+          and(
+            eq(schema.seoArticles.id, a.id),
+            eq(schema.seoArticles.version, stored.version),
+            inArray(schema.seoArticles.status, ['draft', 'review', 'needs_update']),
+          ),
+        )
+        .returning({ id: schema.seoArticles.id });
+      return rows.length > 0;
+    });
+    if (!applied) {
+      await ctx.log(
+        'article.review_skipped',
+        `Факт-чек «${a.title}» не применён: статью изменили или опубликовали во время проверки`,
+        { articleId: a.id, level: 'warn' },
+      );
+      return { passed, verdict: verified.verdict, applied: false };
     }
     await ctx.log(
       'article.reviewed',
@@ -566,50 +633,23 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
   };
 }
 
-/** Applies a reviewed pending update to a live article (agent or admin). */
-export async function applyPendingRevision(
+/**
+ * Applies a reviewed pending update exactly once — the shared implementation
+ * in @zybrilka/db (also used by the admin «Применить обновление»).
+ */
+export function applyPendingRevision(
   deps: Pick<SeoDeps, 'db' | 'now'>,
   article: typeof schema.seoArticles.$inferSelect,
   revisionId: string,
   review: unknown,
-) {
-  const { db } = deps;
-  const [rev] = await db
-    .select()
-    .from(schema.seoArticleRevisions)
-    .where(eq(schema.seoArticleRevisions.id, revisionId));
-  if (!rev || rev.reason !== 'pending_update') return false;
-  const snap = rev.snapshot as Record<string, unknown>;
-  await saveArticleRevision(db, article, 'before_update', 'agent:content');
-  const { wordCount, qualityIssues, ...fields } = snap as {
-    wordCount?: number;
-    qualityIssues?: string[];
-  } & Record<string, unknown>;
-  await db
-    .update(schema.seoArticles)
-    .set({
-      ...(fields as object),
-      slug: article.slug,
-      wordCount: wordCount ?? article.wordCount,
-      qualityIssues: qualityIssues ?? [],
-      status: 'published',
-      factCheckPassed: true,
-      reviewNotes: review as Record<string, unknown>,
-      version: article.version + 1,
-      updatedAt: deps.now(),
-    })
-    .where(eq(schema.seoArticles.id, article.id));
-  await db
-    .update(schema.seoArticleRevisions)
-    .set({ reason: 'applied_update' })
-    .where(eq(schema.seoArticleRevisions.id, revisionId));
-  await enqueueSeoTask(db, {
-    kind: 'post_publish_check',
-    agent: 'technical',
-    idempotencyKey: `post_publish_check:${article.id}:v${article.version + 1}`,
+  tx?: SeoTx,
+): Promise<boolean> {
+  return applyPendingArticleRevision(deps.db, {
     articleId: article.id,
-    payload: { articleId: article.id },
-    priority: 80,
-  });
-  return true;
+    revisionId,
+    review: review as Record<string, unknown>,
+    actor: 'agent:content',
+    now: deps.now(),
+    tx,
+  }).then((r) => r !== null);
 }

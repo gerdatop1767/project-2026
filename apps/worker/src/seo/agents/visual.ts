@@ -204,102 +204,123 @@ ${a.bodyMd.slice(0, 14_000)}
     );
 
     const palette = Number.parseInt(a.id.slice(0, 2), 16) % PALETTES.length;
-    const save = async (
-      kind: string,
-      svg: string,
-      alt: string,
-      description: string,
-      width: number,
-      height: number,
-    ) => {
-      const fileName = `${a.slug.slice(0, 60)}-${kind}-${randomBytes(3).toString('hex')}.svg`;
-      const bytes = Buffer.from(svg.replace(/\n/g, ''), 'utf8');
-      const [m] = await db
-        .insert(schema.seoMedia)
-        .values({
-          articleId: a.id,
-          kind,
-          fileName,
-          mimeType: 'image/svg+xml',
-          bytes,
-          sizeBytes: bytes.length,
-          width,
-          height,
-          alt,
-          description,
-          origin: 'generated',
-          license: 'Оригинальное изображение Зубрилки',
-        })
-        .returning({ id: schema.seoMedia.id });
-      return m!.id;
-    };
-
-    // A live article's body is not rewritten silently: only its cover is refreshed.
+    // Build everything in memory first; the database is touched once, in a
+    // fenced transaction, and only if the article is still the version the
+    // images were planned for (an edit made meanwhile is never overwritten).
     const live = a.status === 'published' || a.status === 'needs_update';
-    if (!live) {
-      // Replace earlier generated images (a re-run must not pile them up).
-      await db
-        .delete(schema.seoMedia)
-        .where(and(eq(schema.seoMedia.articleId, a.id), eq(schema.seoMedia.origin, 'generated')));
-    }
-    let body = a.bodyMd;
-    let made = 0;
-    const coverId = await save(
-      'cover',
-      coverSvg({ title: a.h1 ?? a.title, kicker: data.coverKicker, palette }),
-      data.coverAlt,
-      `Обложка статьи «${a.title}»`,
-      1200,
-      630,
-    );
-    made++;
-    if (!live && data.infographic && made < settings.maxImagesPerArticle) {
+    const planned: {
+      kind: string;
+      svg: string;
+      alt: string;
+      description: string;
+      width: number;
+      height: number;
+      heading?: string;
+    }[] = [
+      {
+        kind: 'cover',
+        svg: coverSvg({ title: a.h1 ?? a.title, kicker: data.coverKicker, palette }),
+        alt: data.coverAlt,
+        description: `Обложка статьи «${a.title}»`,
+        width: 1200,
+        height: 630,
+      },
+    ];
+    if (!live && data.infographic && planned.length < settings.maxImagesPerArticle) {
       const svg = infographicSvg({
         title: data.infographic.title,
         items: data.infographic.items,
         palette,
       });
-      const h = Number(/height="(\d+)"/.exec(svg)![1]);
-      const id = await save(
-        'infographic',
+      planned.push({
+        kind: 'infographic',
         svg,
-        data.infographic.alt,
-        data.infographic.title,
-        1200,
-        h,
-      );
-      body = insertImage(body, data.infographic.afterHeading, data.infographic.alt, id);
-      made++;
+        alt: data.infographic.alt,
+        description: data.infographic.title,
+        width: 1200,
+        height: Number(/height="(\d+)"/.exec(svg)![1]),
+        heading: data.infographic.afterHeading,
+      });
     }
-    if (!live && data.meme && made < settings.maxImagesPerArticle) {
-      const id = await save(
-        'meme',
-        memeSvg({ top: data.meme.top, bottom: data.meme.bottom, palette }),
-        data.meme.alt,
-        'Мем Зубрилки',
-        1080,
-        1080,
-      );
-      body = insertImage(body, data.meme.afterHeading, data.meme.alt, id);
-      made++;
+    if (!live && data.meme && planned.length < settings.maxImagesPerArticle) {
+      planned.push({
+        kind: 'meme',
+        svg: memeSvg({ top: data.meme.top, bottom: data.meme.bottom, palette }),
+        alt: data.meme.alt,
+        description: 'Мем Зубрилки',
+        width: 1080,
+        height: 1080,
+        heading: data.meme.afterHeading,
+      });
     }
-    // Drop references to media that no longer exist (previous generated set).
-    const existing = new Set(
-      (
-        await db
-          .select({ id: schema.seoMedia.id })
-          .from(schema.seoMedia)
-          .where(eq(schema.seoMedia.articleId, a.id))
-      ).map((m) => m.id),
-    );
-    body = body.replace(/\n?!\[[^\]]*\]\(media:([0-9a-f-]{36})\)/g, (m, id: string) =>
-      existing.has(id) ? m : '',
-    );
 
-    await db
-      .update(schema.seoArticles)
-      .set({ coverMediaId: coverId, ...(live ? {} : { bodyMd: body }), updatedAt: deps.now() })
-      .where(eq(schema.seoArticles.id, a.id));
+    const made = await ctx.commit(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(schema.seoArticles)
+        .where(eq(schema.seoArticles.id, a.id))
+        .for('update');
+      if (!current) return 0;
+      const stillLive = current.status === 'published' || current.status === 'needs_update';
+      // The body changed (edit, rewrite) or the article went live meanwhile: don't overwrite it.
+      if (!live && (current.version !== a.version || stillLive)) return 0;
+      if (!live) {
+        // Replace earlier generated images (a re-run must not pile them up).
+        await tx
+          .delete(schema.seoMedia)
+          .where(and(eq(schema.seoMedia.articleId, a.id), eq(schema.seoMedia.origin, 'generated')));
+      }
+      let body = current.bodyMd;
+      let coverId: string | null = null;
+      for (const img of planned) {
+        const fileName = `${a.slug.slice(0, 60)}-${img.kind}-${randomBytes(3).toString('hex')}.svg`;
+        const bytes = Buffer.from(img.svg.replace(/\n/g, ''), 'utf8');
+        const [m] = await tx
+          .insert(schema.seoMedia)
+          .values({
+            articleId: a.id,
+            kind: img.kind,
+            fileName,
+            mimeType: 'image/svg+xml',
+            bytes,
+            sizeBytes: bytes.length,
+            width: img.width,
+            height: img.height,
+            alt: img.alt,
+            description: img.description,
+            origin: 'generated',
+            license: 'Оригинальное изображение Зубрилки',
+          })
+          .returning({ id: schema.seoMedia.id });
+        if (img.kind === 'cover') coverId = m!.id;
+        if (img.heading !== undefined) body = insertImage(body, img.heading, img.alt, m!.id);
+      }
+      // Drop references to media that no longer exist (previous generated set).
+      const existing = new Set(
+        (
+          await tx
+            .select({ id: schema.seoMedia.id })
+            .from(schema.seoMedia)
+            .where(eq(schema.seoMedia.articleId, a.id))
+        ).map((m) => m.id),
+      );
+      body = body.replace(/\n?!\[[^\]]*\]\(media:([0-9a-f-]{36})\)/g, (m, id: string) =>
+        existing.has(id) ? m : '',
+      );
+      await tx
+        .update(schema.seoArticles)
+        .set({ coverMediaId: coverId, ...(live ? {} : { bodyMd: body }), updatedAt: deps.now() })
+        .where(eq(schema.seoArticles.id, a.id));
+      return planned.length;
+    });
+    if (made === 0) {
+      await ctx.log(
+        'visuals.skipped',
+        `Изображения для «${a.title}» не применены: статью изменили во время работы — запустите «Изображения» ещё раз`,
+        { articleId: a.id, level: 'warn' },
+      );
+      return { images: 0, skipped: true };
+    }
     await ctx.log(
       'visuals.done',
       `Изображений: ${made} (обложка${data.infographic ? ', инфографика' : ''}${data.meme ? ', мем' : ''})`,
