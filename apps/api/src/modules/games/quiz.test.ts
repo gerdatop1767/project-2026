@@ -109,14 +109,15 @@ describe('mini-games — quizzes (real content)', () => {
             where,
           ).toBe(true);
         }
-        // An explanation always says where it comes from; only the key-based
-        // «Ни одной из этих ошибок» note is automatic.
+        // An explanation always says where it comes from; automatic ones are
+        // only the key-based notes: «Ни одной из этих ошибок», «здесь верно»
+        // of a one-word №5/№7 question, and the computed «Вычисления».
         if (item.explanation) {
-          expect(item.explanationSource, where).toBe(
-            gameId === 'grammar-detective' && item.correct === 'Ни одной из этих ошибок'
-              ? 'auto'
-              : 'task',
-          );
+          const auto =
+            (gameId === 'grammar-detective' && item.correct === 'Ни одной из этих ошибок') ||
+            (item.key.includes(':w:') && item.correct === 'Да') ||
+            item.key.startsWith('drill:');
+          expect(item.explanationSource, where).toBe(auto ? 'auto' : 'task');
           expect(item.explanation, where).not.toMatch(/не подда[её]тся надёжн/i);
         }
         expect(item.text.length, where).toBeGreaterThan(0);
@@ -337,5 +338,73 @@ describe('mini-games — quizzes (real content)', () => {
     ).json() as QuizAnswerResponse;
     expect(res).toMatchObject({ correct: true, explanationSource: 'auto' });
     expect(res.explanation).toMatch(/Других ошибок ключ не проверяет/);
+  });
+
+  it('the chosen round size is the real length of the round, capped by the bank', async () => {
+    const r30 = (await get('/games/quiz/nn/round?size=30')).json() as QuizRoundResponse;
+    expect(r30.questions).toHaveLength(30);
+    const r3 = (await get('/games/quiz/nn/round?size=3')).json() as QuizRoundResponse;
+    expect(r3.questions).toHaveLength(3);
+    // A bank smaller than the request: every question once, never a repeat.
+    const bank = await quizBank(testDb.db, 'probability-blitz');
+    expect(bank.items.length).toBeLessThan(80);
+    const small = (
+      await get(`/games/quiz/probability-blitz/round?size=50`)
+    ).json() as QuizRoundResponse;
+    expect(small.questions).toHaveLength(Math.min(50, bank.items.length));
+    expect(new Set(small.questions.map((q) => q.itemId)).size).toBe(small.questions.length);
+    expect((await get('/games/quiz/nn/round?size=51')).statusCode).toBe(400);
+    expect((await get('/games/quiz/nn/round?size=2')).statusCode).toBe(400);
+    const stress = (await get('/games/stress/round?size=60')).json() as { questions: unknown[] };
+    expect(stress.questions).toHaveLength(60);
+  });
+
+  it('a question just answered is not served again while the bank has others', async () => {
+    const { cookie } = await player();
+    const first = (await get('/games/quiz/nn/round?size=10', cookie)).json() as QuizRoundResponse;
+    for (const q of first.questions) {
+      await post(
+        '/games/quiz/nn/answer',
+        { itemId: q.itemId, answer: 'Н', clientAnswerId: randomUUID(), sessionId: first.sessionId },
+        cookie,
+      );
+    }
+    const second = (await get('/games/quiz/nn/round?size=10', cookie)).json() as QuizRoundResponse;
+    const seen = new Set(first.questions.map((q) => q.itemId));
+    expect(second.questions.filter((q) => seen.has(q.itemId))).toHaveLength(0);
+  });
+
+  it('round size settings: saved per game for the account, validated, private', async () => {
+    const a = await player();
+    const b = await player();
+    const put = (gameId: string, payload: object, cookie?: string) =>
+      app.inject({
+        method: 'PUT',
+        url: `/api/v1/games/settings/${gameId}`,
+        headers: cookie ? { cookie } : {},
+        payload,
+      });
+    expect((await get('/games/settings')).statusCode).toBe(401);
+    expect((await put('nn', { roundSize: 15 })).statusCode).toBe(401);
+    expect((await put('nn', { roundSize: 15 }, a.cookie)).statusCode).toBe(200);
+    expect((await put('stress', { roundSize: 70 }, a.cookie)).statusCode).toBe(200);
+    expect((await put('nn', { roundSize: 70 }, a.cookie)).statusCode).toBe(400);
+    expect((await put('nn', { roundSize: 2 }, a.cookie)).statusCode).toBe(400);
+    expect((await put('no-such-game', { roundSize: 10 }, a.cookie)).statusCode).toBe(404);
+    expect((await put('nn', { roundSize: 25 }, a.cookie)).statusCode).toBe(200);
+    expect((await get('/games/settings', a.cookie)).json()).toEqual({
+      settings: { nn: { roundSize: 25 }, stress: { roundSize: 70 } },
+    });
+    expect((await get('/games/settings', b.cookie)).json()).toEqual({ settings: {} });
+  });
+
+  it('«Вычисления» and «Вероятность»: bigger banks, every question answerable', async () => {
+    const expr = await quizBank(testDb.db, 'expressions-blitz');
+    const prob = await quizBank(testDb.db, 'probability-blitz');
+    expect(expr.items.filter((i) => i.key.startsWith('drill:')).length).toBeGreaterThan(100);
+    expect(prob.items.length).toBeGreaterThan(40);
+    for (const item of [...expr.items, ...prob.items]) {
+      expect(checkQuizAnswer(item, item.display), item.key).toBe(true);
+    }
   });
 });

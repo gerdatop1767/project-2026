@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   QUIZ_PERFECT_BONUS,
+  QUIZ_ROUND_MIN,
   QUIZ_ROUND_SIZE,
   QUIZ_POINTS_PER_CORRECT,
   quizGameById,
@@ -21,7 +22,9 @@ import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { AnswerMathText, InlineMathText, MathText } from '../../ui/MathText/MathText.js';
 import { GameIcon } from './GameIcon.js';
-import { RoundSizePicker, useRoundSize } from './RoundSize.js';
+import { RoundSizePicker, effectiveRoundSize, useRoundSize } from './RoundSize.js';
+import { GameRules } from './GameRules.js';
+import { useGameQuestionCount } from './MiniGames.js';
 import styles from './QuizGame.module.css';
 
 type Phase =
@@ -33,9 +36,6 @@ type Phase =
   | { kind: 'summary' };
 
 const newId = () => crypto.randomUUID();
-
-/** Round sizes a player can pick (the API allows 5–20). */
-export const QUIZ_SIZES = [5, 10, 15, 20] as const;
 
 /** «А (1) б (2) в» → text pieces and slot numbers. */
 export function splitSlots(text: string): (string | number)[] {
@@ -91,7 +91,8 @@ export function QuizGame({ gameId }: { gameId: string }) {
   const [progress, setProgress] = useState<QuizProgressResponse | null>(null);
   const sessionId = useRef<string | null>(null);
   const answerId = useRef(newId());
-  const [roundSize, setRoundSize] = useRoundSize(gameId, QUIZ_SIZES, QUIZ_ROUND_SIZE);
+  const [roundSize, setRoundSize] = useRoundSize(gameId, QUIZ_ROUND_SIZE);
+  const available = useGameQuestionCount(gameId);
 
   const loadProgress = useCallback(() => {
     if (isGuest) return;
@@ -124,7 +125,11 @@ export function QuizGame({ gameId }: { gameId: string }) {
     if (mode === 'mistakes' && !requireAccount('gameProgress')) return;
     setPhase({ kind: 'loading' });
     try {
-      const round = await getQuizRound(gameId, mode, roundSize);
+      const round = await getQuizRound(
+        gameId,
+        mode,
+        Math.max(QUIZ_ROUND_MIN, effectiveRoundSize(roundSize, available)),
+      );
       if (round.questions.length === 0) {
         setPhase({ kind: 'empty', mode });
         return;
@@ -230,7 +235,13 @@ export function QuizGame({ gameId }: { gameId: string }) {
               </section>
             )
           )}
-          <RoundSizePicker choices={QUIZ_SIZES} value={roundSize} onChange={setRoundSize} />
+          <GameRules gameId={game.id} title={game.title} />
+          <RoundSizePicker
+            gameId={game.id}
+            value={roundSize}
+            onChange={setRoundSize}
+            available={available}
+          />
           <div className={styles.actions}>
             <Button onClick={() => void play('all')}>
               <Icon name="play" size={18} /> Играть

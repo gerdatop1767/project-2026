@@ -38,6 +38,7 @@ import type {
   TaskWithSolution,
   VariantDetail,
   VariantAttemptDetail,
+  MiniGameSettingsResponse,
   MiniGamesResponse,
   QuizAnswerRequest,
   QuizAnswerResponse,
@@ -797,6 +798,17 @@ export function confirmTelegramLink(accept: boolean): Promise<TelegramLinkConfir
 }
 
 /** Mini-games (docs/MINI_GAMES.md). */
+export function getMiniGameSettings(): Promise<MiniGameSettingsResponse> {
+  return rawApiFetch('/games/settings');
+}
+
+export function saveMiniGameSettings(gameId: string, roundSize: number): Promise<unknown> {
+  return apiFetch(`/games/settings/${encodeURIComponent(gameId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ roundSize }),
+  });
+}
+
 export function getMiniGames(): Promise<MiniGamesResponse> {
   return rawApiFetch('/games');
 }

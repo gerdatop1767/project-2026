@@ -309,6 +309,13 @@
       "when": 1794803351035,
       "tag": "0043_personal_learning_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795063496515,
+      "tag": "0044_mini_game_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -67,6 +67,26 @@ export function prefetchMiniGames(): void {
   );
 }
 
+/** How many questions a game has now (from the hub's list), null while unknown. */
+export function useGameQuestionCount(gameId: string): number | null {
+  const known = () => lastGames?.games.find((g) => g.id === gameId)?.questionCount ?? null;
+  const [count, setCount] = useState<number | null>(known);
+  useEffect(() => {
+    let live = true;
+    getMiniGames().then(
+      (data) => {
+        lastGames = data;
+        if (live) setCount(data.games.find((g) => g.id === gameId)?.questionCount ?? null);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [gameId]);
+  return count;
+}
+
 type Load =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: MiniGamesResponse };
 

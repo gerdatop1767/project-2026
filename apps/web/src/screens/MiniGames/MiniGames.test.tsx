@@ -7,11 +7,14 @@ import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { AccountGateProvider } from '../../lib/accountGate.js';
 import * as api from '../../lib/api.js';
+import { resetPrivateCaches } from '../../lib/privateCaches.js';
 import { MiniGames } from './MiniGames.js';
 import { StressGame } from './StressGame.js';
 
 vi.mock('../../lib/api.js', () => ({
   getMiniGames: vi.fn(),
+  getMiniGameSettings: vi.fn(),
+  saveMiniGameSettings: vi.fn(),
   getStressRound: vi.fn(),
   answerStress: vi.fn(),
   finishStressRound: vi.fn(),
@@ -70,8 +73,16 @@ beforeEach(() => {
   vi.mocked(api.getStressRound).mockReset().mockResolvedValue(ROUND);
   vi.mocked(api.answerStress).mockReset();
   vi.mocked(api.getStressProgress).mockReset().mockResolvedValue(PROGRESS);
-  vi.mocked(api.getMiniGames).mockReset();
+  vi.mocked(api.getMiniGames)
+    .mockReset()
+    .mockResolvedValue({
+      games: MINI_GAMES.map((g) => ({ ...g, progress: null, questionCount: 219 })),
+    });
+  vi.mocked(api.getMiniGameSettings).mockReset().mockResolvedValue({ settings: {} });
+  vi.mocked(api.saveMiniGameSettings).mockReset().mockResolvedValue({});
   vi.mocked(api.finishStressRound).mockReset().mockResolvedValue();
+  window.localStorage.clear();
+  resetPrivateCaches();
 });
 
 describe('Мини-игры', () => {

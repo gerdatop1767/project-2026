@@ -57,3 +57,5 @@ export * from './miniGames.js';
 export * from './quizGames.js';
 export * from './examScoring.js';
 export * from './broadcastAudience.js';
+export * from './miniGameRules.js';
+export * from './mathDrills.js';

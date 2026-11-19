@@ -2003,6 +2003,23 @@ export const miniGameSessions = pgTable(
 );
 
 /**
+ * A signed-in player's settings per mini-game (the round size they chose),
+ * so the choice survives a reload, another device and a new sign-in.
+ */
+export const miniGameSettings = pgTable(
+  'mini_game_settings',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    gameId: text('game_id').notNull(),
+    roundSize: integer('round_size').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.gameId] })],
+);
+
+/**
  * Per (user, game, item) learning state, updated in the same transaction
  * as the answer. `streak` = correct answers in a row; an item counts as
  * learned at `MINI_GAME_LEARNED_STREAK` (packages/shared).

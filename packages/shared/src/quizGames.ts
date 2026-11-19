@@ -63,6 +63,9 @@ export const QUIZ_TOPICS = [
 export type QuizTopic = (typeof QUIZ_TOPICS)[number]['id'];
 
 export const QUIZ_ROUND_SIZE = 10;
+/** A round's size a player may choose (never more than the game's bank). */
+export const QUIZ_ROUND_MIN = 3;
+export const QUIZ_ROUND_MAX = 50;
 /** Points for a question answered right on the first try. */
 export const QUIZ_POINTS_PER_CORRECT = 10;
 /** Bonus for a round with every question right. */
@@ -183,6 +186,8 @@ const DOUBTFUL = /не подда[её]тся надёжн|написани[ея
 export function dedupeItems(items: readonly QuizItem[]): QuizItem[] {
   const byText = new Map<string, QuizItem>();
   const order: string[] = [];
+  /** «Да/Нет» questions whose copies disagree: either answer would count — dropped. */
+  const conflicted = new Set<string>();
   for (const it of items) {
     if (it.explanation && DOUBTFUL.test(it.explanation)) continue;
     const k = `${it.kind}|${it.text.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ')}|${it.prompt ?? ''}`;
@@ -198,11 +203,14 @@ export function dedupeItems(items: readonly QuizItem[]): QuizItem[] {
         !(first.accepted ?? []).includes(c) &&
         (first.kind !== 'choice' || (first.options ?? []).includes(c)),
     );
-    if (others.length > 0 && first.kind !== 'slots') {
+    const yesNo =
+      first.kind === 'choice' && first.options?.length === 2 && first.options.includes(YES);
+    if (others.length > 0 && yesNo) conflicted.add(k);
+    else if (others.length > 0 && first.kind !== 'slots') {
       byText.set(k, { ...first, accepted: [...(first.accepted ?? []), ...others] });
     }
   }
-  return order.map((k) => byText.get(k)!);
+  return order.filter((k) => !conflicted.has(k)).map((k) => byText.get(k)!);
 }
 
 const YES = 'Да';
@@ -410,6 +418,9 @@ export function paronymItems(row: QuizTaskRow): QuizItem[] {
   const wrong = wrongWord(words, row.correctAnswer);
   if (!wrong) return [];
   const explanation = explanationWhole(row.explanationMd);
+  const right = [row.correctAnswer, ...(row.acceptedAnswers ?? [])]
+    .map((w) => w.trim().toUpperCase())
+    .join(' или ');
   return [
     {
       key: `${row.id}:all`,
@@ -419,12 +430,58 @@ export function paronymItems(row: QuizTaskRow): QuizItem[] {
       prompt: 'Какое выделенное слово употреблено неверно?',
       options: words,
       correct: wrong,
-      display: `${wrong} → ${[row.correctAnswer, ...(row.acceptedAnswers ?? [])]
-        .map((w) => w.trim().toUpperCase())
-        .join(' или ')}`,
+      display: `${wrong} → ${right}`,
       ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
+    // One question per sentence: the task says exactly one word is wrong,
+    // so every other highlighted word is used correctly — by the key itself.
+    ...sentences.flatMap((sentence) => {
+      const own = capsWords(sentence);
+      if (own.length !== 1) return [];
+      const word = own[0]!;
+      const isWrong = word === wrong;
+      return [
+        oneWordItem(row, word, sentence, {
+          prompt: `Верно ли употреблено выделенное слово ${word}?`,
+          isWrong,
+          wrongDisplay: `${word} → ${right}`,
+          explanation: isWrong ? explanation : null,
+          autoNote: `По ключу задания неверно употреблено только слово ${wrong} (нужно: ${right}), поэтому здесь ${word} употреблено верно.`,
+        }),
+      ];
+    }),
   ];
+}
+
+/** A «Да/Нет» question about one highlighted word of a №5/№7 task. */
+function oneWordItem(
+  row: QuizTaskRow,
+  word: string,
+  text: string,
+  o: {
+    prompt: string;
+    isWrong: boolean;
+    wrongDisplay: string;
+    explanation: string | null;
+    autoNote: string;
+  },
+): QuizItem {
+  const answer = o.isWrong ? NO : YES;
+  return {
+    key: `${row.id}:w:${word}`,
+    taskId: row.id,
+    kind: 'choice',
+    text,
+    prompt: o.prompt,
+    options: [YES, NO],
+    correct: answer,
+    display: o.isWrong ? `${NO}: ${o.wrongDisplay}` : YES,
+    ...(o.isWrong
+      ? o.explanation
+        ? { explanation: o.explanation, explanationSource: 'task' as const }
+        : {}
+      : { explanation: o.autoNote, explanationSource: 'auto' as const }),
+  };
 }
 
 /** №7: which highlighted form is wrong? (the task's key is its right form) */
@@ -440,6 +497,9 @@ export function formErrorItems(row: QuizTaskRow): QuizItem[] {
   const wrong = wrongWord(words, row.correctAnswer);
   if (!wrong) return [];
   const explanation = explanationWhole(row.explanationMd);
+  const right = [row.correctAnswer, ...(row.acceptedAnswers ?? [])]
+    .map((w) => w.trim().toLowerCase())
+    .join(' или ');
   return [
     {
       key: `${row.id}:all`,
@@ -449,11 +509,19 @@ export function formErrorItems(row: QuizTaskRow): QuizItem[] {
       prompt: 'В каком выделенном слове ошибка в форме?',
       options: words,
       correct: wrong,
-      display: `${wrong} → ${[row.correctAnswer, ...(row.acceptedAnswers ?? [])]
-        .map((w) => w.trim().toLowerCase())
-        .join(' или ')}`,
+      display: `${wrong} → ${right}`,
       ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
     },
+    // One question per form: by the task, exactly one of the five is wrong.
+    ...lines.map((line, i) =>
+      oneWordItem(row, words[i]!, line, {
+        prompt: `Верно ли образована форма слова ${words[i]!}?`,
+        isWrong: words[i] === wrong,
+        wrongDisplay: `${words[i]!} → ${right}`,
+        explanation: words[i] === wrong ? explanation : null,
+        autoNote: `По ключу задания ошибка только в форме ${wrong} (нужно: ${right}), поэтому форма ${words[i]!} образована верно.`,
+      }),
+    ),
   ];
 }
 
@@ -930,8 +998,8 @@ export const QUIZ_GAMES: readonly QuizGameInfo[] = [
     title: 'Теория вероятностей',
     subjectId: 'math',
     topic: 'math-part1',
-    egeTask: 'Задание 4',
-    description: 'Классическая вероятность — короткие задачи с ответом-числом.',
+    egeTask: 'Задания 4–5',
+    description: 'Классическая вероятность и вероятности событий — задачи с ответом-числом.',
     instruction: 'Найди вероятность. Ответ — число (десятичной дробью).',
   },
   {
@@ -955,7 +1023,7 @@ export type QuizMode = (typeof quizModes)[number];
 
 export const quizRoundQuerySchema = z.object({
   mode: z.enum(quizModes).default('all'),
-  size: z.coerce.number().int().min(5).max(20).default(QUIZ_ROUND_SIZE),
+  size: z.coerce.number().int().min(QUIZ_ROUND_MIN).max(QUIZ_ROUND_MAX).default(QUIZ_ROUND_SIZE),
 });
 
 /** A question as the player gets it — no key. */
