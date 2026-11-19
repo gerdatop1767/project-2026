@@ -48,6 +48,13 @@ const configSchema = z
     // Probed by the worker to notice the site being down (API + database).
     API_HEALTH_URL: z.url().optional(),
     // Above undici's 10 s connect timeout (see DEFAULT_TIMEOUT_MS in telegram/client.ts).
+    // AI SEO Center (docs/SEO_CENTER.md). The Claude API key lives ONLY in the
+    // worker's environment; unset = the agent plans nothing that needs AI and
+    // the admin shows «Claude API не подключён».
+    ANTHROPIC_API_KEY: z.string().min(10).optional(),
+    // 32 bytes (base64 or hex), the same value as the API's: decrypts the
+    // integration secrets the owner saved in the admin.
+    SEO_SECRETS_KEY: z.string().optional(),
     TELEGRAM_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(20_000),
   })
   .refine((c) => c.NODE_ENV !== 'production' || c.DATABASE_URL, {

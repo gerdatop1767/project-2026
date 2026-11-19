@@ -169,7 +169,12 @@ export async function unpublishSeoArticle(db: Database, id: string, userId: stri
   const [row] = await db
     .update(schema.seoArticles)
     .set({ status: 'draft', updatedAt: new Date() })
-    .where(and(eq(schema.seoArticles.id, id), eq(schema.seoArticles.status, 'published')))
+    .where(
+      and(
+        eq(schema.seoArticles.id, id),
+        inArray(schema.seoArticles.status, ['published', 'needs_update']),
+      ),
+    )
     .returning();
   if (row) {
     await writeSeoLog(db, {

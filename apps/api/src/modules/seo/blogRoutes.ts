@@ -22,6 +22,8 @@ export interface BlogRoutesOptions {
 }
 
 const PAGE_SIZE = 24;
+/** On the site: published, and published-with-a-pending-update (the live text stays until the update is reviewed). */
+const LIVE = ['published', 'needs_update'];
 const MEDIA_RE = /^[a-z0-9-]{1,120}\.(svg|png|jpg|jpeg|webp)$/;
 
 /** Pages: same-origin script/style only; Metrika allowed (it loads only after consent). */
@@ -73,7 +75,7 @@ export const blogRoutes: FastifyPluginAsync<BlogRoutesOptions> = async (app, { d
     const [{ total } = { total: 0 }] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(schema.seoArticles)
-      .where(eq(schema.seoArticles.status, 'published'));
+      .where(inArray(schema.seoArticles.status, LIVE));
     const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (page > pages) return html(reply, renderNotFound(base), 404);
     const rows = await db
@@ -86,7 +88,7 @@ export const blogRoutes: FastifyPluginAsync<BlogRoutesOptions> = async (app, { d
       })
       .from(schema.seoArticles)
       .leftJoin(schema.seoMedia, eq(schema.seoMedia.id, schema.seoArticles.coverMediaId))
-      .where(eq(schema.seoArticles.status, 'published'))
+      .where(inArray(schema.seoArticles.status, LIVE))
       .orderBy(desc(schema.seoArticles.publishedAt))
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE);
@@ -109,7 +111,7 @@ export const blogRoutes: FastifyPluginAsync<BlogRoutesOptions> = async (app, { d
         updatedAt: schema.seoArticles.updatedAt,
       })
       .from(schema.seoArticles)
-      .where(eq(schema.seoArticles.status, 'published'))
+      .where(inArray(schema.seoArticles.status, LIVE))
       .orderBy(desc(schema.seoArticles.publishedAt))
       .limit(5000);
 
@@ -168,7 +170,7 @@ export const blogRoutes: FastifyPluginAsync<BlogRoutesOptions> = async (app, { d
     const [a] = await db
       .select()
       .from(schema.seoArticles)
-      .where(and(eq(schema.seoArticles.slug, slug), eq(schema.seoArticles.status, 'published')));
+      .where(and(eq(schema.seoArticles.slug, slug), inArray(schema.seoArticles.status, LIVE)));
     if (!a) return html(reply, renderNotFound(base), 404);
 
     const mediaRows = await db
@@ -186,11 +188,11 @@ export const blogRoutes: FastifyPluginAsync<BlogRoutesOptions> = async (app, { d
 
     const relatedWhere = a.subjectId
       ? and(
-          eq(schema.seoArticles.status, 'published'),
+          inArray(schema.seoArticles.status, LIVE),
           ne(schema.seoArticles.id, a.id),
           eq(schema.seoArticles.subjectId, a.subjectId),
         )
-      : and(eq(schema.seoArticles.status, 'published'), ne(schema.seoArticles.id, a.id));
+      : and(inArray(schema.seoArticles.status, LIVE), ne(schema.seoArticles.id, a.id));
     const related = await db
       .select({ slug: schema.seoArticles.slug, title: schema.seoArticles.title })
       .from(schema.seoArticles)

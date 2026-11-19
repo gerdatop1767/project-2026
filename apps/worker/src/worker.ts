@@ -10,6 +10,8 @@ import { SupportSender } from './support/sender.js';
 import { AdminNotifier } from './notifications/adminNotifier.js';
 import { HealthMonitor, httpHealthProbe } from './notifications/healthMonitor.js';
 import type { TelegramClient } from './telegram/client.js';
+import { SeoScheduler } from './seo/scheduler.js';
+import type { SeoDeps } from './seo/deps.js';
 
 export interface WorkerOptions {
   logger: Logger;
@@ -25,6 +27,8 @@ export interface WorkerOptions {
   ownerIds?: readonly string[];
   /** API /health URL probed for outages. */
   healthUrl?: string;
+  /** AI SEO agent (docs/SEO_CENTER.md); runs whenever a database is configured. */
+  seo?: Omit<SeoDeps, 'db' | 'logger'>;
 }
 
 /** Runs `job` every `ms`, never two at once; errors are logged, not fatal. */
@@ -60,6 +64,7 @@ export async function startWorker({
   siteUrl = 'http://localhost:5173',
   ownerIds = [],
   healthUrl,
+  seo,
 }: WorkerOptions): Promise<Worker> {
   if (checkDb) {
     await checkDb();
@@ -140,6 +145,17 @@ export async function startWorker({
     await reminders.recoverInterrupted();
     stops.push(every(60_000, () => reminders.run(), logger, 'daily reminders'));
     logger.info('support replies and daily reminders on');
+  }
+
+  if (db && seo) {
+    // AI SEO agent: the scheduler plans (every minute), the queue works
+    // (every 20 s, at most 2 tasks per pass so one slow AI call can't
+    // starve the rest). Both are no-ops while the agent is off or stopped.
+    const scheduler = new SeoScheduler({ ...seo, db, logger });
+    await scheduler.init();
+    stops.push(every(60_000, () => scheduler.tick(), logger, 'seo scheduler'));
+    stops.push(every(20_000, () => scheduler.queue.process(2), logger, 'seo queue'));
+    logger.info({ ai: seo.ai.configured }, 'seo agent on');
   }
 
   // Tells the admin panel what this worker does (no secrets, booleans only),

@@ -652,6 +652,65 @@ export const seoAdminRoutes: FastifyPluginAsync<SeoAdminRoutesOptions> = async (
     return reply.code(202).send({ queued });
   });
 
+  /** Applies a pending update (written by the agent for a live article) after the owner reviewed it. */
+  app.post('/admin/seo/articles/:id/revisions/:rev/apply', async (request, reply) => {
+    const p = parse(z.object({ id: z.uuid(), rev: z.uuid() }), request.params);
+    if (!p || !parse(confirmBody, request.body)) return bad(reply, 'confirmation_required');
+    const [a] = await db.select().from(schema.seoArticles).where(eq(schema.seoArticles.id, p.id));
+    const [rev] = await db
+      .select()
+      .from(schema.seoArticleRevisions)
+      .where(
+        and(
+          eq(schema.seoArticleRevisions.id, p.rev),
+          eq(schema.seoArticleRevisions.articleId, p.id),
+        ),
+      );
+    if (!a || !rev) return notFound(reply);
+    if (rev.reason !== 'pending_update') return reply.code(409).send({ error: 'not_pending' });
+    await saveArticleRevision(db, a, 'before_update', `admin:${actor(request)}`);
+    const { wordCount, qualityIssues, ...fields } = rev.snapshot as {
+      wordCount?: number;
+      qualityIssues?: string[];
+    } & Record<string, unknown>;
+    const [updated] = await db
+      .update(schema.seoArticles)
+      .set({
+        ...(fields as object),
+        slug: a.slug,
+        wordCount: wordCount ?? a.wordCount,
+        qualityIssues: qualityIssues ?? [],
+        status: a.publishedAt ? 'published' : 'draft',
+        version: a.version + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.seoArticles.id, a.id))
+      .returning();
+    await db
+      .update(schema.seoArticleRevisions)
+      .set({ reason: 'applied_update' })
+      .where(eq(schema.seoArticleRevisions.id, rev.id));
+    if (a.publishedAt) {
+      await enqueueSeoTask(db, {
+        kind: 'post_publish_check',
+        agent: 'technical',
+        idempotencyKey: `post_publish_check:${a.id}:v${a.version + 1}`,
+        articleId: a.id,
+        payload: { articleId: a.id },
+        priority: 80,
+      });
+    }
+    await audit(request, 'seo.article.apply_update', a.id, { revision: rev.id });
+    await writeSeoLog(db, {
+      agent: 'system',
+      action: 'article.update_applied',
+      message: `Обновление статьи «${a.title}» применено`,
+      articleId: a.id,
+      actorUserId: actor(request),
+    });
+    return { article: updated };
+  });
+
   app.get('/admin/seo/articles/:id/revisions/:rev', async (request, reply) => {
     const p = parse(z.object({ id: z.uuid(), rev: z.uuid() }), request.params);
     if (!p) return notFound(reply);
@@ -1002,8 +1061,8 @@ export const seoAdminRoutes: FastifyPluginAsync<SeoAdminRoutesOptions> = async (
     await enqueueSeoTask(db, {
       kind: 'publish_external',
       agent: 'distribution',
-      idempotencyKey: `publish_external:${p.id}`,
-      payload: { postId: p.id },
+      idempotencyKey: `publish_external:${p.id}:manual:${Date.now()}`,
+      payload: { postId: p.id, manual: true },
       priority: 80,
       maxAttempts: 1,
     });

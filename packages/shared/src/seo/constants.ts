@@ -100,7 +100,6 @@ export const SEO_TASK_KINDS = {
   write_article: 'content',
   review_article: 'content',
   visuals: 'visual',
-  publish_article: 'content',
   post_publish_check: 'technical',
   distribute: 'distribution',
   publish_external: 'distribution',
