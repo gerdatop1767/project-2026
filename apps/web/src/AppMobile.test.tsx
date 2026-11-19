@@ -13,6 +13,10 @@ vi.mock('./lib/api.js', () => ({
   getProgressSummary: vi.fn(() => new Promise(() => {})),
   getVariantProgress: vi.fn(() => new Promise(() => {})),
   getProgressDaily: vi.fn(() => new Promise(() => {})),
+  getProgressPeriod: vi.fn(() => new Promise(() => {})),
+  getSmartSetup: vi.fn(() =>
+    Promise.resolve({ subjectId: 'math', skills: [], problemKeys: [], subjectTasks: 400 }),
+  ),
   getTaskCountsBySubject: vi.fn(() => new Promise(() => {})),
   getProgressByTaskNumber: vi.fn(() => new Promise(() => {})),
   getProgressByTopic: vi.fn(() => new Promise(() => {})),
