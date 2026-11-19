@@ -1,6 +1,12 @@
 import type { Database } from '@zybrilka/db';
 import type { FastifyPluginAsync } from 'fastify';
-import { isExamSkillSlug } from '@zybrilka/shared';
+import {
+  SMART_TRAINING_MAX,
+  SMART_TRAINING_MIN,
+  isExamSkillSlug,
+  smartDifficulties,
+  smartTrainingModes,
+} from '@zybrilka/shared';
 import { z } from 'zod';
 import {
   advanceLearningSession,
@@ -10,6 +16,7 @@ import {
   getVariantProgress,
   openVariantTask,
   startLearningSession,
+  startSmartLearningSession,
   startVariantSession,
 } from './service.js';
 
@@ -19,7 +26,7 @@ export interface LearningSessionRoutesOptions {
 
 const DEFAULT_TOTAL = 5;
 const MIN_TOTAL = 1;
-const MAX_TOTAL = 10;
+const MAX_TOTAL = SMART_TRAINING_MAX;
 
 const startSessionBodySchema = z.object({
   subjectId: z.string().min(1).optional(),
@@ -46,6 +53,17 @@ const startSessionBodySchema = z.object({
     .optional(),
   /** A plan day's training: authored difficulty 1..3 (with `focusSkill`). */
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+  /** «Умная тренировка» с настройкой (docs/learning/SMART-TRAINING.md). */
+  smart: z
+    .object({
+      mode: z.enum(smartTrainingModes),
+      skillKeys: z
+        .array(z.string().refine((k) => isExamSkillSlug(k)))
+        .max(60)
+        .optional(),
+      difficulty: z.enum(smartDifficulties).optional(),
+    })
+    .optional(),
 });
 
 const sessionParamsSchema = z.object({ sessionId: z.uuid() });
@@ -80,6 +98,34 @@ export const learningSessionRoutes: FastifyPluginAsync<LearningSessionRoutesOpti
       (!body.data.subjectId || !body.data.focusSkill.startsWith(`${body.data.subjectId}.`))
     ) {
       return reply.code(400).send({ error: 'invalid_body', issues: ['focus_skill_subject'] });
+    }
+    if (body.data.smart) {
+      if (!body.data.subjectId || body.data.focusSkill || body.data.mix) {
+        return reply
+          .code(400)
+          .send({ error: 'invalid_body', issues: ['smart_needs_subject_only'] });
+      }
+      const subjectId = body.data.subjectId;
+      if ((body.data.smart.skillKeys ?? []).some((k) => !k.startsWith(`${subjectId}.`))) {
+        return reply.code(400).send({ error: 'invalid_body', issues: ['skill_subject'] });
+      }
+      if (body.data.limit < SMART_TRAINING_MIN) {
+        return reply.code(400).send({ error: 'invalid_body', issues: ['limit_min'] });
+      }
+      const started = await startSmartLearningSession(db, request.userId, {
+        subjectId,
+        total: body.data.limit,
+        smart: body.data.smart,
+        unseenOnly: body.data.unseenOnly,
+      });
+      if (started.ok) return started.session;
+      const code =
+        started.error === 'subject_not_found'
+          ? 404
+          : started.error === 'not_enough_tasks'
+            ? 409
+            : 422;
+      return reply.code(code).send({ error: started.error, available: started.available });
     }
     const session = await startLearningSession(db, request.userId, {
       subjectId: body.data.subjectId,

@@ -20,6 +20,7 @@ export * from './learning/mastery.js';
 export * from './learning/examSkills.js';
 export * from './learning/difficultyRating.js';
 export * from './learning/engine.js';
+export * from './learning/smartTraining.js';
 export * from './learning/taskDifficulty.js';
 export * from './learning/taskStatistics.js';
 export * from './learning/errorSignatures.js';

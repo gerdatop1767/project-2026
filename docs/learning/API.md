@@ -56,11 +56,12 @@
 | Поле | Тип | Описание |
 |---|---|---|
 | `subjectId` | string? | Предмет тренировки |
-| `limit` | 1..10, по умолчанию 5 | Число заданий |
+| `limit` | 1..50, по умолчанию 5 (с `smart` — 3..50) | Число заданий |
 | `unseenOnly` | boolean? | Только задания, которые ученик ещё не решал |
 | `randomizeTopTier` | boolean? | Только для старого пути |
 | `focusSkill` | string? | Ключ навыка этого предмета — тренировка «Начать» по рекомендации. Навык другого предмета → `400` |
 | `mix` | `{weak, mistakes, stale, strong}`, каждое 0..1, сумма > 0 | Доли корзин |
+| `smart` | `{mode, skillKeys?, difficulty?}` | Умная тренировка с настройкой (`SMART-TRAINING.md`): режим `subject / topics / problems / stats / mixed`, темы, сложность `easy / medium / hard / mixed`. Ошибки: `409 not_enough_tasks {available}`, `422 no_problem_topics / no_topics / unknown_topic` |
 
 Ответ — как раньше (`LearningSessionResponse`) плюс `pick`:
 
@@ -70,6 +71,7 @@
 ```
 
 - **`GET /me/learning/sessions/:id/next`** — следующий слот плана.
+- **`GET /me/learning/smart-setup?subject=math|russian`** — темы предмета для экрана настройки: освоение, уровень, доступные задания, открытые ошибки, признак проблемы с причинами; `problemKeys`, `subjectTasks`.
 - **Итог** (`status: "completed"`) добавляет в `summary`:
   - `skills: [{skillKey, examNumber, title, before, after, attempts, correct}]`;
   - `next` — топ-3 рекомендации по обновлённой модели.

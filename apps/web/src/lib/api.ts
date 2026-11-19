@@ -39,6 +39,9 @@ import type {
   VariantDetail,
   VariantAttemptDetail,
   MiniGameSettingsResponse,
+  SmartDifficulty,
+  SmartSetupResponse,
+  SmartTrainingMode,
   MiniGamesResponse,
   QuizAnswerRequest,
   QuizAnswerResponse,
@@ -546,6 +549,10 @@ export function saveLearningProfile(
  * the authoritative endpoints and return their real response shape
  * from `@zybrilka/shared`, unmodified.
  */
+export function getSmartSetup(subject: string): Promise<SmartSetupResponse> {
+  return rawApiFetch(`/me/learning/smart-setup?subject=${encodeURIComponent(subject)}`);
+}
+
 export function startLearningSession(params: {
   subjectId?: string;
   limit?: number;
@@ -557,6 +564,12 @@ export function startLearningSession(params: {
   focusSkill?: string;
   /** A plan day's training: authored difficulty 1..3 (with `focusSkill`). */
   difficulty?: 1 | 2 | 3;
+  /** «Умная тренировка» с настройкой. */
+  smart?: {
+    mode: SmartTrainingMode;
+    skillKeys?: string[];
+    difficulty?: SmartDifficulty;
+  };
 }): Promise<LearningSessionResponse> {
   return apiFetch('/me/learning/sessions', { method: 'POST', body: JSON.stringify(params) });
 }
