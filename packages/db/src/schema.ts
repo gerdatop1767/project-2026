@@ -1824,3 +1824,492 @@ export const miniGameItemProgress = pgTable(
     index('mini_game_item_progress_user_game_idx').on(table.userId, table.gameId),
   ],
 );
+
+// ── AI SEO Center (docs/SEO_CENTER.md) ──────────────────────────────────
+
+/** The agent's settings: a single row, id = 1 (validated by @zybrilka/shared seoSettingsSchema). */
+export const seoSettings = pgTable('seo_settings', {
+  id: integer('id').primaryKey().default(1),
+  value: jsonb('value').$type<Record<string, unknown>>().notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * The agent's work queue. `idempotencyKey` is UNIQUE: planning the same
+ * daily step twice (two workers, a restart mid-plan) inserts it once.
+ * A running task holds a lease (`lockedUntil`); a lease that expires (the
+ * worker died) puts the task back in the queue. `attempts` are capped by
+ * `maxAttempts`, with an exponential pause in `runAfter`.
+ */
+export const seoTasks = pgTable(
+  'seo_tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').notNull(),
+    agent: text('agent').notNull(),
+    status: text('status').notNull().default('queued'),
+    idempotencyKey: text('idempotency_key').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    result: jsonb('result').$type<Record<string, unknown>>(),
+    error: text('error'),
+    priority: integer('priority').notNull().default(50),
+    attempts: integer('attempts').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(3),
+    runAfter: timestamp('run_after', { withTimezone: true }).notNull().defaultNow(),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
+    lockedBy: text('locked_by'),
+    parentId: uuid('parent_id').references((): AnyPgColumn => seoTasks.id),
+    articleId: uuid('article_id'),
+    costUsd: jsonb('cost_usd').$type<number>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('seo_tasks_idempotency_idx').on(table.idempotencyKey),
+    index('seo_tasks_queue_idx').on(table.status, table.runAfter, table.priority),
+    index('seo_tasks_created_idx').on(table.createdAt),
+    index('seo_tasks_article_idx').on(table.articleId),
+  ],
+);
+
+/** Every action of the agent (append-only by convention; never edited). */
+export const seoAgentLog = pgTable(
+  'seo_agent_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    agent: text('agent').notNull(),
+    level: text('level').notNull().default('info'),
+    action: text('action').notNull(),
+    message: text('message').notNull(),
+    taskId: uuid('task_id'),
+    articleId: uuid('article_id'),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    details: jsonb('details').$type<Record<string, unknown>>(),
+  },
+  (table) => [
+    index('seo_agent_log_at_idx').on(table.at),
+    index('seo_agent_log_agent_at_idx').on(table.agent, table.at),
+    index('seo_agent_log_article_idx').on(table.articleId),
+  ],
+);
+
+/** One row per AI call: tokens and exact cost. Budget checks sum this table. */
+export const seoAiUsage = pgTable(
+  'seo_ai_usage',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    agent: text('agent').notNull(),
+    purpose: text('purpose').notNull(),
+    model: text('model').notNull(),
+    taskId: uuid('task_id'),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+    cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    webSearches: integer('web_searches').notNull().default(0),
+    images: integer('images').notNull().default(0),
+    costUsd: jsonb('cost_usd').$type<number>().notNull(),
+    ok: boolean('ok').notNull().default(true),
+    error: text('error'),
+  },
+  (table) => [index('seo_ai_usage_at_idx').on(table.at)],
+);
+
+/** Research results by request hash, so the same research is never paid for twice. */
+export const seoResearchCache = pgTable(
+  'seo_research_cache',
+  {
+    key: text('key').primaryKey(),
+    kind: text('kind').notNull(),
+    value: jsonb('value').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [index('seo_research_cache_expires_idx').on(table.expiresAt)],
+);
+
+export const seoKeywordClusters = pgTable(
+  'seo_keyword_clusters',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    subjectId: text('subject_id'),
+    intent: text('intent'),
+    /** The one article meant to rank for this cluster (anti-cannibalisation). */
+    articleId: uuid('article_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('seo_keyword_clusters_name_idx').on(table.name)],
+);
+
+/**
+ * Semantic core. `frequency` is a monthly search volume ONLY when it comes
+ * from a real source (`frequencySource`: webmaster/gsc/csv/wordstat); an
+ * AI estimate is stored separately in `demandEstimate` (0–10) and never
+ * shown as a frequency.
+ */
+export const seoKeywords = pgTable(
+  'seo_keywords',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    query: text('query').notNull(),
+    normalized: text('normalized').notNull(),
+    clusterId: uuid('cluster_id').references(() => seoKeywordClusters.id),
+    subjectId: text('subject_id'),
+    intent: text('intent'),
+    frequency: integer('frequency'),
+    frequencySource: text('frequency_source'),
+    demandEstimate: integer('demand_estimate'),
+    competition: integer('competition'),
+    /** Latest known average position per engine (from Webmaster/GSC). */
+    positionYandex: jsonb('position_yandex').$type<number>(),
+    positionGoogle: jsonb('position_google').$type<number>(),
+    positionsUpdatedAt: timestamp('positions_updated_at', { withTimezone: true }),
+    articleId: uuid('article_id'),
+    source: text('source').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('seo_keywords_normalized_idx').on(table.normalized),
+    index('seo_keywords_cluster_idx').on(table.clusterId),
+    index('seo_keywords_article_idx').on(table.articleId),
+  ],
+);
+
+/** Topic ideas with the 7-factor priority (docs/SEO_CENTER.md §6). */
+export const seoTopics = pgTable(
+  'seo_topics',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    normalized: text('normalized').notNull(),
+    angle: text('angle'),
+    format: text('format'),
+    subjectId: text('subject_id'),
+    primaryKeyword: text('primary_keyword'),
+    keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+    factors: jsonb('factors').$type<Record<string, number>>(),
+    reasoning: text('reasoning'),
+    priority: jsonb('priority').$type<number>(),
+    status: text('status').notNull().default('new'),
+    source: text('source').notNull(),
+    articleId: uuid('article_id'),
+    duplicateOf: uuid('duplicate_of'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('seo_topics_normalized_idx').on(table.normalized),
+    index('seo_topics_status_idx').on(table.status),
+  ],
+);
+
+export const seoCompetitors = pgTable(
+  'seo_competitors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    domain: text('domain').notNull(),
+    notes: text('notes'),
+    analysis: jsonb('analysis').$type<Record<string, unknown>>(),
+    analyzedAt: timestamp('analyzed_at', { withTimezone: true }),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('seo_competitors_domain_idx').on(table.domain)],
+);
+
+/**
+ * Articles on zybrilka.ru/blog/<slug>. `slug` is UNIQUE and publishing is a
+ * single conditional UPDATE (status must not already be 'published'), so
+ * one article can never be published twice. `campaignId` is the tracked
+ * link the article's calls to action use — clicks and registrations per
+ * article come from the existing campaign attribution.
+ */
+export const seoArticles = pgTable(
+  'seo_articles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    status: text('status').notNull().default('idea'),
+    slug: text('slug').notNull(),
+    title: text('title').notNull(),
+    seoTitle: text('seo_title'),
+    metaDescription: text('meta_description'),
+    h1: text('h1'),
+    format: text('format'),
+    subjectId: text('subject_id'),
+    bodyMd: text('body_md').notNull().default(''),
+    faq: jsonb('faq').$type<{ question: string; answer: string }[]>().notNull().default([]),
+    sources: jsonb('sources').$type<{ title: string; url: string }[]>().notNull().default([]),
+    ogTitle: text('og_title'),
+    ogDescription: text('og_description'),
+    primaryKeyword: text('primary_keyword'),
+    secondaryKeywords: jsonb('secondary_keywords').$type<string[]>().notNull().default([]),
+    ctaPath: text('cta_path').notNull().default('/'),
+    coverMediaId: uuid('cover_media_id'),
+    topicId: uuid('topic_id').references(() => seoTopics.id),
+    campaignId: uuid('campaign_id').references(() => campaigns.id),
+    priority: jsonb('priority').$type<number>(),
+    wordCount: integer('word_count').notNull().default(0),
+    qualityIssues: jsonb('quality_issues').$type<string[]>().notNull().default([]),
+    reviewNotes: jsonb('review_notes').$type<Record<string, unknown>>(),
+    factCheckPassed: boolean('fact_check_passed'),
+    generatedBy: text('generated_by'),
+    scheduledFor: timestamp('scheduled_for', { withTimezone: true }),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+    lastCheck: jsonb('last_check').$type<Record<string, unknown>>(),
+    error: text('error'),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('seo_articles_slug_idx').on(table.slug),
+    index('seo_articles_status_idx').on(table.status),
+    index('seo_articles_published_idx').on(table.publishedAt),
+  ],
+);
+
+/** Every saved version of an article (who/what changed it and why). */
+export const seoArticleRevisions = pgTable(
+  'seo_article_revisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    articleId: uuid('article_id')
+      .notNull()
+      .references(() => seoArticles.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+    reason: text('reason').notNull(),
+    actor: text('actor').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('seo_article_revisions_article_idx').on(table.articleId, table.version)],
+);
+
+/** Images used by articles and posts. Bytes stored here (small, optimised SVG/WebP/PNG). */
+export const seoMedia = pgTable(
+  'seo_media',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    articleId: uuid('article_id').references(() => seoArticles.id, { onDelete: 'set null' }),
+    kind: text('kind').notNull(),
+    fileName: text('file_name').notNull(),
+    mimeType: text('mime_type').notNull(),
+    bytes: customType<{ data: Uint8Array; driverData: Uint8Array }>({
+      dataType: () => 'bytea',
+    })('bytes').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    alt: text('alt').notNull(),
+    description: text('description'),
+    /** Where it came from: generated by us / uploaded by the owner (with license note). */
+    origin: text('origin').notNull(),
+    license: text('license').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('seo_media_file_name_idx').on(table.fileName),
+    index('seo_media_article_idx').on(table.articleId),
+  ],
+);
+
+export const seoPlatforms = pgTable(
+  'seo_platforms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    mode: text('mode').notNull().default('manual'),
+    format: text('format').notNull(),
+    rules: text('rules').notNull(),
+    audience: text('audience'),
+    reachEstimate: text('reach_estimate'),
+    isActive: boolean('is_active').notNull().default(true),
+    research: jsonb('research').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('seo_platforms_slug_idx').on(table.slug)],
+);
+
+/**
+ * A platform-specific adaptation of an article. One per (article, platform)
+ * — UNIQUE — so the same article can't be posted to one platform twice.
+ * `campaignId` is the tracked link the post uses (UTM-equivalent).
+ */
+export const seoExternalPosts = pgTable(
+  'seo_external_posts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    articleId: uuid('article_id').references(() => seoArticles.id, { onDelete: 'set null' }),
+    platformId: uuid('platform_id')
+      .notNull()
+      .references(() => seoPlatforms.id),
+    status: text('status').notNull().default('draft'),
+    title: text('title'),
+    body: text('body').notNull(),
+    link: text('link').notNull(),
+    campaignId: uuid('campaign_id').references(() => campaigns.id),
+    checklist: jsonb('checklist').$type<string[]>().notNull().default([]),
+    externalUrl: text('external_url'),
+    externalId: text('external_id'),
+    similarityMax: jsonb('similarity_max').$type<number>(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('seo_external_posts_article_platform_idx').on(table.articleId, table.platformId),
+    index('seo_external_posts_status_idx').on(table.status),
+  ],
+);
+
+/**
+ * Connected services. `secretEnc` is AES-256-GCM ciphertext (key from the
+ * SEO_SECRETS_KEY env, never stored in the DB); the API never returns it.
+ * `config` holds non-secret settings (counter id, host id, goal id).
+ */
+export const seoIntegrations = pgTable('seo_integrations', {
+  kind: text('kind').primaryKey(),
+  config: jsonb('config').$type<Record<string, unknown>>().notNull().default({}),
+  secretEnc: text('secret_enc'),
+  status: text('status').notNull().default('not_configured'),
+  lastCheckAt: timestamp('last_check_at', { withTimezone: true }),
+  lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Search analytics from Yandex Webmaster / Google Search Console. One row per (engine, day, page, query). */
+export const seoSearchMetrics = pgTable(
+  'seo_search_metrics',
+  {
+    engine: text('engine').notNull(),
+    date: date('date').notNull(),
+    page: text('page').notNull().default(''),
+    query: text('query').notNull().default(''),
+    impressions: integer('impressions').notNull().default(0),
+    clicks: integer('clicks').notNull().default(0),
+    /** Average position (impression-weighted); null if the source has none. */
+    position: jsonb('position').$type<number>(),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.engine, table.date, table.page, table.query] }),
+    index('seo_search_metrics_date_idx').on(table.date),
+    index('seo_search_metrics_page_idx').on(table.page, table.date),
+  ],
+);
+
+/** Yandex Metrika: visits per day × traffic source × landing page (page '' = whole site). */
+export const seoTrafficDaily = pgTable(
+  'seo_traffic_daily',
+  {
+    date: date('date').notNull(),
+    source: text('source').notNull(),
+    page: text('page').notNull().default(''),
+    visits: integer('visits').notNull().default(0),
+    users: integer('users').notNull().default(0),
+    goalReaches: integer('goal_reaches'),
+    avgVisitSeconds: jsonb('avg_visit_seconds').$type<number>(),
+    bounceRate: jsonb('bounce_rate').$type<number>(),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.source, table.page] }),
+    index('seo_traffic_daily_page_idx').on(table.page, table.date),
+  ],
+);
+
+/** Indexing snapshots (engine totals per day; page = '' for the whole site). */
+export const seoIndexStatus = pgTable(
+  'seo_index_status',
+  {
+    engine: text('engine').notNull(),
+    date: date('date').notNull(),
+    page: text('page').notNull().default(''),
+    indexedCount: integer('indexed_count'),
+    excludedCount: integer('excluded_count'),
+    state: text('state'),
+    details: jsonb('details').$type<Record<string, unknown>>(),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.engine, table.date, table.page] })],
+);
+
+export const seoAuditRuns = pgTable('seo_audit_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  pagesChecked: integer('pages_checked').notNull().default(0),
+  issuesFound: integer('issues_found').notNull().default(0),
+  summary: jsonb('summary').$type<Record<string, unknown>>(),
+});
+
+/** One issue per (code, url): re-found issues update `lastSeenAt`, fixed ones close. */
+export const seoAuditIssues = pgTable(
+  'seo_audit_issues',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    code: text('code').notNull(),
+    url: text('url').notNull(),
+    severity: text('severity').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    impact: text('impact').notNull(),
+    fix: text('fix').notNull(),
+    autoFixable: boolean('auto_fixable').notNull().default(false),
+    status: text('status').notNull().default('open'),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    runId: uuid('run_id').references(() => seoAuditRuns.id),
+  },
+  (table) => [
+    uniqueIndex('seo_audit_issues_code_url_idx').on(table.code, table.url),
+    index('seo_audit_issues_status_idx').on(table.status, table.severity),
+  ],
+);
+
+/**
+ * Learning journal: what the agent observed in real data, which pattern it
+ * found, its hypothesis, the decision, and later the measured result.
+ * `evidence` keeps the numbers behind each entry (so it can be audited).
+ */
+export const seoLearningLog = pgTable(
+  'seo_learning_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    evidence: jsonb('evidence').$type<Record<string, unknown>>(),
+    relatedId: uuid('related_id'),
+    status: text('status').notNull().default('active'),
+    outcome: text('outcome'),
+    evaluatedAt: timestamp('evaluated_at', { withTimezone: true }),
+  },
+  (table) => [index('seo_learning_log_at_idx').on(table.at)],
+);
+
+/** Aggregated knowledge base: dimension (format/subject/platform/title_pattern) × value → measured metrics. */
+export const seoInsights = pgTable(
+  'seo_insights',
+  {
+    dimension: text('dimension').notNull(),
+    value: text('value').notNull(),
+    windowDays: integer('window_days').notNull(),
+    sampleSize: integer('sample_size').notNull(),
+    metrics: jsonb('metrics').$type<Record<string, number | null>>().notNull(),
+    computedAt: timestamp('computed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.dimension, table.value, table.windowDays] })],
+);
