@@ -16,9 +16,11 @@ export const CAMPAIGN_TARGET_ROOTS = [
   'mock-exams',
   'help',
   'faq',
+  // Blog articles (docs/SEO_CENTER.md): external posts link to /blog/<slug>.
+  'blog',
 ] as const;
 
-const TARGET_RE = /^\/(?:[a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,40}){0,2})?$/;
+const TARGET_RE = /^\/(?:[a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,90}){0,2})?$/;
 
 export function isAllowedCampaignTarget(path: string): boolean {
   if (!TARGET_RE.test(path)) return false;
