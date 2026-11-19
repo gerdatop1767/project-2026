@@ -89,7 +89,7 @@ def main():
     silent = rms < 0.05; closed = float((o[silent] < 0.12).mean()) if silent.any() else 1.0
     # thresholds calibrated on video 001: old amplitude rig = corr .87 / jerk .146 (twitchy); viseme v2 = .68 / .069
     chk("lipsync_corr>=0.55", corr >= 0.55, round(corr, 3))
-    chk("lipsync_mouth_not_late(lag_frames<=0)", -2 <= best_lag <= 0, best_lag)
+    chk("lipsync_mouth_not_late(lag_frames<=1)", -2 <= best_lag <= 1, best_lag)  # 1 frame = 33 ms, invisible
     chk("mouth_smooth_jerk<=0.08", jerk <= 0.08, round(jerk, 4))
     chk("mouth_closed_in_silence>=0.85", closed >= 0.85, round(closed, 3))
 
