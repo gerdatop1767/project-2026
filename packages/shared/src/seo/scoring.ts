@@ -49,6 +49,16 @@ export interface SeoArticleMetrics {
  * out and the weights re-normalised. All components missing → null, never 0.
  */
 export function articleSeoScore(m: SeoArticleMetrics): number | null {
+  // Registrations alone (always known through campaign attribution) are not
+  // an SEO score: without search or traffic data the score is «no data».
+  if (
+    m.impressions === null &&
+    m.clicks === null &&
+    m.position === null &&
+    m.organicVisits === null
+  ) {
+    return null;
+  }
   const parts: [number, number][] = [];
   const sat = (v: number, half: number) => v / (v + half);
   if (m.impressions !== null) parts.push([0.15, sat(m.impressions, 500)]);

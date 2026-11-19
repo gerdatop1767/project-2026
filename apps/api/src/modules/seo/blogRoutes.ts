@@ -164,6 +164,20 @@ export const blogRoutes: FastifyPluginAsync<BlogRoutesOptions> = async (app, { d
     return reply.header('content-type', 'text/plain; charset=utf-8').send(stored);
   });
 
+  // Trailing slash → the canonical address (301), like the app's nginx rule.
+  // The target is built only from our own fixed path and a validated slug,
+  // so this can never redirect off-site; the query string is kept as is.
+  const query = (url: string) => {
+    const i = url.indexOf('?');
+    return i === -1 ? '' : url.slice(i);
+  };
+  app.get('/blog/', async (request, reply) => reply.redirect(`/blog${query(request.url)}`, 301));
+  app.get('/blog/:slug/', async (request, reply) => {
+    const slug = (request.params as { slug: string }).slug;
+    if (!SEO_SLUG_RE.test(slug) || slug.length > 90) return html(reply, renderNotFound(base), 404);
+    return reply.redirect(`/blog/${slug}${query(request.url)}`, 301);
+  });
+
   app.get('/blog/:slug', async (request, reply) => {
     const slug = (request.params as { slug: string }).slug;
     if (!SEO_SLUG_RE.test(slug) || slug.length > 90) return html(reply, renderNotFound(base), 404);

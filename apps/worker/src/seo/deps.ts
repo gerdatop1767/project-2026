@@ -1,3 +1,4 @@
+import { SEO_SITE_PAGES } from '@zybrilka/shared';
 import type { Database } from '@zybrilka/db';
 import type { Logger } from 'pino';
 import type { SeoAi } from './ai.js';
@@ -19,20 +20,8 @@ export interface SeoDeps {
   now: () => Date;
 }
 
-/** Real pages of the trainer the content agent may link to (all exist and are indexable). */
-export const SITE_PAGES: { path: string; title: string }[] = [
-  { path: '/', title: 'Зубрилка — бесплатный тренажёр ЕГЭ' },
-  { path: '/training', title: 'Тренировка: умная тренировка, мои ошибки, варианты' },
-  { path: '/subjects', title: 'Все предметы' },
-  { path: '/subjects/math', title: 'Профильная математика: задания ЕГЭ по номерам' },
-  { path: '/subjects/russian', title: 'Русский язык: задания ЕГЭ по номерам' },
-  { path: '/theory', title: 'Теория к заданиям ЕГЭ' },
-  { path: '/materials', title: 'Полезные материалы: таблицы, формулы, списки' },
-  { path: '/strategies', title: 'Стратегии подготовки' },
-  { path: '/games', title: 'Мини-игры' },
-  { path: '/games/stress', title: 'Тренажёр ударений (задание 4)' },
-  { path: '/faq', title: 'Частые вопросы' },
-];
+/** Real pages of the trainer the content agent may link to (@zybrilka/shared — one list for the agent, its tests and the API). */
+export const SITE_PAGES = SEO_SITE_PAGES;
 
 /** Subjects that actually have tasks on the platform (others must not be promised). */
 export const PLATFORM_SUBJECTS: Record<string, string> = {

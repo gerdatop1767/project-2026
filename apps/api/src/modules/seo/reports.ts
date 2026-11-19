@@ -74,14 +74,14 @@ async function kpis(db: Database, w: Window): Promise<Kpis> {
     sql`SELECT count(*)::int AS n, sum(impressions)::int AS impressions, sum(clicks)::int AS clicks,
           (sum(position * impressions) FILTER (WHERE position IS NOT NULL) / nullif(sum(impressions) FILTER (WHERE position IS NOT NULL), 0))::float8 AS pos
         FROM (SELECT impressions, clicks, (position)::text::float8 AS position FROM seo_search_metrics
-              WHERE query <> '' AND date >= ${w.from}::date AND date < ${w.to}::date) s`,
+              WHERE page = '' AND query <> '' AND date >= ${w.from}::date AND date < ${w.to}::date) s`,
   );
   const [tops] = await rows<{ top3: number; top10: number; top50: number; n: number }>(
     db,
     sql`SELECT count(*) FILTER (WHERE p <= 3)::int AS top3, count(*) FILTER (WHERE p <= 10)::int AS top10,
                count(*) FILTER (WHERE p <= 50)::int AS top50, count(*)::int AS n
         FROM (SELECT engine, query, sum((position)::text::float8 * impressions) / nullif(sum(impressions), 0) AS p
-              FROM seo_search_metrics WHERE query <> '' AND position IS NOT NULL
+              FROM seo_search_metrics WHERE page = '' AND query <> '' AND position IS NOT NULL
                 AND date >= ${w.from}::date AND date < ${w.to}::date GROUP BY engine, query) q WHERE p IS NOT NULL`,
   );
   const [counts] = await rows<{ published: number; external: number; regs: number }>(
@@ -142,7 +142,7 @@ export async function overviewReport(db: Database, days: number, now = new Date(
           (SELECT sum(goal_reaches)::int FROM seo_traffic_daily t WHERE t.date = d.date AND t.source = 'organic' AND t.page = '') AS goals,
           (SELECT count(*)::int FROM seo_articles a WHERE (a.published_at AT TIME ZONE 'Europe/Moscow')::date = d.date) AS published,
           (SELECT (sum((position)::text::float8 * impressions) / nullif(sum(impressions), 0))::float8 FROM seo_search_metrics m
-             WHERE m.date = d.date AND m.query <> '' AND m.position IS NOT NULL) AS position,
+             WHERE m.date = d.date AND m.page = '' AND m.query <> '' AND m.position IS NOT NULL) AS position,
           (SELECT sum(indexed_count)::int FROM seo_index_status i WHERE i.date = d.date AND i.page = '') AS indexed,
           (SELECT count(*)::int FROM analytics_events e JOIN campaigns c ON c.id = e.campaign_id
              WHERE e.type = 'campaign_click' AND c.channel = 'seo_external'
@@ -219,7 +219,8 @@ export async function articleMetrics(db: Database, days = 28, now = new Date()) 
                        / nullif(sum(impressions) FILTER (WHERE position IS NOT NULL), 0))::float8 AS position
                    FROM seo_search_metrics WHERE date >= ${current.from}::date AND date < ${current.to}::date GROUP BY page) s
           ON s.page = '/blog/' || a.slug
-        LEFT JOIN (SELECT page, sum(visits) FILTER (WHERE source = 'organic')::int AS visits, sum(visits)::int AS views,
+        LEFT JOIN (SELECT page, sum(visits) FILTER (WHERE source = 'organic')::int AS visits,
+                     sum(visits) FILTER (WHERE source = 'all')::int AS views,
                      avg((avg_visit_seconds)::text::float8)::float8 AS avg_seconds
                    FROM seo_traffic_daily WHERE page <> '' AND date >= ${current.from}::date AND date < ${current.to}::date GROUP BY page) t
           ON t.page = '/blog/' || a.slug
@@ -228,12 +229,20 @@ export async function articleMetrics(db: Database, days = 28, now = new Date()) 
         LEFT JOIN (SELECT campaign_id, count(*) AS n FROM analytics_events
                    WHERE type = 'campaign_click' AND occurred_at >= ${ts.from} GROUP BY campaign_id) k ON k.campaign_id = a.campaign_id`,
   );
-  const searchConnected =
-    (await rows<{ n: number }>(db, sql`SELECT count(*)::int AS n FROM seo_search_metrics`))[0]!.n >
-    0;
-  const trafficConnected =
-    (await rows<{ n: number }>(db, sql`SELECT count(*)::int AS n FROM seo_traffic_daily`))[0]!.n >
-    0;
+  // Per-article numbers exist only when a source reports PAGES: Google Search
+  // Console (search) and Metrika's landing pages (traffic). Yandex Webmaster
+  // gives site-level queries only — with it alone an article's search numbers
+  // are «нет данных» (null), never a fake 0.
+  const [{ pageSearch, pageTraffic } = { pageSearch: false, pageTraffic: false }] = await rows<{
+    pageSearch: boolean;
+    pageTraffic: boolean;
+  }>(
+    db,
+    sql`SELECT EXISTS (SELECT 1 FROM seo_search_metrics WHERE page <> '') AS "pageSearch",
+               EXISTS (SELECT 1 FROM seo_traffic_daily WHERE page <> '') AS "pageTraffic"`,
+  );
+  const searchConnected = pageSearch;
+  const trafficConnected = pageTraffic;
   const map = new Map<string, ReturnType<typeof shape>>();
   function shape(r: (typeof list)[number]) {
     const impressions = searchConnected ? (r.impressions ?? 0) : null;

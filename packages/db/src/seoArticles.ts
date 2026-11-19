@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { isAllowedCampaignTarget } from '@zybrilka/shared';
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import * as schema from './schema.js';
@@ -54,10 +55,17 @@ function campaignSlug() {
  * A tracked link (existing campaigns table) — clicks and registrations
  * from an article or an external post land in the normal attribution.
  */
+/** Where an article's call to action goes when its stored path is not an allowed target. */
+export const FALLBACK_CTA_PATH = '/training';
+
 export async function createSeoCampaign(
   db: Pick<Database, 'insert'>,
   input: { name: string; source: string; channel: string; creative?: string; targetPath: string },
 ) {
+  // The /go redirect refuses any other target (it would land on the home page).
+  if (!isAllowedCampaignTarget(input.targetPath)) {
+    throw new Error(`campaign target not allowed: ${input.targetPath}`);
+  }
   for (let i = 0; i < 5; i++) {
     const [row] = await db
       .insert(schema.campaigns)
@@ -113,7 +121,7 @@ export async function publishSeoArticle(
         source: 'seo',
         channel: 'blog',
         creative: current.slug,
-        targetPath: current.ctaPath,
+        targetPath: isAllowedCampaignTarget(current.ctaPath) ? current.ctaPath : FALLBACK_CTA_PATH,
       });
       campaignId = c.id;
     }
