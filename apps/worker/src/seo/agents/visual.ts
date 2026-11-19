@@ -93,23 +93,23 @@ export function infographicSvg(o: {
 }): string {
   const p = PALETTES[o.palette % PALETTES.length]!;
   const items = o.items.slice(0, 6);
-  const rowH = 132;
+  const rowH = 168;
   const height = 170 + items.length * rowH + 40;
-  const titleLines = wrap(o.title, 40, 2);
+  const titleLines = wrap(o.title, 34, 2);
   const rows = items
     .map((it, i) => {
       const y = 170 + i * rowH;
-      const textLines = wrap(it.text, 58, 2);
+      const textLines = wrap(it.text, 44, 2);
       return `<g><rect x="48" y="${y}" width="1104" height="${rowH - 20}" rx="22" fill="${p.text}" opacity=".06"/>
-<circle cx="112" cy="${y + 56}" r="34" fill="url(#a)"/><text x="112" y="${y + 67}" text-anchor="middle" ${FONT} font-size="30" font-weight="800" fill="#04162c">${i + 1}</text>
-<text x="172" y="${y + 46}" ${FONT} font-size="30" font-weight="700" fill="${p.text}">${escapeHtml(wrap(it.label, 50, 1)[0] ?? '')}</text>
-<text ${FONT} font-size="24" fill="${p.muted}">${tspans(textLines, 172, y + 82, 24, 1.25)}</text></g>`;
+<circle cx="112" cy="${y + 70}" r="40" fill="url(#a)"/><text x="112" y="${y + 82}" text-anchor="middle" ${FONT} font-size="34" font-weight="800" fill="#04162c">${i + 1}</text>
+<text x="180" y="${y + 54}" ${FONT} font-size="38" font-weight="700" fill="${p.text}">${escapeHtml(wrap(it.label, 40, 1)[0] ?? '')}</text>
+<text ${FONT} font-size="32" fill="${p.muted}">${tspans(textLines, 180, y + 98, 32, 1.2)}</text></g>`;
     })
     .join('\n');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${height}" viewBox="0 0 1200 ${height}" role="img" aria-label="${escapeHtml(o.title)}">
 <defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${p.accent}"/><stop offset="1" stop-color="${p.accent2}"/></linearGradient></defs>
 <rect width="1200" height="${height}" rx="32" fill="${p.bg1}"/>
-<text ${FONT} font-size="44" font-weight="800" fill="${p.text}">${tspans(titleLines, 48, 84, 44, 1.15)}</text>
+<text ${FONT} font-size="52" font-weight="800" fill="${p.text}">${tspans(titleLines, 48, 90, 52, 1.15)}</text>
 ${rows}
 <text x="1152" y="${height - 18}" text-anchor="end" ${FONT} font-size="20" fill="${p.muted}">zybrilka.ru</text>
 </svg>`;

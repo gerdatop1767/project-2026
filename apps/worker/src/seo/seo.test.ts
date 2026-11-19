@@ -476,14 +476,12 @@ describe('SEO agent (worker)', () => {
 
   it('integration secrets decrypt only with the right key', async () => {
     const enc = encryptSecret(KEY, 'token');
-    await testDb.db
-      .insert(schema.seoIntegrations)
-      .values({
-        kind: 'yandex_metrika',
-        config: { counterId: 1 },
-        secretEnc: enc,
-        status: 'configured',
-      });
+    await testDb.db.insert(schema.seoIntegrations).values({
+      kind: 'yandex_metrika',
+      config: { counterId: 1 },
+      secretEnc: enc,
+      status: 'configured',
+    });
     const { loadIntegration } = await import('@zybrilka/db');
     expect((await loadIntegration(testDb.db, KEY, 'yandex_metrika'))!.secret).toBe('token');
     expect(

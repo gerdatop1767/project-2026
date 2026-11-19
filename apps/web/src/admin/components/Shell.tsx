@@ -21,6 +21,8 @@ export const sections = [
     group: 'Люди и контент',
   },
   { path: '/admin/quality', label: 'Качество обучения', icon: 'success', group: 'Люди и контент' },
+  { path: '/admin/seo', label: 'AI SEO Center', icon: 'rocket', group: 'Продвижение' },
+  { path: '/admin/seo/articles', label: 'Статьи блога', icon: 'notes', group: 'Продвижение' },
   { path: '/admin/support', label: 'Поддержка', icon: 'chat', group: 'Telegram' },
   { path: '/admin/broadcasts', label: 'Рассылки', icon: 'send', group: 'Telegram' },
   { path: '/admin/notifications', label: 'Уведомления', icon: 'notifications', group: 'Telegram' },
@@ -42,7 +44,10 @@ export function Shell({
 }) {
   const { location } = useAdminRouter();
   const [open, setOpen] = useState(false);
-  const current = sections.find((sec) => isActive(sec.path, location.path));
+  // The most specific matching section wins (/admin/seo/articles over /admin/seo).
+  const current = sections
+    .filter((sec) => isActive(sec.path, location.path))
+    .sort((a, b) => b.path.length - a.path.length)[0];
   return (
     <div className={s.layout}>
       {open && (
@@ -64,8 +69,8 @@ export function Shell({
             )}
             <AdminLink
               to={sec.path}
-              className={clsx(s.navLink, isActive(sec.path, location.path) && s.navLinkActive)}
-              aria-current={isActive(sec.path, location.path) ? 'page' : undefined}
+              className={clsx(s.navLink, current?.path === sec.path && s.navLinkActive)}
+              aria-current={current?.path === sec.path ? 'page' : undefined}
               onClick={() => setOpen(false)}
             >
               <Icon name={sec.icon} size={18} />

@@ -320,5 +320,8 @@ export async function agentStatusReport(db: Database, now = new Date()) {
     tasks: tasks!,
     made: made!,
     heartbeat: heartbeat ? { value: heartbeat.value, at: heartbeat.updatedAt } : null,
+    heartbeatAgeSeconds: heartbeat
+      ? Math.round((now.getTime() - heartbeat.updatedAt.getTime()) / 1000)
+      : null,
   };
 }

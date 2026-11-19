@@ -283,14 +283,12 @@ export function weeklyStrategyHandler(deps: SeoDeps): TaskHandler {
 
     // 4. Write-up (only when there is something measured to talk about).
     if (scored.length === 0 || (!search && !traffic && platformPerf.length === 0)) {
-      await db
-        .insert(schema.seoLearningLog)
-        .values({
-          kind: 'observation',
-          title: 'Недостаточно данных',
-          body: `Опубликованных статей старше 7 дней: ${scored.length}. Поисковые данные: ${search ? 'есть' : 'нет'}, Метрика: ${traffic ? 'есть' : 'нет'}. Стратегия не меняется, пока нет реальных метрик.`,
-          evidence: { articles: scored.length, search, traffic },
-        });
+      await db.insert(schema.seoLearningLog).values({
+        kind: 'observation',
+        title: 'Недостаточно данных',
+        body: `Опубликованных статей старше 7 дней: ${scored.length}. Поисковые данные: ${search ? 'есть' : 'нет'}, Метрика: ${traffic ? 'есть' : 'нет'}. Стратегия не меняется, пока нет реальных метрик.`,
+        evidence: { articles: scored.length, search, traffic },
+      });
       await ctx.log(
         'strategy.skipped',
         'Недельная стратегия: недостаточно реальных данных — без изменений',
@@ -322,24 +320,20 @@ ${insightRows.map((r) => `- ${r.dimension}=${r.value} (n=${r.sampleSize}): ${JSO
       writeupSchema,
     );
     for (const e of data.entries) {
-      await db
-        .insert(schema.seoLearningLog)
-        .values({
-          kind: e.kind,
-          title: e.title,
-          body: e.body,
-          evidence: { avgScoreAtDecision: avgScoreNow, articles: scored.length },
-          status: e.kind === 'decision' ? 'active' : 'info',
-        });
-    }
-    await db
-      .insert(schema.seoLearningLog)
-      .values({
-        kind: 'decision',
-        title: 'План на неделю',
-        body: data.nextWeekPlan.map((p) => `• ${p}`).join('\n'),
+      await db.insert(schema.seoLearningLog).values({
+        kind: e.kind,
+        title: e.title,
+        body: e.body,
         evidence: { avgScoreAtDecision: avgScoreNow, articles: scored.length },
+        status: e.kind === 'decision' ? 'active' : 'info',
       });
+    }
+    await db.insert(schema.seoLearningLog).values({
+      kind: 'decision',
+      title: 'План на неделю',
+      body: data.nextWeekPlan.map((p) => `• ${p}`).join('\n'),
+      evidence: { avgScoreAtDecision: avgScoreNow, articles: scored.length },
+    });
     await ctx.log(
       'strategy.done',
       `Недельная стратегия: статей ${scored.length}, записей в журнал ${data.entries.length + 1}, веса ${adj.changed ? 'обновлены' : 'без изменений'}`,
@@ -377,20 +371,18 @@ export function refreshArticlesHandler(deps: SeoDeps): TaskHandler {
       const why = declining.includes(a)
         ? `Статья теряет позиции/клики: позиция ${a.prevPosition?.toFixed(1) ?? '—'} → ${a.position?.toFixed(1) ?? '—'}, клики ${a.prevClicks} → ${a.clicks}.`
         : 'Статье больше 11 месяцев — проверить актуальность фактов (новый год ЕГЭ).';
-      await db
-        .insert(schema.seoLearningLog)
-        .values({
-          kind: 'decision',
-          title: `Обновить «${a.title}»`,
-          body: why,
-          relatedId: a.id,
-          evidence: {
-            position: a.position,
-            prevPosition: a.prevPosition,
-            clicks: a.clicks,
-            prevClicks: a.prevClicks,
-          },
-        });
+      await db.insert(schema.seoLearningLog).values({
+        kind: 'decision',
+        title: `Обновить «${a.title}»`,
+        body: why,
+        relatedId: a.id,
+        evidence: {
+          position: a.position,
+          prevPosition: a.prevPosition,
+          clicks: a.clicks,
+          prevClicks: a.prevClicks,
+        },
+      });
       if (settings.mode !== 'manual') {
         await ctx.enqueue({
           kind: 'write_article',

@@ -113,7 +113,7 @@ ${o.jsonLd.map((j) => `<script type="application/ld+json">${json(j)}</script>`).
 }
 
 function header() {
-  return `<header class="top"><a class="brand" href="/">Зубрилка</a><nav><a href="/blog">Блог</a><a href="/subjects">Предметы</a><a class="btn" href="/training">Тренироваться</a></nav></header>`;
+  return `<header class="top"><a class="brand" href="/">Зубрилка</a><nav><a href="/blog">Блог</a><a class="wide" href="/subjects">Предметы</a><a class="btn" href="/training">Тренироваться</a></nav></header>`;
 }
 
 function footer() {
@@ -353,7 +353,7 @@ export const BLOG_CSS = `:root{--bg:#f4f3fb;--surface:#fff;--text:#14182b;--mute
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:17px/1.65 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 a{color:var(--accent)}img{max-width:100%;height:auto;border-radius:12px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;max-width:1080px;margin:0 auto}
-.top nav{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.top a{text-decoration:none;color:var(--text)}.brand{font-weight:800;font-size:20px}
+.top nav{display:flex;gap:14px;align-items:center}@media (max-width:480px){.top .wide{display:none}.top .btn{padding:8px 12px}}.top a{text-decoration:none;color:var(--text)}.brand{font-weight:800;font-size:20px}
 .btn{display:inline-block;background:var(--accent);color:#04162c!important;padding:10px 16px;border-radius:12px;font-weight:700;text-decoration:none}
 main{max-width:760px;margin:0 auto;padding:8px 16px 48px}.index{max-width:1080px}
 h1{font-size:clamp(28px,5vw,40px);line-height:1.2;margin:8px 0 16px}h2{font-size:26px;line-height:1.3;margin:36px 0 12px}h3{font-size:21px;margin:28px 0 8px}

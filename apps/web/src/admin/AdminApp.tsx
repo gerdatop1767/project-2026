@@ -39,6 +39,17 @@ const BroadcastsPage = page(() => import('./pages/Broadcasts.js'), 'BroadcastsPa
 const BroadcastPage = page(() => import('./pages/Broadcasts.js'), 'BroadcastPage');
 const SupportPage = page(() => import('./pages/Support.js'), 'SupportPage');
 const SupportThreadPage = page(() => import('./pages/Support.js'), 'SupportThreadPage');
+// AI SEO Center (docs/SEO_CENTER.md) — its own lazy chunks.
+const SeoOverviewPage = page(() => import('./pages/seo/Overview.js'), 'SeoOverviewPage');
+const SeoAgentPage = page(() => import('./pages/seo/Agent.js'), 'SeoAgentPage');
+const SeoArticlesPage = page(() => import('./pages/seo/Articles.js'), 'SeoArticlesPage');
+const SeoArticlePage = page(() => import('./pages/seo/Articles.js'), 'SeoArticlePage');
+const SeoExternalPage = page(() => import('./pages/seo/Sections.js'), 'SeoExternalPage');
+const SeoKeywordsPage = page(() => import('./pages/seo/Sections.js'), 'SeoKeywordsPage');
+const SeoCompetitorsPage = page(() => import('./pages/seo/Sections.js'), 'SeoCompetitorsPage');
+const SeoAuditPage = page(() => import('./pages/seo/Sections.js'), 'SeoAuditPage');
+const SeoLearningPage = page(() => import('./pages/seo/Sections.js'), 'SeoLearningPage');
+const SeoIntegrationsPage = page(() => import('./pages/seo/Sections.js'), 'SeoIntegrationsPage');
 
 const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin', OverviewPage],
@@ -63,6 +74,16 @@ const routes: [string, ComponentType<Record<string, string>>][] = [
   ['/admin/support/:id', SupportThreadPage],
   ['/admin/notifications', NotificationsPage],
   ['/admin/manage', ManagePage],
+  ['/admin/seo', SeoOverviewPage],
+  ['/admin/seo/agent', SeoAgentPage],
+  ['/admin/seo/articles', SeoArticlesPage],
+  ['/admin/seo/articles/:id', SeoArticlePage],
+  ['/admin/seo/external', SeoExternalPage],
+  ['/admin/seo/keywords', SeoKeywordsPage],
+  ['/admin/seo/competitors', SeoCompetitorsPage],
+  ['/admin/seo/audit', SeoAuditPage],
+  ['/admin/seo/learning', SeoLearningPage],
+  ['/admin/seo/integrations', SeoIntegrationsPage],
 ];
 
 function Routes() {
