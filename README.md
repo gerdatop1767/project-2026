@@ -4,6 +4,7 @@ Free EGE preparation trainer: website + Telegram Mini App.
 
 - Product and working rules: [CLAUDE.md](CLAUDE.md)
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- AI SEO Center (blog + autonomous SEO agent): [docs/SEO_CENTER.md](docs/SEO_CENTER.md)
 
 ## Structure
 
