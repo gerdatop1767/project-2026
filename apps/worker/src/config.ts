@@ -51,10 +51,25 @@ const configSchema = z
     // AI SEO Center (docs/SEO_CENTER.md). The Claude API key lives ONLY in the
     // worker's environment; unset = the agent plans nothing that needs AI and
     // the admin shows «Claude API не подключён».
-    ANTHROPIC_API_KEY: z.string().min(10).optional(),
+    ANTHROPIC_API_KEY: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z.string().min(10).optional(),
+    ),
     // 32 bytes (base64 or hex), the same value as the API's: decrypts the
     // integration secrets the owner saved in the admin.
-    SEO_SECRETS_KEY: z.string().optional(),
+    SEO_SECRETS_KEY: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z
+        .string()
+        .refine(
+          (v) =>
+            /^[0-9a-f]{64}$/i.test(v.trim()) ? true : Buffer.from(v.trim(), 'base64').length === 32,
+          {
+            message: 'SEO_SECRETS_KEY must be 32 bytes (base64 or 64 hex chars)',
+          },
+        )
+        .optional(),
+    ),
     TELEGRAM_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(20_000),
   })
   .refine((c) => c.NODE_ENV !== 'production' || c.DATABASE_URL, {

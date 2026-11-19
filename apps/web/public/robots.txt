@@ -21,3 +21,5 @@ Clean-param: s&id /strategies
 Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&fbclid&ysclid
 
 Sitemap: https://zybrilka.ru/sitemap.xml
+# Blog articles (server-rendered by the API, docs/SEO_CENTER.md)
+Sitemap: https://zybrilka.ru/blog/sitemap.xml

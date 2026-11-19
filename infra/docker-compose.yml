@@ -264,6 +264,8 @@ services:
       # Owner-only admin panel (docs/ADMIN.md): comma-separated `users.id`
       # values allowed into /api/v1/admin. Empty (the default) = nobody.
       ADMIN_OWNER_USER_IDS: ${ADMIN_OWNER_USER_IDS:-}
+      # AI SEO Center: encrypts integration secrets saved in the admin.
+      SEO_SECRETS_KEY: ${SEO_SECRETS_KEY:-}
     expose:
       - '3000'
     networks:
@@ -296,6 +298,10 @@ services:
       ADMIN_OWNER_USER_IDS: ${ADMIN_OWNER_USER_IDS:-}
       # Probed once a minute to notice the site being down (API + database).
       API_HEALTH_URL: http://api:3000/health
+      # AI SEO agent (docs/SEO_CENTER.md). The Claude API key is read ONLY
+      # by the worker; SEO_SECRETS_KEY must equal the API's.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SEO_SECRETS_KEY: ${SEO_SECRETS_KEY:-}
     networks:
       - internal
     depends_on:

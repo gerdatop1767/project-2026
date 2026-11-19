@@ -31,3 +31,15 @@ describe('TELEGRAM_BOT_POLLING', () => {
     }
   });
 });
+
+describe('SEO agent config', () => {
+  it('treats empty compose values as unset and validates the secrets key', () => {
+    const c = loadConfig({ ANTHROPIC_API_KEY: '', SEO_SECRETS_KEY: '' });
+    expect(c.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(c.SEO_SECRETS_KEY).toBeUndefined();
+    expect(() => loadConfig({ SEO_SECRETS_KEY: 'short' })).toThrow('SEO_SECRETS_KEY');
+    expect(
+      loadConfig({ SEO_SECRETS_KEY: Buffer.alloc(32, 1).toString('base64') }).SEO_SECRETS_KEY,
+    ).toBeTruthy();
+  });
+});

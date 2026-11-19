@@ -38,6 +38,14 @@ zybrilka.ru {
 		reverse_proxy api:3000
 	}
 
+	# Blog (AI SEO Center, docs/SEO_CENTER.md): articles, their sitemap,
+	# RSS and images are rendered by the API — the full HTML a search
+	# engine needs, not the SPA shell.
+	@blog path /blog /blog/*
+	handle @blog {
+		reverse_proxy api:3000
+	}
+
 	# Everything else: the web container already handles SPA
 	# client-side-route fallback (nginx `try_files ... /index.html`)
 	# — this is a plain reverse proxy to it.

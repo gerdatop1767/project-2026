@@ -11,7 +11,8 @@ export default defineConfig({
   },
   server: {
     // Same-origin API in development, mirroring production (/api → api service).
-    proxy: { '/api': 'http://localhost:3000' },
+    // /blog is server-rendered by the API (docs/SEO_CENTER.md), as in production.
+    proxy: { '/api': 'http://localhost:3000', '/blog': 'http://localhost:3000' },
   },
   build: {
     target: ['es2022', 'safari15'],
