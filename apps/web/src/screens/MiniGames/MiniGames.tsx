@@ -197,29 +197,31 @@ export function MiniGames() {
                               </div>
                             </div>
                             <p className="text-body-sm text-secondary">{game.description}</p>
-                            {game.progress && share !== null && (
-                              <div className={styles.progress}>
-                                <span className={styles.bar} aria-hidden="true">
-                                  <span style={{ width: `${Math.round(share * 100)}%` }} />
-                                </span>
-                                <span className="text-body-sm text-secondary">
-                                  Выучено {game.progress.learned} из {game.progress.total}
-                                </span>
-                              </div>
-                            )}
-                            {game.questionCount > 0 ? (
-                              <Button
-                                fullWidth
-                                onClick={() => navigate(gameRoute(game.id))}
-                                aria-label={`Играть: ${game.title}`}
-                              >
-                                <Icon name="play" size={18} /> Играть
-                              </Button>
-                            ) : (
-                              <p className={styles.soon}>
-                                Вопросы скоро появятся — загляни чуть позже
-                              </p>
-                            )}
+                            <div className={styles.cardFoot}>
+                              {game.progress && share !== null && (
+                                <div className={styles.progress}>
+                                  <span className={styles.bar} aria-hidden="true">
+                                    <span style={{ width: `${Math.round(share * 100)}%` }} />
+                                  </span>
+                                  <span className="text-body-sm text-secondary">
+                                    Выучено {game.progress.learned} из {game.progress.total}
+                                  </span>
+                                </div>
+                              )}
+                              {game.questionCount > 0 ? (
+                                <Button
+                                  fullWidth
+                                  onClick={() => navigate(gameRoute(game.id))}
+                                  aria-label={`Играть: ${game.title}`}
+                                >
+                                  <Icon name="play" size={18} /> Играть
+                                </Button>
+                              ) : (
+                                <p className={styles.soon}>
+                                  Вопросы скоро появятся — загляни чуть позже
+                                </p>
+                              )}
+                            </div>
                           </Card>
                         </li>
                       );

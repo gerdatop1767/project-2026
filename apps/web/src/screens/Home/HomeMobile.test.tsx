@@ -22,27 +22,6 @@ vi.mock('../../lib/streakContext.js', () => ({
   useStreakContext: () => streakState,
 }));
 
-const RANDOM_TASK = {
-  id: 'task-1',
-  subjectId: 'math',
-  taskNumber: 5,
-  topicId: null,
-  topicName: null,
-  difficulty: 2 as const,
-  conditionMd: 'Условие',
-  passage: null,
-  imageUrl: null,
-  hintMd: null,
-  answerType: 'short_answer' as const,
-  answerOptions: null,
-  answerParts: null,
-  source: 'ФИПИ',
-  sourceUrl: null,
-  sourceYear: 2026,
-  tags: [],
-  status: 'published' as const,
-};
-
 function OverlayMarker() {
   const { overlay } = useNavigation();
   return <p data-testid="overlay">{overlay?.screen ?? 'none'}</p>;
@@ -192,21 +171,13 @@ describe('HomeMobile', () => {
     expect(screen.getByTestId('overlay')).toHaveTextContent('subjectCatalog');
   });
 
-  it('navigates to the subject catalog from "Все тренировки", not a WIP training tab', async () => {
-    const user = userEvent.setup();
+  it('has no «Продолжить» block on phones and tablets (continuing lives in «Тренировка»)', () => {
     renderHome();
-    await user.click(screen.getByRole('button', { name: /Все тренировки/ }));
-    expect(screen.getByTestId('overlay')).toHaveTextContent('subjectCatalog');
-  });
-
-  it('navigates to the continue-training task', async () => {
-    vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
-    const user = userEvent.setup();
-    renderHome();
-    await user.click(screen.getByRole('button', { name: /Тренировка · случайные задания/ }));
-    await waitFor(() => {
-      expect(screen.getByTestId('overlay')).toHaveTextContent('task');
-    });
+    expect(screen.queryByText('Продолжить')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Все тренировки/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Тренировка · случайные задания/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows a real subject illustration for every popular subject, not a flat glyph tile', () => {
