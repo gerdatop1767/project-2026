@@ -29,6 +29,7 @@ CS = os.environ.get("TIKTOK_CLIENT_SECRET", "")
 REDIRECT = os.environ.get("TIKTOK_REDIRECT_URI", "https://zybrilka.ru/")
 SCOPES = os.environ.get("TIKTOK_SCOPES", "user.info.basic,video.publish,video.upload")  # add ",video.list" once Display API is enabled
 TOKEN_TAG = "🔐 zyb-tiktok-token v1"
+TOPICS_TAG = "📚 Темы роликов (не повторять):"
 DESC_MARK = "📝 Описание для TikTok:"
 API = "https://open.tiktokapis.com/v2"
 
@@ -80,12 +81,15 @@ def load_tokens():
     pin = tg("getChat", {"chat_id": chat_id()})["result"].get("pinned_message") or {}
     txt = pin.get("text", "")
     if not txt.startswith(TOKEN_TAG): return None, None
-    blob = txt.split("\n", 1)[1].strip()
+    blob = txt.split(TOPICS_TAG)[0].split("\n", 1)[1].strip()  # topics memory (tools/topics.py) may follow the blob
     return json.loads(_fernet().decrypt(blob.encode())), pin["message_id"]
 
 
 def save_tokens(tok, msg_id=None):
     body = TOKEN_TAG + "\n" + _fernet().encrypt(json.dumps(tok).encode()).decode()
+    pin = tg("getChat", {"chat_id": chat_id()})["result"].get("pinned_message") or {}
+    if TOPICS_TAG in pin.get("text", ""):  # keep the topics memory that lives in the same pinned message
+        body += "\n\n" + TOPICS_TAG + pin["text"].split(TOPICS_TAG, 1)[1]
     if msg_id:
         tg("editMessageText", {"chat_id": chat_id(), "message_id": msg_id, "text": body})
     else:

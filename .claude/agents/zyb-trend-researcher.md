@@ -10,7 +10,8 @@ tools: WebSearch, WebFetch, Read, Write, Bash, Glob, Grep
 - `zybrilka-content/pipeline/CREATIVE_RULES.md` — правила тем, список банального, источники, мемы;
 - `zybrilka-content/pipeline/MEME_FORMATS.md`;
 - `zybrilka-content/pipeline/STYLE_REFERENCE.md` — стиль-ориентир. Предлагай идеи, которые ложатся в **сценку с характером** на 15–20 с: допрос, «факты», «вопрос тебе», наезд-забота. Не надо лекций.
-- `zybrilka-content/runs/*/brief.md` за 30 дней и названия `zybrilka-content/videos/*` — что уже было; не повторяйся.
+- **`<run>/used_topics.txt`** (или `python3 zybrilka-content/tools/topics.py list`) — ВСЕ уже сделанные ролики. Это главный источник «что уже было» (папки videos/ и runs/ в новой сессии бывают пустыми). **Повтор запрещён**: идея с тем же приёмом/ловушкой/фактом, что в списке, — даже переформулированная, даже про другую цифру/символ — сразу 0 баллов и в топ-5 не попадает. Тот же номер задания того же предмета — не чаще раза в 7 дней. В brief.md для каждой идеи из топ-5 напиши строку «Не повтор, потому что: …».
+- `zybrilka-content/runs/*/brief.md` и `zybrilka-content/videos/*` — если есть, тоже учитывай.
 
 ## 1. Сбор (широко, 12–25 запросов и просмотров)
 - **WebSearch** по-русски и по-английски:
