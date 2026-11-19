@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { QUIZ_GAMES, type QuizTopic } from './quizGames.js';
+import { QUIZ_GAMES, QUIZ_ROUND_MAX, QUIZ_ROUND_MIN, type QuizTopic } from './quizGames.js';
 
 /**
  * Mini-games (docs/MINI_GAMES.md). The registry is data: a new game is one
@@ -46,6 +46,64 @@ export const miniGameById = (id: string): MiniGameInfo | undefined =>
 
 /** Correct answers in a row after which an item counts as learned. */
 export const MINI_GAME_LEARNED_STREAK = 2;
+
+/** The player's state for one question, as rounds are built from it. */
+export interface RoundItemState {
+  readonly streak: number;
+  readonly lastAnsweredAt: Date;
+}
+
+/**
+ * The questions of an «all» round, without repeats while the bank has
+ * others: never-seen questions first (shuffled), then seen but not learned
+ * ones — the longest unseen first — and learned ones last, again the oldest
+ * first. So a question answered a minute ago comes back only when every
+ * other question has been shown more recently.
+ */
+export function orderRoundItems<T extends { readonly id: string }>(
+  items: readonly T[],
+  state: ReadonlyMap<string, RoundItemState>,
+  random: () => number = Math.random,
+): T[] {
+  const shuffled = shuffleWith(items, random);
+  const unseen = shuffled.filter((it) => !state.has(it.id));
+  const at = (it: T) => state.get(it.id)!.lastAnsweredAt.getTime();
+  const seen = shuffled.filter((it) => state.has(it.id));
+  const learning = seen
+    .filter((it) => state.get(it.id)!.streak < MINI_GAME_LEARNED_STREAK)
+    .sort((a, b) => at(a) - at(b));
+  const learned = seen
+    .filter((it) => state.get(it.id)!.streak >= MINI_GAME_LEARNED_STREAK)
+    .sort((a, b) => at(a) - at(b));
+  return [...unseen, ...learning, ...learned];
+}
+
+function shuffleWith<T>(xs: readonly T[], random: () => number): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+
+/** Saved per game for a signed-in player (a guest keeps it in the browser). */
+export const miniGameSettingsSchema = z.object({
+  roundSize: z.number().int().min(1).max(100),
+});
+export type MiniGameSettings = z.infer<typeof miniGameSettingsSchema>;
+
+export interface MiniGameSettingsResponse {
+  /** gameId → settings; games never set are absent. */
+  readonly settings: Readonly<Record<string, MiniGameSettings>>;
+}
+
+/** The round sizes a game offers and allows (the bank may be smaller). */
+export function roundSizeLimits(gameId: string): { min: number; max: number; preset: number[] } {
+  return gameId === 'stress'
+    ? { min: STRESS_ROUND_MIN, max: STRESS_ROUND_MAX, preset: [10, 20, 30, 40] }
+    : { min: QUIZ_ROUND_MIN, max: QUIZ_ROUND_MAX, preset: [5, 10, 15, 20] };
+}
 
 // ------------------------------------------------------------------ «Ударения»
 
@@ -168,9 +226,18 @@ export function validateStressEntries(lines: readonly string[]): {
 export const stressModes = ['all', 'mistakes', 'hard'] as const;
 export type StressMode = (typeof stressModes)[number];
 
+export const STRESS_ROUND_SIZE = 20;
+export const STRESS_ROUND_MIN = 5;
+export const STRESS_ROUND_MAX = 100;
+
 export const stressRoundQuerySchema = z.object({
   mode: z.enum(stressModes).default('all'),
-  size: z.coerce.number().int().min(5).max(40).default(20),
+  size: z.coerce
+    .number()
+    .int()
+    .min(STRESS_ROUND_MIN)
+    .max(STRESS_ROUND_MAX)
+    .default(STRESS_ROUND_SIZE),
 });
 export type StressRoundQuery = z.infer<typeof stressRoundQuerySchema>;
 

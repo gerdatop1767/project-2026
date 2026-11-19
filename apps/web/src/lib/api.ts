@@ -38,6 +38,12 @@ import type {
   TaskWithSolution,
   VariantDetail,
   VariantAttemptDetail,
+  MiniGameSettingsResponse,
+  ProgressPeriodResponse,
+  StatsPeriodId,
+  SmartDifficulty,
+  SmartSetupResponse,
+  SmartTrainingMode,
   MiniGamesResponse,
   QuizAnswerRequest,
   QuizAnswerResponse,
@@ -545,6 +551,10 @@ export function saveLearningProfile(
  * the authoritative endpoints and return their real response shape
  * from `@zybrilka/shared`, unmodified.
  */
+export function getSmartSetup(subject: string): Promise<SmartSetupResponse> {
+  return rawApiFetch(`/me/learning/smart-setup?subject=${encodeURIComponent(subject)}`);
+}
+
 export function startLearningSession(params: {
   subjectId?: string;
   limit?: number;
@@ -556,6 +566,12 @@ export function startLearningSession(params: {
   focusSkill?: string;
   /** A plan day's training: authored difficulty 1..3 (with `focusSkill`). */
   difficulty?: 1 | 2 | 3;
+  /** «Умная тренировка» с настройкой. */
+  smart?: {
+    mode: SmartTrainingMode;
+    skillKeys?: string[];
+    difficulty?: SmartDifficulty;
+  };
 }): Promise<LearningSessionResponse> {
   return apiFetch('/me/learning/sessions', { method: 'POST', body: JSON.stringify(params) });
 }
@@ -797,6 +813,30 @@ export function confirmTelegramLink(accept: boolean): Promise<TelegramLinkConfir
 }
 
 /** Mini-games (docs/MINI_GAMES.md). */
+/** Statistics for one period in the student's timezone (never another period's numbers:
+ * the cache key is the full path, period and timezone included). */
+export function getProgressPeriod(params: {
+  period: StatsPeriodId;
+  subject?: string;
+  tz?: string;
+}): Promise<ProgressPeriodResponse> {
+  const q = new URLSearchParams({ period: params.period });
+  if (params.subject) q.set('subject', params.subject);
+  if (params.tz) q.set('tz', params.tz);
+  return cachedApiFetch(`/progress/period?${q.toString()}`);
+}
+
+export function getMiniGameSettings(): Promise<MiniGameSettingsResponse> {
+  return rawApiFetch('/games/settings');
+}
+
+export function saveMiniGameSettings(gameId: string, roundSize: number): Promise<unknown> {
+  return apiFetch(`/games/settings/${encodeURIComponent(gameId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ roundSize }),
+  });
+}
+
 export function getMiniGames(): Promise<MiniGamesResponse> {
   return rawApiFetch('/games');
 }

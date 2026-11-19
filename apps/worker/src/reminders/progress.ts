@@ -8,8 +8,7 @@ import {
 } from '@zybrilka/db';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
-  MAX_PROGRESS_MESSAGES_PER_DAY,
-  PLAN_REMINDER_FROM_MINUTE,
+  FREQUENCY_RULES,
   PROGRESS_SEND_WINDOW,
   allExamSkills,
   calculateSkillMastery,
@@ -44,8 +43,6 @@ export interface ProgressNotifierOptions {
 const DAY = 86_400_000;
 const MAX_ATTEMPTS = 5;
 const RETRY_GIVE_UP_MS = 6 * 60 * 60_000;
-/** Improvement worth a message: mastery up by this many points vs two weeks ago. */
-const IMPROVEMENT_POINTS = 15;
 const examKeys = allExamSkills().map((s) => s.key);
 
 type Row = Record<string, unknown>;
@@ -159,7 +156,7 @@ export class ProgressNotifier {
             inArray(schema.progressNotifications.status, ['sending', 'sent', 'uncertain', 'retry']),
           ),
         )) as [{ n: number }];
-      let quota = MAX_PROGRESS_MESSAGES_PER_DAY - n;
+      let quota = FREQUENCY_RULES[prefs.frequency].maxPerDay - n;
       if (quota <= 0) continue;
       const messages = await this.messagesFor(userId, prefs, clock, now);
       for (const m of messages) {
@@ -200,7 +197,16 @@ export class ProgressNotifier {
     for (const plan of plans) {
       out.push(...(await this.planMessages(plan, prefs, clock, now)));
     }
-    if (prefs.progressEnabled) out.push(...(await this.improvements(userId, now, clock.date)));
+    if (prefs.progressEnabled) {
+      out.push(
+        ...(await this.improvements(
+          userId,
+          now,
+          clock.date,
+          FREQUENCY_RULES[prefs.frequency].improvementPoints,
+        )),
+      );
+    }
     return out;
   }
 
@@ -276,10 +282,11 @@ export class ProgressNotifier {
         payload: { planId: plan.id },
       });
     }
+    const rules = FREQUENCY_RULES[prefs.frequency];
     if (
       prefs.planRemindersEnabled &&
-      prefs.frequency === 'normal' &&
-      clock.minutes >= PLAN_REMINDER_FROM_MINUTE
+      rules.planReminders &&
+      clock.minutes >= rules.planFromMinute
     ) {
       const today = days.find(
         (d) => d.date === clock.date && d.activity !== 'rest' && !d.skipped && d.skillKey,
@@ -302,7 +309,12 @@ export class ProgressNotifier {
   }
 
   /** A skill whose mastery grew by 15+ points against two weeks ago. */
-  private async improvements(userId: string, now: Date, date: string): Promise<Candidate[]> {
+  private async improvements(
+    userId: string,
+    now: Date,
+    date: string,
+    improvementPoints: number,
+  ): Promise<Candidate[]> {
     const rows = await this.o.db
       .select({
         slug: schema.skills.slug,
@@ -329,7 +341,7 @@ export class ProgressNotifier {
       const lb = skillLevel(before);
       const lc = skillLevel(current);
       if (lb === 'none' || lb === 'low_data' || lc === 'none' || lc === 'low_data') continue;
-      if (current.mastery - before.mastery < IMPROVEMENT_POINTS) continue;
+      if (current.mastery - before.mastery < improvementPoints) continue;
       const info = examSkillInfo(slug);
       if (!info) continue;
       out.push({
@@ -493,7 +505,7 @@ function effectivePreferences(c: Row): NotificationPreferences {
     return {
       progressEnabled: Boolean(c.progress_enabled),
       planRemindersEnabled: Boolean(c.plan_reminders_enabled),
-      frequency: c.frequency === 'important' ? 'important' : 'normal',
+      frequency: c.frequency === 'important' || c.frequency === 'extended' ? c.frequency : 'normal',
     };
   }
   if (c.daily_enabled === false) {

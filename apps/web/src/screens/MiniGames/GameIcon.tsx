@@ -7,6 +7,7 @@ import {
   Calculator,
   Combine,
   Dices,
+  DraftingCompass,
   DoorOpen,
   Highlighter,
   PenLine,
@@ -47,6 +48,7 @@ export const GAME_ICONS: Record<string, LucideIcon> = {
   'find-in-text': Highlighter, // найти в тексте
   'probability-blitz': Dices, // вероятность
   'expressions-blitz': Sigma, // вычисления
+  'theory-practice': DraftingCompass, // теория: правила и теоремы
 };
 
 /** Topic → the tile's two gradient colours. */
@@ -56,6 +58,7 @@ const TONES: Record<string, readonly [string, string]> = {
   norms: ['#34d399', '#0ea5a4'],
   text: ['#fbbf24', '#f97316'],
   'math-part1': ['#f472b6', '#8b5cf6'],
+  'math-theory': ['#22d3ee', '#3b82f6'],
 };
 
 export function GameIcon({

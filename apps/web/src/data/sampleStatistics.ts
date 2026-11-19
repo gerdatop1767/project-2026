@@ -10,9 +10,13 @@ import { mistakes, computeMistakesSummary } from './sampleMistakes.js';
 
 export interface DailyPoint {
   date: string;
+  /** Last day of a week bucket (inclusive); absent for a single day. */
+  end?: string;
   label: string;
   solved: number;
   accuracyPercent: number;
+  /** Answers behind `accuracyPercent` (from /progress/period). */
+  answers?: number;
 }
 
 /** 90 days of daily activity ending today (2026-09-25), seeded once and

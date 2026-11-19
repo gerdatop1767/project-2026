@@ -9,7 +9,6 @@ import {
   getTopics,
   getVariant,
   listCollections,
-  startLearningSession,
   startVariantSession,
 } from '../../lib/api.js';
 import { useAccountGate, type AccountFeature } from '../../lib/accountGate.js';
@@ -30,6 +29,12 @@ import { SectionHeader } from '../../ui/SectionHeader/SectionHeader.js';
 import { clsx } from '../../lib/clsx.js';
 import { ContentSwap, SlideUp } from '../../ui/motion/motion.js';
 import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
+import { SMART_SUBJECTS, SmartTrainingSetup } from '../../ui/Training/SmartTrainingSetup.js';
+import { subjects as allSubjectsList } from '../../data/subjects.js';
+
+const smartSubjects = allSubjectsList.filter((s) =>
+  (SMART_SUBJECTS as readonly string[]).includes(s.id),
+);
 import { TopicPicker } from '../../ui/Training/TopicPicker.js';
 import styles from './Training.module.css';
 import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
@@ -79,8 +84,6 @@ const trainingModes: readonly TrainingMode[] = [
     accent: 'var(--color-accent-secondary)',
   },
 ];
-
-const smartQuantityOptions = ['5', '10'];
 
 const amountOptions: readonly { id: AmountId; icon: IconName; label: string }[] = [
   { id: 'infinite', icon: 'infinite', label: 'Без ограничения' },
@@ -143,14 +146,6 @@ export function Training() {
   const [variantId, setVariantId] = useState<string | null>(null);
   const [variantRandom, setVariantRandom] = useState(false);
   const [variantUnseen, setVariantUnseen] = useState(false);
-
-  // "Умная тренировка" — its own bounded `limit`, plus the same
-  // independent 🎲/🔄 toggles "По теме" has (additive on the backend:
-  // see GetLearningPathContext's unseenOnly/randomizeTopTier — no
-  // scoring formula changes).
-  const [smartQuantity, setSmartQuantity] = useState('5');
-  const [smartRandom, setSmartRandom] = useState(false);
-  const [smartUnseen, setSmartUnseen] = useState(false);
 
   // "По теме" — real topics, independent 🎲/🔄, optional numbers, amount.
   // Topics per request key: `items: null` = the request failed. A key that
@@ -274,20 +269,6 @@ export function Training() {
 
     setStarting(true);
     try {
-      if (modeId === 'smart') {
-        const response = await startLearningSession({
-          subjectId,
-          limit: Number(smartQuantity),
-          unseenOnly: smartUnseen,
-          randomizeTopTier: smartRandom,
-        });
-        const outcome = applyLearningSessionResponse(response, setSession, navigate);
-        if (outcome === 'none') {
-          setStartError('Не нашлось подходящих заданий для умной тренировки.');
-        }
-        return;
-      }
-
       if (modeId === 'variant') {
         const resolved = await resolveVariantId();
         if (resolved === 'exhausted') {
@@ -410,6 +391,7 @@ export function Training() {
           value={subjectId}
           onChange={selectSubject}
           className={styles.subject}
+          {...(modeId === 'smart' ? { subjects: smartSubjects } : {})}
         />
       </header>
 
@@ -429,6 +411,13 @@ export function Training() {
                   const feature = accountModes[mode.id];
                   if (feature && !requireAccount(feature)) return;
                   setModeId(mode.id);
+                  // The Learning Engine knows these subjects' topics only.
+                  if (
+                    mode.id === 'smart' &&
+                    !(SMART_SUBJECTS as readonly string[]).includes(subjectId)
+                  ) {
+                    selectSubject('math');
+                  }
                 }}
               >
                 <span
@@ -649,38 +638,13 @@ export function Training() {
         )}
 
         {modeId === 'smart' && (
-          <div className={styles.settingsRow}>
-            <div>
-              <SectionHeader title="Режим выборки" />
-              <div className={styles.chipRow}>
-                <Chip icon="dice" selected={smartRandom} onClick={() => setSmartRandom((v) => !v)}>
-                  Случайное
-                </Chip>
-                <Chip
-                  icon="retry"
-                  selected={smartUnseen}
-                  onClick={() => toggleUnseen(smartUnseen, setSmartUnseen)}
-                >
-                  Только нерешённые
-                </Chip>
-              </div>
-            </div>
-
-            <div>
-              <SectionHeader title="Количество заданий" />
-              <div className={styles.chipRow}>
-                {smartQuantityOptions.map((option) => (
-                  <Chip
-                    key={option}
-                    selected={option === smartQuantity}
-                    onClick={() => setSmartQuantity(option)}
-                  >
-                    {option}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          </div>
+          <SmartTrainingSetup
+            key={subjectId}
+            subjectId={subjectId}
+            onStarted={(response) =>
+              applyLearningSessionResponse(response, setSession, navigate) !== 'none'
+            }
+          />
         )}
       </ContentSwap>
 
@@ -690,11 +654,13 @@ export function Training() {
         </p>
       )}
 
-      <div className={styles.startBar}>
-        <Button variant="primary" fullWidth loading={starting} onClick={() => void handleStart()}>
-          Начать тренировку
-        </Button>
-      </div>
+      {modeId !== 'smart' && (
+        <div className={styles.startBar}>
+          <Button variant="primary" fullWidth loading={starting} onClick={() => void handleStart()}>
+            Начать тренировку
+          </Button>
+        </div>
+      )}
     </SlideUp>
   );
 }

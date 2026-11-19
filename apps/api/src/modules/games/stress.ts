@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import { schema, type Database } from '@zybrilka/db';
 import {
   MINI_GAME_LEARNED_STREAK,
+  orderRoundItems,
   unstressedDisplay,
   vowelIndices,
   type StressAnswerRequest,
@@ -79,10 +80,7 @@ export async function stressRound(
   const stateOf = new Map(progress.map((p) => [p.itemId, p]));
   let picked: WordRow[];
   if (mode === 'all') {
-    const learned = (w: WordRow) => (stateOf.get(w.id)?.streak ?? 0) >= MINI_GAME_LEARNED_STREAK;
-    const fresh = shuffle(words.filter((w) => !learned(w)));
-    const known = shuffle(words.filter(learned));
-    picked = [...fresh, ...known].slice(0, size);
+    picked = orderRoundItems(words, stateOf).slice(0, size);
   } else if (mode === 'mistakes') {
     picked = shuffle(words.filter((w) => stateOf.get(w.id)?.lastCorrect === false)).slice(0, size);
   } else {

@@ -1,0 +1,80 @@
+.trigger {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--color-accent-primary) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent-primary) 10%, transparent);
+  color: var(--color-accent-primary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 120ms ease;
+}
+
+.trigger:hover {
+  background: color-mix(in srgb, var(--color-accent-primary) 16%, transparent);
+}
+
+.trigger:active {
+  transform: scale(0.97);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-accent-ring);
+  outline-offset: 2px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: min(65vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: var(--font-size-body-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.body p {
+  margin: 0;
+}
+
+.heading {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.close {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-accent-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
+}

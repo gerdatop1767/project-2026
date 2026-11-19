@@ -1,8 +1,21 @@
 .page {
+  --nt-blue: var(--color-accent-primary);
+  --nt-cyan: #38bdf8;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 40rem;
+  max-width: 56rem;
+  min-width: 0;
+}
+
+.page > * {
+  min-width: 0;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .page h1,
@@ -11,12 +24,316 @@
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
-  border-radius: var(--radius-card);
-  background: var(--color-bg-surface);
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--nt-blue) 28%, transparent);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--nt-blue) 12%, var(--color-bg-surface)),
+    var(--color-bg-surface) 60%
+  );
+  box-shadow: 0 18px 40px -28px color-mix(in srgb, var(--nt-blue) 70%, transparent);
+}
+
+/* The main card glows a little more, like the reference's active block. */
+.cardMain {
+  border-color: color-mix(in srgb, var(--nt-blue) 55%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--nt-blue) 18%, transparent),
+    0 22px 48px -26px color-mix(in srgb, var(--nt-blue) 85%, transparent);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cardHead > .rowText {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardIcon,
+.optionIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: var(--nt-cyan);
+  border: 1px solid color-mix(in srgb, var(--nt-blue) 35%, transparent);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--nt-blue) 26%, transparent),
+    color-mix(in srgb, var(--nt-blue) 8%, transparent)
+  );
+}
+
+.optionIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--font-size-h3);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.cardLead {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ---- header */
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) 0 var(--space-3);
+  min-height: 96px;
+}
+
+.heroIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  color: var(--nt-cyan);
+  border: 1px solid color-mix(in srgb, var(--nt-blue) 45%, transparent);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--nt-blue) 30%, var(--color-bg-surface)),
+    var(--color-bg-surface)
+  );
+  box-shadow: 0 0 26px -10px var(--nt-blue);
+}
+
+.heroText {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 34rem;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: clamp(1.75rem, 7vw, 2.5rem);
+  line-height: 1.1;
+}
+
+.heroLead {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Two floating glass tiles: Telegram and a bell. Decorative only. */
+.heroArt {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 190px;
+  height: 120px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.artTile {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  color: #fff;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  background: linear-gradient(145deg, var(--nt-cyan), var(--nt-blue));
+  box-shadow: 0 16px 34px -14px var(--nt-blue);
+  animation: art-float 5s ease-in-out infinite;
+}
+
+.artPlane {
+  left: 0;
+  top: 0;
+  transform: rotate(-10deg);
+}
+
+.artBell {
+  right: 0;
+  bottom: 0;
+  transform: rotate(8deg);
+  animation-delay: -2.5s;
+}
+
+.artDot {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 10px #fbbf24;
+}
+
+@keyframes art-float {
+  50% {
+    translate: 0 -6px;
+  }
+}
+
+/* Phones: the illustration would sit under the text — leave it out. */
+@media (max-width: 719px) {
+  .heroArt {
+    display: none;
+  }
+}
+
+/* ---- options inside the progress card */
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: 16px;
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-bg-elevated) 70%, transparent);
+}
+
+.option > .rowText {
+  flex: 1;
+  min-width: 0;
+}
+
+.optionTitle {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: 700;
+}
+
+.optionHint {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ---- frequency: a segmented control, the chosen one in a blue gradient */
+.frequency {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.frequencyLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-weight: 700;
+}
+
+.frequencyLabel svg {
+  color: var(--nt-cyan);
+}
+
+.segments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border-radius: 14px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.segment:active {
+  transform: scale(0.97);
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--color-accent-ring);
+  outline-offset: 2px;
+}
+
+.segmentOn {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--nt-cyan), var(--nt-blue));
+  box-shadow: 0 0 22px -6px var(--nt-blue);
+}
+
+.frequencyHint {
+  margin: 0;
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .segment {
+    font-size: var(--font-size-label);
+  }
+
+  .card {
+    padding: var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artTile {
+    animation: none;
+  }
+
+  .segment {
+    transition: none;
+  }
 }
 
 .card p {
@@ -73,7 +390,8 @@
 }
 
 .switchOn {
-  background: var(--color-success);
+  background: linear-gradient(135deg, var(--nt-cyan, #38bdf8), var(--nt-blue, #2b7fff));
+  box-shadow: 0 0 16px -4px var(--nt-blue, #2b7fff);
 }
 
 .thumb {
@@ -103,9 +421,15 @@
 
 .fields {
   display: grid;
-  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   gap: var(--space-3);
   align-items: end;
+  transition: opacity 160ms ease;
+}
+
+/* Settings stay editable when the reminder is off, just quieter. */
+.fields[data-off] {
+  opacity: 0.6;
 }
 
 @media (max-width: 420px) {
@@ -122,13 +446,18 @@
 }
 
 .fieldLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--font-size-body-sm);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
 
 .timeInput {
-  min-height: var(--touch-target-min);
+  min-height: 48px;
+  text-align: center;
+  font-weight: 600;
   padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-input);
@@ -147,13 +476,24 @@
 
 .preview {
   display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
-  padding: var(--space-3);
-  border-radius: var(--radius-input);
+  gap: var(--space-3);
+  align-items: center;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 16px;
   font-size: var(--font-size-body-sm);
-  color: var(--color-text-secondary);
-  background: color-mix(in srgb, var(--color-accent-secondary) 8%, transparent);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  border: 1px solid color-mix(in srgb, var(--nt-blue) 30%, transparent);
+  background: color-mix(in srgb, var(--nt-blue) 16%, var(--color-bg-elevated));
+}
+
+.previewIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--nt-cyan);
 }
 
 .preview svg {
@@ -212,4 +552,45 @@
   padding: var(--space-3);
   border-radius: var(--radius-input);
   background: color-mix(in srgb, var(--color-accent-secondary) 10%, var(--color-bg-elevated));
+}
+
+/* Same look as the Select's own caption next to it. */
+.field .fieldLabel {
+  font-size: var(--font-size-label);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status:empty {
+  display: none;
+}
+
+/* Phones: smaller icon tiles so the text and the switch keep their room. */
+@media (max-width: 479px) {
+  .cardHead {
+    align-items: flex-start;
+  }
+
+  .cardIcon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .heroIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .option {
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-2) var(--space-3) var(--space-3);
+  }
+}
+
+@media (max-width: 379px) {
+  .optionIcon {
+    display: none;
+  }
 }

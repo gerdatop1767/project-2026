@@ -28,3 +28,36 @@ describe('daily chart tooltips', () => {
     expect(b!.tooltip!.value).toBe('Нет решённых заданий');
   });
 });
+
+describe('period buckets as chart points', () => {
+  it('a week says which days it covers; accuracy is per answers, an empty bucket says so', async () => {
+    const { bucketPoints } = await import('./dailyCharts.js');
+    const [week, empty] = bucketPoints([
+      {
+        start: '2026-11-09',
+        end: '2026-11-15',
+        answers: 8,
+        correct: 6,
+        solvedTasks: 5,
+        accuracyPercent: 75,
+      },
+      {
+        start: '2026-11-16',
+        end: '2026-11-16',
+        answers: 0,
+        correct: 0,
+        solvedTasks: 0,
+        accuracyPercent: null,
+      },
+    ]);
+    const [bar] = solvedBarPoints([week!]);
+    expect(bar!.tooltip!.title).toBe('9 ноября – 15 ноября');
+    expect(bar!.tooltip!.value).toBe('Решено 5 заданий');
+    const [line, none] = accuracyLinePoints([week!, empty!]);
+    expect(line!.tooltip).toMatchObject({
+      value: '75% правильных ответов',
+      detail: 'по 8 ответам',
+    });
+    expect(none!.tooltip!.value).toBe('Нет ответов');
+  });
+});

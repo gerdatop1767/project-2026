@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MINI_GAMES, type QuizRoundResponse } from '@zybrilka/shared';
+import {
+  MATCH_SEPARATOR,
+  MINI_GAMES,
+  MINI_GAME_RULES,
+  type QuizRoundResponse,
+} from '@zybrilka/shared';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { AccountGateProvider } from '../../lib/accountGate.js';
@@ -12,6 +17,8 @@ import { QuizGame, splitSlots, splitWords } from './QuizGame.js';
 
 vi.mock('../../lib/api.js', () => ({
   getMiniGames: vi.fn(),
+  getMiniGameSettings: vi.fn(),
+  saveMiniGameSettings: vi.fn(),
   getQuizRound: vi.fn(),
   answerQuiz: vi.fn(),
   finishQuizRound: vi.fn(),
@@ -44,6 +51,13 @@ const ID2 = '22222222-2222-5222-8222-222222222222';
 beforeEach(() => {
   window.localStorage.clear();
   resetPrivateCaches();
+  vi.mocked(api.getMiniGames)
+    .mockReset()
+    .mockResolvedValue({
+      games: MINI_GAMES.map((g) => ({ ...g, progress: null, questionCount: 90 })),
+    });
+  vi.mocked(api.getMiniGameSettings).mockReset().mockResolvedValue({ settings: {} });
+  vi.mocked(api.saveMiniGameSettings).mockReset().mockResolvedValue({});
   vi.mocked(api.getQuizRound).mockReset();
   vi.mocked(api.answerQuiz).mockReset();
   vi.mocked(api.finishQuizRound).mockReset().mockResolvedValue(undefined);
@@ -391,5 +405,148 @@ describe('game emblems', () => {
     const { GAME_ICONS } = await import('./GameIcon.js');
     expect(Object.keys(GAME_ICONS).sort()).toEqual(MINI_GAMES.map((g) => g.id).sort());
     expect(new Set(Object.values(GAME_ICONS)).size).toBe(MINI_GAMES.length);
+  });
+});
+
+describe('round size: own number, bank limit, saved in the account; rules', () => {
+  const ROUND: QuizRoundResponse = {
+    gameId: 'nn',
+    mode: 'all',
+    bankSize: 90,
+    sessionId: SESSION,
+    questions: [{ itemId: ID1, kind: 'choice', text: 'Утре▢ие', options: ['Н', 'НН'] }],
+  };
+
+  it('«Своё»: a number within the limits reaches the API and is saved for the account', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue(ROUND);
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    await user.click(await screen.findByRole('radio', { name: 'Своё' }));
+    const input = screen.getByRole('spinbutton');
+    await user.type(input, '2');
+    expect(screen.getByText('Не меньше 3.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Готово' })).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, '7');
+    await user.click(screen.getByRole('button', { name: 'Готово' }));
+    expect(screen.getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'true');
+    expect(api.saveMiniGameSettings).toHaveBeenCalledWith('nn', 7);
+    expect(window.localStorage.getItem('zybrilka.miniGames.roundSize.nn')).toBe('7');
+    await user.click(screen.getByRole('button', { name: /Играть/ }));
+    expect(api.getQuizRound).toHaveBeenCalledWith('nn', 'all', 7);
+  });
+
+  it('never more than the game has: the input says so, a saved bigger size is capped', async () => {
+    vi.mocked(api.getMiniGames).mockResolvedValue({
+      games: MINI_GAMES.map((g) => ({ ...g, progress: null, questionCount: 12 })),
+    });
+    vi.mocked(api.getMiniGameSettings).mockResolvedValue({ settings: { nn: { roundSize: 40 } } });
+    vi.mocked(api.getQuizRound).mockResolvedValue(ROUND);
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    expect(
+      await screen.findByText(/Сейчас в игре только 12 — раунд будет из 12/),
+    ).toBeInTheDocument();
+    // Quick sizes above the bank are not offered.
+    expect(screen.queryByRole('radio', { name: '15' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Играть/ }));
+    expect(api.getQuizRound).toHaveBeenLastCalledWith('nn', 'all', 12);
+  });
+
+  it('a size saved in the account is used after a reload / on another device', async () => {
+    vi.mocked(api.getMiniGameSettings).mockResolvedValue({ settings: { nn: { roundSize: 25 } } });
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    expect(await screen.findByRole('radio', { name: '25' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(window.localStorage.getItem('zybrilka.miniGames.roundSize.nn')).toBe('25');
+  });
+
+  it('a guest’s choice stays in the browser and is never sent to the server', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue(ROUND);
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, null);
+    await user.click(await screen.findByRole('radio', { name: '20' }));
+    expect(window.localStorage.getItem('zybrilka.miniGames.roundSize.nn')).toBe('20');
+    expect(api.saveMiniGameSettings).not.toHaveBeenCalled();
+    expect(api.getMiniGameSettings).not.toHaveBeenCalled();
+  });
+
+  it('«Правила игры» opens this game’s own rules, not a generic text', async () => {
+    const user = userEvent.setup();
+    const view = renderWith(<QuizGame gameId="commas" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: 'Правила игры' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(MINI_GAME_RULES.commas!.goal)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Ответ верный, только если отмечены все нужные места/),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Понятно' }));
+    view.unmount();
+    renderWith(<QuizGame gameId="probability-blitz" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: 'Правила игры' }));
+    expect(
+      within(screen.getByRole('dialog')).getByText(MINI_GAME_RULES['probability-blitz']!.goal),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('«Теория на практике»', () => {
+  it('«Соедини пары»: a choice per row, «Проверить» only when all rows have one, the pairs sent in order', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'theory-practice',
+      mode: 'all',
+      bankSize: 87,
+      sessionId: SESSION,
+      questions: [
+        {
+          itemId: ID1,
+          kind: 'match',
+          text: 'Соедини формулу с тем, что она выражает',
+          prompt: 'Соедини пары',
+          left: ['$S = \\pi R^2$', '$C = 2\\pi R$'],
+          options: ['длина окружности', 'площадь круга'],
+        },
+      ],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValue({
+      correct: true,
+      display: '…',
+      correctPairs: ['площадь круга', 'длина окружности'],
+      explanation: 'Площадь круга — $\\pi R^2$.',
+      explanationSource: 'author',
+      taskId: 't',
+      recorded: true,
+    });
+    const user = userEvent.setup();
+    const { container } = renderWith(<QuizGame gameId="theory-practice" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    const rows = await screen.findAllByRole('radiogroup', { name: /Пара для/ });
+    expect(rows).toHaveLength(2);
+    // Formulas are typeset in the left column.
+    expect(container.querySelectorAll('.katex').length).toBeGreaterThan(0);
+    const check = screen.getByRole('button', { name: 'Проверить' });
+    expect(check).toBeDisabled();
+    await user.click(within(rows[0]!).getByRole('radio', { name: 'площадь круга' }));
+    expect(check).toBeDisabled();
+    await user.click(within(rows[1]!).getByRole('radio', { name: 'длина окружности' }));
+    await user.click(check);
+    expect(api.answerQuiz).toHaveBeenCalledWith(
+      'theory-practice',
+      expect.objectContaining({
+        itemId: ID1,
+        answer: ['площадь круга', 'длина окружности'].join(MATCH_SEPARATOR),
+      }),
+    );
+    expect(await screen.findByText('Верно!')).toBeInTheDocument();
+    expect(screen.getByText('Пояснение')).toBeInTheDocument();
+  });
+
+  it('a choice question with formulas as options; its own icon', async () => {
+    const { GAME_ICONS } = await import('./GameIcon.js');
+    expect(GAME_ICONS['theory-practice']).toBeDefined();
+    const others = Object.entries(GAME_ICONS).filter(([id]) => id !== 'theory-practice');
+    expect(others.map(([, icon]) => icon)).not.toContain(GAME_ICONS['theory-practice']);
   });
 });

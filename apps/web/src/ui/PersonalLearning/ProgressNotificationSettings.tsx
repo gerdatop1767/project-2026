@@ -1,5 +1,13 @@
 import { useEffect, useId, useState } from 'react';
-import type { NotificationPreferences } from '@zybrilka/shared';
+import {
+  FREQUENCY_LABELS,
+  FREQUENCY_RULES,
+  progressFrequencies,
+  type NotificationPreferences,
+} from '@zybrilka/shared';
+import { Icon } from '../Icon/Icon.js';
+import type { IconName } from '../Icon/icons.js';
+import { Skeleton } from '../Skeleton/Skeleton.js';
 import {
   getProgressNotificationPreferences,
   saveProgressNotificationPreferences,
@@ -57,23 +65,27 @@ export function ProgressNotificationSettings() {
       <p className="text-body-sm text-secondary" role="alert">
         Не удалось загрузить настройки уведомлений о прогрессе.
       </p>
-    ) : null;
+    ) : (
+      <Skeleton height={260} aria-label="Загрузка настроек прогресса" />
+    );
   }
   const toggle = (
     id: string,
+    icon: IconName,
     label: string,
     hint: string,
     on: boolean,
-    key: keyof NotificationPreferences,
+    key: 'progressEnabled' | 'planRemindersEnabled',
   ) => (
-    <div className={notifStyles.row}>
+    <div className={notifStyles.option}>
+      <span className={notifStyles.optionIcon} aria-hidden="true">
+        <Icon name={icon} size={20} />
+      </span>
       <div className={notifStyles.rowText}>
-        <h3 id={id} className={notifStyles.title}>
+        <h3 id={id} className={notifStyles.optionTitle}>
           {label}
         </h3>
-        <p className={notifStyles.state} data-on={on || undefined}>
-          {hint}
-        </p>
+        <p className={notifStyles.optionHint}>{hint}</p>
       </div>
       <button
         type="button"
@@ -88,44 +100,67 @@ export function ProgressNotificationSettings() {
       </button>
     </div>
   );
+  const rules = FREQUENCY_RULES[prefs.frequency];
   return (
     <section className={notifStyles.card} aria-label="Уведомления о прогрессе">
-      <h2 className={notifStyles.title}>Уведомления о прогрессе</h2>
-      <p className="text-body-sm text-secondary">
-        Telegram-сообщения о росте результатов, выполненном плане и контрольной тренировке. Не чаще
-        двух в день и только днём.
-      </p>
-      {toggle(
-        progressId,
-        'Прогресс и цели',
-        prefs.progressEnabled ? 'Сообщения о росте и целях придут' : 'Не присылаются',
-        prefs.progressEnabled,
-        'progressEnabled',
-      )}
-      {toggle(
-        planId,
-        'Напоминания по плану',
-        prefs.planRemindersEnabled ? '«Сегодня по плану…» придёт' : 'Не присылаются',
-        prefs.planRemindersEnabled,
-        'planRemindersEnabled',
-      )}
-      <label className={styles.toggleRow} htmlFor={freqId}>
-        <span>Частота</span>
-        <select
-          id={freqId}
-          value={prefs.frequency}
-          disabled={saving}
-          onChange={(e) =>
-            void save({
-              ...prefs,
-              frequency: e.target.value as NotificationPreferences['frequency'],
-            })
-          }
-        >
-          <option value="normal">Обычная</option>
-          <option value="important">Только важное</option>
-        </select>
-      </label>
+      <div className={notifStyles.cardHead}>
+        <span className={notifStyles.cardIcon} aria-hidden="true">
+          <Icon name="progress" size={22} />
+        </span>
+        <div className={notifStyles.rowText}>
+          <h2 className={notifStyles.cardTitle}>Уведомления о прогрессе</h2>
+          <p className={notifStyles.cardLead}>
+            Рассказываем о твоих результатах, плане и прогрессе в подготовке.
+          </p>
+        </div>
+      </div>
+      <div className={notifStyles.options}>
+        {toggle(
+          progressId,
+          'target',
+          'Прогресс и цели',
+          'Уведомления о росте результатов и приближении к целям.',
+          prefs.progressEnabled,
+          'progressEnabled',
+        )}
+        {toggle(
+          planId,
+          'calendar',
+          'Напоминания по плану',
+          'Сообщения о запланированных тренировках.',
+          prefs.planRemindersEnabled,
+          'planRemindersEnabled',
+        )}
+      </div>
+      <div className={notifStyles.frequency}>
+        <p id={freqId} className={notifStyles.frequencyLabel}>
+          <Icon name="xp" size={18} /> Частота уведомлений
+        </p>
+        <div className={notifStyles.segments} role="radiogroup" aria-labelledby={freqId}>
+          {progressFrequencies.map((f) => (
+            <button
+              key={f}
+              type="button"
+              role="radio"
+              aria-checked={prefs.frequency === f}
+              disabled={saving}
+              className={clsx(notifStyles.segment, prefs.frequency === f && notifStyles.segmentOn)}
+              onClick={() => prefs.frequency !== f && void save({ ...prefs, frequency: f })}
+            >
+              {prefs.frequency === f && <Icon name="check" size={16} />}
+              {FREQUENCY_LABELS[f]}
+            </button>
+          ))}
+        </div>
+        <p className={notifStyles.frequencyHint} aria-live="polite">
+          До {rules.maxPerDay} {rules.maxPerDay === 1 ? 'сообщения' : 'сообщений'} в день, только с
+          10:00 до 21:00.{' '}
+          {rules.planReminders
+            ? `Напоминание по плану — после ${rules.planFromMinute / 60}:00, если день плана не выполнен.`
+            : 'Без ежедневных напоминаний по плану — только результаты.'}
+          {prefs.frequency === 'extended' ? ' Сообщаем и о небольшом росте результата.' : ''}
+        </p>
+      </div>
       {failed && (
         <p role="alert" className={styles.error}>
           Не удалось сохранить. Попробуй ещё раз.

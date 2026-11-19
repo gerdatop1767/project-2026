@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { StatisticsDesktop } from './StatisticsDesktop.js';
 import { NavigationProvider } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
+import { periodResponse } from '../../lib/periodStatsTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
   getLearningOverview: vi.fn(() => new Promise(() => {})),
@@ -12,6 +13,7 @@ vi.mock('../../lib/api.js', () => ({
   rateTaskDifficulty: vi.fn(),
   getProgressSummary: vi.fn(),
   getProgressDaily: vi.fn(),
+  getProgressPeriod: vi.fn(),
   getMistakes: vi.fn(),
   getProgressByTaskNumber: vi.fn(),
   getTaskNumberStatisticsDetail: vi.fn(),
@@ -27,6 +29,9 @@ function renderStatistics() {
 }
 
 beforeEach(() => {
+  vi.mocked(api.getProgressPeriod).mockImplementation(async ({ period, subject }) =>
+    periodResponse(period, { subjectId: subject }),
+  );
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
     uniqueSolvedTotal: 0,
@@ -52,106 +57,125 @@ async function expectBars(count: number) {
   });
 }
 
-describe('StatisticsDesktop — period switching', () => {
-  it('renders the daily-activity chart for the default 30-day period, zero-filled from real daily data', async () => {
+/** A response whose numbers say which period and subject it belongs to. */
+function tagged(period: Parameters<typeof periodResponse>[0], subject?: string) {
+  const answers = { '7d': 7, '15d': 15, '30d': 30, '90d': 90, all: 400 }[period];
+  return periodResponse(period, {
+    subjectId: subject,
+    totals: {
+      answers,
+      correct: answers - 2,
+      wrong: 2,
+      accuracyPercent: Math.round(((answers - 2) / answers) * 1000) / 10,
+      solvedTasks: answers - 1,
+      attemptedTasks: answers,
+      activeDays: 3,
+      timeSpentMs: answers * 60_000,
+      averageTimeMs: 60_000,
+      medianTimeMs: 60_000,
+    },
+    days: [{ date: '2026-11-19', answers: 4, correct: 3, solvedTasks: 5 }],
+    firstActive: '2026-03-01',
+    bySubject: [
+      {
+        subjectId: 'math',
+        answers,
+        correct: answers - 2,
+        wrong: 2,
+        accuracyPercent: 90,
+        solvedTasks: answers - 1,
+        attemptedTasks: answers,
+        activeDays: 3,
+        timeSpentMs: 0,
+        averageTimeMs: null,
+        medianTimeMs: null,
+      },
+    ],
+  });
+}
+
+describe('StatisticsDesktop — every number follows the period', () => {
+  beforeEach(() => {
+    vi.mocked(api.getProgressPeriod).mockImplementation(async ({ period, subject }) =>
+      tagged(period, subject),
+    );
+  });
+
+  it('30 days by default: tiles and chart from the same 30-day response', async () => {
     renderStatistics();
     await expectBars(30);
+    expect(await screen.findByText('28 из 30')).toBeInTheDocument();
+    expect(api.getProgressPeriod).toHaveBeenCalledWith(
+      expect.objectContaining({ period: '30d', subject: 'math' }),
+    );
   });
 
-  it('"Всё время" renders the full 90-day zero-filled series without throwing', async () => {
+  it('every period changes the numbers AND the chart: 7, 15, 30, 90 days, all time', async () => {
     const user = userEvent.setup();
     renderStatistics();
+    for (const [tab, bars, answers] of [
+      ['7 дней', 7, 7],
+      ['15 дней', 15, 15],
+      ['30 дней', 30, 30],
+      ['90 дней', 90, 90],
+    ] as const) {
+      await user.click(screen.getByRole('tab', { name: tab }));
+      await expectBars(bars);
+      expect(await screen.findByText(`${answers - 2} из ${answers}`)).toBeInTheDocument();
+      expect(screen.getByText(`${answers} пробовал`)).toBeInTheDocument();
+    }
+    // All time since the first answer (1 March), drawn by weeks.
     await user.click(screen.getByRole('tab', { name: 'Всё время' }));
-
-    await expectBars(90);
-    // 90 points: no bead string of markers — the line itself, tappable per day.
-    const line = screen.getByRole('group', { name: /Процент правильных ответов по дням/ });
-    expect(line.querySelector('path[class*="line"]')).toBeInTheDocument();
-    expect(api.getProgressDaily).toHaveBeenLastCalledWith({ days: 90, subject: 'math' });
+    expect(await screen.findByText('398 из 400')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('group', { name: /Решённые задания по неделям/ }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/с 1 марта 2026 г\., по неделям/).length).toBeGreaterThan(0);
   });
 
-  it('switching between periods refetches with the matching days and changes the rendered point count', async () => {
+  it('while another period loads, the old numbers are gone (skeletons), never mixed', async () => {
     const user = userEvent.setup();
+    const pending: (() => void)[] = [];
     renderStatistics();
-
+    expect(await screen.findByText('28 из 30')).toBeInTheDocument();
+    vi.mocked(api.getProgressPeriod).mockImplementation(
+      ({ period, subject }) =>
+        new Promise((resolve) => {
+          pending.push(() => resolve(tagged(period, subject)));
+        }),
+    );
     await user.click(screen.getByRole('tab', { name: '7 дней' }));
-    await expectBars(7);
-    expect(api.getProgressDaily).toHaveBeenLastCalledWith({ days: 7, subject: 'math' });
-
-    await user.click(screen.getByRole('tab', { name: '30 дней' }));
-    await expectBars(30);
-
-    await user.click(screen.getByRole('tab', { name: 'Всё время' }));
-    await expectBars(90);
-  });
-});
-
-describe('StatisticsDesktop — real progress data', () => {
-  it('uses the real solved/correct counts once the API responds, not the hardcoded demo profile', async () => {
-    vi.mocked(api.getProgressSummary).mockResolvedValue({
-      solvedTotal: 3,
-      uniqueSolvedTotal: 3,
-      correctTotal: 2,
-      incorrectTotal: 1,
-      accuracyPercent: 66.7,
-      bySubject: [
-        { subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 },
-      ],
-      byTaskNumber: [],
-      byTopic: [],
-      timeBySubject: [],
-    });
-    renderStatistics();
-    // "N из M" is rendered as-is (not animated), so it reflects the
-    // real correct/solved counts as soon as the fetch resolves.
-    expect(await screen.findByText('2 из 3')).toBeInTheDocument();
+    expect(screen.queryByText('28 из 30')).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('Загрузка графика').length).toBeGreaterThan(0);
+    pending.forEach((release) => release());
+    expect(await screen.findByText('5 из 7')).toBeInTheDocument();
   });
 
-  // Regression test for the mobile page flash (the same bug reached
-  // desktop too): `solvedTotal`/`correctPercent` used to collapse to a
-  // fake `0` while `getProgressSummary` was still in flight. Must show
-  // an honest skeleton placeholder instead.
-  it('never shows a fake "0"/"0%" headline while /progress/summary is still loading', async () => {
-    let resolveProgress!: (value: Awaited<ReturnType<typeof api.getProgressSummary>>) => void;
-    vi.mocked(api.getProgressSummary).mockReturnValue(
-      new Promise((resolve) => {
-        resolveProgress = resolve;
-      }),
+  it('no activity in the period: dashes and an empty chart, no fake zeros as percentages', async () => {
+    vi.mocked(api.getProgressPeriod).mockImplementation(async ({ period, subject }) =>
+      periodResponse(period, { subjectId: subject }),
     );
     renderStatistics();
-    expect(screen.getAllByTestId('skeleton-value').length).toBeGreaterThan(0);
+    await expectBars(30);
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
-
-    resolveProgress({
-      solvedTotal: 3,
-      uniqueSolvedTotal: 3,
-      correctTotal: 2,
-      incorrectTotal: 1,
-      accuracyPercent: 66.7,
-      bySubject: [
-        { subjectId: 'math', solved: 3, correct: 2, accuracyPercent: 66.7, uniqueSolved: 3 },
-      ],
-      byTaskNumber: [],
-      byTopic: [],
-      timeBySubject: [],
-    });
-    expect(await screen.findByText('2 из 3')).toBeInTheDocument();
+    expect(screen.getAllByText('За этот период ответов нет.').length).toBeGreaterThan(0);
   });
 
-  it('shows a neutral dash for average time/level, never a fabricated number', async () => {
+  it('the subject switch asks for that subject’s period numbers', async () => {
     renderStatistics();
-    expect(screen.getByText('Среднее время')).toBeInTheDocument();
-    expect(screen.getByText('Текущий уровень')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2));
+    await screen.findByText('28 из 30');
+    expect(api.getProgressPeriod).toHaveBeenCalledWith(
+      expect.objectContaining({ period: '30d', subject: 'math' }),
+    );
+    // The per-subject distribution is asked for all subjects of the same period.
+    expect(api.getProgressPeriod).toHaveBeenCalledWith(
+      expect.objectContaining({ period: '30d', subject: undefined }),
+    );
   });
 
-  it('the daily chart reflects real per-day attempts, not synthetic noise', async () => {
-    vi.mocked(api.getProgressDaily).mockResolvedValue({
-      items: [{ date: new Date().toISOString().slice(0, 10), solved: 5, accuracyPercent: 100 }],
-    });
+  it('the daily chart shows the real day: a bar for today with its exact count', async () => {
     const user = userEvent.setup();
     renderStatistics();
-    // The most recent day (today) must read the real solved=5 attempt.
     const chart = await screen.findByRole('group', { name: /Решённые задания по дням/ });
     await waitFor(() =>
       expect(
@@ -163,6 +187,11 @@ describe('StatisticsDesktop — real progress data', () => {
     chart.focus();
     await user.keyboard('{End}');
     expect(screen.getAllByText('Решено 5 заданий')[0]).toBeInTheDocument();
+  });
+
+  it('cumulative blocks are labelled «за всё время»', async () => {
+    renderStatistics();
+    expect(screen.getAllByText(/за всё время/).length).toBeGreaterThanOrEqual(2);
   });
 
   it('the errors donut and "Сложные темы" use real /mistakes data, showing an empty state with none', async () => {

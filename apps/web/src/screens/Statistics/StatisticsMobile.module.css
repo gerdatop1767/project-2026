@@ -118,3 +118,15 @@
   height: 18rem;
   border-radius: var(--radius-card);
 }
+
+.periodBar {
+  scroll-margin-top: var(--space-6, 2rem);
+}
+
+/* Cumulative blocks say so: they do not follow the chosen period. */
+.allTime {
+  font-size: var(--font-size-label);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}

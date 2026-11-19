@@ -88,7 +88,7 @@ describe('learning session routes (ZUBRILKA LEARNING INTELLIGENCE Phase 9)', () 
         method: 'POST',
         url: '/api/v1/me/learning/sessions',
         headers: { 'x-anon-id': randomUUID() },
-        payload: { subjectId: 'math', limit: 11 },
+        payload: { subjectId: 'math', limit: 51 },
       });
       expect(res.statusCode).toBe(400);
     });

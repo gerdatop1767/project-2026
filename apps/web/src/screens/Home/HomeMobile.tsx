@@ -6,7 +6,6 @@ import { subjects } from '../../data/subjects.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { HomeStats, type HomeStat } from './HomeStats.js';
-import { startRealTask } from '../../lib/startTraining.js';
 import { getProgressSummary } from '../../lib/api.js';
 import { useTaskCountsBySubject } from '../../lib/useTaskCounts.js';
 import { useStreakContext } from '../../lib/streakContext.js';
@@ -191,38 +190,6 @@ export function HomeMobile() {
             </button>
           ))}
         </div>
-      </div>
-
-      <div>
-        <div className={styles.sectionHeader}>
-          <p className="text-h3">Продолжить</p>
-          <button
-            type="button"
-            className={styles.sectionLink}
-            onClick={() => navigate({ screen: 'subjectCatalog' })}
-          >
-            Все тренировки <Icon name="chevronRight" size={16} />
-          </button>
-        </div>
-        <button
-          type="button"
-          className={styles.continueCard}
-          data-subject-interactive
-          onClick={() => startRealTask(navigate, { subject: 'math' })}
-        >
-          <span className={styles.continueThumb}>
-            <SubjectIcon subjectId={subjects[0]!.id} />
-          </span>
-          <span className={styles.continueCardText}>
-            <span className="text-body" style={{ fontWeight: 600 }}>
-              Математика
-            </span>
-            <span className="text-body-sm text-secondary">Тренировка · случайные задания</span>
-          </span>
-          <span className={styles.continueCardArrow}>
-            <Icon name="arrowRight" size={18} />
-          </span>
-        </button>
       </div>
 
       <HomeRecommendations />

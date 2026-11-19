@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import type { SmartSetupResponse, SmartSetupSkill } from '@zybrilka/shared';
 import userEvent from '@testing-library/user-event';
 import { Training } from './Training.js';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
@@ -24,6 +25,7 @@ vi.mock('../../lib/api.js', () => {
     getProgressByTopic: vi.fn(),
     startLearningSession: vi.fn(),
     startVariantSession: vi.fn(),
+    getSmartSetup: vi.fn(),
     ApiError: MockApiError,
   };
 });
@@ -97,9 +99,34 @@ function renderTraining() {
   );
 }
 
+const skill = (key: string, n: number, extra: Partial<SmartSetupSkill> = {}): SmartSetupSkill => ({
+  key,
+  examNumber: n,
+  title: `Тема ${n}`,
+  mastery: null,
+  level: 'none',
+  attempts: 0,
+  availableTasks: 30,
+  openMistakes: 0,
+  problem: null,
+  ...extra,
+});
+const SETUP: SmartSetupResponse = {
+  subjectId: 'math',
+  skills: [
+    skill('math.expressions', 7),
+    skill('math.logs', 8, { availableTasks: 4, mastery: 40, level: 'weak', attempts: 5 }),
+    skill('math.probability-basic', 4, { availableTasks: 3 }),
+  ],
+  problemKeys: [],
+  subjectTasks: 400,
+};
+
 beforeEach(() => {
   vi.mocked(api.listCollections).mockResolvedValue([]);
   vi.mocked(api.getProgressByTopic).mockResolvedValue(TOPICS);
+  vi.mocked(api.getSmartSetup).mockReset().mockResolvedValue(SETUP);
+  vi.mocked(api.startLearningSession).mockReset();
 });
 
 describe('Training — structure (no "Быстрый старт")', () => {
@@ -400,74 +427,144 @@ describe('Training — "Вариант" (compact independent 🎲/🔄)', () => 
   });
 });
 
-describe('Training — "Умная тренировка" (Phase 10: real backend learning session, unchanged)', () => {
-  it('starts a real session via the API and stores the real sessionId, never a fake one', async () => {
+describe('Training — «Умная тренировка» с настройкой', () => {
+  const SESSION = {
+    sessionId: 'session-42',
+    subject: 'math',
+    status: 'active' as const,
+    position: 1,
+    total: 10,
+    task: RANDOM_TASK,
+  };
+
+  async function openSmart() {
     const user = userEvent.setup();
-    vi.mocked(api.startLearningSession).mockResolvedValue({
-      sessionId: 'session-42',
-      subject: 'math',
-      status: 'active',
-      position: 1,
-      total: 5,
-      task: RANDOM_TASK,
-    });
     renderTraining();
-
     await user.click(screen.getByRole('button', { name: /Умная тренировка/ }));
-    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await screen.findByRole('radiogroup', { name: 'Тип тренировки' });
+    return user;
+  }
 
-    await waitFor(() => {
-      expect(api.startLearningSession).toHaveBeenCalledWith(
-        expect.objectContaining({ subjectId: 'math', limit: 5 }),
-      );
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId('overlay')).toHaveTextContent('task:5');
-    });
+  it('defaults to «По моей статистике», 10 tasks; starts a real session and stores its id', async () => {
+    vi.mocked(api.startLearningSession).mockResolvedValue(SESSION);
+    const user = await openSmart();
+    expect(screen.getByRole('radio', { name: /По моей статистике/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    const summary = screen.getByRole('region', { name: 'Твоя тренировка' });
+    expect(within(summary).getByText('все темы предмета')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() =>
+      expect(api.startLearningSession).toHaveBeenCalledWith({
+        subjectId: 'math',
+        limit: 10,
+        unseenOnly: false,
+        smart: { mode: 'stats', difficulty: 'mixed' },
+      }),
+    );
+    await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:5'));
     expect(screen.getByTestId('session')).toHaveTextContent('active:session-42');
   });
 
-  it('passes the 🎲/🔄 toggles through to startLearningSession, independent of each other', async () => {
-    const user = userEvent.setup();
-    vi.mocked(api.startLearningSession).mockResolvedValue({
-      sessionId: 'session-42',
-      subject: 'math',
-      status: 'active',
-      position: 1,
-      total: 5,
-      task: RANDOM_TASK,
-    });
-    renderTraining();
-
-    await user.click(screen.getByRole('button', { name: /Умная тренировка/ }));
-    await user.click(screen.getByRole('button', { name: 'Случайное' }));
+  it('«Конкретные темы»: topics with mastery and task counts; only the chosen ones are sent', async () => {
+    vi.mocked(api.startLearningSession).mockResolvedValue(SESSION);
+    const user = await openSmart();
+    await user.click(screen.getByRole('radio', { name: /Конкретные темы/ }));
+    expect(screen.getByRole('button', { name: 'Начать тренировку' })).toBeDisabled();
+    expect(screen.getByText('Выбери хотя бы одну тему.')).toBeInTheDocument();
+    expect(screen.getByText(/освоение 40% · 4 задания/)).toBeInTheDocument();
+    expect(screen.getAllByText(/ещё не решал/).length).toBe(2);
+    await user.click(screen.getByRole('checkbox', { name: /№7 · Тема 7/ }));
+    await user.click(screen.getByRole('checkbox', { name: /№8 · Тема 8/ }));
+    await user.click(screen.getByRole('radio', { name: 'Лёгкие' }));
     await user.click(screen.getByRole('button', { name: 'Только нерешённые' }));
+    const summary = screen.getByRole('region', { name: 'Твоя тренировка' });
+    expect(within(summary).getByText('№7 · Тема 7, №8 · Тема 8')).toBeInTheDocument();
+    expect(within(summary).getByText('ближе к лёгким')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
-
-    await waitFor(() => {
-      expect(api.startLearningSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          subjectId: 'math',
-          limit: 5,
-          randomizeTopTier: true,
-          unseenOnly: true,
-        }),
-      );
-    });
+    await waitFor(() =>
+      expect(api.startLearningSession).toHaveBeenCalledWith({
+        subjectId: 'math',
+        limit: 10,
+        unseenOnly: true,
+        smart: {
+          mode: 'topics',
+          skillKeys: ['math.expressions', 'math.logs'],
+          difficulty: 'easy',
+        },
+      }),
+    );
   });
 
-  it('shows an error and never fakes a session when the backend can find no candidate task', async () => {
-    const user = userEvent.setup();
-    vi.mocked(api.startLearningSession).mockResolvedValue(null);
-    renderTraining();
-
-    await user.click(screen.getByRole('button', { name: /Умная тренировка/ }));
+  it('not enough tasks in the chosen topics: says so and offers what there is', async () => {
+    vi.mocked(api.startLearningSession).mockResolvedValue(SESSION);
+    const user = await openSmart();
+    await user.click(screen.getByRole('radio', { name: /Конкретные темы/ }));
+    await user.click(screen.getByRole('checkbox', { name: /№8 · Тема 8/ }));
+    await user.click(screen.getByRole('checkbox', { name: /№4 · Тема 4/ }));
+    expect(screen.getByText(/Доступно до 7 заданий/)).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Своё' }));
+    await user.type(screen.getByRole('spinbutton'), '9');
+    expect(screen.getByText('В выбранных темах доступно 7.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Выбрать 7' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() =>
+      expect(api.startLearningSession).toHaveBeenCalledWith(expect.objectContaining({ limit: 7 })),
+    );
+  });
 
-    expect(
-      await screen.findByText(/Не нашлось подходящих заданий для умной тренировки/),
-    ).toBeInTheDocument();
+  it('the server finds fewer tasks (e.g. shared between topics): «Начать с N» restarts with N', async () => {
+    vi.mocked(api.startLearningSession)
+      .mockRejectedValueOnce(new api.ApiError(409, { error: 'not_enough_tasks', available: 6 }))
+      .mockResolvedValueOnce(SESSION);
+    const user = await openSmart();
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    expect(await screen.findByText(/подходят только 6 заданий/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Начать с 6' }));
+    await waitFor(() =>
+      expect(api.startLearningSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ limit: 6 }),
+      ),
+    );
+  });
+
+  it('«Проблемные темы» without problems: an honest empty state, no start', async () => {
+    const user = await openSmart();
+    await user.click(screen.getByRole('radio', { name: /Проблемные темы/ }));
+    expect(screen.getByText(/Пока нет тем с заметными проблемами/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Начать тренировку' })).toBeDisabled();
+  });
+
+  it('«Проблемные темы»: the student’s own problem topics with the reasons', async () => {
+    vi.mocked(api.getSmartSetup).mockResolvedValue({
+      ...SETUP,
+      skills: SETUP.skills.map((s) =>
+        s.key === 'math.logs'
+          ? { ...s, problem: { score: 70, reasons: ['точность 40%', 'не исправлено ошибок: 3'] } }
+          : s,
+      ),
+      problemKeys: ['math.logs'],
+    });
+    vi.mocked(api.startLearningSession).mockResolvedValue(SESSION);
+    const user = await openSmart();
+    await user.click(screen.getByRole('radio', { name: /Проблемные темы/ }));
+    expect(screen.getByText('точность 40% · не исправлено ошибок: 3')).toBeInTheDocument();
+    // Only 4 tasks in that topic: the count follows.
+    await user.click(screen.getByRole('button', { name: 'Выбрать 4' }));
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    await waitFor(() =>
+      expect(api.startLearningSession).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 4, smart: { mode: 'problems', difficulty: 'mixed' } }),
+      ),
+    );
+  });
+
+  it('shows an error and never fakes a session when no task fits', async () => {
+    vi.mocked(api.startLearningSession).mockResolvedValue(null);
+    const user = await openSmart();
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    expect(await screen.findByText(/Не нашлось подходящих заданий/)).toBeInTheDocument();
     expect(screen.getByTestId('session')).toHaveTextContent('none');
-    expect(screen.getByTestId('overlay')).not.toHaveTextContent('task');
   });
 });

@@ -9,6 +9,13 @@ import {
   type MiniGamesResponse,
 } from '@zybrilka/shared';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import {
+  getMiniGameSettings,
+  isMiniGame,
+  saveMiniGameSettings,
+  validRoundSize,
+} from './settings.js';
 import {
   answerStress,
   finishStressSession,
@@ -65,6 +72,27 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
     );
     reply.header('cache-control', 'no-store');
     return { games };
+  });
+
+  // A signed-in player's round size per game (a guest keeps it in the browser).
+  app.get('/games/settings', async (request, reply) => {
+    const userId = userOf(request);
+    if (!userId) return reply.code(401).send({ error: 'unauthorized' });
+    reply.header('cache-control', 'no-store');
+    return getMiniGameSettings(db, userId);
+  });
+
+  app.put('/games/settings/:gameId', { config: limit(60) }, async (request, reply) => {
+    const userId = userOf(request);
+    if (!userId) return reply.code(401).send({ error: 'unauthorized' });
+    const gameId = (request.params as { gameId?: string }).gameId ?? '';
+    if (!isMiniGame(gameId)) return reply.code(404).send({ error: 'game_not_found' });
+    const body = z.object({ roundSize: z.number().int() }).safeParse(request.body);
+    if (!body.success || !validRoundSize(gameId, body.data.roundSize)) {
+      return reply.code(400).send({ error: 'invalid_body' });
+    }
+    await saveMiniGameSettings(db, userId, gameId, body.data.roundSize);
+    return { gameId, roundSize: body.data.roundSize };
   });
 
   // Quiz games (docs/MINI_GAMES.md § Игры-викторины): one set of routes for all.

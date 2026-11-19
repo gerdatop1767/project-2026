@@ -1730,7 +1730,7 @@ export const notificationPreferences = pgTable('notification_preferences', {
     .references(() => users.id),
   progressEnabled: boolean('progress_enabled').notNull().default(true),
   planRemindersEnabled: boolean('plan_reminders_enabled').notNull().default(true),
-  frequency: text('frequency', { enum: ['normal', 'important'] })
+  frequency: text('frequency', { enum: ['important', 'normal', 'extended'] })
     .notNull()
     .default('normal'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -2000,6 +2000,23 @@ export const miniGameSessions = pgTable(
     index('mini_game_sessions_game_started_idx').on(table.gameId, table.startedAt),
     index('mini_game_sessions_user_idx').on(table.userId, table.gameId),
   ],
+);
+
+/**
+ * A signed-in player's settings per mini-game (the round size they chose),
+ * so the choice survives a reload, another device and a new sign-in.
+ */
+export const miniGameSettings = pgTable(
+  'mini_game_settings',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    gameId: text('game_id').notNull(),
+    roundSize: integer('round_size').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.gameId] })],
 );
 
 /**

@@ -366,3 +366,84 @@
     transition: none;
   }
 }
+
+/* «Соедини пары»: a row per left item, its candidates as chips. */
+.match {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  counter-reset: pair;
+}
+
+.matchRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 14px;
+  background: var(--color-bg-elevated);
+}
+
+.matchLeft {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.matchOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.matchOption {
+  min-height: 40px;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.matchOption:focus-visible {
+  outline: 2px solid var(--color-accent-ring);
+  outline-offset: 2px;
+}
+
+.matchOn {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .matchOption {
+    transition: none;
+  }
+}
+
+/* After the check the verdict colours win over «chosen». */
+.matchOption.optionRight {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, var(--color-bg-elevated));
+}
+
+.matchOption.optionWrong {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 14%, var(--color-bg-elevated));
+}

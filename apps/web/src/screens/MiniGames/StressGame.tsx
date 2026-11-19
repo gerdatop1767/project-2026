@@ -5,6 +5,7 @@ import type {
   StressProgressResponse,
   StressQuestion,
 } from '@zybrilka/shared';
+import { STRESS_ROUND_MIN, STRESS_ROUND_SIZE } from '@zybrilka/shared';
 import {
   answerStress,
   finishStressRound,
@@ -21,7 +22,9 @@ import { Icon } from '../../ui/Icon/Icon.js';
 import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { GameIcon } from './GameIcon.js';
-import { RoundSizePicker, useRoundSize } from './RoundSize.js';
+import { RoundSizePicker, effectiveRoundSize, useRoundSize } from './RoundSize.js';
+import { GameRules } from './GameRules.js';
+import { useGameQuestionCount } from './MiniGames.js';
 import {
   currentQuestion,
   isFinished,
@@ -59,9 +62,6 @@ const newAnswerId = () => crypto.randomUUID();
  * at once and comes back later in the round. Progress (learned words,
  * accuracy, the words confused most) is kept for signed-in players.
  */
-/** Words per round a player can pick (the API allows 5–40). */
-export const STRESS_SIZES = [10, 20, 30, 40] as const;
-
 export function StressGame() {
   const { navigate } = useNavigation();
   const { isGuest, requireAccount } = useAccountGate();
@@ -78,7 +78,8 @@ export function StressGame() {
   const answerId = useRef(newAnswerId());
   /** The round's launch record on the server (admin statistics). */
   const sessionId = useRef<string | null>(null);
-  const [roundSize, setRoundSize] = useRoundSize('stress', STRESS_SIZES, 20);
+  const [roundSize, setRoundSize] = useRoundSize('stress', STRESS_ROUND_SIZE);
+  const available = useGameQuestionCount('stress');
 
   const loadProgress = useCallback(() => {
     if (isGuest) return;
@@ -93,7 +94,10 @@ export function StressGame() {
     setChecked(null);
     setMarkedOf(new Map());
     try {
-      const data = await getStressRound(mode, roundSize);
+      const data = await getStressRound(
+        mode,
+        Math.max(STRESS_ROUND_MIN, effectiveRoundSize(roundSize, available)),
+      );
       if (data.questions.length === 0) {
         setPhase({ kind: 'empty', mode });
         return;
@@ -275,10 +279,12 @@ export function StressGame() {
         </Card>
       )}
 
+      <GameRules gameId="stress" title="Ударения" />
       <RoundSizePicker
-        choices={STRESS_SIZES}
+        gameId="stress"
         value={roundSize}
         onChange={setRoundSize}
+        available={available}
         unit="слов"
       />
       <div className={styles.modes}>

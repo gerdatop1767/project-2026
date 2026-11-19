@@ -13,6 +13,7 @@ Learning Engine — система персонального обучения �
 | [IMPORT-INTEGRATION.md](IMPORT-INTEGRATION.md) | Как новые варианты подключаются автоматически, что делать при импорте |
 | [API.md](API.md) | Эндпоинты, ответы, защита |
 | [TESTING.md](TESTING.md) | Какие тесты есть и как их запускать |
+| [SMART-TRAINING.md](SMART-TRAINING.md) | Умная тренировка с настройкой: режимы, проблемные темы, проверка количества |
 | [LEARNING-COVERAGE.md](LEARNING-COVERAGE.md) | Покрытие заданий навыками по номерам ЕГЭ |
 | [LEARNING-ENGINE-AUDIT.md](LEARNING-ENGINE-AUDIT.md) | Аудит перед переработкой (ноябрь 2026): что было сломано |
 

@@ -19,9 +19,11 @@ import {
   type VariantProgressItem,
   type VariantProgressResponse,
   type TrainingMix,
+  type SmartTrainingOptions,
 } from '@zybrilka/shared';
 import { getLearningPath } from '../learningPath/service.js';
 import { pickForSlot, startPlannedTraining, trainingOutcome } from '../engine/training.js';
+import { startSmartTraining } from '../engine/smart.js';
 import { resolveSubjectId } from '../recommendation/service.js';
 import { buildDetectionInput } from '../errorSignatures/service.js';
 import { getVariantDetail } from '../../variants/service.js';
@@ -134,6 +136,55 @@ export async function startLearningSession(
       score: firstStep.score,
       reason: firstStep.reason,
       breakdown: firstStep.breakdown,
+    },
+  };
+}
+
+/**
+ * «Умная тренировка» с настройкой: the same session lifecycle, with a plan
+ * from the configured mode (engine/smart.ts). Errors are returned, not
+ * thrown, so the screen can say what to change.
+ */
+export async function startSmartLearningSession(
+  db: Database,
+  userId: string,
+  input: {
+    subjectId: string;
+    total: number;
+    smart: SmartTrainingOptions;
+    unseenOnly?: boolean;
+  },
+): Promise<
+  | { ok: true; session: NonNullable<LearningSessionResponse> }
+  | { ok: false; error: string; available?: number }
+> {
+  const started = await startSmartTraining(db, userId, input);
+  if (!started.ok) {
+    return started.error === 'not_enough_tasks'
+      ? { ok: false, error: started.error, available: started.available }
+      : { ok: false, error: started.error };
+  }
+  const row = await tasksRepo.getTaskById(db, started.taskId);
+  if (!row) return { ok: false, error: 'not_enough_tasks', available: 0 };
+  const session = await repo.createSession(db, {
+    userId,
+    subjectId: input.subjectId,
+    total: input.total,
+    firstTaskId: started.taskId,
+    unseenOnly: input.unseenOnly,
+    randomizeTopTier: false,
+    trainingPlan: started.plan,
+  });
+  return {
+    ok: true,
+    session: {
+      sessionId: session.id,
+      subject: input.subjectId,
+      status: 'active',
+      position: 1,
+      total: session.total,
+      task: toPublicTask(row),
+      pick: started.pick,
     },
   };
 }

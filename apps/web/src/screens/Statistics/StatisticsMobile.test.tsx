@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { StatisticsMobile } from './StatisticsMobile.js';
 import { NavigationProvider } from '../../lib/navigation.js';
 import * as api from '../../lib/api.js';
+import { periodResponse } from '../../lib/periodStatsTestUtils.js';
 import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
@@ -19,6 +20,7 @@ vi.mock('../../lib/api.js', () => ({
   getTaskNumberStatisticsDetail: vi.fn(() => new Promise(() => {})),
   getVariantProgress: vi.fn(() => Promise.resolve({ items: [] })),
   getProgressDaily: vi.fn(() => Promise.resolve({ items: [] })),
+  getProgressPeriod: vi.fn(),
   getLeaderboard: vi.fn(),
   getTaskCountsBySubject: vi.fn(() =>
     Promise.resolve({ items: [{ subjectId: 'math', count: 190, countAllSources: 678 }] }),
@@ -34,6 +36,9 @@ function renderWithNav() {
 }
 
 beforeEach(() => {
+  vi.mocked(api.getProgressPeriod).mockImplementation(async ({ period, subject }) =>
+    periodResponse(period, { subjectId: subject }),
+  );
   vi.mocked(api.getProgressSummary).mockResolvedValue({
     solvedTotal: 0,
     uniqueSolvedTotal: 0,
@@ -66,11 +71,20 @@ describe('StatisticsMobile — subject filter', () => {
       byTopic: [],
       timeBySubject: [],
     });
+    vi.mocked(api.getProgressPeriod).mockImplementation(async ({ period, subject }) =>
+      periodResponse(period, {
+        subjectId: subject,
+        totals:
+          subject === 'russian'
+            ? { answers: 8, correct: 6, wrong: 2, accuracyPercent: 75 }
+            : { answers: 12, correct: 9, wrong: 3, accuracyPercent: 75 },
+      }),
+    );
     const user = userEvent.setup();
     renderWithNav();
 
     // Default subject is "Математика" — real data for it shows up.
-    await waitFor(() => expect(screen.getByText('9 верных')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('9 из 12')).toBeInTheDocument());
     expect(vi.mocked(api.getProgressByTaskNumber)).toHaveBeenLastCalledWith({ subject: 'math' });
 
     await user.click(screen.getByRole('button', { name: /Математика/ }));
@@ -89,7 +103,8 @@ describe('StatisticsMobile — subject filter', () => {
         subject: 'russian',
       }),
     );
-    await waitFor(() => expect(screen.getByText('6 верных')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('6 из 8')).toBeInTheDocument());
+    expect(screen.queryByText('9 из 12')).not.toBeInTheDocument();
     // /progress/summary and /mistakes are fetched once, not re-requested
     // per subject switch — they're filtered client-side instead.
     expect(vi.mocked(api.getProgressSummary)).toHaveBeenCalledTimes(1);
@@ -213,11 +228,12 @@ describe('StatisticsMobile', () => {
     await user.click(card!);
   });
 
-  it('shows a neutral dash for streak/average-time, never a fabricated number', () => {
+  it('a period without answers: dashes, «нет данных», never a fabricated number', async () => {
     renderWithNav();
-    expect(screen.getByText('Текущая серия')).toBeInTheDocument();
-    expect(screen.getByText('Среднее время')).toBeInTheDocument();
+    expect((await screen.findAllByText('За этот период ответов нет.')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Время занятий')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 });
 
@@ -255,55 +271,56 @@ describe('StatisticsMobile — real progress data', () => {
     expect(within(grid).getAllByText('Не решалось').length).toBeGreaterThan(0);
   });
 
-  it('the solvedTotal/accuracy headline tiles use real /progress/summary data for the selected subject', async () => {
-    vi.mocked(api.getProgressSummary).mockResolvedValue({
-      solvedTotal: 20,
-      uniqueSolvedTotal: 20,
-      correctTotal: 15,
-      incorrectTotal: 5,
-      accuracyPercent: 75,
-      bySubject: [
-        { subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 },
-      ],
-      byTaskNumber: [],
-      byTopic: [],
-      timeBySubject: [],
-    });
-    renderWithNav();
-    // The percent itself animates in (useCountUp) — assert the static,
-    // non-animated delta label instead of racing the animation.
-    await waitFor(() => expect(screen.getByText('9 верных')).toBeInTheDocument());
-  });
-
-  // Regression test for the mobile page flash: `solvedTotal`/
-  // `accuracyPercent` used to collapse to a fake `0` while
-  // `getProgressSummary` was still in flight, even though the
-  // underlying `realProgress` state was already correctly
-  // null-until-loaded. Must show an honest skeleton placeholder.
-  it('never shows a fake "0"/"0%" headline while /progress/summary is still loading', async () => {
-    let resolveProgress!: (value: Awaited<ReturnType<typeof api.getProgressSummary>>) => void;
-    vi.mocked(api.getProgressSummary).mockReturnValue(
-      new Promise((resolve) => {
-        resolveProgress = resolve;
+  it('the headline tiles are the chosen period’s: solved, right answers, mistakes, time', async () => {
+    vi.mocked(api.getProgressPeriod).mockImplementation(async ({ period, subject }) =>
+      periodResponse(period, {
+        subjectId: subject,
+        totals: {
+          answers: 12,
+          correct: 9,
+          wrong: 3,
+          accuracyPercent: 75,
+          solvedTasks: 8,
+          attemptedTasks: 10,
+          activeDays: 4,
+          timeSpentMs: 25 * 60_000,
+          averageTimeMs: 125_000,
+          medianTimeMs: 100_000,
+        },
       }),
     );
     renderWithNav();
-    expect(screen.getAllByTestId('skeleton-value').length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getByText('9 из 12')).toBeInTheDocument());
+    expect(screen.getByText('10 пробовал')).toBeInTheDocument();
+    expect(screen.getByText('активных 4 дня')).toBeInTheDocument();
+    expect(screen.getByText(/в среднем .* на ответ/)).toBeInTheDocument();
+  });
 
-    resolveProgress({
-      solvedTotal: 20,
-      uniqueSolvedTotal: 20,
-      correctTotal: 15,
-      incorrectTotal: 5,
-      accuracyPercent: 75,
-      bySubject: [
-        { subjectId: 'math', solved: 12, correct: 9, accuracyPercent: 75, uniqueSolved: 12 },
-      ],
-      byTaskNumber: [],
-      byTopic: [],
-      timeBySubject: [],
-    });
-    await waitFor(() => expect(screen.getByText('9 верных')).toBeInTheDocument());
+  it('while a period loads, its tiles show skeletons — never the previous period', async () => {
+    const pending: (() => void)[] = [];
+    vi.mocked(api.getProgressPeriod).mockImplementation(
+      ({ period, subject }) =>
+        new Promise((resolve) => {
+          pending.push(() =>
+            resolve(
+              periodResponse(period, {
+                subjectId: subject,
+                totals: period === '7d' ? { answers: 4, correct: 3 } : { answers: 40, correct: 30 },
+              }),
+            ),
+          );
+        }),
+    );
+    const user = userEvent.setup();
+    renderWithNav();
+    expect(screen.getAllByTestId('skeleton-value').length).toBeGreaterThan(0);
+    pending.splice(0).forEach((r) => r());
+    await waitFor(() => expect(screen.getByText('3 из 4')).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: '30 дней' }));
+    expect(screen.queryByText('3 из 4')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('skeleton-value').length).toBeGreaterThan(0);
+    pending.splice(0).forEach((r) => r());
+    await waitFor(() => expect(screen.getByText('30 из 40')).toBeInTheDocument());
   });
 
   it('the errors donut uses real /mistakes data, never the static sample set', async () => {
@@ -465,14 +482,33 @@ describe('StatisticsMobile — Общая tab cleanup (no navigational clutter)'
 });
 
 describe('StatisticsMobile — activity charts', () => {
-  it('shows the real daily charts with 7 / 30 days / Всё время, re-fetching for the period', async () => {
+  it('every period (7/15/30/90 days, all time) is asked for and drawn, charts and tiles together', async () => {
     const user = userEvent.setup();
     renderWithNav();
     expect(await screen.findByText('Активность')).toBeInTheDocument();
-    expect(vi.mocked(api.getProgressDaily)).toHaveBeenCalledWith({ days: 7, subject: 'math' });
+    expect(vi.mocked(api.getProgressPeriod)).toHaveBeenCalledWith(
+      expect.objectContaining({ period: '7d', subject: 'math' }),
+    );
+    for (const [tab, period, bars] of [
+      ['15 дней', '15d', 15],
+      ['30 дней', '30d', 30],
+      ['90 дней', '90d', 90],
+    ] as const) {
+      await user.click(screen.getByRole('tab', { name: tab }));
+      expect(vi.mocked(api.getProgressPeriod)).toHaveBeenCalledWith(
+        expect.objectContaining({ period, subject: 'math' }),
+      );
+      await waitFor(() => {
+        const chart = screen.getByRole('group', { name: /Решённые задания по дням/ });
+        expect(chart.querySelector('[class*="bars"]')!.children).toHaveLength(bars);
+      });
+      expect(screen.getByText(`За последние ${tab}`)).toBeInTheDocument();
+    }
     await user.click(screen.getByRole('tab', { name: 'Всё время' }));
-    expect(vi.mocked(api.getProgressDaily)).toHaveBeenCalledWith({ days: 90, subject: 'math' });
-    expect(screen.getByText('За последние 90 дней')).toBeInTheDocument();
+    expect(vi.mocked(api.getProgressPeriod)).toHaveBeenCalledWith(
+      expect.objectContaining({ period: 'all', subject: 'math' }),
+    );
+    expect(await screen.findByText(/^За всё время/)).toBeInTheDocument();
   });
 });
 
@@ -587,7 +623,6 @@ describe('StatisticsMobile — «Решено N из M» counts tasks, out of ev
       timeBySubject: [],
     });
     renderWithNav();
-    await waitFor(() => expect(screen.getByText('из 678')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('tab', { name: 'По заданиям' }));
     await waitFor(() => expect(screen.getByText('2 из 678')).toBeInTheDocument());
     expect(screen.queryByText('5 из 678')).not.toBeInTheDocument();

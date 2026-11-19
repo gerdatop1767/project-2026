@@ -1,30 +1,24 @@
 import { AnimatedNumber } from '../../ui/AnimatedNumber/AnimatedNumber.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '../../lib/navigation.js';
-import type { StatsPeriod } from '../../data/sampleStatistics.js';
+import type { StatsPeriodId } from '@zybrilka/shared';
+import { usePeriodStats } from '../../lib/usePeriodStats.js';
+import { PeriodSubjects, PeriodTiles } from '../../ui/Statistics/PeriodSummary.js';
 import { computeMistakesSummary, type Mistake } from '../../data/sampleMistakes.js';
 import {
   getMistakes,
   getProgressByTaskNumber,
-  getProgressDaily,
-  getProgressSummary,
   getTaskNumberStatisticsDetail,
   getVariantProgress,
 } from '../../lib/api.js';
 import { toSampleMistake } from '../../lib/mistakeAdapter.js';
-import { toDailyPoints, toTaskNumberProgress } from '../../lib/progressAdapter.js';
-import { formatDuration } from '../../lib/statisticsDetailFormat.js';
-import type {
-  ProgressSummary,
-  TaskNumberStatisticsDetail,
-  VariantProgressItem,
-} from '@zybrilka/shared';
+import { toTaskNumberProgress } from '../../lib/progressAdapter.js';
+import type { TaskNumberStatisticsDetail, VariantProgressItem } from '@zybrilka/shared';
 import { Card } from '../../ui/Card/Card.js';
 import { VariantHistoryCard } from '../../ui/Statistics/VariantHistoryCard.js';
 import { Tabs } from '../../ui/Tabs/Tabs.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import { StatTile } from '../../ui/Statistics/StatTile.js';
 import { TaskNumberGrid } from '../../ui/Statistics/TaskNumberGrid.js';
 import { TaskNumberBars } from '../../ui/Statistics/TaskNumberBars.js';
 import { TaskNumberDetailPanel } from '../../ui/Statistics/TaskNumberDetailPanel.js';
@@ -37,8 +31,8 @@ import { SubjectSelect } from '../../ui/SubjectPicker/SubjectPicker.js';
 import {
   accuracyLinePoints,
   labelEveryFor,
+  bucketPoints,
   periodCaption,
-  periodDays,
   periodTabs,
   solvedBarPoints,
 } from '../../ui/Statistics/dailyCharts.js';
@@ -59,17 +53,12 @@ import { Skeleton, SkeletonList } from '../../ui/Skeleton/Skeleton.js';
 export function StatisticsDesktop() {
   const { navigate } = useNavigation();
   const [subjectId, setSubjectId] = useState('math');
-  const [period, setPeriod] = useState<StatsPeriod>('30d');
+  const [period, setPeriod] = useState<StatsPeriodId>('30d');
+  const periodStats = usePeriodStats(period, subjectId);
+  const allSubjectsStats = usePeriodStats(period);
 
-  const [realProgress, setRealProgress] = useState<ProgressSummary | null>(null);
-  const [summaryFailed, setSummaryFailed] = useState(false);
   // 'loading' until the first answer — never «нет данных» while it's still coming.
   const [mistakesState, setMistakesState] = useState<'loading' | 'ready' | 'error'>('loading');
-  // The daily chart's first load only; a period switch keeps the old bars until the new ones land.
-  const [dailyLoaded, setDailyLoaded] = useState(false);
-  const [dailyItems, setDailyItems] = useState<
-    Awaited<ReturnType<typeof getProgressDaily>>['items']
-  >([]);
   const [mistakes, setMistakes] = useState<readonly Mistake[]>([]);
   const [taskNumberItems, setTaskNumberItems] = useState<
     Awaited<ReturnType<typeof getProgressByTaskNumber>>['items']
@@ -86,14 +75,6 @@ export function StatisticsDesktop() {
 
   useEffect(() => {
     let cancelled = false;
-    void getProgressSummary()
-      .then((data) => {
-        if (!cancelled) setRealProgress(data);
-      })
-      .catch(() => {
-        // The request failed — headline tiles show «—», never an endless placeholder.
-        if (!cancelled) setSummaryFailed(true);
-      });
     void getMistakes()
       .then((items) => {
         if (!cancelled) {
@@ -165,46 +146,6 @@ export function StatisticsDesktop() {
     setSelectedTaskNumber(null);
   }
 
-  const days = periodDays[period];
-  useEffect(() => {
-    let cancelled = false;
-    void getProgressDaily({ days, subject: subjectId })
-      .then((res) => {
-        if (!cancelled) {
-          setDailyItems(res.items);
-          setDailyLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDailyItems([]);
-          setDailyLoaded(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [days, subjectId]);
-
-  // Headline tiles scope to the selected subject (Statistics 2.0 Step
-  // 2) using the real per-subject rows `/progress/summary` already
-  // returns — no new backend query needed for accuracy/solved.
-  const subjectRow = realProgress?.bySubject.find((s) => s.subjectId === subjectId) ?? null;
-  const subjectTime = realProgress?.timeBySubject.find((s) => s.subjectId === subjectId) ?? null;
-  const summaryLoading = realProgress === null && !summaryFailed;
-  // null while `realProgress` hasn't loaded yet — never a fake `0`
-  // (same mobile-flash bug fixed in Subject/Profile/StatisticsMobile).
-  // «Решено» = distinct tasks solved correctly; «Правильных ответов X из Y»
-  // stays answer-based (attempt rows), as accuracy is everywhere.
-  const solvedTotal = realProgress ? (subjectRow?.uniqueSolved ?? 0) : null;
-  const answersTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
-  const correctTotal = subjectRow?.correct ?? 0;
-  const correctPercent = subjectRow
-    ? Math.round(subjectRow.accuracyPercent)
-    : realProgress
-      ? 0
-      : null;
-
   const taskNumberProgress = useMemo(
     () => toTaskNumberProgress(taskNumberItems),
     [taskNumberItems],
@@ -219,7 +160,9 @@ export function StatisticsDesktop() {
     () => mistakesSummary.topicBreakdown.filter((row) => row.topic !== 'Остальные'),
     [mistakesSummary],
   );
-  const points = useMemo(() => toDailyPoints(dailyItems, days), [dailyItems, days]);
+  const periodData = periodStats.status === 'ready' ? periodStats.data : null;
+  const dailyLoaded = periodData !== null;
+  const points = useMemo(() => (periodData ? bucketPoints(periodData.buckets) : []), [periodData]);
   const showEvery = labelEveryFor(points.length);
   const solvedBars = useMemo(() => solvedBarPoints(points), [points]);
   const accuracyLine = useMemo(() => accuracyLinePoints(points), [points]);
@@ -240,50 +183,14 @@ export function StatisticsDesktop() {
           <Tabs
             items={periodTabs}
             activeId={period}
-            onChange={(id) => setPeriod(id as StatsPeriod)}
+            onChange={(id) => setPeriod(id as StatsPeriodId)}
             aria-label="Период статистики"
             className={styles.periodTabs}
           />
         </div>
       </div>
 
-      <div className={styles.statsRow}>
-        <StatTile
-          animate
-          icon="variant"
-          iconColor="var(--color-accent-primary-end)"
-          label="Решено заданий"
-          value={solvedTotal ?? '—'}
-          loading={summaryLoading}
-        />
-        <StatTile
-          animate
-          icon="success"
-          iconColor="var(--color-success)"
-          label="Правильных ответов"
-          value={correctPercent ?? '—'}
-          suffix={correctPercent !== null ? '%' : undefined}
-          deltaLabel={`${correctTotal} из ${answersTotal ?? '—'}`}
-          loading={summaryLoading}
-        />
-        <StatTile
-          animate
-          icon="time"
-          iconColor="var(--color-warning)"
-          label="Среднее время"
-          value={subjectTime ? formatDuration(subjectTime.averageTimeMs) : '—'}
-          loading={summaryLoading}
-          deltaLabel={subjectTime ? `медиана ${formatDuration(subjectTime.medianTimeMs)}` : 'скоро'}
-        />
-        <StatTile
-          animate
-          icon="progress"
-          iconColor="var(--color-accent-secondary)"
-          label="Текущий уровень"
-          value="—"
-          deltaLabel="скоро"
-        />
-      </div>
+      <PeriodTiles stats={periodStats} gridClassName={styles.statsRow} />
 
       <div className={styles.chartsGrid}>
         <Card className={styles.chartCard}>
@@ -291,7 +198,7 @@ export function StatisticsDesktop() {
             <div className={styles.chartHeaderText}>
               <p className="text-h3">Активность по дням</p>
               <p className="text-body-sm text-secondary">
-                Решённые задания · {periodCaption(period).toLowerCase()}
+                Решённые задания · {periodCaption(period, periodData ?? undefined).toLowerCase()}
               </p>
             </div>
             <span className={styles.metricLabel}>Нажми на столбец</span>
@@ -300,7 +207,7 @@ export function StatisticsDesktop() {
             <BarChart
               points={solvedBars}
               labelEvery={showEvery}
-              ariaLabel="Решённые задания по дням"
+              ariaLabel={`Решённые задания по ${periodData?.granularity === 'week' ? 'неделям' : 'дням'}`}
             />
           ) : (
             <Skeleton className={styles.chartPlaceholder} aria-label="Загрузка графика" />
@@ -309,7 +216,8 @@ export function StatisticsDesktop() {
 
         <Card className={styles.chartCard}>
           <div className={styles.cardHeaderRow}>
-            <p className="text-h3">Распределение по темам</p>
+            <p className="text-h3">Распределение ошибок по темам</p>
+            <span className={styles.metricLabel}>за всё время</span>
           </div>
           {mistakesState === 'loading' ? (
             <Skeleton className={styles.chartPlaceholder} aria-label="Загрузка распределения" />
@@ -345,7 +253,7 @@ export function StatisticsDesktop() {
             <div className={styles.chartHeaderText}>
               <p className="text-h3">Динамика правильных ответов</p>
               <p className="text-body-sm text-secondary">
-                Процент правильных · {periodCaption(period).toLowerCase()}
+                Процент правильных · {periodCaption(period, periodData ?? undefined).toLowerCase()}
               </p>
             </div>
             <span className={styles.metricLabel}>Нажми на точку</span>
@@ -354,7 +262,7 @@ export function StatisticsDesktop() {
             <LineChart
               points={accuracyLine}
               labelEvery={showEvery}
-              ariaLabel="Процент правильных ответов по дням"
+              ariaLabel={`Процент правильных ответов по ${periodData?.granularity === 'week' ? 'неделям' : 'дням'}`}
             />
           ) : (
             <Skeleton className={styles.chartPlaceholder} aria-label="Загрузка графика" />
@@ -366,7 +274,7 @@ export function StatisticsDesktop() {
             <div className={styles.chartHeaderText}>
               <p className="text-h3">Сложные темы</p>
               <p className="text-body-sm text-secondary">
-                Темы, в которых чаще всего бывают ошибки
+                Темы, в которых чаще всего бывают ошибки · за всё время
               </p>
             </div>
             <Button variant="secondary" onClick={() => navigate({ screen: 'mistakes' })}>
@@ -395,8 +303,12 @@ export function StatisticsDesktop() {
         </Card>
       </div>
 
+      <PeriodSubjects stats={allSubjectsStats} period={period} />
+
       <Card>
-        <p className="text-h3">Навыки по номерам</p>
+        <p className="text-h3">
+          Навыки по номерам <span className={styles.metricLabel}>за всё время</span>
+        </p>
         <SkillsPanel subjectId={subjectId} />
       </Card>
 

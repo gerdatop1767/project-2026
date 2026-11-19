@@ -300,6 +300,111 @@ describe('progress notifications (Telegram)', () => {
     expect(telegram.sendMessage).toHaveBeenCalledTimes(2);
   });
 
+  /** Three messages are due today: two control trainings and an improvement. */
+  async function busyDay(userId: string) {
+    await weekPlan(userId, -6);
+    await answers(userId, new Date(NOW.getTime() - 25 * DAY), [false, false, true, false, false]);
+    await answers(
+      userId,
+      new Date(NOW.getTime() - 3 * DAY),
+      [true, true, true, true, true, true, true],
+      5,
+    );
+    const [p2] = await testDb.db
+      .insert(schema.learningPlans)
+      .values({
+        userId,
+        subjectId: 'russian',
+        kind: 'week',
+        startDate: addDays(TODAY, -6),
+        focus: [],
+        updatedAt: now,
+      })
+      .returning();
+    await testDb.db.insert(schema.learningPlanDays).values({
+      planId: p2!.id,
+      dayIndex: 0,
+      date: TODAY,
+      skillKey: 'russian.09-root-vowels',
+      activity: 'progress_check',
+      targetTasks: 3,
+      difficulty: 2,
+    });
+  }
+
+  it('«Частота»: минимальная — 1 в день, обычная — 2, расширенная — 3', async () => {
+    for (const [frequency, expected] of [
+      ['important', 1],
+      ['normal', 2],
+      ['extended', 3],
+    ] as const) {
+      telegram = fakeTelegram();
+      const s = await student();
+      await busyDay(s.userId);
+      await testDb.db
+        .insert(schema.notificationPreferences)
+        .values({ userId: s.userId, progressEnabled: true, planRemindersEnabled: true, frequency });
+      await notifier().run();
+      await notifier().run();
+      expect(telegram.sendMessage, frequency).toHaveBeenCalledTimes(expected);
+    }
+  });
+
+  it('«Расширенная»: the plan reminder already from 14:00; «Обычная» waits until 16:00; «Минимальная» never', async () => {
+    now = new Date('2026-11-16T12:00:00Z'); // 15:00 MSK
+    const ext = await student();
+    await weekPlan(ext.userId, -1);
+    await testDb.db.insert(schema.notificationPreferences).values({
+      userId: ext.userId,
+      progressEnabled: true,
+      planRemindersEnabled: true,
+      frequency: 'extended',
+    });
+    const norm = await student();
+    await weekPlan(norm.userId, -1);
+    await notifier().run();
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
+    expect(telegram.sendMessage.mock.calls[0]![0]).toBe(ext.chatId);
+    now = NOW; // 17:00 MSK
+    await notifier().run();
+    expect(telegram.sendMessage.mock.calls.map((c) => c[0])).toEqual([ext.chatId, norm.chatId]);
+  });
+
+  it('«Расширенная» reports a smaller improvement (+10 points) that «Обычная» does not', async () => {
+    const make = async (frequency: 'normal' | 'extended') => {
+      const s = await student();
+      // Mastery grows by more than 10 but less than 15 points.
+      await answers(s.userId, new Date(NOW.getTime() - 25 * DAY), [
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+      ]);
+      await answers(
+        s.userId,
+        new Date(NOW.getTime() - 3 * DAY),
+        [true, true, true, false, true],
+        6,
+      );
+      await testDb.db
+        .insert(schema.notificationPreferences)
+        .values({ userId: s.userId, progressEnabled: true, planRemindersEnabled: true, frequency });
+      return s;
+    };
+    const n = await make('normal');
+    const e = await make('extended');
+    await notifier().run();
+    const to = telegram.sendMessage.mock.calls.map((c) => c[0]);
+    expect(to).not.toContain(n.chatId);
+    expect(to).toContain(e.chatId);
+    const m = /было (\d+)%, стало (\d+)%/.exec(texts()[to.indexOf(e.chatId)]!)!;
+    const grew = Number(m[2]) - Number(m[1]);
+    expect(grew).toBeGreaterThanOrEqual(10);
+    expect(grew).toBeLessThan(15);
+  });
+
   it('Telegram errors: a message that never arrived is retried, then sent once', async () => {
     const s = await student();
     await weekPlan(s.userId, -1);

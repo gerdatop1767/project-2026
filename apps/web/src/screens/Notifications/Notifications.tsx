@@ -63,6 +63,32 @@ const confirmResultText: Record<
 type Load =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: ReminderSettingsResponse };
 
+/** The page header: bell, title, one line, a light Telegram + bell illustration. */
+function Header() {
+  return (
+    <header className={styles.hero}>
+      <span className={styles.heroIcon} aria-hidden="true">
+        <Icon name="notifications" size={26} />
+      </span>
+      <div className={styles.heroText}>
+        <h1 className={styles.heroTitle}>Уведомления</h1>
+        <p className={styles.heroLead}>
+          Напоминания, прогресс и обновления — в Telegram, в удобное для тебя время.
+        </p>
+      </div>
+      <span className={styles.heroArt} aria-hidden="true">
+        <span className={clsx(styles.artTile, styles.artPlane)}>
+          <Icon name="send" size={30} />
+        </span>
+        <span className={clsx(styles.artTile, styles.artBell)}>
+          <Icon name="notifications" size={30} />
+          <span className={styles.artDot} />
+        </span>
+      </span>
+    </header>
+  );
+}
+
 /** Opens a t.me link: inside the Mini App through Telegram itself. */
 function openTelegram(url: string) {
   const webApp = (
@@ -121,7 +147,7 @@ export function Notifications() {
     return (
       <SlideUp className={styles.page}>
         <BackRow />
-        <h1 className="text-h1">Уведомления</h1>
+        <Header />
         <section className={styles.card}>
           <p className="text-body">
             Напоминания настраиваются для аккаунта — войди, чтобы включить их.
@@ -136,10 +162,11 @@ export function Notifications() {
     return (
       <SlideUp className={styles.page}>
         <BackRow />
-        <h1 className="text-h1">Уведомления</h1>
+        <Header />
         {load.status === 'loading' ? (
-          <div aria-busy="true" aria-label="Настройки загружаются">
-            <Skeleton height={180} />
+          <div className={styles.loading} aria-busy="true" aria-label="Настройки загружаются">
+            <Skeleton height={220} />
+            <Skeleton height={260} />
           </div>
         ) : (
           <section className={styles.card} role="alert">
@@ -214,17 +241,18 @@ export function Notifications() {
   return (
     <SlideUp className={styles.page}>
       <BackRow />
-      <h1 className="text-h1">Уведомления</h1>
-      <p className="text-body-sm text-secondary">
-        Одно напоминание в день в Telegram — в выбранное тобой время.
-      </p>
+      <Header />
 
-      <section className={styles.card} aria-labelledby={switchId}>
-        <div className={styles.row}>
+      <section className={clsx(styles.card, styles.cardMain)} aria-labelledby={switchId}>
+        <div className={styles.cardHead}>
+          <span className={styles.cardIcon} aria-hidden="true">
+            <Icon name="calendar" size={22} />
+          </span>
           <div className={styles.rowText}>
-            <h2 id={switchId} className={styles.title}>
+            <h2 id={switchId} className={styles.cardTitle}>
               Ежедневное напоминание
             </h2>
+            <p className={styles.cardLead}>Одно сообщение в день с заданием на тренировку.</p>
             <p className={styles.state} data-on={data.enabled || undefined}>
               {data.enabled ? 'Включено' : 'Выключено'}
             </p>
@@ -242,9 +270,11 @@ export function Notifications() {
           </button>
         </div>
 
-        <div className={styles.fields}>
+        <div className={styles.fields} data-off={!data.enabled || undefined}>
           <label className={styles.field} htmlFor={timeId}>
-            <span className={styles.fieldLabel}>Время</span>
+            <span className={styles.fieldLabel}>
+              <Icon name="time" size={16} /> Время
+            </span>
             <input
               id={timeId}
               type="time"
@@ -275,8 +305,13 @@ export function Notifications() {
         </div>
 
         <p className={styles.preview}>
-          <Icon name="chat" size={16} /> «📚 Время потренироваться! Реши несколько заданий ЕГЭ
-          сегодня.»
+          <span className={styles.previewIcon} aria-hidden="true">
+            <Icon name="send" size={18} />
+          </span>
+          <span>
+            <span className={styles.visuallyHidden}>Пример сообщения: </span>
+            📚 Время потренироваться! Реши несколько заданий ЕГЭ сегодня.
+          </span>
         </p>
         <p className={styles.status} aria-live="polite">
           {saving
@@ -292,9 +327,17 @@ export function Notifications() {
       <ProgressNotificationSettings />
 
       <section className={styles.card} aria-labelledby="tg-link-title">
-        <h2 id="tg-link-title" className={styles.title}>
-          Telegram
-        </h2>
+        <div className={styles.cardHead}>
+          <span className={styles.cardIcon} aria-hidden="true">
+            <Icon name="send" size={22} />
+          </span>
+          <div className={styles.rowText}>
+            <h2 id="tg-link-title" className={styles.cardTitle}>
+              Telegram
+            </h2>
+            <p className={styles.cardLead}>Куда приходят уведомления.</p>
+          </div>
+        </div>
         {ready ? (
           <p className={styles.ok}>
             <Icon name="success" size={18} /> Telegram привязан — напоминания придут в бота

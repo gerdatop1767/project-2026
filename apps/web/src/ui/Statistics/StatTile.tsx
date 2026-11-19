@@ -13,7 +13,8 @@ export interface StatTileProps {
   value: number | string;
   suffix?: string;
   deltaLabel?: ReactNode;
-  deltaDirection?: 'up' | 'down';
+  /** `none`: a plain caption (what the number is made of), no trend arrow. */
+  deltaDirection?: 'up' | 'down' | 'none';
   /** Count the value up on first view — the Statistics screens only; everywhere
    * else (profile, mistakes…) the number is simply there. */
   animate?: boolean;
@@ -66,7 +67,10 @@ export function StatTile({
           <SkeletonValue width="5rem" />
         </span>
       ) : null}
-      {!loading && deltaLabel && (
+      {!loading && deltaLabel && deltaDirection === 'none' && (
+        <span className={`${styles.delta} ${styles.deltaNeutral}`}>{deltaLabel}</span>
+      )}
+      {!loading && deltaLabel && deltaDirection !== 'none' && (
         <span
           className={`${styles.delta} ${deltaDirection === 'down' ? styles.deltaDown : styles.deltaUp}`}
         >

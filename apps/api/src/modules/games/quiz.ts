@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto';
 import { schema, type Database } from '@zybrilka/db';
 import {
   MINI_GAME_LEARNED_STREAK,
+  MATCH_SEPARATOR,
+  orderRoundItems,
+  expressionDrillItems,
+  theoryQuizItems,
   checkQuizAnswer,
   commaItems,
   dedupeItems,
@@ -42,8 +46,10 @@ interface Source {
   /** Task numbers (Russian) … */
   readonly numbers?: readonly number[];
   /** … or a skill (math: every edition numbers it differently). */
-  readonly skill?: string;
+  readonly skills?: readonly string[];
   readonly toItems: (row: QuizTaskRow) => QuizItem[];
+  /** Questions not taken from tasks (computed, checked by tests). */
+  readonly extra?: () => QuizItem[];
 }
 
 const SOURCES: Readonly<Record<string, Source>> = {
@@ -62,8 +68,19 @@ const SOURCES: Readonly<Record<string, Source>> = {
   'word-meaning': { subjectId: 'russian', numbers: [2], toItems: wordMeaningItems },
   expressive: { subjectId: 'russian', numbers: [22], toItems: expressiveItems },
   'find-in-text': { subjectId: 'russian', numbers: [25], toItems: findInTextItems },
-  'probability-blitz': { subjectId: 'math', skill: 'math.probability-basic', toItems: inputItems },
-  'expressions-blitz': { subjectId: 'math', skill: 'math.expressions', toItems: inputItems },
+  'probability-blitz': {
+    subjectId: 'math',
+    skills: ['math.probability-basic', 'math.probability-rules'],
+    toItems: inputItems,
+  },
+  'expressions-blitz': {
+    subjectId: 'math',
+    skills: ['math.expressions'],
+    toItems: inputItems,
+    extra: expressionDrillItems,
+  },
+  // A hand-written, checked bank — no tasks are read for it.
+  'theory-practice': { subjectId: 'math', toItems: () => [], extra: theoryQuizItems },
 };
 
 export const isQuizGame = (id: string): boolean => id in SOURCES;
@@ -143,16 +160,24 @@ async function buildBank(db: Database, gameId: string): Promise<Bank> {
     .from(t)
     .leftJoin(schema.passages, eq(schema.passages.id, t.passageId));
   const published = and(eq(t.subjectId, source.subjectId), eq(t.status, 'published'));
-  const rows = source.numbers
-    ? await base.where(and(published, inArray(t.taskNumber, [...source.numbers])))
-    : await base
-        .innerJoin(schema.taskSkills, eq(schema.taskSkills.taskId, t.id))
-        .innerJoin(schema.skills, eq(schema.skills.id, schema.taskSkills.skillId))
-        .where(and(published, eq(schema.skills.slug, source.skill!), isNotNull(t.id)));
+  const rows =
+    !source.numbers && !source.skills
+      ? []
+      : source.numbers
+        ? await base.where(and(published, inArray(t.taskNumber, [...source.numbers])))
+        : await base
+            .innerJoin(schema.taskSkills, eq(schema.taskSkills.taskId, t.id))
+            .innerJoin(schema.skills, eq(schema.skills.id, schema.taskSkills.skillId))
+            .where(
+              and(published, inArray(schema.skills.slug, [...source.skills!]), isNotNull(t.id)),
+            );
   rows.sort((a, b) => a.id.localeCompare(b.id));
-  const items = dedupeItems(
-    rows.flatMap((r) => source.toItems({ ...r, passageMd: r.passageMd ?? null })),
-  ).map((it) => ({ ...it, id: quizItemId(gameId, it.key) }));
+  // A task linked to two of the game's skills is read once.
+  const unique = rows.filter((r, i) => i === 0 || rows[i - 1]!.id !== r.id);
+  const items = dedupeItems([
+    ...unique.flatMap((r) => source.toItems({ ...r, passageMd: r.passageMd ?? null })),
+    ...(source.extra?.() ?? []),
+  ]).map((it) => ({ ...it, id: quizItemId(gameId, it.key) }));
   return { items, byId: new Map(items.map((it) => [it.id, it])) };
 }
 
@@ -160,8 +185,12 @@ const toQuestion = (it: QuizItem & { id: string }): QuizQuestion => ({
   itemId: it.id,
   kind: it.kind,
   text: it.text,
-  ...(it.options ? { options: shuffleOptions(it.options) } : {}),
+  // A `match` question's right column is always shuffled (in order it would be the answer).
+  ...(it.options
+    ? { options: it.kind === 'match' ? shuffle(it.options) : shuffleOptions(it.options) }
+    : {}),
   ...(it.slots ? { slots: it.slots } : {}),
+  ...(it.left ? { left: it.left } : {}),
   ...(it.prompt ? { prompt: it.prompt } : {}),
 });
 
@@ -200,12 +229,7 @@ export async function quizRound(
       size,
     );
   } else {
-    const learned = (it: { id: string }) =>
-      (state.get(it.id)?.streak ?? 0) >= MINI_GAME_LEARNED_STREAK;
-    picked = [
-      ...shuffle(bank.items.filter((it) => !learned(it))),
-      ...shuffle(bank.items.filter(learned)),
-    ].slice(0, size);
+    picked = orderRoundItems(bank.items, state).slice(0, size);
   }
   const questions = shuffle(picked).map(toQuestion);
   let sessionId: string | null = null;
@@ -345,6 +369,7 @@ export async function answerQuiz(
     display: item.display,
     ...(item.kind === 'choice' ? { correctOption: item.correct } : {}),
     ...(item.kind === 'slots' ? { correctSlots: [...item.correct].map(Number) } : {}),
+    ...(item.kind === 'match' ? { correctPairs: item.correct.split(MATCH_SEPARATOR) } : {}),
     ...(item.explanation
       ? { explanation: item.explanation, explanationSource: item.explanationSource ?? 'task' }
       : {}),
