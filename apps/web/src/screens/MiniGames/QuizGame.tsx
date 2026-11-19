@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  MATCH_SEPARATOR,
   QUIZ_PERFECT_BONUS,
   QUIZ_ROUND_MIN,
   QUIZ_ROUND_SIZE,
@@ -36,6 +37,12 @@ type Phase =
   | { kind: 'summary' };
 
 const newId = () => crypto.randomUUID();
+
+/** Where the questions come from, when it is not only ЕГЭ tasks. */
+const SOURCE_NOTE: Record<string, string> = {
+  'theory-practice': 'Вопросы — проверенный банк школьной теории с пояснениями.',
+  'expressions-blitz': 'Вопросы — из заданий ЕГЭ и вычисляемые выражения тех же типов.',
+};
 
 /** «А (1) б (2) в» → text pieces and slot numbers. */
 export function splitSlots(text: string): (string | number)[] {
@@ -86,6 +93,8 @@ export function QuizGame({ gameId }: { gameId: string }) {
   const [slots, setSlots] = useState<ReadonlySet<number>>(new Set());
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
   const [typed, setTyped] = useState('');
+  /** `match`: the right item chosen for each left item (by left index). */
+  const [pairs, setPairs] = useState<readonly (string | null)[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(false);
   const [progress, setProgress] = useState<QuizProgressResponse | null>(null);
@@ -117,6 +126,7 @@ export function QuizGame({ gameId }: { gameId: string }) {
     setSlots(new Set());
     setPicked(new Set());
     setTyped('');
+    setPairs([]);
     setSendError(false);
     answerId.current = newId();
   };
@@ -201,8 +211,8 @@ export function QuizGame({ gameId }: { gameId: string }) {
         <Card className={styles.menu}>
           <p className="text-body">{game.description}</p>
           <p className={styles.note}>
-            Вопросы — из настоящих заданий ЕГЭ. Засчитывается первый ответ: 10 очков за верный, +
-            {QUIZ_PERFECT_BONUS} за раунд без ошибок.
+            {SOURCE_NOTE[game.id] ?? 'Вопросы — из настоящих заданий ЕГЭ.'} Засчитывается первый
+            ответ: 10 очков за верный, +{QUIZ_PERFECT_BONUS} за раунд без ошибок.
           </p>
           {isGuest ? (
             <p className={styles.note}>Войди, чтобы сохранять прогресс и проходить свои ошибки.</p>
@@ -420,6 +430,66 @@ export function QuizGame({ gameId }: { gameId: string }) {
               </form>
             )}
 
+            {question.kind === 'match' && question.left && question.options && (
+              <ol className={styles.match} aria-label="Пары">
+                {question.left.map((leftItem, i) => {
+                  const mine = pairs[i] ?? null;
+                  const right = checked?.correctPairs?.[i];
+                  return (
+                    <li key={leftItem} className={styles.matchRow}>
+                      <p className={styles.matchLeft}>
+                        <InlineMathText text={leftItem} />
+                      </p>
+                      <div
+                        className={styles.matchOptions}
+                        role="radiogroup"
+                        aria-label={`Пара для: ${leftItem.replace(/\$/g, '')}`}
+                      >
+                        {question.options!.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            role="radio"
+                            aria-checked={mine === option}
+                            disabled={checked !== null || sending}
+                            className={clsx(
+                              styles.matchOption,
+                              mine === option && styles.matchOn,
+                              checked && option === right && styles.optionRight,
+                              checked && mine === option && option !== right && styles.optionWrong,
+                            )}
+                            onClick={() =>
+                              setPairs((p) => {
+                                const next = [...p];
+                                while (next.length < question.left!.length) next.push(null);
+                                next[i] = option;
+                                return next;
+                              })
+                            }
+                          >
+                            <InlineMathText text={option} />
+                          </button>
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+
+            {question.kind === 'match' && !checked && (
+              <Button
+                disabled={
+                  sending ||
+                  !question.left ||
+                  pairs.filter((x) => x !== null).length < question.left.length
+                }
+                onClick={() => void send(pairs.map((x) => x ?? '').join(MATCH_SEPARATOR))}
+              >
+                Проверить
+              </Button>
+            )}
+
             {(question.kind === 'slots' || question.kind === 'words') && !checked && (
               <Button
                 disabled={sending || (question.kind === 'words' && picked.size === 0)}
@@ -456,6 +526,8 @@ export function QuizGame({ gameId }: { gameId: string }) {
                   <Icon name={checked.correct ? 'success' : 'errorCircle'} size={20} />
                   {checked.correct ? (
                     'Верно!'
+                  ) : checked.correctPairs ? (
+                    'Неверно — правильная пара отмечена зелёным в каждой строке'
                   ) : (
                     <span>
                       Неверно. Правильно:{' '}
@@ -474,9 +546,11 @@ export function QuizGame({ gameId }: { gameId: string }) {
                 {checked.explanation ? (
                   <details className={styles.explanation} open={!checked.correct}>
                     <summary>
-                      {checked.explanationSource === 'auto'
-                        ? 'Пояснение по ключу (сформировано автоматически)'
-                        : 'Разбор из задания'}
+                      {checked.explanationSource === 'author'
+                        ? 'Пояснение'
+                        : checked.explanationSource === 'auto'
+                          ? 'Пояснение по ключу (сформировано автоматически)'
+                          : 'Разбор из задания'}
                     </summary>
                     <div className={styles.explanationText}>
                       <MathText text={checked.explanation} />

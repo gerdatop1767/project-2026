@@ -40,13 +40,14 @@ const row = (over: Partial<QuizTaskRow>): QuizTaskRow => ({
 });
 
 describe('the registry', () => {
-  it('18 games: «Ударения» + 17 quizzes, each in a subject tab and a topic', () => {
-    expect(MINI_GAMES).toHaveLength(18);
-    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(18);
+  it('19 games: «Ударения» + 18 quizzes, each in a subject tab and a topic', () => {
+    expect(MINI_GAMES).toHaveLength(19);
+    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(19);
     expect(MINI_GAMES.filter((g) => g.subjectId === 'russian')).toHaveLength(16);
     expect(MINI_GAMES.filter((g) => g.subjectId === 'math').map((g) => g.title)).toEqual([
       'Теория вероятностей',
       'Вычисления',
+      'Теория на практике',
     ]);
     const topics = new Set(QUIZ_TOPICS.map((t) => t.id));
     expect(MINI_GAMES.every((g) => topics.has(g.topic))).toBe(true);
@@ -68,6 +69,7 @@ describe('the registry', () => {
       'Фразеологизмы и антонимы',
       'Теория вероятностей',
       'Вычисления',
+      'Теория на практике',
     ]);
   });
 

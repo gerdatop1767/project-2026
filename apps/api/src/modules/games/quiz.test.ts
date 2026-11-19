@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { importStressDictionary, schema, syncTaskSkills } from '@zybrilka/db';
 import { createFullContentTestDb } from '@zybrilka/db/testing';
 import {
+  MATCH_SEPARATOR,
   checkQuizAnswer,
   MINI_GAMES,
   type MiniGamesResponse,
@@ -80,8 +81,8 @@ describe('mini-games — quizzes (real content)', () => {
     expect((await quizBank(testDb.db, 'nn')).items.length).toBe(warm.items.length);
   });
 
-  it('every one of the 17 games has questions; every question is answerable by its own key', async () => {
-    expect(QUIZ_GAME_IDS).toHaveLength(17);
+  it('every one of the 18 quiz games has questions; every question is answerable by its own key', async () => {
+    expect(QUIZ_GAME_IDS).toHaveLength(18);
     for (const gameId of QUIZ_GAME_IDS) {
       const bank = await quizBank(testDb.db, gameId);
       expect(bank.items.length, gameId).toBeGreaterThan(0);
@@ -117,7 +118,9 @@ describe('mini-games — quizzes (real content)', () => {
             (gameId === 'grammar-detective' && item.correct === 'Ни одной из этих ошибок') ||
             (item.key.includes(':w:') && item.correct === 'Да') ||
             item.key.startsWith('drill:');
-          expect(item.explanationSource, where).toBe(auto ? 'auto' : 'task');
+          expect(item.explanationSource, where).toBe(
+            gameId === 'theory-practice' ? 'author' : auto ? 'auto' : 'task',
+          );
           expect(item.explanation, where).not.toMatch(/не подда[её]тся надёжн/i);
         }
         expect(item.text.length, where).toBeGreaterThan(0);
@@ -125,7 +128,7 @@ describe('mini-games — quizzes (real content)', () => {
     }
   });
 
-  it('the hub lists all 18 games with their real number of questions', async () => {
+  it('the hub lists all 19 games with their real number of questions', async () => {
     const hub = (await get('/games')).json() as MiniGamesResponse;
     expect(hub.games.map((g) => g.id)).toEqual(MINI_GAMES.map((g) => g.id));
     for (const g of hub.games) {
@@ -406,5 +409,50 @@ describe('mini-games — quizzes (real content)', () => {
     for (const item of [...expr.items, ...prob.items]) {
       expect(checkQuizAnswer(item, item.display), item.key).toBe(true);
     }
+  });
+
+  it('«Теория на практике»: a match question — shuffled right column, all pairs needed', async () => {
+    const bank = await quizBank(testDb.db, 'theory-practice');
+    expect(bank.items.length).toBeGreaterThanOrEqual(80);
+    const match = bank.items.find((i) => i.kind === 'match')!;
+    // Rounds hand out the right column shuffled, never in answer order every time.
+    const orders = new Set<string>();
+    for (let i = 0; i < 12; i++) {
+      const round = (
+        await get('/games/quiz/theory-practice/round?size=50')
+      ).json() as QuizRoundResponse;
+      const q = round.questions.find((x) => x.itemId === match.id);
+      if (q) {
+        expect(q.left).toEqual(match.left);
+        orders.add(q.options!.join('|'));
+      }
+    }
+    expect(orders.size).toBeGreaterThan(1);
+    const round = (
+      await get('/games/quiz/theory-practice/round?size=5')
+    ).json() as QuizRoundResponse;
+    const right = match.correct.split(MATCH_SEPARATOR);
+    const swapped = [right[1]!, right[0]!, ...right.slice(2)].join(MATCH_SEPARATOR);
+    const wrong = (
+      await post('/games/quiz/theory-practice/answer', {
+        itemId: match.id,
+        answer: swapped,
+        clientAnswerId: randomUUID(),
+        sessionId: round.sessionId,
+      })
+    ).json() as QuizAnswerResponse;
+    expect(wrong).toMatchObject({
+      correct: false,
+      correctPairs: right,
+      explanationSource: 'author',
+    });
+    const ok = (
+      await post('/games/quiz/theory-practice/answer', {
+        itemId: match.id,
+        answer: match.correct,
+        clientAnswerId: randomUUID(),
+      })
+    ).json() as QuizAnswerResponse;
+    expect(ok.correct).toBe(true);
   });
 });

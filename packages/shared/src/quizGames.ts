@@ -10,10 +10,19 @@ import { z } from 'zod';
  * - `choice`: tap one option (Н / НН, Да / Нет, a word, a means…);
  * - `slots`: tap the numbered places where a comma goes;
  * - `input`: type a short answer (a word, a number);
- * - `words`: tap the words of a text that answer the prompt.
+ * - `words`: tap the words of a text that answer the prompt;
+ * - `match`: pair every item of the left column with one of the right
+ *   («Теория на практике»).
+ *
+ * «Теория на практике» is the exception to «cut out of a task»: its
+ * questions are a hand-written, checked bank of school rules
+ * (`theory/`), each with its conditions and a short explanation.
  */
 
-export type QuizKind = 'choice' | 'slots' | 'input' | 'words';
+export type QuizKind = 'choice' | 'slots' | 'input' | 'words' | 'match';
+
+/** Separates the right-column answers of a `match` question, in left order. */
+export const MATCH_SEPARATOR = '\u241f';
 
 /** One question as the server keeps it (the key never leaves the server). */
 export interface QuizItem {
@@ -27,6 +36,8 @@ export interface QuizItem {
   readonly prompt?: string;
   readonly options?: readonly string[];
   readonly slots?: readonly number[];
+  /** `match`: the left column (the right one is `options`). */
+  readonly left?: readonly string[];
   /** Normalized key (see `checkQuizAnswer`). */
   readonly correct: string;
   /** Other accepted keys (normalized), from the task's own accepted answers. */
@@ -37,8 +48,8 @@ export interface QuizItem {
   readonly explanation?: string;
   /** `task`: cut out of the task's own explanation; `auto`: worded by the
    * app from the task's KEY (no explanation in the source) — the screen
-   * says so. */
-  readonly explanationSource?: 'task' | 'auto';
+   * says so; `author`: a checked explanation of the hand-written theory bank. */
+  readonly explanationSource?: 'task' | 'auto' | 'author';
 }
 
 /** What a game needs from one task row (+ its passage). */
@@ -59,6 +70,7 @@ export const QUIZ_TOPICS = [
   { id: 'norms', title: 'Нормы языка' },
   { id: 'text', title: 'Текст и лексика' },
   { id: 'math-part1', title: 'Первая часть' },
+  { id: 'math-theory', title: 'Теория' },
 ] as const;
 export type QuizTopic = (typeof QUIZ_TOPICS)[number]['id'];
 
@@ -829,6 +841,11 @@ export function checkQuizAnswer(item: QuizItem, answer: string): boolean {
       if (asNumber !== null && keys.includes(asNumber)) return true;
       return keys.includes(normalizeWord(answer));
     }
+    case 'match': {
+      const got = answer.split(MATCH_SEPARATOR).map((x) => x.trim());
+      const want = item.correct.split(MATCH_SEPARATOR);
+      return got.length === want.length && want.every((w, i) => got[i] === w);
+    }
     case 'words': {
       const tapped = answer.split(/\s+/).map(normalizeWord).filter(Boolean);
       if (tapped.length === 0 || tapped.length > 4) return false;
@@ -1011,6 +1028,16 @@ export const QUIZ_GAMES: readonly QuizGameInfo[] = [
     description: 'Значения выражений: степени, корни, логарифмы, тригонометрия.',
     instruction: 'Найди значение выражения.',
   },
+  {
+    id: 'theory-practice',
+    title: 'Теория на практике',
+    subjectId: 'math',
+    topic: 'math-theory',
+    egeTask: 'Геометрия',
+    description:
+      'Правила и теоремы: продолжи, исправь ошибку, найди фигуру, формулу, соедини пары.',
+    instruction: 'Ответь на вопрос по теории.',
+  },
 ];
 
 export const quizGameById = (id: string): QuizGameInfo | undefined =>
@@ -1033,6 +1060,8 @@ export interface QuizQuestion {
   readonly text: string;
   readonly options?: readonly string[];
   readonly slots?: readonly number[];
+  /** `match`: the left column; `options` is the right one, shuffled. */
+  readonly left?: readonly string[];
   /** This question's own wording, when it differs from the game's instruction. */
   readonly prompt?: string;
 }
@@ -1048,7 +1077,7 @@ export interface QuizRoundResponse {
 
 export const quizAnswerRequestSchema = z.object({
   itemId: z.uuid(),
-  answer: z.string().max(200),
+  answer: z.string().max(1000),
   clientAnswerId: z.uuid(),
   sessionId: z.uuid().optional(),
 });
@@ -1061,10 +1090,12 @@ export interface QuizAnswerResponse {
   /** `choice`: the right option; `slots`: the right places. */
   readonly correctOption?: string;
   readonly correctSlots?: readonly number[];
+  /** `match`: the right answer of every left item, in left order. */
+  readonly correctPairs?: readonly string[];
   /** The task's own explanation of this question, when there is one. */
   readonly explanation?: string;
   /** Where the explanation comes from (see `QuizItem.explanationSource`). */
-  readonly explanationSource?: 'task' | 'auto';
+  readonly explanationSource?: 'task' | 'auto' | 'author';
   /** `choice`: other options the source's keys also accept (see `dedupeItems`). */
   readonly alsoCorrect?: readonly string[];
   /** Saved for this account (false for a guest, or a repeat in the same round). */

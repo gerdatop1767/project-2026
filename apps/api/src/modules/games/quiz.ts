@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto';
 import { schema, type Database } from '@zybrilka/db';
 import {
   MINI_GAME_LEARNED_STREAK,
+  MATCH_SEPARATOR,
   orderRoundItems,
   expressionDrillItems,
+  theoryQuizItems,
   checkQuizAnswer,
   commaItems,
   dedupeItems,
@@ -77,6 +79,8 @@ const SOURCES: Readonly<Record<string, Source>> = {
     toItems: inputItems,
     extra: expressionDrillItems,
   },
+  // A hand-written, checked bank — no tasks are read for it.
+  'theory-practice': { subjectId: 'math', toItems: () => [], extra: theoryQuizItems },
 };
 
 export const isQuizGame = (id: string): boolean => id in SOURCES;
@@ -156,12 +160,17 @@ async function buildBank(db: Database, gameId: string): Promise<Bank> {
     .from(t)
     .leftJoin(schema.passages, eq(schema.passages.id, t.passageId));
   const published = and(eq(t.subjectId, source.subjectId), eq(t.status, 'published'));
-  const rows = source.numbers
-    ? await base.where(and(published, inArray(t.taskNumber, [...source.numbers])))
-    : await base
-        .innerJoin(schema.taskSkills, eq(schema.taskSkills.taskId, t.id))
-        .innerJoin(schema.skills, eq(schema.skills.id, schema.taskSkills.skillId))
-        .where(and(published, inArray(schema.skills.slug, [...source.skills!]), isNotNull(t.id)));
+  const rows =
+    !source.numbers && !source.skills
+      ? []
+      : source.numbers
+        ? await base.where(and(published, inArray(t.taskNumber, [...source.numbers])))
+        : await base
+            .innerJoin(schema.taskSkills, eq(schema.taskSkills.taskId, t.id))
+            .innerJoin(schema.skills, eq(schema.skills.id, schema.taskSkills.skillId))
+            .where(
+              and(published, inArray(schema.skills.slug, [...source.skills!]), isNotNull(t.id)),
+            );
   rows.sort((a, b) => a.id.localeCompare(b.id));
   // A task linked to two of the game's skills is read once.
   const unique = rows.filter((r, i) => i === 0 || rows[i - 1]!.id !== r.id);
@@ -176,8 +185,12 @@ const toQuestion = (it: QuizItem & { id: string }): QuizQuestion => ({
   itemId: it.id,
   kind: it.kind,
   text: it.text,
-  ...(it.options ? { options: shuffleOptions(it.options) } : {}),
+  // A `match` question's right column is always shuffled (in order it would be the answer).
+  ...(it.options
+    ? { options: it.kind === 'match' ? shuffle(it.options) : shuffleOptions(it.options) }
+    : {}),
   ...(it.slots ? { slots: it.slots } : {}),
+  ...(it.left ? { left: it.left } : {}),
   ...(it.prompt ? { prompt: it.prompt } : {}),
 });
 
@@ -356,6 +369,7 @@ export async function answerQuiz(
     display: item.display,
     ...(item.kind === 'choice' ? { correctOption: item.correct } : {}),
     ...(item.kind === 'slots' ? { correctSlots: [...item.correct].map(Number) } : {}),
+    ...(item.kind === 'match' ? { correctPairs: item.correct.split(MATCH_SEPARATOR) } : {}),
     ...(item.explanation
       ? { explanation: item.explanation, explanationSource: item.explanationSource ?? 'task' }
       : {}),

@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MINI_GAMES, MINI_GAME_RULES, type QuizRoundResponse } from '@zybrilka/shared';
+import {
+  MATCH_SEPARATOR,
+  MINI_GAMES,
+  MINI_GAME_RULES,
+  type QuizRoundResponse,
+} from '@zybrilka/shared';
 import { NavigationProvider, useNavigation } from '../../lib/navigation.js';
 import { TestAuthProvider, makeAuthUser } from '../../lib/authTestUtils.js';
 import { AccountGateProvider } from '../../lib/accountGate.js';
@@ -484,5 +489,64 @@ describe('round size: own number, bank limit, saved in the account; rules', () =
     expect(
       within(screen.getByRole('dialog')).getByText(MINI_GAME_RULES['probability-blitz']!.goal),
     ).toBeInTheDocument();
+  });
+});
+
+describe('«Теория на практике»', () => {
+  it('«Соедини пары»: a choice per row, «Проверить» only when all rows have one, the pairs sent in order', async () => {
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'theory-practice',
+      mode: 'all',
+      bankSize: 87,
+      sessionId: SESSION,
+      questions: [
+        {
+          itemId: ID1,
+          kind: 'match',
+          text: 'Соедини формулу с тем, что она выражает',
+          prompt: 'Соедини пары',
+          left: ['$S = \\pi R^2$', '$C = 2\\pi R$'],
+          options: ['длина окружности', 'площадь круга'],
+        },
+      ],
+    });
+    vi.mocked(api.answerQuiz).mockResolvedValue({
+      correct: true,
+      display: '…',
+      correctPairs: ['площадь круга', 'длина окружности'],
+      explanation: 'Площадь круга — $\\pi R^2$.',
+      explanationSource: 'author',
+      taskId: 't',
+      recorded: true,
+    });
+    const user = userEvent.setup();
+    const { container } = renderWith(<QuizGame gameId="theory-practice" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    const rows = await screen.findAllByRole('radiogroup', { name: /Пара для/ });
+    expect(rows).toHaveLength(2);
+    // Formulas are typeset in the left column.
+    expect(container.querySelectorAll('.katex').length).toBeGreaterThan(0);
+    const check = screen.getByRole('button', { name: 'Проверить' });
+    expect(check).toBeDisabled();
+    await user.click(within(rows[0]!).getByRole('radio', { name: 'площадь круга' }));
+    expect(check).toBeDisabled();
+    await user.click(within(rows[1]!).getByRole('radio', { name: 'длина окружности' }));
+    await user.click(check);
+    expect(api.answerQuiz).toHaveBeenCalledWith(
+      'theory-practice',
+      expect.objectContaining({
+        itemId: ID1,
+        answer: ['площадь круга', 'длина окружности'].join(MATCH_SEPARATOR),
+      }),
+    );
+    expect(await screen.findByText('Верно!')).toBeInTheDocument();
+    expect(screen.getByText('Пояснение')).toBeInTheDocument();
+  });
+
+  it('a choice question with formulas as options; its own icon', async () => {
+    const { GAME_ICONS } = await import('./GameIcon.js');
+    expect(GAME_ICONS['theory-practice']).toBeDefined();
+    const others = Object.entries(GAME_ICONS).filter(([id]) => id !== 'theory-practice');
+    expect(others.map(([, icon]) => icon)).not.toContain(GAME_ICONS['theory-practice']);
   });
 });
