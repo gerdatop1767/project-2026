@@ -29,7 +29,6 @@ import { RatingBoard } from '../Rating/RatingBoard.js';
 import { Icon } from '../../ui/Icon/Icon.js';
 import { SubjectHeaderMobile } from '../../ui/SubjectHeader/SubjectHeaderMobile.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
-import { StatTile } from '../../ui/Statistics/StatTile.js';
 import { TaskNumberBars } from '../../ui/Statistics/TaskNumberBars.js';
 import { TaskNumberGrid } from '../../ui/Statistics/TaskNumberGrid.js';
 import { TaskNumberDetailPanel } from '../../ui/Statistics/TaskNumberDetailPanel.js';
@@ -43,6 +42,10 @@ import { SubjectPickerDialog } from '../../ui/SubjectPicker/SubjectPicker.js';
 import { Skeleton, SkeletonValue } from '../../ui/Skeleton/Skeleton.js';
 import { SkillsPanel } from '../../ui/LearningEngine/SkillsPanel.js';
 import { ActivityCharts } from '../../ui/Statistics/ActivityCharts.js';
+import { PeriodSubjects, PeriodTiles } from '../../ui/Statistics/PeriodSummary.js';
+import { periodTabs } from '../../ui/Statistics/dailyCharts.js';
+import { usePeriodStats } from '../../lib/usePeriodStats.js';
+import type { StatsPeriodId } from '@zybrilka/shared';
 import styles from './StatisticsMobile.module.css';
 
 const subTabs = [
@@ -59,8 +62,11 @@ const DEFAULT_SUBJECT_ID = 'math';
 /** The sub-tab last open in this visit: coming back to Статистика (e.g.
  * from a task or the rating) returns to it instead of «Общая». */
 let lastSubTab = 'overview';
+/** The period last chosen in this visit (the same idea as the sub-tab). */
+let lastPeriod: StatsPeriodId = '7d';
 registerPrivateCacheReset(() => {
   lastSubTab = 'overview';
+  lastPeriod = '7d';
 });
 
 /**
@@ -85,6 +91,13 @@ export function StatisticsMobile() {
     setSubTabState(id);
   };
   const [subjectId, setSubjectId] = useState(DEFAULT_SUBJECT_ID);
+  const [period, setPeriodState] = useState<StatsPeriodId>(lastPeriod);
+  const setPeriod = (p: StatsPeriodId) => {
+    lastPeriod = p;
+    setPeriodState(p);
+  };
+  const periodStats = usePeriodStats(period, subjectId);
+  const allSubjectsStats = usePeriodStats(period);
   const [subjectPickerOpen, setSubjectPickerOpen] = useState(false);
   const subject = subjects.find((s) => s.id === subjectId) ?? subjects[0]!;
   const [realProgress, setRealProgress] = useState<ProgressSummary | null>(null);
@@ -287,7 +300,19 @@ export function StatisticsMobile() {
         title="Статистика"
         onSelectSubject={() => setSubjectPickerOpen(true)}
         trailing={
-          <button type="button" className={styles.trailingButton} aria-label="Выбрать период">
+          <button
+            type="button"
+            className={styles.trailingButton}
+            aria-label="Выбрать период"
+            onClick={() => {
+              setSubTab('overview');
+              requestAnimationFrame(() =>
+                document
+                  .getElementById('stats-period')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+              );
+            }}
+          >
             <Icon name="calendar" size={20} />
           </button>
         }
@@ -454,49 +479,24 @@ export function StatisticsMobile() {
 
       {subTab === 'overview' && (
         <>
-          <div className={styles.statsGrid}>
-            <StatTile
-              animate
-              icon="variant"
-              iconColor="var(--color-accent-primary-end)"
-              label="Решено заданий"
-              value={solvedTotal ?? '—'}
-              deltaLabel={`из ${totalLabel}`}
-              loading={summaryLoading}
-            />
-            <StatTile
-              animate
-              icon="progress"
-              iconColor="var(--color-accent-secondary)"
-              label="Точность"
-              value={accuracyPercent ?? '—'}
-              suffix={accuracyPercent !== null ? '%' : undefined}
-              deltaLabel={`${subjectRow?.correct ?? 0} верных`}
-              loading={summaryLoading}
-            />
-            <StatTile
-              animate
-              icon="xp"
-              iconColor="var(--color-gold)"
-              label="Текущая серия"
-              value="—"
-              deltaLabel="скоро"
-            />
-            <StatTile
-              animate
-              icon="time"
-              iconColor="var(--color-accent-primary)"
-              label="Среднее время"
-              value="—"
-              deltaLabel="скоро"
+          <div id="stats-period" className={styles.periodBar}>
+            <Tabs
+              items={periodTabs}
+              activeId={period}
+              onChange={(id) => setPeriod(id as StatsPeriodId)}
+              aria-label="Период статистики"
+              scrollable
             />
           </div>
+          <PeriodTiles stats={periodStats} gridClassName={styles.statsGrid} />
+          <ActivityCharts period={period} stats={periodStats} />
 
-          <ActivityCharts subjectId={subject.id} />
+          <PeriodSubjects stats={allSubjectsStats} period={period} />
 
           <Card>
             <div className={styles.cardHeaderRow}>
               <p className="text-h3">Навыки по номерам</p>
+              <span className={styles.allTime}>за всё время</span>
             </div>
             <SkillsPanel subjectId={subject.id} />
           </Card>
@@ -504,6 +504,7 @@ export function StatisticsMobile() {
           <Card>
             <div className={styles.cardHeaderRow}>
               <p className="text-h3">Прогресс по заданиям</p>
+              <span className={styles.allTime}>за всё время</span>
             </div>
             {taskNumberItems ? (
               <TaskNumberBars
@@ -518,7 +519,9 @@ export function StatisticsMobile() {
 
           <Card>
             <div className={styles.cardHeaderRow}>
-              <p className="text-h3">Прогресс по темам</p>
+              <p className="text-h3">
+                Прогресс по темам <span className={styles.allTime}>за всё время</span>
+              </p>
               <button
                 type="button"
                 className={styles.linkButton}

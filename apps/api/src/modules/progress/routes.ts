@@ -3,12 +3,14 @@ import {
   progressByTaskNumberQuerySchema,
   progressByTopicQuerySchema,
   progressDailyQuerySchema,
+  progressPeriodQuerySchema,
   taskNumberStatisticsDetailQuerySchema,
 } from '@zybrilka/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import * as service from './service.js';
 import * as xpService from '../xp/service.js';
+import { getPeriodStats } from './period.js';
 
 const taskNumberParamsSchema = z.object({ taskNumber: z.coerce.number().int().positive() });
 
@@ -100,6 +102,24 @@ export const progressRoutes: FastifyPluginAsync<ProgressRoutesOptions> = async (
       query.data.days ?? DEFAULT_DAILY_DAYS,
       query.data.subject,
     );
+  });
+
+  // Statistics for one period (7/15/30/90 days, all time) in the student's
+  // timezone: every number of the period-dependent statistics page.
+  app.get('/progress/period', async (request, reply) => {
+    if (!request.userId) {
+      return reply.code(400).send({ error: 'missing_anon_id' });
+    }
+    const query = progressPeriodQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.code(400).send({ error: 'invalid_query', issues: query.error.issues });
+    }
+    reply.header('cache-control', 'no-store');
+    return getPeriodStats(db, request.userId, {
+      period: query.data.period,
+      subjectId: query.data.subject,
+      timezone: query.data.tz,
+    });
   });
 
   // Streak system — real server-computed state, see

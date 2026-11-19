@@ -53,3 +53,7 @@
 .deltaDown {
   color: var(--color-error);
 }
+
+.deltaNeutral {
+  color: var(--color-text-secondary);
+}

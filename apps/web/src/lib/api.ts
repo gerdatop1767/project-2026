@@ -39,6 +39,8 @@ import type {
   VariantDetail,
   VariantAttemptDetail,
   MiniGameSettingsResponse,
+  ProgressPeriodResponse,
+  StatsPeriodId,
   SmartDifficulty,
   SmartSetupResponse,
   SmartTrainingMode,
@@ -811,6 +813,19 @@ export function confirmTelegramLink(accept: boolean): Promise<TelegramLinkConfir
 }
 
 /** Mini-games (docs/MINI_GAMES.md). */
+/** Statistics for one period in the student's timezone (never another period's numbers:
+ * the cache key is the full path, period and timezone included). */
+export function getProgressPeriod(params: {
+  period: StatsPeriodId;
+  subject?: string;
+  tz?: string;
+}): Promise<ProgressPeriodResponse> {
+  const q = new URLSearchParams({ period: params.period });
+  if (params.subject) q.set('subject', params.subject);
+  if (params.tz) q.set('tz', params.tz);
+  return cachedApiFetch(`/progress/period?${q.toString()}`);
+}
+
 export function getMiniGameSettings(): Promise<MiniGameSettingsResponse> {
   return rawApiFetch('/games/settings');
 }
