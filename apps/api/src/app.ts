@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyPluginAsync, type FastifyServerOptions } from 'fastify';
 import type { Config } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { blogRoutes } from './modules/seo/blogRoutes.js';
 import { RequestMetrics, registerRequestMetrics } from './plugins/requestMetrics.js';
 import { registerAnonUser } from './plugins/anonUser.js';
 import {
@@ -100,6 +101,17 @@ export function buildApp({
   const requestMetrics = new RequestMetrics();
   registerRequestMetrics(app, requestMetrics);
   app.register(healthRoutes, { version, checkDb });
+
+  if (db) {
+    // Public blog (docs/SEO_CENTER.md §7): server-rendered /blog pages.
+    app.register(async (scope) => {
+      await scope.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
+      scope.register(blogRoutes, {
+        db,
+        origin: authConfig?.WEB_BASE_URL ?? 'http://localhost:5173',
+      });
+    });
+  }
 
   if (db) {
     // Server errors (5xx) → an owner notification, grouped with a cooldown

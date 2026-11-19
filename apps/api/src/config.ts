@@ -56,7 +56,23 @@ const configSchema = z
           .filter((id) => id !== ''),
       )
       .pipe(z.array(z.uuid()).max(5)),
+    // AI SEO Center (docs/SEO_CENTER.md): 32 bytes, base64 or hex. Encrypts
+    // integration secrets stored in the database. Unset = secrets can't be
+    // saved from the admin (the rest of the SEO Center works).
+    SEO_SECRETS_KEY: z.string().optional(),
   })
+  .refine(
+    (c) => {
+      if (!c.SEO_SECRETS_KEY) return true;
+      const v = c.SEO_SECRETS_KEY.trim();
+      const bytes = /^[0-9a-f]{64}$/i.test(v) ? 32 : Buffer.from(v, 'base64').length;
+      return bytes === 32;
+    },
+    {
+      message: 'SEO_SECRETS_KEY must be 32 bytes (base64 or 64 hex chars)',
+      path: ['SEO_SECRETS_KEY'],
+    },
+  )
   .refine((c) => c.NODE_ENV !== 'production' || c.DATABASE_URL, {
     message: 'DATABASE_URL is required in production',
     path: ['DATABASE_URL'],

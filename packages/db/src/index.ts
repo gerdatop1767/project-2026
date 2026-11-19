@@ -36,3 +36,4 @@ export { importStressDictionary } from './stressDictionary/import.js';
 export { STRESS_ENTRIES, STRESS_SOURCES } from './stressDictionary/data.js';
 export { audienceRowsSql, type AudienceRow, type AudienceState } from './broadcastAudience.js';
 export * from './seo.js';
+export * from './seoArticles.js';

@@ -91,6 +91,8 @@ export const SEO_AGENT_LABELS: Record<SeoAgent, string> = {
 
 /** Queue task kinds and the agent that owns each. */
 export const SEO_TASK_KINDS = {
+  cycle_daily: 'system',
+  cycle_weekly: 'system',
   sync_metrics: 'analytics',
   research: 'research',
   score_topics: 'research',
@@ -106,6 +108,7 @@ export const SEO_TASK_KINDS = {
   weekly_strategy: 'strategy',
   refresh_articles: 'optimization',
   update_article: 'optimization',
+  check_integration: 'analytics',
 } as const satisfies Record<string, SeoAgent>;
 export type SeoTaskKind = keyof typeof SEO_TASK_KINDS;
 export const SEO_TASK_KIND_LIST = Object.keys(SEO_TASK_KINDS) as SeoTaskKind[];

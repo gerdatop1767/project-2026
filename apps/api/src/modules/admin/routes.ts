@@ -60,6 +60,8 @@ import {
 import { enqueueNotification } from '../notifications/outbox.js';
 import { broadcastRoutes } from './broadcasts.js';
 import { supportRoutes } from './support.js';
+import { seoAdminRoutes } from '../seo/adminRoutes.js';
+import { parseSecretsKey } from '@zybrilka/db';
 
 export interface AdminRoutesOptions {
   db: Database;
@@ -456,6 +458,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
 
   // ── Поддержка (переписка через бота; отправляет worker) ───────────────
   await app.register(supportRoutes, { db, botToken: config.TELEGRAM_BOT_TOKEN });
+
+  // ── AI SEO Center (docs/SEO_CENTER.md) ────────────────────────────────
+  await app.register(seoAdminRoutes, {
+    db,
+    secretsKey: parseSecretsKey(config.SEO_SECRETS_KEY),
+    origin: config.WEB_BASE_URL,
+  });
 
   // ── Уведомления в Telegram (только владельцу) ─────────────────────────
   app.get('/admin/notifications', async () =>
