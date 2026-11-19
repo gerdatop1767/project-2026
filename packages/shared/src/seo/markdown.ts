@@ -159,7 +159,7 @@ function link(text: string, href: string, ctx: Ctx): string {
   if (!target) return emphasis(escapeHtml(text));
   if (ctx.opts.rewriteLink) target = ctx.opts.rewriteLink(target);
   ctx.links.push(target);
-  let external = false;
+  let external: boolean;
   try {
     const u = new URL(target);
     external = !ctx.opts.siteHost || u.host !== ctx.opts.siteHost;
