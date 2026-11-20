@@ -150,6 +150,12 @@ services:
   # as the 2027 book (validate everything first, one transaction, stable
   # ids, `needs_review` hidden); it never touches 2027 rows.
   #
+  # Then Зубрилка's own task-10 bank (importZybrilkaRussian10.ts, its own
+  # source and collection `zybrilka-russian-10`: 50 authored tasks in 5
+  # sets × 10). Same guarantees: the whole set is validated first (every
+  # word against its spelling rule), one transaction, stable ids, nothing
+  # deleted; it never matches or changes rows of the books.
+  #
   # Last in the chain: the «Ударения» mini-game's stress dictionary
   # (packages/db/src/stressDictionary, docs/MINI_GAMES.md). Same rules as
   # the variant importers: upsert by a stable key (word ids — and players'
@@ -228,6 +234,7 @@ services:
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Variant18.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Book36.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js &&
+        node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.js &&
         node node_modules/@zybrilka/db/dist/stressDictionary/import.js
     restart: 'no'
 
