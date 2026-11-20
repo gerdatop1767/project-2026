@@ -6,16 +6,18 @@ import type { Database } from './client.js';
 import { isMainModule } from './isMainModule.js';
 import * as schema from './schema.js';
 import { buildTask10, validateAuthoredTasks10 } from './zybrilkaRussian10/build.js';
-import { AUTHORED_TASKS_10, type AuthoredTask10 } from './zybrilkaRussian10/tasks.js';
+import { ALL_TASKS_10 } from './zybrilkaRussian10/extra.js';
+import type { AuthoredTask10 } from './zybrilkaRussian10/tasks.js';
 
 /**
  * Зубрилка's own ЕГЭ Russian task 10 bank (docs/imports/zybrilka-russian-10.md):
- * 50 tasks written for the project on the model of ЕГЭ task 10
+ * 100 tasks written for the project on the model of ЕГЭ task 10 (1–50 by
+ * hand, 51–100 generated from their checked words: zybrilkaRussian10/extra.ts)
  * (правописание приставок), not taken from any book or from ФИПИ.
  *
- * Its own source and collection (`zybrilka-russian-10`, 5 sets × 10 tasks),
+ * Its own source and collection (`zybrilka-russian-10`, 10 sets × 10 tasks),
  * so rows of other sources are never matched or changed. Idempotent: a task
- * is upserted by (subject, source, sourceVariant = its number 1…50), the
+ * is upserted by (subject, source, sourceVariant = its number 1…100), the
  * collection by slug, sets by number; ids never change and a row is
  * rewritten only when its content changed. The whole set is validated
  * (rules of every word, answers, duplicates) before anything is written,
@@ -34,7 +36,7 @@ const COLLECTION = {
   title: 'Зубрилка — авторские задания по русскому языку, №10',
   publisher: 'Зубрилка',
   description:
-    'Задания составлены командой Зубрилки по образцу задания №10 ЕГЭ по русскому языку (правописание приставок, Ъ/Ь, Ы/И после приставок). Это не материалы ФИПИ. 50 заданий в пяти наборах, к каждому — подробное объяснение каждого слова.',
+    'Задания составлены командой Зубрилки по образцу задания №10 ЕГЭ по русскому языку (правописание приставок, Ъ/Ь, Ы/И после приставок). Это не материалы ФИПИ. 100 заданий в десяти наборах, к каждому — подробное объяснение каждого слова.',
 };
 
 export function zr10ContentHash(n: number, rawStatement: string): string {
@@ -75,7 +77,7 @@ const CONTENT_KEYS = [
 
 export async function importZybrilkaRussian10(
   db: Database,
-  tasks: readonly AuthoredTask10[] = AUTHORED_TASKS_10,
+  tasks: readonly AuthoredTask10[] = ALL_TASKS_10,
 ) {
   validateZybrilkaRussian10(tasks);
   const built = tasks.map(buildTask10);

@@ -15,8 +15,9 @@ import { createTestDb } from './testing.js';
 import { buildTask10, TASK10_INSTRUCTION } from './zybrilkaRussian10/build.js';
 import { checkWord, parseWord } from './zybrilkaRussian10/rules.js';
 import { AUTHORED_TASKS_10 } from './zybrilkaRussian10/tasks.js';
+import { ALL_TASKS_10, AUTHORED_TASKS_10_EXTRA } from './zybrilkaRussian10/extra.js';
 
-const built = AUTHORED_TASKS_10.map(buildTask10);
+const built = ALL_TASKS_10.map(buildTask10);
 const rowsOf = (conditionMd: string) =>
   conditionMd
     .split('\n')
@@ -31,14 +32,18 @@ const rowsOf = (conditionMd: string) =>
     );
 
 describe('Зубрилка №10 — authored data (static checks)', () => {
-  it('has exactly 50 valid tasks numbered 1…50', () => {
+  it('has exactly 100 valid tasks numbered 1…100: 50 by hand, 50 generated', () => {
     expect(AUTHORED_TASKS_10).toHaveLength(50);
-    expect(AUTHORED_TASKS_10.map((t) => t.n)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
-    expect(() => validateZybrilkaRussian10(AUTHORED_TASKS_10)).not.toThrow();
+    expect(AUTHORED_TASKS_10_EXTRA).toHaveLength(50);
+    expect(ALL_TASKS_10.map((t) => t.n)).toEqual(Array.from({ length: 100 }, (_, i) => i + 1));
+    expect(() => validateZybrilkaRussian10(ALL_TASKS_10)).not.toThrow();
+    const d = [1, 2, 3].map((x) => ALL_TASKS_10.filter((t) => t.difficulty === x).length);
+    expect(d).toEqual([30, 40, 30]);
+    expect(() => validateZybrilkaRussian10(ALL_TASKS_10)).not.toThrow();
   });
 
   it('every word obeys its spelling rule', () => {
-    for (const t of AUTHORED_TASKS_10)
+    for (const t of ALL_TASKS_10)
       for (const row of t.rows)
         for (const w of row) expect(checkWord(w), `№${t.n} ${w.raw}`).toEqual([]);
   });
@@ -72,7 +77,7 @@ describe('Зубрилка №10 — authored data (static checks)', () => {
   });
 
   it('the explanation covers every row and every word and ends with the answer', () => {
-    for (const t of AUTHORED_TASKS_10) {
+    for (const t of ALL_TASKS_10) {
       const b = buildTask10(t);
       for (let i = 1; i <= 5; i++) expect(b.explanationMd).toContain(`\n\n${i}) `);
       for (const row of t.rows)
@@ -92,7 +97,7 @@ describe('Зубрилка №10 — authored data (static checks)', () => {
   });
 
   it('has a realistic spread of difficulty', () => {
-    const by = (d: number) => AUTHORED_TASKS_10.filter((t) => t.difficulty === d).length;
+    const by = (d: number) => ALL_TASKS_10.filter((t) => t.difficulty === d).length;
     expect(by(1)).toBeGreaterThanOrEqual(10);
     expect(by(2)).toBeGreaterThanOrEqual(15);
     expect(by(3)).toBeGreaterThanOrEqual(10);
@@ -132,14 +137,14 @@ describe('Зубрилка №10 — import', () => {
     await testDb.close();
   });
 
-  it('imports 50 tasks into its own collection of 5 sets × 10', async () => {
+  it('imports 100 tasks into its own collection of 10 sets × 10', async () => {
     const r = await importZybrilkaRussian10(testDb.db);
-    expect(r).toMatchObject({ total: 50, sets: 5, created: 50, updated: 0, unchanged: 0 });
+    expect(r).toMatchObject({ total: 100, sets: 10, created: 100, updated: 0, unchanged: 0 });
     const tasks = await testDb.db
       .select()
       .from(schema.tasks)
       .where(eq(schema.tasks.source, ZR10_SOURCE));
-    expect(tasks).toHaveLength(50);
+    expect(tasks).toHaveLength(100);
     for (const t of tasks) {
       expect(t.subjectId).toBe('russian');
       expect(t.taskNumber).toBe(10);
@@ -165,8 +170,8 @@ describe('Зубрилка №10 — import', () => {
       .from(schema.variantTasks)
       .innerJoin(schema.variants, eq(schema.variants.id, schema.variantTasks.variantId))
       .where(eq(schema.variants.collectionId, collection!.id));
-    expect(links).toHaveLength(50);
-    expect(new Set(links.map((l) => `${l.n}:${l.position}`)).size).toBe(50);
+    expect(links).toHaveLength(100);
+    expect(new Set(links.map((l) => `${l.n}:${l.position}`)).size).toBe(100);
   });
 
   it('a second run changes nothing and keeps ids', async () => {
@@ -175,7 +180,7 @@ describe('Зубрилка №10 — import', () => {
       .from(schema.tasks)
       .where(eq(schema.tasks.source, ZR10_SOURCE));
     const r = await importZybrilkaRussian10(testDb.db);
-    expect(r).toMatchObject({ created: 0, updated: 0, unchanged: 50 });
+    expect(r).toMatchObject({ created: 0, updated: 0, unchanged: 100 });
     const after = await testDb.db
       .select({ id: schema.tasks.id, updatedAt: schema.tasks.updatedAt })
       .from(schema.tasks)
@@ -184,7 +189,7 @@ describe('Зубрилка №10 — import', () => {
       before.sort((a, b) => a.id.localeCompare(b.id)),
     );
     const vt = await testDb.db.select().from(schema.variantTasks);
-    expect(vt).toHaveLength(50);
+    expect(vt).toHaveLength(100);
   });
 
   it('never touches tasks of other sources', async () => {
@@ -217,7 +222,7 @@ describe('Зубрилка №10 — import', () => {
   });
 
   it('a needs_review task is imported hidden', async () => {
-    const tasks = AUTHORED_TASKS_10.map((t) => (t.n === 7 ? { ...t, review: 'проверить' } : t));
+    const tasks = ALL_TASKS_10.map((t) => (t.n === 7 ? { ...t, review: 'проверить' } : t));
     const r = await importZybrilkaRussian10(testDb.db, tasks);
     expect(r).toMatchObject({ updated: 1, needsReview: 1 });
     const [t7] = await testDb.db
@@ -229,7 +234,7 @@ describe('Зубрилка №10 — import', () => {
   });
 
   it('invalid data writes nothing', async () => {
-    const broken = AUTHORED_TASKS_10.slice(0, 49);
-    await expect(importZybrilkaRussian10(testDb.db, broken)).rejects.toThrow(/expected 50/);
+    const broken = ALL_TASKS_10.slice(0, 99);
+    await expect(importZybrilkaRussian10(testDb.db, broken)).rejects.toThrow(/expected 100/);
   });
 });
