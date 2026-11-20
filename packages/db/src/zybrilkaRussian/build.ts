@@ -41,7 +41,37 @@ export interface Paronym5 {
   readonly note: string;
 }
 
-export function buildParonym5(n: number, t: Paronym5): BankTask {
+export interface OneWrongSpec {
+  readonly taskNumber: 5 | 7;
+  readonly instruction: string;
+  readonly intro: string;
+  readonly othersTitle: string;
+  readonly hint: string;
+}
+
+export const PARONYM_SPEC: OneWrongSpec = {
+  taskNumber: 5,
+  instruction: TASK5_INSTRUCTION,
+  intro:
+    'Паронимы — однокоренные слова, похожие по звучанию, но разные по значению. Проверяем, подходит ли каждое выделенное слово по смыслу и сочетаемости.',
+  othersTitle: 'Остальные слова употреблены верно:',
+  hint: 'Подставь к каждому выделенному слову его пароним и реши, какое из двух точнее подходит по смыслу и сочетаемости.',
+};
+
+export const TASK7_INSTRUCTION =
+  'В одном из выделенных ниже слов допущена грамматическая ошибка. **Исправьте ошибку** и запишите слово правильно.';
+
+export const FORMS_SPEC: OneWrongSpec = {
+  taskNumber: 7,
+  instruction: TASK7_INSTRUCTION,
+  intro:
+    'Проверяем каждую выделенную форму по нормам образования форм слов: падежные окончания, степени сравнения, склонение числительных и местоимений, формы глаголов, причастий и деепричастий.',
+  othersTitle: 'Остальные формы образованы верно:',
+  hint: 'Определи часть речи каждого выделенного слова и вспомни, как правильно образуется именно эта форма.',
+};
+
+/** Five highlighted items, exactly one wrong (tasks 5 and 7). */
+export function buildOneWrong(n: number, t: Paronym5, spec: OneWrongSpec): BankTask {
   const i = t.wrong - 1;
   const sentence = t.s[i]!;
   const bad = highlightsOf(sentence)[0]!;
@@ -49,23 +79,24 @@ export function buildParonym5(n: number, t: Paronym5): BankTask {
   const fixed = plain(sentence.replace(`{${bad}}`, `**${atStart ? cap(t.fix) : t.fix}**`));
   const others = t.why.filter((_, k) => k !== i).map((w) => `- ${cap(w)}`);
   return {
-    taskNumber: 5,
+    taskNumber: spec.taskNumber,
     n,
     difficulty: t.d,
     kind: t.kind,
-    conditionMd: [TASK5_INSTRUCTION, ...t.s.map(showHighlights)].join('\n\n'),
+    conditionMd: [spec.instruction, ...t.s.map(showHighlights)].join('\n\n'),
     answer: { type: 'word', word: t.fix, accepted: t.accepted ?? [] },
     explanationMd: [
-      'Паронимы — однокоренные слова, похожие по звучанию, но разные по значению. Проверяем, подходит ли каждое выделенное слово по смыслу и сочетаемости.',
-      `**Ошибка — в предложении ${t.wrong}.** ${cap(t.why[i]!)}. Правильно: «${fixed}»`,
-      `Остальные слова употреблены верно:\n\n${others.join('\n')}`,
+      spec.intro,
+      `**Ошибка — в ${spec.taskNumber === 5 ? 'предложении' : 'строке'} ${t.wrong}.** ${cap(t.why[i]!)}. Правильно: «${fixed}»`,
+      `${spec.othersTitle}\n\n${others.join('\n')}`,
       `**Обрати внимание.** ${t.note}`,
       `Ответ: ${[t.fix, ...(t.accepted ?? [])].join(' / ')}.`,
     ].join('\n\n'),
-    hintMd:
-      'Подставь к каждому выделенному слову его пароним и реши, какое из двух точнее подходит по смыслу и сочетаемости.',
+    hintMd: spec.hint,
   };
 }
+
+export const buildParonym5 = (n: number, t: Paronym5) => buildOneWrong(n, t, PARONYM_SPEC);
 
 // ------------------------------------------------------------------ №6
 
