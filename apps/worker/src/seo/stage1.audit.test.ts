@@ -15,7 +15,7 @@ import {
   saveSeoSettings,
   schema,
 } from '@zybrilka/db';
-import { createTestDb } from '@zybrilka/db/testing';
+import { createTestDb, verifiedReviewNotes } from '@zybrilka/db/testing';
 import { DEFAULT_SEO_SETTINGS } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
 import { pino } from 'pino';
@@ -350,6 +350,13 @@ describe('audit: lease loss and atomic transitions', () => {
         seoTitle: 'Заголовок статьи',
         metaDescription: 'd'.repeat(120),
         bodyMd: 'x'.repeat(300),
+        reviewNotes: verifiedReviewNotes({
+          title: 'P',
+          seoTitle: 'Заголовок статьи',
+          metaDescription: 'd'.repeat(120),
+          bodyMd: 'x'.repeat(300),
+          faq: [],
+        }),
       })
       .returning();
     let release!: () => void;
@@ -450,9 +457,13 @@ describe('audit: lease loss and atomic transitions', () => {
       })
       .returning();
     const d = { db: t.db, now: () => new Date() };
+    const notes = verifiedReviewNotes(
+      { title: 'U', bodyMd: 'new', faq: [] },
+      { revisionId: rev!.id },
+    );
     const results = await Promise.all([
-      applyPendingRevision(d, a!, rev!.id, {}),
-      applyPendingRevision(d, a!, rev!.id, {}),
+      applyPendingRevision(d, a!, rev!.id, notes),
+      applyPendingRevision(d, a!, rev!.id, notes),
     ]);
     expect(results.filter(Boolean)).toHaveLength(1);
     const [after] = await t.db.select().from(schema.seoArticles);

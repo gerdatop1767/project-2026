@@ -3,6 +3,13 @@ import { isAllowedCampaignTarget } from '@zybrilka/shared';
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import * as schema from './schema.js';
+import {
+  evaluatePublicationGate,
+  gateReasonText,
+  readFactCheckRecord,
+  type GateDecision,
+  type GateTarget,
+} from './publicationGate.js';
 import { writeSeoLog } from './seo.js';
 
 type Article = typeof schema.seoArticles.$inferSelect;
@@ -85,8 +92,19 @@ export async function createSeoCampaign(
 }
 
 export type PublishOutcome =
-  | { ok: true; article: Article }
-  | { ok: false; reason: 'not_found' | 'already_published' | 'not_publishable' | 'quality' };
+  | { ok: true; article: Article; gate: GateDecision }
+  | { ok: false; reason: 'not_found' | 'already_published' | 'not_publishable' | 'quality' }
+  | { ok: false; reason: 'fact_check'; gate: GateDecision };
+
+/** The Publication Safety Gate for an article row as it is now. */
+export function articleGate(a: Article, target: GateTarget): GateDecision {
+  return evaluatePublicationGate({
+    target,
+    status: a.status,
+    content: a,
+    reviewNotes: a.reviewNotes,
+  });
+}
 
 /** Statuses an article can be published from. */
 export const PUBLISHABLE_STATUSES = ['draft', 'review', 'scheduled', 'needs_update'] as const;
@@ -94,7 +112,9 @@ export const PUBLISHABLE_STATUSES = ['draft', 'review', 'scheduled', 'needs_upda
 /**
  * Publishes once. The status change is a single UPDATE … WHERE status IN
  * (publishable) — two concurrent calls (worker + admin, two workers)
- * can't both succeed, so an article is never published twice.
+ * can't both succeed, so an article is never published twice. The row is
+ * locked for the whole transaction, so the text the Publication Safety Gate
+ * approved is exactly the text that goes live (a concurrent edit waits).
  */
 export async function publishSeoArticle(
   db: Database,
@@ -105,7 +125,8 @@ export async function publishSeoArticle(
     const [current] = await tx
       .select()
       .from(schema.seoArticles)
-      .where(eq(schema.seoArticles.id, id));
+      .where(eq(schema.seoArticles.id, id))
+      .for('update');
     if (!current) return { ok: false, reason: 'not_found' } as const;
     if (current.status === 'published') return { ok: false, reason: 'already_published' } as const;
     if (!(PUBLISHABLE_STATUSES as readonly string[]).includes(current.status)) {
@@ -114,6 +135,8 @@ export async function publishSeoArticle(
     if (!current.seoTitle || !current.metaDescription || current.bodyMd.length < 200) {
       return { ok: false, reason: 'quality' } as const;
     }
+    const gate = articleGate(current, 'publish');
+    if (!gate.allowed) return { ok: false, reason: 'fact_check', gate } as const;
     let campaignId = current.campaignId;
     if (!campaignId) {
       const c = await createSeoCampaign(tx, {
@@ -156,6 +179,7 @@ export async function publishSeoArticle(
       message: `Опубликована статья «${updated.title}» — /blog/${updated.slug}`,
       articleId: id,
       actorUserId: actor.kind === 'admin' ? actor.userId : null,
+      details: { gate: { basis: gate.basis, contentHash: gate.contentHash } },
     });
     // Post-publish: IndexNow ping, availability and canonical check (worker).
     await tx
@@ -169,8 +193,54 @@ export async function publishSeoArticle(
         priority: 80,
       })
       .onConflictDoNothing();
-    return { ok: true, article: updated } as const;
+    return { ok: true, article: updated, gate } as const;
   });
+}
+
+export type ScheduleOutcome =
+  | { ok: true; article: Article }
+  | { ok: false; reason: 'not_found' | 'not_schedulable' }
+  | { ok: false; reason: 'fact_check'; gate: GateDecision };
+
+/**
+ * Schedules a publication (admin «Запланировать», auto mode). The gate runs
+ * now on the locked row; publishing at the due time runs it again — an edit
+ * in between makes the check stale and the article goes back to review.
+ */
+export async function scheduleSeoArticle(
+  db: Database,
+  id: string,
+  at: Date,
+  opts: { expectedVersion?: number; tx?: Tx } = {},
+): Promise<ScheduleOutcome> {
+  const run = async (tx: Tx): Promise<ScheduleOutcome> => {
+    const [current] = await tx
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, id))
+      .for('update');
+    if (!current) return { ok: false, reason: 'not_found' };
+    if (opts.expectedVersion !== undefined && current.version !== opts.expectedVersion) {
+      return { ok: false, reason: 'not_schedulable' };
+    }
+    const gate = articleGate(current, 'schedule');
+    if (gate.reasons.includes('status_not_allowed'))
+      return { ok: false, reason: 'not_schedulable' };
+    if (!gate.allowed) return { ok: false, reason: 'fact_check', gate };
+    const [row] = await tx
+      .update(schema.seoArticles)
+      .set({ status: 'scheduled', scheduledFor: at, updatedAt: new Date() })
+      .where(
+        and(
+          eq(schema.seoArticles.id, id),
+          eq(schema.seoArticles.version, current.version),
+          inArray(schema.seoArticles.status, ['draft', 'review', 'needs_update', 'scheduled']),
+        ),
+      )
+      .returning();
+    return row ? { ok: true, article: row } : { ok: false, reason: 'not_schedulable' };
+  };
+  return opts.tx ? run(opts.tx) : db.transaction(run);
 }
 
 export async function unpublishSeoArticle(db: Database, id: string, userId: string) {
@@ -265,14 +335,23 @@ export async function countArticlesSince(
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
+export type ApplyRevisionOutcome =
+  | { ok: true; article: Article; gate: GateDecision | null }
+  | { ok: false; reason: 'not_pending' }
+  | { ok: false; reason: 'fact_check'; gate: GateDecision };
+
 /**
  * Applies a pending article update (written by the SEO agent for a live
- * article) exactly once. The revision is claimed by a conditional UPDATE
- * (pending_update → applied_update) and the article row is locked, in one
+ * article) exactly once. The article row is locked and the revision is
+ * claimed by a conditional UPDATE (pending_update → applied_update), in one
  * transaction: a second caller — another worker, or the owner clicking at
- * the same moment — finds nothing to claim and gets null. An article taken
- * off the site meanwhile stays off (the owner decides). `review` given →
- * the fact-check verdict is stored with it.
+ * the same moment — finds nothing to claim. An article taken off the site
+ * meanwhile stays off (the owner decides).
+ *
+ * For a live article the new text passes the Publication Safety Gate first:
+ * `reviewNotes` (the worker's fresh check of this revision) or, if not given,
+ * the notes stored on the article (a check or the owner's approval of this
+ * revision's text). Blocked → nothing is claimed or changed.
  */
 export async function applyPendingArticleRevision(
   db: Database,
@@ -281,11 +360,50 @@ export async function applyPendingArticleRevision(
     revisionId: string;
     actor: string;
     now: Date;
-    review?: Record<string, unknown>;
+    reviewNotes?: Record<string, unknown>;
     tx?: Tx;
   },
-): Promise<Article | null> {
-  const run = async (t: Tx): Promise<Article | null> => {
+): Promise<ApplyRevisionOutcome> {
+  const run = async (t: Tx): Promise<ApplyRevisionOutcome> => {
+    const [fresh] = await t
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, o.articleId))
+      .for('update');
+    if (!fresh) return { ok: false, reason: 'not_pending' };
+    const [pending] = await t
+      .select()
+      .from(schema.seoArticleRevisions)
+      .where(
+        and(
+          eq(schema.seoArticleRevisions.id, o.revisionId),
+          eq(schema.seoArticleRevisions.articleId, o.articleId),
+          eq(schema.seoArticleRevisions.reason, 'pending_update'),
+        ),
+      );
+    if (!pending) return { ok: false, reason: 'not_pending' };
+    const { wordCount, qualityIssues, ...fields } = pending.snapshot as {
+      wordCount?: number;
+      qualityIssues?: string[];
+    } & Record<string, unknown>;
+    const next = { ...fresh, ...(fields as Partial<Article>), slug: fresh.slug };
+    const live = fresh.status === 'published' || fresh.status === 'needs_update';
+    const notes = o.reviewNotes ?? fresh.reviewNotes;
+    let gate: GateDecision | null = null;
+    if (live) {
+      gate = evaluatePublicationGate({
+        target: 'apply_update',
+        status: fresh.status,
+        content: next,
+        reviewNotes: notes,
+      });
+      const record = readFactCheckRecord(notes);
+      // A check of another revision does not vouch for this one, even with equal text.
+      if (gate.basis === 'verified' && record?.revisionId !== o.revisionId) {
+        gate = { ...gate, allowed: false, basis: null, reasons: ['no_fact_check'] };
+      }
+      if (!gate.allowed) return { ok: false, reason: 'fact_check', gate };
+    }
     const [rev] = await t
       .update(schema.seoArticleRevisions)
       .set({ reason: 'applied_update' })
@@ -297,19 +415,8 @@ export async function applyPendingArticleRevision(
         ),
       )
       .returning();
-    if (!rev) return null;
-    const [fresh] = await t
-      .select()
-      .from(schema.seoArticles)
-      .where(eq(schema.seoArticles.id, o.articleId))
-      .for('update');
-    if (!fresh) return null;
+    if (!rev) return { ok: false, reason: 'not_pending' };
     await saveArticleRevision(t, fresh, 'before_update', o.actor);
-    const { wordCount, qualityIssues, ...fields } = rev.snapshot as {
-      wordCount?: number;
-      qualityIssues?: string[];
-    } & Record<string, unknown>;
-    const live = fresh.status === 'published' || fresh.status === 'needs_update';
     const [updated] = await t
       .update(schema.seoArticles)
       .set({
@@ -318,7 +425,19 @@ export async function applyPendingArticleRevision(
         wordCount: wordCount ?? fresh.wordCount,
         qualityIssues: qualityIssues ?? [],
         status: live ? 'published' : fresh.status,
-        ...(o.review ? { factCheckPassed: true, reviewNotes: o.review } : {}),
+        // The verdict travels with the text it is about; «verified» only
+        // from an automatic check, never from a manual approval.
+        reviewNotes: notes,
+        factCheckPassed:
+          (
+            gate ??
+            evaluatePublicationGate({
+              target: 'publish',
+              status: 'review',
+              content: next,
+              reviewNotes: notes,
+            })
+          ).basis === 'verified',
         version: fresh.version + 1,
         updatedAt: o.now,
       })
@@ -336,8 +455,89 @@ export async function applyPendingArticleRevision(
           priority: 80,
         })
         .onConflictDoNothing();
+      await writeSeoLog(t, {
+        agent: o.actor.startsWith('admin:') ? 'system' : 'content',
+        action: 'article.update_gate_passed',
+        message: `Обновление допущено на сайт (${gate?.basis === 'manual' ? 'ручное подтверждение' : 'проверено'})`,
+        articleId: fresh.id,
+        details: { gate: { basis: gate?.basis ?? null, contentHash: gate?.contentHash ?? null } },
+      });
     }
-    return updated ?? null;
+    return updated ? { ok: true, article: updated, gate } : { ok: false, reason: 'not_pending' };
   };
   return o.tx ? run(o.tx) : db.transaction(run);
+}
+
+/**
+ * The owner's manual approval of the article's current text — or of a
+ * pending update's text (`revisionId`). Stored separately from the automatic
+ * result (never sets «verified»), bound to the exact text (any edit voids it)
+ * and to this one article. Refused while the latest check reports a critical
+ * contradiction: that needs a fix and a new check, not a click.
+ */
+export async function approveArticleManually(
+  db: Database,
+  o: { articleId: string; adminId: string; reason: string; revisionId?: string | null; now: Date },
+): Promise<
+  | { ok: true; article: Article; contentHash: string }
+  | { ok: false; reason: 'not_found' | 'not_pending' | 'critical_contradiction' }
+> {
+  return db.transaction(async (t) => {
+    const [a] = await t
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, o.articleId))
+      .for('update');
+    if (!a) return { ok: false, reason: 'not_found' } as const;
+    let content: Article = a;
+    if (o.revisionId) {
+      const [rev] = await t
+        .select()
+        .from(schema.seoArticleRevisions)
+        .where(
+          and(
+            eq(schema.seoArticleRevisions.id, o.revisionId),
+            eq(schema.seoArticleRevisions.articleId, a.id),
+            eq(schema.seoArticleRevisions.reason, 'pending_update'),
+          ),
+        );
+      if (!rev) return { ok: false, reason: 'not_pending' } as const;
+      content = { ...a, ...(rev.snapshot as Partial<Article>) };
+    }
+    const gate = evaluatePublicationGate({
+      target: 'publish',
+      status: 'review',
+      content,
+      reviewNotes: a.reviewNotes,
+    });
+    if (!gate.manualAllowed) return { ok: false, reason: 'critical_contradiction' } as const;
+    const manualApproval = {
+      adminId: o.adminId,
+      at: o.now.toISOString(),
+      reason: o.reason.slice(0, 1000),
+      contentHash: gate.contentHash,
+      revisionId: o.revisionId ?? null,
+    };
+    const [updated] = await t
+      .update(schema.seoArticles)
+      .set({
+        reviewNotes: { ...(a.reviewNotes ?? {}), manualApproval },
+        updatedAt: o.now,
+      })
+      .where(eq(schema.seoArticles.id, a.id))
+      .returning();
+    await writeSeoLog(t, {
+      agent: 'system',
+      action: 'article.fact_check_manual',
+      message:
+        `Факт-чек подтверждён вручную${o.revisionId ? ' (обновление)' : ''}: ${manualApproval.reason}`.slice(
+          0,
+          500,
+        ),
+      articleId: a.id,
+      actorUserId: o.adminId,
+      details: { manualApproval, gateBefore: gateReasonText(gate.reasons) },
+    });
+    return { ok: true, article: updated!, contentHash: gate.contentHash } as const;
+  });
 }

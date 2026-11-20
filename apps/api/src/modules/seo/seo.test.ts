@@ -1,5 +1,5 @@
 import { schema } from '@zybrilka/db';
-import { createTestDb } from '@zybrilka/db/testing';
+import { createTestDb, verifiedReviewNotes } from '@zybrilka/db/testing';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
@@ -143,6 +143,20 @@ describe('SEO Center API and public blog', () => {
     expect((await send('POST', `/api/v1/admin/seo/articles/${id}/publish`, {})).statusCode).toBe(
       400,
     );
+    // Not fact-checked → the Publication Safety Gate refuses (stage 2.1).
+    const blocked = await send('POST', `/api/v1/admin/seo/articles/${id}/publish`, {
+      confirm: true,
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect(blocked.json().error).toBe('fact_check');
+    const [draft] = await testDb.db
+      .select()
+      .from(schema.seoArticles)
+      .where(eq(schema.seoArticles.id, id));
+    await testDb.db
+      .update(schema.seoArticles)
+      .set({ reviewNotes: verifiedReviewNotes(draft!) })
+      .where(eq(schema.seoArticles.id, id));
     const pub = await send('POST', `/api/v1/admin/seo/articles/${id}/publish`, { confirm: true });
     expect(pub.statusCode).toBe(200);
     expect(pub.json().article.campaignId).toBeTruthy();

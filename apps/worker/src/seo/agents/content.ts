@@ -1,10 +1,16 @@
 import {
   applyPendingArticleRevision,
+  articleContentHash,
+  buildFactCheckRecord,
   enqueueSeoTask,
+  gateReasonText,
   loadSeoSettings,
+  reviewNotesWithRecord,
   saveArticleRevision,
+  scheduleSeoArticle,
   schema,
   uniqueArticleSlug,
+  writeSeoLog,
 } from '@zybrilka/db';
 import {
   articleQualityIssues,
@@ -66,6 +72,10 @@ const reviewSchema = z.object({
         claim: z.string().max(500),
         problem: z.string().max(500),
         correction: z.string().max(800),
+        /** critical — баллы, номера, даты, форматы, правила; minor — формулировки и детали. */
+        severity: z.enum(['critical', 'minor']),
+        /** contradicted — источники говорят иное; unverified — подтверждения не нашлось. */
+        status: z.enum(['contradicted', 'unverified']),
       }),
     )
     .max(20),
@@ -498,7 +508,8 @@ export function reviewArticleHandler(deps: SeoDeps): TaskHandler {
         effort: 'high',
         maxTokens: 6000,
         system: `Ты — строгий редактор-факт-чекер материалов об ЕГЭ. Проверяй утверждения о баллах, номерах заданий, форматах, датах, изменениях и правилах по официальным источникам (${OFFICIAL_SOURCES.join(', ')}). Если утверждение нельзя подтвердить — это проблема. Оцени и стиль: вода, повторы, канцелярит, переспам.
-verdict: pass — можно публиковать; fix — есть исправимые ошибки; reject — тема или текст непригодны.`,
+verdict: pass — можно публиковать; fix — есть исправимые ошибки; reject — тема или текст непригодны.
+Для каждой фактической проблемы: severity critical (баллы, номера заданий, даты, форматы, правила, изменения ЕГЭ) или minor; status contradicted (источники говорят иное) или unverified (подтверждения не нашлось).`,
         prompt: `Статья «${a.title}» (основной запрос «${a.primaryKeyword}»).
 
 ${a.bodyMd}
@@ -511,53 +522,72 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
       },
       reviewSchema,
     );
-    // The structured review above has no web access; verify the flagged claims with search.
-    let verified = data;
-    if (data.factualIssues.length || data.verdict !== 'pass') {
-      const check = await ai.text({
+    // The structured review above has no web access. Every review is
+    // confirmed with search: the flagged claims, or — if nothing was flagged —
+    // the article's key facts. Only search results the API returns count as
+    // evidence for the Publication Safety Gate (the model's «pass» does not).
+    const flagged = data.factualIssues.length > 0 || data.verdict !== 'pass';
+    const check = await ai.text({
+      agent: 'content',
+      purpose: 'article.factcheck.web',
+      taskId: ctx.task.id,
+      tier: 'strong',
+      effort: 'medium',
+      maxTokens: 4000,
+      webSearch: { maxUses: 5 },
+      system:
+        'Ты проверяешь утверждения об ЕГЭ по официальным источникам. Для каждого — «верно»/«неверно»/«не подтверждается» и правильная формулировка с URL.',
+      prompt: flagged
+        ? `Проверь утверждения:\n${data.factualIssues.map((i, n) => `${n + 1}. ${i.claim} (сомнение: ${i.problem})`).join('\n') || data.summary}`
+        : `Проверь ключевые фактические утверждения статьи (баллы, номера заданий, даты, форматы, правила, изменения):\n\n${a.bodyMd.slice(0, 12_000)}`,
+    });
+    const { data: verified } = await ai.json(
+      {
         agent: 'content',
-        purpose: 'article.factcheck.web',
+        purpose: 'article.factcheck.verdict',
         taskId: ctx.task.id,
-        tier: 'strong',
-        effort: 'medium',
-        maxTokens: 4000,
-        webSearch: { maxUses: 5 },
-        system:
-          'Ты проверяешь спорные утверждения об ЕГЭ по официальным источникам. Для каждого — «верно»/«неверно»/«не подтверждается» и правильная формулировка с URL.',
-        prompt: `Проверь утверждения:\n${data.factualIssues.map((i, n) => `${n + 1}. ${i.claim} (сомнение: ${i.problem})`).join('\n') || data.summary}`,
-      });
-      const { data: second } = await ai.json(
-        {
-          agent: 'content',
-          purpose: 'article.factcheck.verdict',
-          taskId: ctx.task.id,
-          tier: 'cheap',
-          effort: 'low',
-          maxTokens: 3000,
-          system: 'Сведи итог проверки фактов в структуру. Оставь только подтверждённые проблемы.',
-          prompt: `Первичное ревью:\n${JSON.stringify(data)}\n\nПроверка по источникам:\n${check.text.slice(0, 12_000)}`,
-        },
-        reviewSchema,
-      );
-      verified = second;
-    }
+        tier: 'cheap',
+        effort: 'low',
+        maxTokens: 3000,
+        system: 'Сведи итог проверки фактов в структуру. Оставь только подтверждённые проблемы.',
+        prompt: `Первичное ревью:\n${JSON.stringify(data)}\n\nПроверка по источникам:\n${check.text.slice(0, 12_000)}`,
+      },
+      reviewSchema,
+    );
+    const record = buildFactCheckRecord({
+      verdict: verified.verdict,
+      factualIssues: verified.factualIssues,
+      webChecked: true,
+      webSources: check.sources.map((s) => s.url),
+      contentHash: articleContentHash(a),
+      checkedAt: deps.now(),
+      revisionId: pendingRevisionId ?? null,
+    });
 
-    const passed =
-      verified.verdict === 'pass' &&
-      verified.factualIssues.length === 0 &&
-      a.qualityIssues.length === 0;
-    const autoPublish = passed && settings.mode === 'auto' && !settings.publishingPaused;
+    // Server decision: the record (not the model's verdict) and the structural quality gate.
+    const passed = record.result === 'verified' && a.qualityIssues.length === 0;
+    const wantAuto = passed && settings.mode === 'auto' && !settings.publishingPaused;
+    let autoPublish = false;
     // Fenced and conditional: only the task's owner writes, and only if the
     // article is still what was reviewed. An article the owner published,
     // scheduled or edited meanwhile keeps the owner's state.
     const applied = await ctx.commit(async (tx) => {
+      const notes = reviewNotesWithRecord({ ...verified }, record, stored.reviewNotes);
       if (pending) {
-        if (autoPublish) {
-          return applyPendingRevision(deps, stored, pendingRevisionId!, verified, tx);
+        if (wantAuto) {
+          // The gate runs again inside, on the locked row and this revision's text.
+          const out = await applyPendingRevision(deps, stored, pendingRevisionId!, notes, tx);
+          if (out) {
+            autoPublish = true;
+            return true;
+          }
         }
         const rows = await tx
           .update(schema.seoArticles)
-          .set({ reviewNotes: { ...verified, pendingRevisionId, passed }, updatedAt: deps.now() })
+          .set({
+            reviewNotes: { ...notes, pendingRevisionId, passed },
+            updatedAt: deps.now(),
+          })
           .where(eq(schema.seoArticles.id, a.id))
           .returning({ id: schema.seoArticles.id });
         return rows.length > 0;
@@ -565,10 +595,10 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
       const rows = await tx
         .update(schema.seoArticles)
         .set({
-          status: autoPublish ? 'scheduled' : 'review',
-          scheduledFor: autoPublish ? nextMoscowTime(settings.publishTime, deps.now()) : null,
-          factCheckPassed: passed,
-          reviewNotes: verified,
+          status: 'review',
+          scheduledFor: null,
+          factCheckPassed: record.result === 'verified',
+          reviewNotes: notes,
           updatedAt: deps.now(),
         })
         .where(
@@ -579,7 +609,28 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
           ),
         )
         .returning({ id: schema.seoArticles.id });
-      return rows.length > 0;
+      if (rows.length === 0) return false;
+      if (wantAuto) {
+        // Auto mode schedules only through the same gate the owner's button uses.
+        const out = await scheduleSeoArticle(
+          deps.db,
+          a.id,
+          nextMoscowTime(settings.publishTime, deps.now()),
+          { expectedVersion: stored.version, tx },
+        );
+        autoPublish = out.ok;
+        if (!out.ok && out.reason === 'fact_check') {
+          await writeSeoLog(tx, {
+            agent: 'content',
+            level: 'warn',
+            action: 'article.publish_blocked',
+            message: `Автопубликация «${a.title}» остановлена гейтом: ${gateReasonText(out.gate.reasons)}`,
+            articleId: a.id,
+            taskId: ctx.task.id,
+          });
+        }
+      }
+      return true;
     });
     if (!applied) {
       await ctx.log(
@@ -593,8 +644,12 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
       'article.reviewed',
       passed
         ? `Факт-чек пройден: «${a.title}»${pending ? (autoPublish ? ' — обновление применено' : ' — обновление ждёт одобрения') : autoPublish ? ', запланирована публикация' : ', ждёт одобрения'}`
-        : `Факт-чек: ${verified.verdict}, проблем ${verified.factualIssues.length}, замечаний качества ${a.qualityIssues.length} — на проверке`,
-      { articleId: a.id, level: passed ? 'info' : 'warn', details: { review: verified } },
+        : `Факт-чек: ${verified.verdict}, проблем ${verified.factualIssues.length}, источников ${record.webSources.length}, замечаний качества ${a.qualityIssues.length} — на проверке`,
+      {
+        articleId: a.id,
+        level: passed ? 'info' : 'warn',
+        details: { review: verified, factCheck: record },
+      },
     );
     // Visuals regardless of verdict (an editor may fix and publish).
     await ctx.enqueue({
@@ -641,15 +696,15 @@ export function applyPendingRevision(
   deps: Pick<SeoDeps, 'db' | 'now'>,
   article: typeof schema.seoArticles.$inferSelect,
   revisionId: string,
-  review: unknown,
+  reviewNotes: Record<string, unknown> | undefined,
   tx?: SeoTx,
 ): Promise<boolean> {
   return applyPendingArticleRevision(deps.db, {
     articleId: article.id,
     revisionId,
-    review: review as Record<string, unknown>,
+    reviewNotes,
     actor: 'agent:content',
     now: deps.now(),
     tx,
-  }).then((r) => r !== null);
+  }).then((r) => r.ok);
 }
