@@ -73,6 +73,7 @@ export function validateNumber(
   const p: string[] = [];
   const t = bank.tasks;
   const where = `№${bank.taskNumber}`;
+  p.push(...(bank.problems ?? []));
   if (t.some((x) => x.taskNumber !== bank.taskNumber)) p.push(`${where}: a task of another number`);
   if (t.map((x) => x.n).some((n, i) => n !== i + 1)) p.push(`${where}: tasks must be numbered 1…N`);
   if (t.length > BANK_SIZE) p.push(`${where}: more than ${BANK_SIZE} tasks`);

@@ -40,6 +40,8 @@ export interface BankNumber {
   readonly topicSlug: string;
   readonly topicName: string;
   readonly tasks: readonly BankTask[];
+  /** Problems a number's own source checks found (mechanic-specific). */
+  readonly problems?: readonly string[];
 }
 
 export const MATCH_LABELS = ['А', 'Б', 'В', 'Г', 'Д'] as const;
