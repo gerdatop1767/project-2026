@@ -83,7 +83,7 @@ export function buildRowsTask(
       ...rows.map((r, i) => {
         const letters = r.map((w) => w.letter);
         const verdict = flags[i]
-          ? `во всех словах ${letters[0]}. Ряд подходит.`
+          ? `${spec.perRow === 2 ? 'в обоих словах' : 'во всех словах'} ${letters[0]}. Ряд подходит.`
           : `буквы разные (${letters.join(', ')}). Ряд не подходит.`;
         return `${i + 1}) ${r.map((w) => explainRowWord(w, spec)).join('; ')} — ${verdict}`;
       }),

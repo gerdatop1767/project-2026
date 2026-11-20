@@ -3,6 +3,8 @@ import { TASK5 } from './data/task05.js';
 import { TASK6 } from './data/task06.js';
 import { TASK7 } from './data/task07.js';
 import { TASK9 } from './data/task09.js';
+import { TASK11 } from './data/task11.js';
+import { TASK12 } from './data/task12.js';
 import type { BankNumber } from './types.js';
 
 /**
@@ -11,7 +13,15 @@ import type { BankNumber } from './types.js';
  * added as its data module grows batch by batch; the importer publishes
  * only complete (100-task) numbers unless asked otherwise.
  */
-export const BANK_NUMBERS: readonly BankNumber[] = [TASK4, TASK5, TASK6, TASK7, TASK9];
+export const BANK_NUMBERS: readonly BankNumber[] = [
+  TASK4,
+  TASK5,
+  TASK6,
+  TASK7,
+  TASK9,
+  TASK11,
+  TASK12,
+];
 
 export const bankSource = (taskNumber: number) =>
   `Зубрилка. Авторские задания ЕГЭ по русскому языку, №${taskNumber}`;
