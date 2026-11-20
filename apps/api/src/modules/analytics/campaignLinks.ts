@@ -1,32 +1,8 @@
 import { randomBytes } from 'node:crypto';
 
-/**
- * Where a campaign link may send people: a path inside this site, from a
- * fixed list of entry pages. Never a scheme, host, `//`, `..`, query or
- * fragment — so `new URL(path, WEB_BASE_URL)` can only ever stay on our
- * own domain (no open redirect).
- */
-export const CAMPAIGN_TARGET_ROOTS = [
-  '',
-  'landing',
-  'training',
-  'subjects',
-  'learning',
-  'topics',
-  'mock-exams',
-  'help',
-  'faq',
-  // Blog articles (docs/SEO_CENTER.md): external posts link to /blog/<slug>.
-  'blog',
-] as const;
-
-const TARGET_RE = /^\/(?:[a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,90}){0,2})?$/;
-
-export function isAllowedCampaignTarget(path: string): boolean {
-  if (!TARGET_RE.test(path)) return false;
-  const root = path.split('/')[1] ?? '';
-  return (CAMPAIGN_TARGET_ROOTS as readonly string[]).includes(root);
-}
+// The allow-list lives in @zybrilka/shared (one list for the API, the admin
+// and the SEO agent); re-exported here for the existing imports.
+export { CAMPAIGN_TARGET_ROOTS, isAllowedCampaignTarget } from '@zybrilka/shared';
 
 /** Campaign slugs: 10 random base62-ish chars, server-generated only. */
 export const SLUG_RE = /^[A-Za-z0-9_-]{6,32}$/;

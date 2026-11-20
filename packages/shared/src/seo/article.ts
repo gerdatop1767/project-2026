@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { SEO_ARTICLE_FORMATS } from './constants.js';
 import { SEO_SLUG_RE } from './text.js';
+import { isAllowedCampaignTarget } from '../campaignTargets.js';
 
 export const seoFaqItemSchema = z.object({
   question: z.string().trim().min(5).max(300),
@@ -37,10 +38,7 @@ export const seoArticleContentSchema = z.object({
   primaryKeyword: z.string().trim().min(2).max(200),
   secondaryKeywords: z.array(z.string().trim().min(2).max(200)).max(30),
   /** Where the article sends readers in the app (internal path, e.g. /subjects/math). */
-  ctaPath: z
-    .string()
-    .regex(/^\/[a-z0-9/_-]*$/)
-    .max(120),
+  ctaPath: z.string().max(120).refine(isAllowedCampaignTarget, 'not an allowed trainer section'),
 });
 export type SeoArticleContent = z.infer<typeof seoArticleContentSchema>;
 

@@ -390,6 +390,8 @@ export function SeoArticlePage({ id = '' }: Record<string, string>) {
           answer: rest.join(' ').trim(),
         }));
       return adminApi.patch(`/seo/articles/${id}`, {
+        // The version this editor was opened on: the server refuses (409) if it changed.
+        version: query.data?.article.version,
         title: form.title,
         seoTitle: form.seoTitle,
         metaDescription: form.metaDescription,

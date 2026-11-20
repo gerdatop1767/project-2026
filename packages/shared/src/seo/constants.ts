@@ -235,3 +235,22 @@ export const SEO_DEFAULT_PLATFORMS = [
   format: string;
   rules: string;
 }[];
+
+/**
+ * Pages of the trainer the SEO agent may link to and use as an article's call
+ * to action. Every path must pass `isAllowedCampaignTarget` (tested) — a
+ * campaign to any other path would land on the home page.
+ */
+export const SEO_SITE_PAGES: readonly { path: string; title: string }[] = [
+  { path: '/', title: 'Зубрилка — бесплатный тренажёр ЕГЭ' },
+  { path: '/training', title: 'Тренировка: умная тренировка, мои ошибки, варианты' },
+  { path: '/subjects', title: 'Все предметы' },
+  { path: '/subjects/math', title: 'Профильная математика: задания ЕГЭ по номерам' },
+  { path: '/subjects/russian', title: 'Русский язык: задания ЕГЭ по номерам' },
+  { path: '/theory', title: 'Теория к заданиям ЕГЭ' },
+  { path: '/materials', title: 'Полезные материалы: таблицы, формулы, списки' },
+  { path: '/strategies', title: 'Стратегии подготовки' },
+  { path: '/games', title: 'Мини-игры' },
+  { path: '/games/stress', title: 'Тренажёр ударений (задание 4)' },
+  { path: '/faq', title: 'Частые вопросы' },
+];

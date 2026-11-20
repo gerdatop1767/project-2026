@@ -19,6 +19,65 @@ import { PermanentError, type TaskHandler } from '../queue.js';
 
 export const SIMILARITY_LIMIT = 0.6;
 
+/** Telegram: a message's text (after HTML entities are parsed) is at most 4096 UTF-16 units. */
+export const TELEGRAM_TEXT_LIMIT = 4096;
+const TELEGRAM_SAFETY = 16;
+
+/** Cuts plain text to `max` UTF-16 units, preferring a word boundary, never splitting a surrogate pair. */
+function cutPlain(text: string, max: number): string {
+  if (text.length <= max) return text;
+  let cut = text.slice(0, max);
+  if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
+  const space = cut.search(/\s\S*$/);
+  if (space > max - 200) cut = cut.slice(0, space);
+  return `${cut.trimEnd()}…`;
+}
+
+/**
+ * The channel post as Telegram HTML. Truncation happens on the PLAIN text
+ * (before escaping), so a tag or an entity like `&amp;` can never be cut in
+ * half; the tracked link always survives (re-appended when the body is cut).
+ */
+export function telegramPostHtml(title: string | null, body: string, link: string): string {
+  const max = TELEGRAM_TEXT_LIMIT - TELEGRAM_SAFETY;
+  const head = title?.trim() ? `${title.trim()}\n\n` : '';
+  let text = body.trim();
+  if (!text.includes(link)) text = `${text}\n\n${link}`;
+  if (head.length + text.length > max) {
+    const withoutLink = text.split(link).join('').replace(/\s+$/, '');
+    const room = max - head.length - link.length - 2;
+    text = `${cutPlain(withoutLink, Math.max(0, room))}\n\n${link}`;
+  }
+  const safeHead = head ? `<b>${escapeHtml(head.trimEnd())}</b>\n\n` : '';
+  return `${safeHead}${escapeHtml(text)}`;
+}
+
+/** Validates a message before sending: only <b>…</b>, balanced; only complete entities; text within the limit. */
+export function checkTelegramHtml(
+  html: string,
+): { ok: true; textLength: number } | { ok: false; problem: string } {
+  const tags = html.match(/<\/?[a-z][^>]*>/gi) ?? [];
+  let depth = 0;
+  for (const t of tags) {
+    if (t === '<b>') depth++;
+    else if (t === '</b>') depth--;
+    else return { ok: false, problem: `неразрешённый тег ${t}` };
+    if (depth < 0 || depth > 1) return { ok: false, problem: 'несбалансированные теги' };
+  }
+  if (depth !== 0) return { ok: false, problem: 'незакрытый тег' };
+  const withoutTags = html.replace(/<\/?b>/g, '');
+  if (/[<>]/.test(withoutTags)) return { ok: false, problem: 'неэкранированные < или >' };
+  const ampersands = withoutTags.match(/&[^;\s]{0,10};?/g) ?? [];
+  for (const a of ampersands) {
+    if (!/^&(amp|lt|gt|quot|#\d{1,6});$/.test(a))
+      return { ok: false, problem: `оборванная сущность ${a}` };
+  }
+  const text = withoutTags.replace(/&(amp|lt|gt|quot);/g, 'x').replace(/&#\d+;/g, 'x');
+  if (text.length > TELEGRAM_TEXT_LIMIT)
+    return { ok: false, problem: `текст длиннее ${TELEGRAM_TEXT_LIMIT}` };
+  return { ok: true, textLength: text.length };
+}
+
 const postSchema = z.object({
   title: z.string().max(200).nullable(),
   body: z.string().min(150).max(12_000),
@@ -207,13 +266,11 @@ export function publishExternalHandler(deps: SeoDeps): TaskHandler {
         const channel = integ?.config.channelId;
         if (!deps.telegramBotToken || typeof channel !== 'string')
           throw new PermanentError('Telegram-канал не подключён');
-        const html = `${row.post.title ? `<b>${escapeHtml(row.post.title)}</b>\n\n` : ''}${escapeHtml(row.post.body)}`;
-        const r = await telegramChannelPost(
-          deps.fetch,
-          deps.telegramBotToken,
-          channel,
-          html.slice(0, 4000),
-        );
+        const html = telegramPostHtml(row.post.title, row.post.body, row.post.link);
+        const check = checkTelegramHtml(html);
+        if (!check.ok)
+          throw new PermanentError(`Telegram HTML не прошёл проверку: ${check.problem}`);
+        const r = await telegramChannelPost(deps.fetch, deps.telegramBotToken, channel, html);
         result = { url: r.url, id: String(r.messageId) };
       } else if (row.platform.slug === 'vk') {
         const integ = await loadIntegration(db, deps.secretsKey, 'vk');

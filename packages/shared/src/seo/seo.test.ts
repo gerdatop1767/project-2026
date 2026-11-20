@@ -61,6 +61,16 @@ describe('scoring', () => {
         registrations: null,
       }),
     ).toBeNull();
+    // Registrations alone (always a known number) do not make a score.
+    expect(
+      articleSeoScore({
+        impressions: null,
+        clicks: null,
+        position: null,
+        organicVisits: null,
+        registrations: 0,
+      }),
+    ).toBeNull();
     const s = articleSeoScore({
       impressions: 1000,
       clicks: 50,

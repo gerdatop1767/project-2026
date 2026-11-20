@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  applyPendingArticleRevision,
   enqueueSeoTask,
   encryptSecret,
   ensureSeoDefaults,
@@ -539,7 +540,13 @@ export const seoAdminRoutes: FastifyPluginAsync<SeoAdminRoutesOptions> = async (
   app.patch('/admin/seo/articles/:id', async (request, reply) => {
     const p = parse(idParams, request.params);
     if (!p) return notFound(reply);
-    const patch = parse(seoArticlePatchSchema, request.body);
+    // `version` = the version the owner opened in the editor (optional for
+    // older clients). A different current version → 409: someone saved meanwhile.
+    const { version: expectedVersion, ...rawPatch } = (request.body ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const patch = parse(seoArticlePatchSchema, rawPatch);
     if (!patch) return bad(reply);
     const [a] = await db.select().from(schema.seoArticles).where(eq(schema.seoArticles.id, p.id));
     if (!a) return notFound(reply);
@@ -549,19 +556,30 @@ export const seoAdminRoutes: FastifyPluginAsync<SeoAdminRoutesOptions> = async (
       const free = await uniqueArticleSlug(db, patch.slug, a.id);
       if (free !== patch.slug) return reply.code(409).send({ error: 'slug_taken' });
     }
-    await saveArticleRevision(db, a, 'manual_edit', `admin:${actor(request)}`);
+    if (expectedVersion !== undefined) {
+      if (typeof expectedVersion !== 'number' || !Number.isInteger(expectedVersion))
+        return bad(reply);
+      if (expectedVersion !== a.version) return reply.code(409).send({ error: 'article_changed' });
+    }
     const wordCount = patch.bodyMd ? renderMarkdown(patch.bodyMd).wordCount : a.wordCount;
-    const [updated] = await db
-      .update(schema.seoArticles)
-      .set({
-        ...patch,
-        wordCount,
-        version: a.version + 1,
-        updatedAt: new Date(),
-        status: a.status === 'idea' && patch.bodyMd ? 'draft' : a.status,
-      })
-      .where(eq(schema.seoArticles.id, a.id))
-      .returning();
+    // Optimistic concurrency: the edit applies only to the version the owner
+    // opened. If the agent (or another tab) saved meanwhile → 409, nothing lost.
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(schema.seoArticles)
+        .set({
+          ...patch,
+          wordCount,
+          version: a.version + 1,
+          updatedAt: new Date(),
+          status: a.status === 'idea' && patch.bodyMd ? 'draft' : a.status,
+        })
+        .where(and(eq(schema.seoArticles.id, a.id), eq(schema.seoArticles.version, a.version)))
+        .returning();
+      if (row) await saveArticleRevision(tx, a, 'manual_edit', `admin:${actor(request)}`);
+      return row;
+    });
+    if (!updated) return reply.code(409).send({ error: 'article_changed' });
     await audit(request, 'seo.article.edit', a.id, { fields: Object.keys(patch) });
     await writeSeoLog(db, {
       agent: 'system',
@@ -668,38 +686,14 @@ export const seoAdminRoutes: FastifyPluginAsync<SeoAdminRoutesOptions> = async (
       );
     if (!a || !rev) return notFound(reply);
     if (rev.reason !== 'pending_update') return reply.code(409).send({ error: 'not_pending' });
-    await saveArticleRevision(db, a, 'before_update', `admin:${actor(request)}`);
-    const { wordCount, qualityIssues, ...fields } = rev.snapshot as {
-      wordCount?: number;
-      qualityIssues?: string[];
-    } & Record<string, unknown>;
-    const [updated] = await db
-      .update(schema.seoArticles)
-      .set({
-        ...(fields as object),
-        slug: a.slug,
-        wordCount: wordCount ?? a.wordCount,
-        qualityIssues: qualityIssues ?? [],
-        status: a.publishedAt ? 'published' : 'draft',
-        version: a.version + 1,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.seoArticles.id, a.id))
-      .returning();
-    await db
-      .update(schema.seoArticleRevisions)
-      .set({ reason: 'applied_update' })
-      .where(eq(schema.seoArticleRevisions.id, rev.id));
-    if (a.publishedAt) {
-      await enqueueSeoTask(db, {
-        kind: 'post_publish_check',
-        agent: 'technical',
-        idempotencyKey: `post_publish_check:${a.id}:v${a.version + 1}`,
-        articleId: a.id,
-        payload: { articleId: a.id },
-        priority: 80,
-      });
-    }
+    // Claimed atomically: a worker (or a second click) applying it at the same moment gets nothing.
+    const updated = await applyPendingArticleRevision(db, {
+      articleId: a.id,
+      revisionId: rev.id,
+      actor: `admin:${actor(request)}`,
+      now: new Date(),
+    });
+    if (!updated) return reply.code(409).send({ error: 'not_pending' });
     await audit(request, 'seo.article.apply_update', a.id, { revision: rev.id });
     await writeSeoLog(db, {
       agent: 'system',

@@ -1,4 +1,5 @@
 import {
+  applyPendingArticleRevision,
   enqueueSeoTask,
   loadSeoSettings,
   saveArticleRevision,
@@ -14,7 +15,7 @@ import {
   seoSlug,
   type SeoArticleFormat,
 } from '@zybrilka/shared';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   OFFICIAL_SOURCES,
@@ -23,7 +24,7 @@ import {
   nextMoscowTime,
   type SeoDeps,
 } from '../deps.js';
-import { PermanentError, type TaskHandler } from '../queue.js';
+import { PermanentError, TaskAborted, type SeoTx, type TaskHandler } from '../queue.js';
 
 /**
  * Content Agent (docs/SEO_CENTER.md §5): facts first (web search, official
@@ -31,6 +32,9 @@ import { PermanentError, type TaskHandler } from '../queue.js';
  * gate. Review Agent: a separate fact-check pass. Nothing unverified goes
  * live — a failed check leaves the article «На проверке».
  */
+
+/** Research notes shorter than this are treated as empty (not cached, task retried). */
+export const MIN_RESEARCH_CHARS = 200;
 
 export const generatedArticleSchema = z.object({
   title: z.string().min(5).max(200),
@@ -110,17 +114,24 @@ export function writeArticleHandler(deps: SeoDeps): TaskHandler {
           )[0]
         : undefined;
     if (!article && !topic) throw new PermanentError('nothing to write: no article and no topic');
-    if (article && article.status === 'generating')
-      throw new PermanentError('article is being generated');
+    // A retry (or a worker restart) of a topic task resumes the article the
+    // first attempt created — it must not fail on «topic already has an article».
+    if (!article && topic!.articleId) {
+      article = (
+        await db
+          .select()
+          .from(schema.seoArticles)
+          .where(eq(schema.seoArticles.id, topic!.articleId))
+      )[0];
+    }
     if (!article) {
-      if (topic!.articleId) throw new PermanentError('topic already has an article');
       const slug = await uniqueArticleSlug(db, seoSlug(topic!.primaryKeyword ?? topic!.title));
       [article] = await db
         .insert(schema.seoArticles)
         .values({
           title: topic!.title,
           slug,
-          status: 'research',
+          status: 'idea',
           topicId: topic!.id,
           format: topic!.format,
           subjectId: topic!.subjectId,
@@ -135,66 +146,96 @@ export function writeArticleHandler(deps: SeoDeps): TaskHandler {
         .where(eq(schema.seoTopics.id, topic!.id));
     }
     const a = article!;
+    // The task now belongs to this article: the stuck-article sweep and the
+    // concurrency check below see it.
     await db
-      .update(schema.seoArticles)
-      .set({ status: 'research', updatedAt: deps.now() })
-      .where(eq(schema.seoArticles.id, a.id));
-    await ctx.log('article.research', `Сбор фактов для «${a.title}»`, { articleId: a.id });
+      .update(schema.seoTasks)
+      .set({ articleId: a.id })
+      .where(eq(schema.seoTasks.id, ctx.task.id));
+    // Another write of the same article still running (e.g. a manual
+    // «Переписать» while the daily one works): retry later, never in parallel.
+    const [other] = await db
+      .select({ id: schema.seoTasks.id })
+      .from(schema.seoTasks)
+      .where(
+        and(
+          eq(schema.seoTasks.articleId, a.id),
+          eq(schema.seoTasks.status, 'running'),
+          inArray(schema.seoTasks.kind, ['write_article', 'update_article']),
+          ne(schema.seoTasks.id, ctx.task.id),
+        ),
+      );
+    if (other) throw new Error('another write of this article is running');
 
-    const subjectName = a.subjectId ? PLATFORM_SUBJECTS[a.subjectId] : undefined;
-    const facts = await ai.cached(
-      'article_facts',
-      { title: a.title, kw: a.primaryKeyword, angle: topic?.angle },
-      72,
-      async () => {
-        const r = await ai.text({
+    // A live article keeps its status (it stays on the site while the update
+    // is prepared); only a not-yet-published one shows the progress.
+    const live = a.publishedAt !== null;
+    const stable = (status: string) =>
+      status === 'research' || status === 'generating' ? (a.bodyMd ? 'draft' : 'idea') : status;
+    const statusBefore = stable(a.status);
+    const setProgress = async (status: 'research' | 'generating') => {
+      if (live) return;
+      await db
+        .update(schema.seoArticles)
+        .set({ status, updatedAt: deps.now() })
+        .where(eq(schema.seoArticles.id, a.id));
+    };
+    try {
+      await setProgress('research');
+      await ctx.log('article.research', `Сбор фактов для «${a.title}»`, { articleId: a.id });
+
+      const subjectName = a.subjectId ? PLATFORM_SUBJECTS[a.subjectId] : undefined;
+      const facts = await ai.cached(
+        'article_facts',
+        { title: a.title, kw: a.primaryKeyword, angle: topic?.angle },
+        72,
+        async () => {
+          const r = await ai.text({
+            agent: 'content',
+            purpose: 'article.facts',
+            taskId: ctx.task.id,
+            tier: 'strong',
+            effort: 'medium',
+            maxTokens: 8000,
+            webSearch: { maxUses: 6 },
+            system:
+              'Ты собираешь проверенные факты для образовательной статьи об ЕГЭ. Приоритет источников: ' +
+              OFFICIAL_SOURCES.join(', ') +
+              '. Указывай год ЕГЭ для каждого факта. Если источники противоречат друг другу — укажи это.',
+            prompt: `Тема: «${a.title}». Основной запрос: «${a.primaryKeyword ?? a.title}». ${topic?.angle ? `Угол: ${topic.angle}.` : ''}${subjectName ? ` Предмет: ${subjectName}.` : ''}
+Найди и перечисли факты, нужные для статьи: номера и форматы заданий, баллы, критерии, даты, изменения 2026/2027, типичные ошибки (по аналитическим отчётам ФИПИ, если есть). Каждый факт — с URL источника и годом.`,
+          });
+          return { text: r.text, sources: r.sources.slice(0, 20) };
+        },
+        (v) => v.text.trim().length >= MIN_RESEARCH_CHARS,
+      );
+
+      const [published, insights] = await Promise.all([
+        db
+          .select({ slug: schema.seoArticles.slug, title: schema.seoArticles.title })
+          .from(schema.seoArticles)
+          .where(eq(schema.seoArticles.status, 'published'))
+          .orderBy(desc(schema.seoArticles.publishedAt))
+          .limit(60),
+        db
+          .select()
+          .from(schema.seoInsights)
+          .where(inArray(schema.seoInsights.dimension, ['format', 'title_pattern']))
+          .limit(20),
+      ]);
+
+      await setProgress('generating');
+      const wantedFormat = (topic?.format ?? a.format ?? 'guide') as SeoArticleFormat;
+      const { data } = await ai.json(
+        {
           agent: 'content',
-          purpose: 'article.facts',
+          purpose: 'article.write',
           taskId: ctx.task.id,
           tier: 'strong',
-          effort: 'medium',
-          maxTokens: 8000,
-          webSearch: { maxUses: 6 },
-          system:
-            'Ты собираешь проверенные факты для образовательной статьи об ЕГЭ. Приоритет источников: ' +
-            OFFICIAL_SOURCES.join(', ') +
-            '. Указывай год ЕГЭ для каждого факта. Если источники противоречат друг другу — укажи это.',
-          prompt: `Тема: «${a.title}». Основной запрос: «${a.primaryKeyword ?? a.title}». ${topic?.angle ? `Угол: ${topic.angle}.` : ''}${subjectName ? ` Предмет: ${subjectName}.` : ''}
-Найди и перечисли факты, нужные для статьи: номера и форматы заданий, баллы, критерии, даты, изменения 2026/2027, типичные ошибки (по аналитическим отчётам ФИПИ, если есть). Каждый факт — с URL источника и годом.`,
-        });
-        return { text: r.text, sources: r.sources.slice(0, 20) };
-      },
-    );
-
-    const [published, insights] = await Promise.all([
-      db
-        .select({ slug: schema.seoArticles.slug, title: schema.seoArticles.title })
-        .from(schema.seoArticles)
-        .where(eq(schema.seoArticles.status, 'published'))
-        .orderBy(desc(schema.seoArticles.publishedAt))
-        .limit(60),
-      db
-        .select()
-        .from(schema.seoInsights)
-        .where(inArray(schema.seoInsights.dimension, ['format', 'title_pattern']))
-        .limit(20),
-    ]);
-
-    await db
-      .update(schema.seoArticles)
-      .set({ status: 'generating', updatedAt: deps.now() })
-      .where(eq(schema.seoArticles.id, a.id));
-    const wantedFormat = (topic?.format ?? a.format ?? 'guide') as SeoArticleFormat;
-    const { data } = await ai.json(
-      {
-        agent: 'content',
-        purpose: 'article.write',
-        taskId: ctx.task.id,
-        tier: 'strong',
-        effort: 'high',
-        maxTokens: 20_000,
-        system: WRITER_SYSTEM,
-        prompt: `Напиши статью.
+          effort: 'high',
+          maxTokens: 20_000,
+          system: WRITER_SYSTEM,
+          prompt: `Напиши статью.
 Тема: «${a.title}»
 Основной запрос: «${a.primaryKeyword ?? a.title}»
 Дополнительные запросы: ${(topic?.keywords ?? a.secondaryKeywords).join(', ') || '—'}
@@ -219,136 +260,199 @@ ${published.map((p) => `- /blog/${p.slug} — ${p.title}`).join('\n') || '—'}
 ${insights.map((i) => `- ${i.dimension}=${i.value}: ${JSON.stringify(i.metrics)} (n=${i.sampleSize})`).join('\n') || '— (данных пока нет)'}
 
 Объём тела: 1200–2500 слов. FAQ: 3–6 вопросов, которые реально задают школьники. sources — только реально использованные URL из списка выше.`,
-      },
-      generatedArticleSchema,
-    );
-
-    // Code-side gate: structure, links, stuffing. Also drop external links not in the found sources.
-    const allowedExternal = new Set([
-      ...facts.sources.map((s) => s.url),
-      ...data.sources.map((s) => s.url),
-    ]);
-    const rendered = renderMarkdown(data.bodyMd);
-    const internalLinks = rendered.links.filter((l) => l.startsWith('/')).length;
-    const unknownExternal = rendered.links.filter(
-      (l) =>
-        /^https?:/.test(l) &&
-        !allowedExternal.has(l) &&
-        !OFFICIAL_SOURCES.some((d) => new URL(l).host.endsWith(d)),
-    );
-    const issues = articleQualityIssues(data, {
-      wordCount: rendered.wordCount,
-      h2Count: rendered.headings.filter((h) => h.level === 2).length,
-      internalLinks,
-    });
-    if (unknownExternal.length)
-      issues.push(
-        `Внешние ссылки не из найденных источников: ${unknownExternal.slice(0, 3).join(', ')}`,
+        },
+        generatedArticleSchema,
       );
 
-    const [current] = await db
-      .select()
-      .from(schema.seoArticles)
-      .where(eq(schema.seoArticles.id, a.id));
-    const live = current!.publishedAt !== null;
-    const slug = live ? current!.slug : await uniqueArticleSlug(db, seoSlug(data.slugHint), a.id);
-    const fields = {
-      title: data.title,
-      seoTitle: data.seoTitle,
-      metaDescription: data.metaDescription,
-      h1: data.h1,
-      slug,
-      format: data.format,
-      bodyMd: data.bodyMd,
-      faq: data.faq,
-      sources: data.sources,
-      ogTitle: data.ogTitle,
-      ogDescription: data.ogDescription,
-      primaryKeyword: data.primaryKeyword,
-      secondaryKeywords: data.secondaryKeywords,
-      ctaPath: data.ctaPath,
-      coverMediaId: current!.coverMediaId,
-      subjectId: current!.subjectId,
-    };
-    let pendingRevisionId: string | null = null;
-    if (live) {
-      // An article that is (or was) on the site is never overwritten by
-      // unreviewed text: the new version waits as a pending revision.
-      const [rev] = await db
-        .insert(schema.seoArticleRevisions)
-        .values({
-          articleId: a.id,
-          version: current!.version + 1,
-          snapshot: { ...fields, wordCount: rendered.wordCount, qualityIssues: issues },
-          reason: 'pending_update',
-          actor: 'agent:content',
-        })
-        .returning({ id: schema.seoArticleRevisions.id });
-      pendingRevisionId = rev!.id;
-      await db
-        .update(schema.seoArticles)
-        .set({
-          status: current!.status === 'published' ? 'needs_update' : current!.status,
-          error: null,
-          updatedAt: deps.now(),
-        })
-        .where(eq(schema.seoArticles.id, a.id));
-    } else {
-      if (current!.bodyMd)
-        await saveArticleRevision(
-          db,
-          current!,
-          payload.instructions ? 'agent_rewrite' : 'agent_generate',
-          'agent:content',
+      // Code-side gate: structure, links, stuffing. Also drop external links not in the found sources.
+      const allowedExternal = new Set([
+        ...facts.sources.map((s) => s.url),
+        ...data.sources.map((s) => s.url),
+      ]);
+      const rendered = renderMarkdown(data.bodyMd);
+      const internalLinks = rendered.links.filter((l) => l.startsWith('/')).length;
+      const unknownExternal = rendered.links.filter(
+        (l) =>
+          /^https?:/.test(l) &&
+          !allowedExternal.has(l) &&
+          !OFFICIAL_SOURCES.some((d) => new URL(l).host.endsWith(d)),
+      );
+      const issues = articleQualityIssues(data, {
+        wordCount: rendered.wordCount,
+        h2Count: rendered.headings.filter((h) => h.level === 2).length,
+        internalLinks,
+      });
+      if (unknownExternal.length)
+        issues.push(
+          `Внешние ссылки не из найденных источников: ${unknownExternal.slice(0, 3).join(', ')}`,
         );
-      await db
-        .update(schema.seoArticles)
-        .set({
-          ...fields,
-          wordCount: rendered.wordCount,
-          qualityIssues: issues,
-          status: 'draft',
-          factCheckPassed: null,
-          generatedBy: current!.generatedBy ?? 'agent',
-          version: current!.version + 1,
-          error: null,
-          updatedAt: deps.now(),
-        })
-        .where(eq(schema.seoArticles.id, a.id));
-    }
 
-    // Keywords of this article now count as covered (one article per query — anti-cannibalisation).
-    for (const q of [data.primaryKeyword, ...data.secondaryKeywords]) {
-      const normalized = normalizeQuery(q);
-      await db
-        .insert(schema.seoKeywords)
-        .values({
-          query: q,
-          normalized,
-          subjectId: a.subjectId,
-          articleId: a.id,
-          source: 'article',
-        })
-        .onConflictDoNothing();
-      await db
-        .update(schema.seoKeywords)
-        .set({ articleId: a.id })
-        .where(and(eq(schema.seoKeywords.normalized, normalized)));
+      const slugCandidate = live
+        ? a.slug
+        : await uniqueArticleSlug(db, seoSlug(data.slugHint), a.id);
+      // Fenced, atomic save: only the task's current owner writes, the
+      // article row is locked, and an edit made meanwhile (version changed)
+      // is never overwritten — the generated text is kept as a revision.
+      const saved = await ctx.commit(async (tx) => {
+        const [current] = await tx
+          .select()
+          .from(schema.seoArticles)
+          .where(eq(schema.seoArticles.id, a.id))
+          .for('update');
+        if (!current) throw new PermanentError('article was deleted during generation');
+        const fields = {
+          title: data.title,
+          seoTitle: data.seoTitle,
+          metaDescription: data.metaDescription,
+          h1: data.h1,
+          slug: live ? current.slug : slugCandidate,
+          format: data.format,
+          bodyMd: data.bodyMd,
+          faq: data.faq,
+          sources: data.sources,
+          ogTitle: data.ogTitle,
+          ogDescription: data.ogDescription,
+          primaryKeyword: data.primaryKeyword,
+          secondaryKeywords: data.secondaryKeywords,
+          ctaPath: data.ctaPath,
+          coverMediaId: current.coverMediaId,
+          subjectId: current.subjectId,
+        };
+        const snapshot = { ...fields, wordCount: rendered.wordCount, qualityIssues: issues };
+        if (current.version !== a.version) {
+          await tx.insert(schema.seoArticleRevisions).values({
+            articleId: a.id,
+            version: current.version,
+            snapshot,
+            reason: 'agent_draft_conflict',
+            actor: 'agent:content',
+          });
+          return { conflict: true as const };
+        }
+        let pendingRevisionId: string | null = null;
+        if (live) {
+          // An article that is (or was) on the site is never overwritten by
+          // unreviewed text: the new version waits as a pending revision.
+          const [rev] = await tx
+            .insert(schema.seoArticleRevisions)
+            .values({
+              articleId: a.id,
+              version: current.version + 1,
+              snapshot,
+              reason: 'pending_update',
+              actor: 'agent:content',
+            })
+            .returning({ id: schema.seoArticleRevisions.id });
+          pendingRevisionId = rev!.id;
+          await tx
+            .update(schema.seoArticles)
+            .set({
+              status: current.status === 'published' ? 'needs_update' : current.status,
+              error: null,
+              updatedAt: deps.now(),
+            })
+            .where(eq(schema.seoArticles.id, a.id));
+        } else {
+          if (current.bodyMd) {
+            await saveArticleRevision(
+              tx,
+              current,
+              payload.instructions ? 'agent_rewrite' : 'agent_generate',
+              'agent:content',
+            );
+          }
+          await tx
+            .update(schema.seoArticles)
+            .set({
+              ...fields,
+              wordCount: rendered.wordCount,
+              qualityIssues: issues,
+              status: 'draft',
+              factCheckPassed: null,
+              generatedBy: current.generatedBy ?? 'agent',
+              version: current.version + 1,
+              error: null,
+              updatedAt: deps.now(),
+            })
+            .where(eq(schema.seoArticles.id, a.id));
+        }
+        // Keywords of this article now count as covered (one article per query — anti-cannibalisation).
+        for (const q of [data.primaryKeyword, ...data.secondaryKeywords]) {
+          const normalized = normalizeQuery(q);
+          await tx
+            .insert(schema.seoKeywords)
+            .values({
+              query: q,
+              normalized,
+              subjectId: a.subjectId,
+              articleId: a.id,
+              source: 'article',
+            })
+            .onConflictDoNothing();
+          await tx
+            .update(schema.seoKeywords)
+            .set({ articleId: a.id })
+            .where(eq(schema.seoKeywords.normalized, normalized));
+        }
+        await tx
+          .insert(schema.seoTasks)
+          .values({
+            kind: 'review_article',
+            agent: 'content',
+            idempotencyKey: `review_article:${a.id}:v${current.version + 1}`,
+            articleId: a.id,
+            payload: { articleId: a.id, pendingRevisionId },
+            priority: 65,
+            parentId: ctx.task.id,
+          })
+          .onConflictDoNothing();
+        return { conflict: false as const };
+      });
+      if (saved.conflict) {
+        throw new PermanentError(
+          'статью отредактировали во время генерации — правка владельца сохранена, текст агента лежит в ревизиях',
+        );
+      }
+      await ctx.log(
+        'article.generated',
+        `Черновик «${data.title}»: ${rendered.wordCount} слов, ${issues.length ? `замечаний ${issues.length}` : 'без замечаний'}`,
+        { articleId: a.id, details: { issues } },
+      );
+      return { articleId: a.id, words: rendered.wordCount, issues: issues.length };
+    } catch (err) {
+      // Never leave the article in «Исследование»/«Генерация»: back to where it
+      // was (a retry follows), or «Ошибка» when no attempt is left. Fenced: a
+      // worker that lost the task touches nothing; only our own progress
+      // status is reverted (an article someone moved on is left alone).
+      const reason = err instanceof Error ? err.message : String(err);
+      const final = ctx.lastAttempt || err instanceof PermanentError;
+      if (!(err instanceof TaskAborted && err.reasonCode === 'lease_lost')) {
+        await ctx
+          .commit((tx) =>
+            tx
+              .update(schema.seoArticles)
+              .set({
+                ...(live ? {} : { status: final ? 'error' : statusBefore }),
+                error:
+                  `${final ? 'Генерация не удалась' : `Попытка ${ctx.task.attempts} из ${ctx.task.maxAttempts} не удалась, будет повтор`}: ${reason}`.slice(
+                    0,
+                    1000,
+                  ),
+                updatedAt: deps.now(),
+              })
+              .where(
+                live
+                  ? eq(schema.seoArticles.id, a.id)
+                  : and(
+                      eq(schema.seoArticles.id, a.id),
+                      inArray(schema.seoArticles.status, ['research', 'generating']),
+                    ),
+              ),
+          )
+          .catch(() => undefined);
+      }
+      throw err;
     }
-    await ctx.log(
-      'article.generated',
-      `Черновик «${data.title}»: ${rendered.wordCount} слов, ${issues.length ? `замечаний ${issues.length}` : 'без замечаний'}`,
-      { articleId: a.id, details: { issues } },
-    );
-    await ctx.enqueue({
-      kind: 'review_article',
-      agent: 'content',
-      key: `review_article:${a.id}:v${current!.version + 1}`,
-      articleId: a.id,
-      payload: { articleId: a.id, pendingRevisionId },
-      priority: 65,
-    });
-    return { articleId: a.id, words: rendered.wordCount, issues: issues.length };
   };
 }
 
@@ -443,17 +547,22 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
       verified.factualIssues.length === 0 &&
       a.qualityIssues.length === 0;
     const autoPublish = passed && settings.mode === 'auto' && !settings.publishingPaused;
-    if (pending) {
-      if (autoPublish) {
-        await applyPendingRevision(deps, stored, pendingRevisionId!, verified);
-      } else {
-        await db
+    // Fenced and conditional: only the task's owner writes, and only if the
+    // article is still what was reviewed. An article the owner published,
+    // scheduled or edited meanwhile keeps the owner's state.
+    const applied = await ctx.commit(async (tx) => {
+      if (pending) {
+        if (autoPublish) {
+          return applyPendingRevision(deps, stored, pendingRevisionId!, verified, tx);
+        }
+        const rows = await tx
           .update(schema.seoArticles)
           .set({ reviewNotes: { ...verified, pendingRevisionId, passed }, updatedAt: deps.now() })
-          .where(eq(schema.seoArticles.id, a.id));
+          .where(eq(schema.seoArticles.id, a.id))
+          .returning({ id: schema.seoArticles.id });
+        return rows.length > 0;
       }
-    } else {
-      await db
+      const rows = await tx
         .update(schema.seoArticles)
         .set({
           status: autoPublish ? 'scheduled' : 'review',
@@ -462,7 +571,23 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
           reviewNotes: verified,
           updatedAt: deps.now(),
         })
-        .where(eq(schema.seoArticles.id, a.id));
+        .where(
+          and(
+            eq(schema.seoArticles.id, a.id),
+            eq(schema.seoArticles.version, stored.version),
+            inArray(schema.seoArticles.status, ['draft', 'review', 'needs_update']),
+          ),
+        )
+        .returning({ id: schema.seoArticles.id });
+      return rows.length > 0;
+    });
+    if (!applied) {
+      await ctx.log(
+        'article.review_skipped',
+        `Факт-чек «${a.title}» не применён: статью изменили или опубликовали во время проверки`,
+        { articleId: a.id, level: 'warn' },
+      );
+      return { passed, verdict: verified.verdict, applied: false };
     }
     await ctx.log(
       'article.reviewed',
@@ -508,50 +633,23 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
   };
 }
 
-/** Applies a reviewed pending update to a live article (agent or admin). */
-export async function applyPendingRevision(
+/**
+ * Applies a reviewed pending update exactly once — the shared implementation
+ * in @zybrilka/db (also used by the admin «Применить обновление»).
+ */
+export function applyPendingRevision(
   deps: Pick<SeoDeps, 'db' | 'now'>,
   article: typeof schema.seoArticles.$inferSelect,
   revisionId: string,
   review: unknown,
-) {
-  const { db } = deps;
-  const [rev] = await db
-    .select()
-    .from(schema.seoArticleRevisions)
-    .where(eq(schema.seoArticleRevisions.id, revisionId));
-  if (!rev || rev.reason !== 'pending_update') return false;
-  const snap = rev.snapshot as Record<string, unknown>;
-  await saveArticleRevision(db, article, 'before_update', 'agent:content');
-  const { wordCount, qualityIssues, ...fields } = snap as {
-    wordCount?: number;
-    qualityIssues?: string[];
-  } & Record<string, unknown>;
-  await db
-    .update(schema.seoArticles)
-    .set({
-      ...(fields as object),
-      slug: article.slug,
-      wordCount: wordCount ?? article.wordCount,
-      qualityIssues: qualityIssues ?? [],
-      status: 'published',
-      factCheckPassed: true,
-      reviewNotes: review as Record<string, unknown>,
-      version: article.version + 1,
-      updatedAt: deps.now(),
-    })
-    .where(eq(schema.seoArticles.id, article.id));
-  await db
-    .update(schema.seoArticleRevisions)
-    .set({ reason: 'applied_update' })
-    .where(eq(schema.seoArticleRevisions.id, revisionId));
-  await enqueueSeoTask(db, {
-    kind: 'post_publish_check',
-    agent: 'technical',
-    idempotencyKey: `post_publish_check:${article.id}:v${article.version + 1}`,
+  tx?: SeoTx,
+): Promise<boolean> {
+  return applyPendingArticleRevision(deps.db, {
     articleId: article.id,
-    payload: { articleId: article.id },
-    priority: 80,
-  });
-  return true;
+    revisionId,
+    review: review as Record<string, unknown>,
+    actor: 'agent:content',
+    now: deps.now(),
+    tx,
+  }).then((r) => r !== null);
 }

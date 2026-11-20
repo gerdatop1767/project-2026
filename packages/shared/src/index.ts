@@ -44,3 +44,4 @@ export * from './miniGames.js';
 export * from './examScoring.js';
 export * from './broadcastAudience.js';
 export * from './seo/index.js';
+export * from './campaignTargets.js';

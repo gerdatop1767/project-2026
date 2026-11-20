@@ -101,6 +101,10 @@ export function errorText(error: unknown): string {
       unsupported_media_type: 'Нужен файл JPEG или PNG.',
       duplicate_not_found: 'Исходная жалоба не найдена.',
       duplicate_self: 'Жалоба не может быть дубликатом самой себя.',
+      article_changed:
+        'Статью изменили, пока вы её редактировали (агент или другая вкладка). Обновите страницу — ваши правки не сохранены.',
+      not_pending: 'Это обновление уже применено или отменено — обновите страницу.',
+      article_busy: 'Агент сейчас пишет эту статью — попробуйте через пару минут.',
     };
     if (error.detail) return error.detail;
     if (known[error.code]) return known[error.code]!;
