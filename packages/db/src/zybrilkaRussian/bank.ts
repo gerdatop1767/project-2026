@@ -10,6 +10,7 @@ import { TASK14 } from './data/task14.js';
 import { TASK15 } from './data/task15.js';
 import { TASK16 } from './data/task16.js';
 import { TASK17 } from './data/task17.js';
+import { TASK18 } from './data/task18.js';
 import type { BankNumber } from './types.js';
 
 /**
@@ -31,6 +32,7 @@ export const BANK_NUMBERS: readonly BankNumber[] = [
   TASK15,
   TASK16,
   TASK17,
+  TASK18,
 ];
 
 export const bankSource = (taskNumber: number) =>
