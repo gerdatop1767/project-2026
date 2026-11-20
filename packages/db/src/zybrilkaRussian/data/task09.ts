@@ -278,7 +278,7 @@ export const TASK9_SPEC: RowsNumberSpec = {
   hint: 'Сначала определи тип орфограммы в каждом слове: проверяемая, непроверяемая или чередующаяся. Для чередования вспомни правило, а не ударение.',
   kindOf: (words) => {
     const count = (c: string) => words.filter((w) => w.cat === c).length;
-    const top = (['п', 'с', 'ч'] as const).sort((a, b) => count(b) - count(a))[0];
+    const top = ['п', 'с', 'ч'].sort((a, b) => count(b) - count(a))[0];
     return top === 'ч'
       ? 'больше чередующихся корней'
       : top === 'с'
