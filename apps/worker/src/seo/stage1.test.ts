@@ -273,6 +273,9 @@ describe('stage 1: queue, AI gateway and article lifecycle', () => {
     const write = handlers.write_article!;
     handlers.write_article = async (ctx) => {
       const p = write(ctx);
+      // The rejection is returned (and asserted) below; mark it observed now so the
+      // 5 ms pause does not count as an unhandled rejection (which fails the run).
+      p.catch(() => undefined);
       await sleep(5);
       during = (await t.db.select().from(schema.seoArticles))[0]!.status;
       return p;
