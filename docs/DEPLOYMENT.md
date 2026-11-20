@@ -583,3 +583,31 @@ $C run --rm migrate node node_modules/@zybrilka/db/dist/importRussianDoshchinsky
 ```
 
 Затем `$C config --quiet` и `$C config | grep -c Doshchinsky2026Book36` → `1`. Если `sync-content` в файле нет, файл не трогать: выполнять шаг 2 при каждом деплое после `run --rm migrate`.
+
+
+## Авторские задания Зубрилки по русскому, №10, на VPS
+
+50 собственных заданий №10 импортирует `importZybrilkaRussian10.js` (коллекция `zybrilka-russian-10`, 5 наборов по 10 заданий, `docs/imports/zybrilka-russian-10.md`). Новых миграций нет. В `infra/docker-compose.yml` импортёр стоит в цепочке `sync-content` сразу после сборника 2026 года и перед словарём ударений. Задания других источников он не трогает.
+
+`C` — как в разделе о словаре ударений.
+
+**0. Резервная копия базы** (`pg_dump`).
+
+**1. Разовый импорт без изменения файлов:**
+
+```bash
+$C run --rm --no-deps migrate ls node_modules/@zybrilka/db/dist/ | grep ZybrilkaRussian10
+$C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.js
+```
+
+Импорт сначала проверяет все 50 заданий и пишет всё в одной транзакции. Повторный запуск ничего не меняет (`unchanged 50`). Навыки Learning Engine проставит API при следующем старте, или вручную: `node node_modules/@zybrilka/db/dist/learningSkills.js`.
+
+**2. Чтобы задания обновлялись при каждом деплое** — если в локальном `docker-compose.deploy.yml` есть `sync-content` с цепочкой `&&`:
+
+```diff
+         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js &&
++        node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.js &&
+         node node_modules/@zybrilka/db/dist/stressDictionary/import.js
+```
+
+Затем `$C config --quiet` и `$C config | grep -c ZybrilkaRussian10` → `1`.

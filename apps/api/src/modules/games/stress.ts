@@ -14,6 +14,7 @@ import {
 } from '@zybrilka/shared';
 import { and, eq, gt, gte, isNull, sql } from 'drizzle-orm';
 import { moscowDate } from '../admin/period.js';
+import { recordRoundAnswer } from './roundAnswers.js';
 
 export const STRESS_GAME_ID = 'stress';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -127,21 +128,34 @@ function ownSession(sessionId: string, userId: string | null) {
 }
 
 async function countInSession(
-  db: Pick<Database, 'update'>,
+  db: Pick<Database, 'update' | 'insert'>,
   sessionId: string,
   userId: string | null,
   correct: boolean,
   now: Date,
+  wordId: string,
 ): Promise<void> {
   const s = schema.miniGameSessions;
-  await db
+  const own = await db
     .update(s)
     .set({
       answeredCount: sql`${s.answeredCount} + 1`,
       correctCount: correct ? sql`${s.correctCount} + 1` : s.correctCount,
       lastAnswerAt: now,
     })
-    .where(ownSession(sessionId, userId));
+    .where(ownSession(sessionId, userId))
+    .returning({ id: s.id });
+  // Only the player's own round gets the question's first-answer row.
+  if (own.length > 0) {
+    await recordRoundAnswer(db, {
+      sessionId,
+      gameId: STRESS_GAME_ID,
+      itemId: wordId,
+      userId,
+      correct,
+      now,
+    });
+  }
 }
 
 /**
@@ -205,7 +219,9 @@ export async function answerStress(
         })
         .returning({ id: schema.miniGameAnswers.id });
       if (inserted.length === 0) return; // already counted
-      if (input.sessionId) await countInSession(tx, input.sessionId, userId, correct, now);
+      if (input.sessionId) {
+        await countInSession(tx, input.sessionId, userId, correct, now, word.id);
+      }
       const p = schema.miniGameItemProgress;
       await tx
         .insert(p)
@@ -238,7 +254,7 @@ export async function answerStress(
     });
   } else if (input.sessionId) {
     // A guest's answer is not stored; only the round's counters move.
-    await countInSession(db, input.sessionId, null, correct, now);
+    await countInSession(db, input.sessionId, null, correct, now, word.id);
   }
   return {
     correct,

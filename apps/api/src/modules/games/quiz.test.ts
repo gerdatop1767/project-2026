@@ -455,4 +455,50 @@ describe('mini-games — quizzes (real content)', () => {
     ).json() as QuizAnswerResponse;
     expect(ok.correct).toBe(true);
   });
+
+  it('per-round first answers: a guest re-sending an answer counts the question once', async () => {
+    const round = (await get('/games/quiz/nn/round?size=3')).json() as QuizRoundResponse;
+    const q = round.questions[0]!;
+    const body = {
+      itemId: q.itemId,
+      answer: 'Н',
+      clientAnswerId: randomUUID(),
+      sessionId: round.sessionId,
+    };
+    await post('/games/quiz/nn/answer', body);
+    await post('/games/quiz/nn/answer', body);
+    const rows = await testDb.db
+      .select()
+      .from(schema.miniGameRoundAnswers)
+      .where(eq(schema.miniGameRoundAnswers.sessionId, round.sessionId!));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ itemId: q.itemId, attempts: 2, userId: null });
+    const { cookie, id } = await player();
+    const mine = (await get('/games/quiz/nn/round?size=3', cookie)).json() as QuizRoundResponse;
+    const answer = {
+      itemId: mine.questions[0]!.itemId,
+      answer: 'НН',
+      clientAnswerId: randomUUID(),
+      sessionId: mine.sessionId,
+    };
+    await post('/games/quiz/nn/answer', answer, cookie);
+    await post('/games/quiz/nn/answer', answer, cookie); // the same answer again
+    // Someone else's round id: nothing is recorded for it.
+    await post(
+      '/games/quiz/nn/answer',
+      { ...answer, clientAnswerId: randomUUID(), sessionId: round.sessionId },
+      cookie,
+    );
+    const own = await testDb.db
+      .select()
+      .from(schema.miniGameRoundAnswers)
+      .where(eq(schema.miniGameRoundAnswers.sessionId, mine.sessionId!));
+    expect(own).toHaveLength(1);
+    expect(own[0]).toMatchObject({ userId: id, attempts: 1 });
+    const guestRound = await testDb.db
+      .select()
+      .from(schema.miniGameRoundAnswers)
+      .where(eq(schema.miniGameRoundAnswers.sessionId, round.sessionId!));
+    expect(guestRound).toHaveLength(1);
+  });
 });

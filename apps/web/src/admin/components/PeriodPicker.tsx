@@ -6,12 +6,14 @@ export const periodOptions = [
   { value: 'today', label: 'Сегодня' },
   { value: 'yesterday', label: 'Вчера' },
   { value: '7d', label: '7 дней' },
+  { value: '15d', label: '15 дней' },
   { value: '30d', label: '30 дней' },
   { value: '90d', label: '90 дней' },
   { value: 'month', label: 'Текущий месяц' },
   { value: 'prev_month', label: 'Прошлый месяц' },
   { value: 'year', label: 'Год' },
   { value: 'custom', label: 'Свой период' },
+  { value: 'all', label: 'Всё время' },
 ] as const;
 
 /** The period (and granularity) from the URL — shared by every report page. */
@@ -31,7 +33,17 @@ export function usePeriodQuery(defaultPeriod = '30d') {
  * Period presets + a custom range (Moscow dates). Kept in the URL so a
  * report can be bookmarked or shared with the same numbers.
  */
-export function PeriodPicker({ withGranularity = false }: { withGranularity?: boolean }) {
+export function PeriodPicker({
+  withGranularity = false,
+  only,
+}: {
+  withGranularity?: boolean;
+  /** The presets this report offers (default: every preset except «Всё время»). */
+  only?: readonly string[];
+}) {
+  const options = only
+    ? periodOptions.filter((o) => only.includes(o.value))
+    : periodOptions.filter((o) => o.value !== 'all');
   const { setParams } = useAdminRouter();
   const q = usePeriodQuery();
   const [from, setFrom] = useState(q.from ?? '');
@@ -52,7 +64,7 @@ export function PeriodPicker({ withGranularity = false }: { withGranularity?: bo
           })
         }
       >
-        {periodOptions.map((o) => (
+        {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>

@@ -989,3 +989,23 @@
   margin: var(--space-3) 0;
   accent-color: var(--color-accent-primary);
 }
+
+/* A button that looks like a link (navigation inside one report page). */
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent-primary-end);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.linkButton:focus-visible {
+  outline: 2px solid var(--color-accent-ring, var(--color-accent-primary-end));
+  outline-offset: 2px;
+}
