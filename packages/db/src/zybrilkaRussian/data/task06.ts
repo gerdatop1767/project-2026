@@ -1,5 +1,6 @@
 import { buildLexical6, type Lexical6 } from '../build.js';
 import type { BankNumber } from '../types.js';
+import { TASK6_MORE } from './task06more.js';
 
 /** Task 6 (лексические нормы): an extra word (плеоназм) or a wrong word in a set phrase. */
 const BATCH1: readonly Lexical6[] = [
@@ -95,7 +96,7 @@ export const TASK6: BankNumber = {
   taskNumber: 6,
   topicSlug: 'russian-lexical-norms',
   topicName: 'Лексические нормы',
-  tasks: BATCH1.map((t, i) => buildLexical6(i + 1, t)),
+  tasks: [...BATCH1, ...TASK6_MORE].map((t, i) => buildLexical6(i + 1, t)),
 };
 
 export const TASK6_SOURCE = { BATCH1 };

@@ -221,7 +221,7 @@ function wrongIndex(u: Usable, rand: () => number): number {
 /** Same lemma in one task makes it a comparison, not a recall: keep them apart. */
 const stem = (s: string) => s.slice(0, 5);
 
-export function buildTask4Bank(count = 50, seed = 4042027): BankTask[] {
+export function buildTask4Bank(count = 100, seed = 4042027): BankTask[] {
   const rand = rng(seed);
   const pool = task4Pool();
   let queue: Usable[] = [];
@@ -264,14 +264,23 @@ export function buildTask4Bank(count = 50, seed = 4042027): BankTask[] {
   }
 
   // Difficulty by real hardness: verb / participle / short and case forms
-  // are the traps of task 4; the 15 easiest are «лёгкие», the 13 hardest «сложные».
-  const order = drafts
-    .map((d, i) => ({ i, score: d.score }))
-    .sort((a, b) => a.score - b.score || a.i - b.i);
+  // are the traps of task 4. Ranked inside each block of 50 so that a
+  // block, once published, never changes when the next one is added:
+  // block 1 — 15 / 22 / 13 (as first published), block 2 — 15 / 18 / 17,
+  // together 30 / 40 / 30.
+  const SPLITS: readonly (readonly [number, number])[] = [
+    [15, 37],
+    [15, 33],
+  ];
   const difficultyOf = new Map<number, Difficulty>();
-  order.forEach((o, rank) =>
-    difficultyOf.set(o.i, rank < count * 0.3 ? 1 : rank < count * 0.74 ? 2 : 3),
-  );
+  for (let start = 0; start < drafts.length; start += 50) {
+    const [easy, mid] = SPLITS[start / 50] ?? [15, 35];
+    drafts
+      .slice(start, start + 50)
+      .map((d, k) => ({ i: start + k, score: d.score }))
+      .sort((a, b) => a.score - b.score || a.i - b.i)
+      .forEach((o, rank) => difficultyOf.set(o.i, rank < easy ? 1 : rank < mid ? 2 : 3));
+  }
 
   return drafts.map((d, i) => {
     const flags = d.words.map((w) => w.right);

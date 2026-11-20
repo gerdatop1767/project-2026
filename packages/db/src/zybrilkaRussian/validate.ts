@@ -4,10 +4,10 @@ import { highlightsOf } from './build.js';
 /**
  * Deterministic checks of the bank (docs/imports/zybrilka-russian-4-22-plan.md §5).
  * Returns every problem; empty = ready to import. `complete` requires the
- * full 50 tasks with the 15 / 22 / 13 difficulty split.
+ * full 100 tasks with the 30 / 40 / 30 difficulty split.
  */
-export const BANK_SIZE = 50;
-export const DIFFICULTY_SPLIT = { 1: 15, 2: 22, 3: 13 } as const;
+export const BANK_SIZE = 100;
+export const DIFFICULTY_SPLIT = { 1: 30, 2: 40, 3: 30 } as const;
 
 const ANSWER_TYPE: Record<number, BankTask['answer']['type']> = {
   4: 'digits',

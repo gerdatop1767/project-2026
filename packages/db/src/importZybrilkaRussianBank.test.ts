@@ -79,7 +79,7 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
       stress.set(e.word.replace(/ё/g, 'е'), e.stressIndex);
     }
     const t4 = BANK_NUMBERS.find((b) => b.taskNumber === 4)!;
-    expect(t4.tasks).toHaveLength(50);
+    expect(t4.tasks).toHaveLength(100);
     for (const t of t4.tasks) {
       expect(t.conditionMd.startsWith(TASK4_INSTRUCTION)).toBe(true);
       const options = t.conditionMd

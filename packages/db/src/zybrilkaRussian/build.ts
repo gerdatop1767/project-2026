@@ -45,11 +45,9 @@ export function buildParonym5(n: number, t: Paronym5): BankTask {
   const i = t.wrong - 1;
   const sentence = t.s[i]!;
   const bad = highlightsOf(sentence)[0]!;
-  const fixed = plain(sentence.replace(`{${bad}}`, `**${t.fix}**`));
-  const others = t.s
-    .map((s, k) => ({ s, k }))
-    .filter(({ k }) => k !== i)
-    .map(({ s, k }) => `- **${highlightsOf(s)[0]}** — ${t.why[k]}`);
+  const atStart = sentence.trimStart().startsWith(`{${bad}}`);
+  const fixed = plain(sentence.replace(`{${bad}}`, `**${atStart ? cap(t.fix) : t.fix}**`));
+  const others = t.why.filter((_, k) => k !== i).map((w) => `- ${cap(w)}`);
   return {
     taskNumber: 5,
     n,
@@ -87,6 +85,8 @@ export interface Lexical6 {
   readonly accepted?: readonly string[];
   readonly why: string;
   readonly note: string;
+  /** The corrected sentence, when the fix changes more than the word (e.g. a case after «из-за»). */
+  readonly corrected?: string;
 }
 
 export function buildLexical6(n: number, t: Lexical6): BankTask {
@@ -95,7 +95,12 @@ export function buildLexical6(n: number, t: Lexical6): BankTask {
   const corrected =
     t.mode === 'remove'
       ? plain(t.s.replace(`{${target}} `, '').replace(` {${target}}`, ''))
-      : plain(t.s.replace(`{${target}}`, t.fix!));
+      : plain(
+          t.s.replace(
+            `{${target}}`,
+            t.s.trimStart().startsWith(`{${target}}`) ? cap(t.fix!) : t.fix!,
+          ),
+        );
   return {
     taskNumber: 6,
     n,
@@ -105,10 +110,10 @@ export function buildLexical6(n: number, t: Lexical6): BankTask {
     answer: { type: 'word', word: answer.toLowerCase(), accepted: t.accepted ?? [] },
     explanationMd: [
       t.mode === 'remove'
-        ? 'Ищем слово, которое повторяет смысл другого слова в предложении (плеоназм) или однокоренное слово рядом (тавтология): без него смысл не меняется.'
+        ? 'Ищем слово, которое повторяет смысл другого слова в предложении (это плеоназм): без него смысл не меняется, а ошибка исчезает.'
         : 'Ищем слово, которое не сочетается с соседними по смыслу или по устойчивому употреблению, и подбираем верное, сохраняя смысл.',
       `**Ошибка: «${target}».** ${cap(dot(t.why))}`,
-      `Исправленное предложение: «${dot(corrected)}»`,
+      `Исправленное предложение: «${dot(cap(t.corrected ?? corrected))}»`,
       `**Обрати внимание.** ${t.note}`,
       `Ответ: ${[answer.toLowerCase(), ...(t.accepted ?? [])].join(' / ')}.`,
     ].join('\n\n'),
