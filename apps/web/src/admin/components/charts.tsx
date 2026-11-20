@@ -203,6 +203,20 @@ export function LineSeriesChart({
                   />
                 ))}
               </svg>
+              {/* One bucket (e.g. «Сегодня») has no line to draw: show its point. */}
+              {n === 1 &&
+                active === null &&
+                series.map((sr) => (
+                  <span
+                    key={sr.key}
+                    className={c.dot}
+                    style={{
+                      left: '50%',
+                      top: `${(y(rows[0]!.values[sr.key] ?? 0) / H) * 100}%`,
+                      background: sr.color,
+                    }}
+                  />
+                ))}
               {active !== null && rows[active] && (
                 <>
                   <span className={c.guide} style={{ left: `${xPct(active)}%` }} />

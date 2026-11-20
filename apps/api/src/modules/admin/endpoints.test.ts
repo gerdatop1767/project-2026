@@ -83,6 +83,10 @@ describe('admin endpoints (as the owner)', () => {
     '/api/v1/admin/audit',
     '/api/v1/admin/settings',
     '/api/v1/admin/mini-games?period=7d',
+    '/api/v1/admin/mini-games?period=15d&game=nn',
+    '/api/v1/admin/mini-games?period=all&game=theory-practice',
+    '/api/v1/admin/mini-games/overview?period=today',
+    '/api/v1/admin/mini-games/overview?period=all',
     '/api/v1/admin/mini-games?period=custom&from=2026-01-01&to=2026-01-31&game=stress',
   ])('GET %s → 200 for the owner', async (url) => {
     const res = await get(url);

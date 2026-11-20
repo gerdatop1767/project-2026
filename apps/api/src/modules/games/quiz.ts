@@ -34,6 +34,7 @@ import {
 } from '@zybrilka/shared';
 import { and, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { shuffle } from './stress.js';
+import { recordRoundAnswer } from './roundAnswers.js';
 
 /**
  * Quiz mini-games (docs/MINI_GAMES.md § Игры-викторины): questions cut out
@@ -320,6 +321,14 @@ export async function answerQuiz(
             lastAnswerAt: now,
           })
           .where(ownSession(gameId, input.sessionId!, userId));
+        await recordRoundAnswer(tx, {
+          sessionId: input.sessionId!,
+          gameId,
+          itemId: item.id,
+          userId,
+          correct,
+          now,
+        });
       }
       const p = schema.miniGameItemProgress;
       await tx
@@ -355,14 +364,25 @@ export async function answerQuiz(
   } else if (input.sessionId) {
     // A guest's answer is not stored; only the round's counters move.
     const s = schema.miniGameSessions;
-    await db
+    const own = await db
       .update(s)
       .set({
         answeredCount: sql`${s.answeredCount} + 1`,
         correctCount: correct ? sql`${s.correctCount} + 1` : s.correctCount,
         lastAnswerAt: now,
       })
-      .where(ownSession(gameId, input.sessionId, null));
+      .where(ownSession(gameId, input.sessionId, null))
+      .returning({ id: s.id });
+    if (own.length > 0) {
+      await recordRoundAnswer(db, {
+        sessionId: input.sessionId,
+        gameId,
+        itemId: item.id,
+        userId: null,
+        correct,
+        now,
+      });
+    }
   }
   return {
     correct,

@@ -20,12 +20,14 @@ export const periodPresets = [
   'today',
   'yesterday',
   '7d',
+  '15d',
   '30d',
   '90d',
   'month',
   'prev_month',
   'year',
   'custom',
+  'all',
 ] as const;
 export type PeriodPreset = (typeof periodPresets)[number];
 
@@ -87,7 +89,15 @@ export function makeRange(from: string, to: string): Range {
   };
 }
 
-export function resolvePeriod(query: PeriodQuery, now: Date = new Date()): Period {
+/**
+ * `allFrom`: where «Всё время» starts for this report (its first record);
+ * without it «Всё время» is the longest allowed range.
+ */
+export function resolvePeriod(
+  query: PeriodQuery,
+  now: Date = new Date(),
+  options: { allFrom?: string | null } = {},
+): Period {
   const today = moscowDate(now);
   let from: string;
   let to = today;
@@ -101,6 +111,15 @@ export function resolvePeriod(query: PeriodQuery, now: Date = new Date()): Perio
     case '7d':
       from = addDays(today, -6);
       break;
+    case '15d':
+      from = addDays(today, -14);
+      break;
+    case 'all': {
+      const earliest = addDays(today, -(MAX_PERIOD_DAYS - 1));
+      const first = options.allFrom && isRealDate(options.allFrom) ? options.allFrom : earliest;
+      from = first > today ? today : first < earliest ? earliest : first;
+      break;
+    }
     case '30d':
       from = addDays(today, -29);
       break;

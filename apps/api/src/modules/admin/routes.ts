@@ -10,7 +10,13 @@ import { rejectCrossSiteWrites } from '../../plugins/authSession.js';
 import type { RequestMetrics } from '../../plugins/requestMetrics.js';
 import { requireAdmin } from './access.js';
 import { writeAudit } from './audit.js';
-import { PeriodError, periodQuerySchema, resolvePeriod, type Period } from './period.js';
+import {
+  PeriodError,
+  moscowDate,
+  periodQuerySchema,
+  resolvePeriod,
+  type Period,
+} from './period.js';
 import { computeAlerts } from './reports/alerts.js';
 import {
   campaignCreateSchema,
@@ -44,6 +50,16 @@ import { overviewReport } from './reports/overview.js';
 import { qualityReport } from './reports/quality.js';
 import { streaksReport } from './reports/streaks.js';
 import { miniGamesReport } from './reports/miniGames.js';
+import {
+  compareTotals,
+  emptyTotals,
+  gameSeries,
+  gameTotals,
+  miniGameDataSince,
+  miniGamesOverview,
+} from './reports/miniGamesOverview.js';
+import { miniGameQuestions } from './reports/miniGameQuestions.js';
+import { ReportCache } from './reportCache.js';
 import {
   adminSettingsSchema,
   loadSettings,
@@ -269,14 +285,53 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   const miniGamesQuery = z.object({
     game: z.enum(MINI_GAMES.map((g) => g.id) as [string, ...string[]]).default('stress'),
   });
+  const reportCache = new ReportCache();
+  // «Всё время» starts with the first mini-game round.
+  const miniGamesPeriod = async (request: FastifyRequest, gameId: string | null) => {
+    const q = parse(periodQuerySchema, request.query);
+    if (q.period !== 'all') return resolvePeriod(q);
+    const since = await miniGameDataSince(db, gameId);
+    return resolvePeriod(q, new Date(), {
+      allFrom: since.sessionsSince ? moscowDate(new Date(since.sessionsSince)) : null,
+    });
+  };
+  app.get('/admin/mini-games/overview', async (request) => {
+    const period = await miniGamesPeriod(request, null);
+    return reportCache.get(
+      `overview|${period.from}|${period.to}|${period.granularity}`,
+      async () => ({
+        period: describePeriod(period),
+        ...(await miniGamesOverview(db, period)),
+      }),
+    );
+  });
   app.get('/admin/mini-games', async (request) => {
-    const period = periodOf(request);
     const { game } = parse(miniGamesQuery, request.query);
-    return {
-      period: describePeriod(period),
-      games: MINI_GAMES.map((g) => ({ id: g.id, title: g.title })),
-      ...(await miniGamesReport(db, period, game)),
-    };
+    const period = await miniGamesPeriod(request, game);
+    return reportCache.get(
+      `game|${game}|${period.from}|${period.to}|${period.granularity}`,
+      async () => {
+        const [report, current, previous, series, questions, since] = await Promise.all([
+          miniGamesReport(db, period, game),
+          gameTotals(db, period, game),
+          gameTotals(db, period.previous, game),
+          gameSeries(db, period, game),
+          miniGameQuestions(db, period, game),
+          miniGameDataSince(db, game),
+        ]);
+        const totals = current.get(game) ?? emptyTotals();
+        return {
+          period: describePeriod(period),
+          games: MINI_GAMES.map((g) => ({ id: g.id, title: g.title })),
+          ...report,
+          questionsSince: since.questionsSince,
+          totals,
+          compare: compareTotals(totals, previous.get(game) ?? emptyTotals()),
+          series,
+          questions,
+        };
+      },
+    );
   });
 
   // ── Кампании и ссылки ────────────────────────────────────────────────

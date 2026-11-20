@@ -1968,6 +1968,7 @@ export const miniGameAnswers = pgTable(
   (table) => [
     uniqueIndex('mini_game_answers_client_idx').on(table.userId, table.clientAnswerId),
     index('mini_game_answers_user_game_idx').on(table.userId, table.gameId, table.createdAt),
+    index('mini_game_answers_game_time_idx').on(table.gameId, table.createdAt),
   ],
 );
 
@@ -1998,7 +1999,37 @@ export const miniGameSessions = pgTable(
   },
   (table) => [
     index('mini_game_sessions_game_started_idx').on(table.gameId, table.startedAt),
+    index('mini_game_sessions_started_idx').on(table.startedAt),
     index('mini_game_sessions_user_idx').on(table.userId, table.gameId),
+  ],
+);
+
+/**
+ * The first answer to each question of a round (docs/ADMIN.md §Мини-игры):
+ * one row per (round, question), guests included — so «решённые вопросы»
+ * and «правильные с первого раза» are exact and never doubled by a re-sent
+ * answer or a retry («Повторить слово» only raises `attempts`). Rounds
+ * before this table existed are not reconstructed.
+ */
+export const miniGameRoundAnswers = pgTable(
+  'mini_game_round_answers',
+  {
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => miniGameSessions.id),
+    gameId: text('game_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    /** Registered player, null for a guest. */
+    userId: uuid('user_id').references(() => users.id),
+    firstCorrect: boolean('first_correct').notNull(),
+    /** Answers to this question in this round (retries included). */
+    attempts: integer('attempts').notNull().default(1),
+    answeredAt: timestamp('answered_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.sessionId, table.itemId] }),
+    index('mini_game_round_answers_game_time_idx').on(table.gameId, table.answeredAt),
+    index('mini_game_round_answers_game_item_idx').on(table.gameId, table.itemId),
   ],
 );
 
