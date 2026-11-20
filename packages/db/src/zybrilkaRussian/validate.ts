@@ -49,6 +49,9 @@ export function validateTask(t: BankTask): string[] {
   if (!t.explanationMd.includes('**Обрати внимание.**')) p.push(`${where}: no «Обрати внимание»`);
   if (t.hintMd.trim().length < 20) p.push(`${where}: hint is missing`);
   if (/[{}]/.test(t.conditionMd)) p.push(`${where}: unrendered {highlight} in the condition`);
+  for (const text of [t.conditionMd, t.explanationMd, t.hintMd])
+    if (/[а-яё][a-z]|[a-z][а-яё]/i.test(text))
+      p.push(`${where}: Latin and Cyrillic letters mixed in a word`);
   if (/\b(ФИПИ|Дощинск)/i.test(t.conditionMd))
     p.push(`${where}: the condition names another source`);
   return p;
