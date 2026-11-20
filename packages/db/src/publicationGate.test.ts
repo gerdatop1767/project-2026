@@ -35,24 +35,49 @@ describe('publication gate (pure)', () => {
     expect(rec({ webSources: [] }).result).toBe('failed');
     expect(rec({ webChecked: false }).result).toBe('failed');
     expect(rec({ verdict: 'fix' }).result).toBe('failed');
-    expect(
-      rec({ factualIssues: [{ claim: 'x', severity: 'minor', status: 'unverified' }] }).result,
-    ).toBe('failed');
+    expect(rec({ factualIssues: [{ claim: 'x', category: 'numeric_fact' }] }).result).toBe(
+      'failed',
+    );
   });
 
-  it('fail-closed issue classification', () => {
+  it("criticality is the server's, by category", () => {
     const r = rec({
       verdict: 'fix',
       factualIssues: [
-        { claim: 'a' },
-        { claim: 'b', severity: 'critical', status: 'unverified' },
-        { claim: 'c', severity: 'minor' },
-        { claim: 'd', severity: '???', status: '???' },
+        { claim: 'a', category: 'test_scores', severity: 'minor', status: 'contradicted' },
+        { claim: 'b', category: 'exam_dates', status: 'unverified' },
+        { claim: 'c', category: 'wording', severity: 'critical' },
+        { claim: 'd' },
+        { claim: 'e', category: 'other' },
+        { claim: 'Срок — 1 июня', category: 'style' },
+        { claim: 'f', category: 'regulations', status: '???' },
       ],
     });
-    expect(r.criticalContradictions).toEqual(['a', 'd']);
-    expect(r.unverifiedCritical).toEqual(['b']);
+    expect(r.criticalContradictions).toEqual(['a', 'f']);
+    expect(r.ambiguous).toEqual(['d', 'e', 'Срок — 1 июня']);
+    expect(r.unverifiedCritical).toEqual(['b', 'd', 'e', 'Срок — 1 июня']);
     expect(r.minorIssues).toEqual(['c']);
+    expect(r.result).toBe('failed');
+    expect(r.issues.map((i) => i.rule)).toEqual([
+      'critical_category',
+      'critical_category',
+      'minor_category',
+      'unknown_category',
+      'unknown_category',
+      'minor_with_number',
+      'critical_category',
+    ]);
+  });
+
+  it('minor issues alone do not block; «reject» and «fix» without issues do', () => {
+    const minor = [{ claim: 'лучше «решать», чем «прорешивать»', category: 'wording' }];
+    expect(rec({ verdict: 'fix', factualIssues: minor }).result).toBe('verified');
+    expect(rec({ verdict: 'pass', factualIssues: minor }).result).toBe('verified');
+    expect(rec({ verdict: 'reject', factualIssues: minor }).result).toBe('failed');
+    expect(rec({ verdict: 'fix' }).result).toBe('failed');
+    expect(rec({ verdict: 'fix', factualIssues: minor, webSources: [] }).result).toBe('failed');
+    const many = Array.from({ length: 31 }, (_, i) => ({ claim: `w${i}`, category: 'style' }));
+    expect(rec({ verdict: 'pass', factualIssues: many }).result).toBe('failed');
   });
 
   it('decides only from the server record and the manual approval', () => {
@@ -75,7 +100,7 @@ describe('publication gate (pure)', () => {
     expect(g({ manualApproval: manual })).toMatchObject({ allowed: true, basis: 'manual' });
     const contradicted = rec({
       verdict: 'fix',
-      factualIssues: [{ claim: 'x', severity: 'critical', status: 'contradicted' }],
+      factualIssues: [{ claim: 'x', category: 'exam_rules', status: 'contradicted' }],
     });
     expect(g({ factCheck: contradicted, manualApproval: manual })).toMatchObject({
       allowed: false,

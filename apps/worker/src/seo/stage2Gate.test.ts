@@ -185,7 +185,9 @@ describe('stage 2.1: publication safety gate (worker)', () => {
           claim: 'Задание 13 — 4 балла',
           problem: 'по спецификации 2 балла',
           correction: '2 балла',
-          severity: 'critical',
+          category: 'primary_scores',
+          // The model calls it minor — the server decides by category.
+          severity: 'minor',
           status: 'contradicted',
         },
       ],

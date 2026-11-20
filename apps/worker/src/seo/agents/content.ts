@@ -3,6 +3,7 @@ import {
   articleContentHash,
   buildFactCheckRecord,
   enqueueSeoTask,
+  FACT_CATEGORIES,
   gateReasonText,
   loadSeoSettings,
   reviewNotesWithRecord,
@@ -72,7 +73,9 @@ const reviewSchema = z.object({
         claim: z.string().max(500),
         problem: z.string().max(500),
         correction: z.string().max(800),
-        /** critical — баллы, номера, даты, форматы, правила; minor — формулировки и детали. */
+        /** Closed list; the server decides criticality by it (factClassification.ts). */
+        category: z.enum(FACT_CATEGORIES),
+        /** The model's suggestion only — recorded, never used to decide. */
         severity: z.enum(['critical', 'minor']),
         /** contradicted — источники говорят иное; unverified — подтверждения не нашлось. */
         status: z.enum(['contradicted', 'unverified']),
@@ -470,15 +473,36 @@ export function reviewArticleHandler(deps: SeoDeps): TaskHandler {
   return async (ctx) => {
     const { db, ai } = deps;
     const settings = await loadSeoSettings(db);
-    const { articleId, pendingRevisionId } = ctx.task.payload as {
+    const payload = ctx.task.payload as {
       articleId: string;
       pendingRevisionId?: string | null;
     };
+    const { articleId } = payload;
+    let pendingRevisionId = payload.pendingRevisionId ?? null;
     const [stored] = await db
       .select()
       .from(schema.seoArticles)
       .where(eq(schema.seoArticles.id, articleId));
     if (!stored) throw new PermanentError('article not found');
+    // A live article (published / needs_update) is never taken off the site
+    // by a check. A check started without a revision reviews the newest
+    // pending update if there is one (the candidate version), else the live
+    // text itself — the status stays as it is either way.
+    const live = stored.status === 'published' || stored.status === 'needs_update';
+    if (!pendingRevisionId && live) {
+      const [latest] = await db
+        .select({ id: schema.seoArticleRevisions.id })
+        .from(schema.seoArticleRevisions)
+        .where(
+          and(
+            eq(schema.seoArticleRevisions.articleId, stored.id),
+            eq(schema.seoArticleRevisions.reason, 'pending_update'),
+          ),
+        )
+        .orderBy(desc(schema.seoArticleRevisions.createdAt))
+        .limit(1);
+      pendingRevisionId = latest?.id ?? null;
+    }
     let pending: Record<string, unknown> | null = null;
     if (pendingRevisionId) {
       const [rev] = await db
@@ -487,7 +511,7 @@ export function reviewArticleHandler(deps: SeoDeps): TaskHandler {
         .where(eq(schema.seoArticleRevisions.id, pendingRevisionId));
       if (!rev || rev.reason !== 'pending_update') return { skipped: 'revision gone' };
       pending = rev.snapshot;
-    } else if (!['draft', 'review', 'needs_update'].includes(stored.status)) {
+    } else if (!['draft', 'review', 'needs_update', 'published'].includes(stored.status)) {
       return { skipped: stored.status };
     }
     // What is reviewed: the pending update, or the article itself.
@@ -509,7 +533,7 @@ export function reviewArticleHandler(deps: SeoDeps): TaskHandler {
         maxTokens: 6000,
         system: `Ты — строгий редактор-факт-чекер материалов об ЕГЭ. Проверяй утверждения о баллах, номерах заданий, форматах, датах, изменениях и правилах по официальным источникам (${OFFICIAL_SOURCES.join(', ')}). Если утверждение нельзя подтвердить — это проблема. Оцени и стиль: вода, повторы, канцелярит, переспам.
 verdict: pass — можно публиковать; fix — есть исправимые ошибки; reject — тема или текст непригодны.
-Для каждой фактической проблемы: severity critical (баллы, номера заданий, даты, форматы, правила, изменения ЕГЭ) или minor; status contradicted (источники говорят иное) или unverified (подтверждения не нашлось).`,
+Для каждой фактической проблемы укажи category: exam_dates (даты экзаменов), exam_structure (структура экзамена), task_count (количество заданий), primary_scores (первичные баллы), test_scores (тестовые баллы, шкалы, пороги), grading_criteria (критерии оценивания), exam_rules (правила проведения), regulations (нормативные документы, спецификации, демоверсии), deadlines (сроки), numeric_fact (другие числа), subject_content (содержание предмета: формулы, правила, решения), wording (неточная формулировка без изменения смысла), style (стиль), other (не подходит ни одна); severity critical или minor; status contradicted (источники говорят иное) или unverified (подтверждения не нашлось).`,
         prompt: `Статья «${a.title}» (основной запрос «${a.primaryKeyword}»).
 
 ${a.bodyMd}
@@ -549,7 +573,8 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
         tier: 'cheap',
         effort: 'low',
         maxTokens: 3000,
-        system: 'Сведи итог проверки фактов в структуру. Оставь только подтверждённые проблемы.',
+        system:
+          'Сведи итог проверки фактов в структуру. Оставь только подтверждённые проблемы; category, severity и status — по тем же правилам, что в первичном ревью.',
         prompt: `Первичное ревью:\n${JSON.stringify(data)}\n\nПроверка по источникам:\n${check.text.slice(0, 12_000)}`,
       },
       reviewSchema,
@@ -592,6 +617,26 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
           .returning({ id: schema.seoArticles.id });
         return rows.length > 0;
       }
+      if (live) {
+        // Re-check of the live text: only the verdict is stored; the article
+        // keeps its status and stays on the site, whatever the result.
+        const rows = await tx
+          .update(schema.seoArticles)
+          .set({
+            factCheckPassed: record.result === 'verified',
+            reviewNotes: notes,
+            updatedAt: deps.now(),
+          })
+          .where(
+            and(
+              eq(schema.seoArticles.id, a.id),
+              eq(schema.seoArticles.version, stored.version),
+              inArray(schema.seoArticles.status, ['published', 'needs_update']),
+            ),
+          )
+          .returning({ id: schema.seoArticles.id });
+        return rows.length > 0;
+      }
       const rows = await tx
         .update(schema.seoArticles)
         .set({
@@ -605,7 +650,7 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
           and(
             eq(schema.seoArticles.id, a.id),
             eq(schema.seoArticles.version, stored.version),
-            inArray(schema.seoArticles.status, ['draft', 'review', 'needs_update']),
+            inArray(schema.seoArticles.status, ['draft', 'review']),
           ),
         )
         .returning({ id: schema.seoArticles.id });

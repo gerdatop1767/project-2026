@@ -2,12 +2,15 @@ import { randomBytes } from 'node:crypto';
 import {
   applyPendingArticleRevision,
   approveArticleManually,
+  articleContentHash,
   articleGate,
   enqueueSeoTask,
   encryptSecret,
+  FACTUAL_ARTICLE_FIELDS,
   ensureSeoDefaults,
   loadSeoSettings,
   gateReasonText,
+  proposeLiveArticleEdit,
   publishSeoArticle,
   saveArticleRevision,
   saveSeoSettings,
@@ -582,8 +585,9 @@ export const seoAdminRoutes: FastifyPluginAsync<SeoAdminRoutesOptions> = async (
     const [a] = await db.select().from(schema.seoArticles).where(eq(schema.seoArticles.id, p.id));
     if (!a) return notFound(reply);
     if (['generating'].includes(a.status)) return reply.code(409).send({ error: 'article_busy' });
+    const live = a.status === 'published' || a.status === 'needs_update';
     if (patch.slug && patch.slug !== a.slug) {
-      if (a.status === 'published') return reply.code(409).send({ error: 'slug_locked' });
+      if (live) return reply.code(409).send({ error: 'slug_locked' });
       const free = await uniqueArticleSlug(db, patch.slug, a.id);
       if (free !== patch.slug) return reply.code(409).send({ error: 'slug_taken' });
     }
@@ -593,32 +597,86 @@ export const seoAdminRoutes: FastifyPluginAsync<SeoAdminRoutesOptions> = async (
       if (expectedVersion !== a.version) return reply.code(409).send({ error: 'article_changed' });
     }
     const wordCount = patch.bodyMd ? renderMarkdown(patch.bodyMd).wordCount : a.wordCount;
-    // Optimistic concurrency: the edit applies only to the version the owner
-    // opened. If the agent (or another tab) saved meanwhile → 409, nothing lost.
-    const updated = await db.transaction(async (tx) => {
+    const fields = Object.keys(patch);
+    // A live article's TEXT (what a fact-check vouches for) is never written to
+    // the public row by an edit: it becomes a pending update with its own
+    // check and goes live only through the Publication Safety Gate. Technical
+    // fields (call to action, keywords, sources list, …) and edits that do not
+    // change the checked text (images, whitespace) apply at once.
+    const factualKeys = fields.filter((k) =>
+      (FACTUAL_ARTICLE_FIELDS as readonly string[]).includes(k),
+    );
+    const changesCheckedText =
+      live &&
+      factualKeys.length > 0 &&
+      articleContentHash({ ...a, ...patch }) !== articleContentHash(a);
+    const direct = changesCheckedText
+      ? Object.fromEntries(Object.entries(patch).filter(([k]) => !factualKeys.includes(k)))
+      : patch;
+    const factual = changesCheckedText
+      ? Object.fromEntries(Object.entries(patch).filter(([k]) => factualKeys.includes(k)))
+      : {};
+    // Optimistic concurrency: the edit applies only to the version (and the
+    // status) the owner opened. If the agent, another tab or a publication
+    // changed it meanwhile → 409, nothing lost and nothing slips onto the site.
+    const result = await db.transaction(async (tx) => {
       const [row] = await tx
         .update(schema.seoArticles)
         .set({
-          ...patch,
-          wordCount,
+          ...direct,
+          ...(changesCheckedText ? {} : { wordCount }),
           version: a.version + 1,
           updatedAt: new Date(),
-          status: a.status === 'idea' && patch.bodyMd ? 'draft' : a.status,
+          status: changesCheckedText
+            ? 'needs_update'
+            : a.status === 'idea' && patch.bodyMd
+              ? 'draft'
+              : a.status,
         })
-        .where(and(eq(schema.seoArticles.id, a.id), eq(schema.seoArticles.version, a.version)))
+        .where(
+          and(
+            eq(schema.seoArticles.id, a.id),
+            eq(schema.seoArticles.version, a.version),
+            eq(schema.seoArticles.status, a.status),
+          ),
+        )
         .returning();
-      if (row) await saveArticleRevision(tx, a, 'manual_edit', `admin:${actor(request)}`);
-      return row;
+      if (!row) return null;
+      await saveArticleRevision(tx, a, 'manual_edit', `admin:${actor(request)}`);
+      const proposal = changesCheckedText
+        ? await proposeLiveArticleEdit(tx, {
+            article: row,
+            factual,
+            wordCount,
+            actor: `admin:${actor(request)}`,
+            now: new Date(),
+          })
+        : null;
+      return { row, proposal };
     });
-    if (!updated) return reply.code(409).send({ error: 'article_changed' });
-    await audit(request, 'seo.article.edit', a.id, { fields: Object.keys(patch) });
+    if (!result) return reply.code(409).send({ error: 'article_changed' });
+    const { row: updated, proposal } = result;
+    await audit(request, proposal ? 'seo.article.edit_live_proposed' : 'seo.article.edit', a.id, {
+      fields,
+      ...(proposal
+        ? { pendingRevisionId: proposal.revisionId, contentHash: proposal.contentHash }
+        : {}),
+    });
     await writeSeoLog(db, {
       agent: 'system',
-      action: 'article.edited',
-      message: `Статья отредактирована вручную (${Object.keys(patch).join(', ')})`,
+      action: proposal ? 'article.edit_pending_check' : 'article.edited',
+      message: proposal
+        ? `Правка опубликованной статьи (${factualKeys.join(', ')}) сохранена как обновление и ждёт факт-чека; на сайте прежняя версия`
+        : `Статья отредактирована вручную (${fields.join(', ')})`,
       articleId: a.id,
       actorUserId: actor(request),
+      details: proposal ? { pendingRevisionId: proposal.revisionId } : undefined,
     });
+    if (proposal) {
+      return reply
+        .code(202)
+        .send({ article: updated, pendingRevisionId: proposal.revisionId, factCheck: 'queued' });
+    }
     return { article: updated };
   });
 

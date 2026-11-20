@@ -27,7 +27,12 @@ const CONTRADICTED = (hash: string) => ({
   factCheck: buildFactCheckRecord({
     verdict: 'fix',
     factualIssues: [
-      { claim: 'Задание 13 — 4 балла', severity: 'critical', status: 'contradicted' },
+      {
+        claim: 'Задание 13 — 4 балла',
+        category: 'primary_scores',
+        severity: 'critical',
+        status: 'contradicted',
+      },
     ],
     webChecked: true,
     webSources: ['https://fipi.ru/ege'],
@@ -40,7 +45,12 @@ const UNVERIFIED = (hash: string) => ({
   factCheck: buildFactCheckRecord({
     verdict: 'fix',
     factualIssues: [
-      { claim: 'Демоверсия 2027 выйдет в августе', severity: 'critical', status: 'unverified' },
+      {
+        claim: 'Демоверсия 2027 выйдет в августе',
+        category: 'regulations',
+        severity: 'critical',
+        status: 'unverified',
+      },
     ],
     webChecked: true,
     webSources: ['https://fipi.ru/ege'],

@@ -38,3 +38,4 @@ export { audienceRowsSql, type AudienceRow, type AudienceState } from './broadca
 export * from './seo.js';
 export * from './seoArticles.js';
 export * from './publicationGate.js';
+export * from './factClassification.js';

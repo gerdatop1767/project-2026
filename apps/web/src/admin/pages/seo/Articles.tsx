@@ -382,46 +382,52 @@ export function SeoArticlePage({ id = '' }: Record<string, string>) {
   const [instructions, setInstructions] = useState('');
   const [approveReason, setApproveReason] = useState('');
 
-  const call = async (fn: () => Promise<unknown>, ok: string) => {
+  const call = async (fn: () => Promise<unknown>, ok: string | ((r: unknown) => string)) => {
     setMsg(null);
     try {
-      await fn();
-      setMsg(ok);
+      const r = await fn();
+      setMsg(typeof ok === 'function' ? ok(r) : ok);
       query.reload();
     } catch (e) {
       setMsg(errorText(e));
     }
   };
   const save = (form: Form) =>
-    call(() => {
-      const faq = form.faqText
-        .split(/\n\s*\n/)
-        .map((b) => b.trim().split('\n'))
-        .filter((l) => l.length >= 2)
-        .map(([question, ...rest]) => ({
-          question: question!.trim(),
-          answer: rest.join(' ').trim(),
-        }));
-      return adminApi.patch(`/seo/articles/${id}`, {
-        // The version this editor was opened on: the server refuses (409) if it changed.
-        version: query.data?.article.version,
-        title: form.title,
-        seoTitle: form.seoTitle,
-        metaDescription: form.metaDescription,
-        h1: form.h1,
-        bodyMd: form.bodyMd,
-        ogTitle: form.ogTitle,
-        ogDescription: form.ogDescription,
-        primaryKeyword: form.primaryKeyword,
-        secondaryKeywords: form.secondary
-          .split(',')
-          .map((x) => x.trim())
-          .filter((x) => x.length >= 2),
-        ctaPath: form.ctaPath,
-        faq,
-        ...(query.data?.article.publishedAt ? {} : { slug: form.slug }),
-      });
-    }, 'Сохранено (предыдущая версия — в ревизиях).').then(() => setForm(null));
+    call(
+      () => {
+        const faq = form.faqText
+          .split(/\n\s*\n/)
+          .map((b) => b.trim().split('\n'))
+          .filter((l) => l.length >= 2)
+          .map(([question, ...rest]) => ({
+            question: question!.trim(),
+            answer: rest.join(' ').trim(),
+          }));
+        return adminApi.patch(`/seo/articles/${id}`, {
+          // The version this editor was opened on: the server refuses (409) if it changed.
+          version: query.data?.article.version,
+          title: form.title,
+          seoTitle: form.seoTitle,
+          metaDescription: form.metaDescription,
+          h1: form.h1,
+          bodyMd: form.bodyMd,
+          ogTitle: form.ogTitle,
+          ogDescription: form.ogDescription,
+          primaryKeyword: form.primaryKeyword,
+          secondaryKeywords: form.secondary
+            .split(',')
+            .map((x) => x.trim())
+            .filter((x) => x.length >= 2),
+          ctaPath: form.ctaPath,
+          faq,
+          ...(query.data?.article.publishedAt ? {} : { slug: form.slug }),
+        });
+      },
+      (r) =>
+        (r as { pendingRevisionId?: string } | null)?.pendingRevisionId
+          ? 'Правка текста опубликованной статьи сохранена как обновление: на сайте прежняя версия, пока обновление не пройдёт факт-чек и не будет применено.'
+          : 'Сохранено (предыдущая версия — в ревизиях).',
+    ).then(() => setForm(null));
   const generate = (mode: 'write' | 'update' | 'visuals' | 'review' | 'distribute') =>
     call(
       () =>

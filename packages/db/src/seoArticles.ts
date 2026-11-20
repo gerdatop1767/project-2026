@@ -4,6 +4,7 @@ import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import * as schema from './schema.js';
 import {
+  articleContentHash,
   evaluatePublicationGate,
   gateReasonText,
   readFactCheckRecord,
@@ -423,7 +424,7 @@ export async function applyPendingArticleRevision(
         ...(fields as object),
         slug: fresh.slug,
         wordCount: wordCount ?? fresh.wordCount,
-        qualityIssues: qualityIssues ?? [],
+        qualityIssues: qualityIssues ?? fresh.qualityIssues,
         status: live ? 'published' : fresh.status,
         // The verdict travels with the text it is about; «verified» only
         // from an automatic check, never from a manual approval.
@@ -540,4 +541,78 @@ export async function approveArticleManually(
     });
     return { ok: true, article: updated!, contentHash: gate.contentHash } as const;
   });
+}
+
+/**
+ * Fields whose text readers see — exactly what articleContentHash covers and
+ * a fact-check vouches for. Everything else an editor can change (slug, call
+ * to action, keywords, sources list, subject, format, cover) is technical.
+ */
+export const FACTUAL_ARTICLE_FIELDS = [
+  'title',
+  'h1',
+  'seoTitle',
+  'metaDescription',
+  'ogTitle',
+  'ogDescription',
+  'bodyMd',
+  'faq',
+] as const;
+
+/**
+ * An owner's edit of a LIVE article's text never reaches the public page
+ * directly: it becomes a pending update (the same path as the agent's),
+ * gets its own fact-check bound to its exact text, and goes live only via
+ * applyPendingArticleRevision — through the Publication Safety Gate. The live
+ * row keeps its text and stays on the site (published → needs_update).
+ * Older pending updates of the article are superseded: one candidate at a time.
+ * Runs inside the caller's transaction, with the row already version-checked.
+ */
+export async function proposeLiveArticleEdit(
+  tx: Tx,
+  o: {
+    article: Article;
+    factual: Partial<Record<(typeof FACTUAL_ARTICLE_FIELDS)[number], unknown>>;
+    wordCount: number;
+    actor: string;
+    now: Date;
+  },
+): Promise<{ revisionId: string; contentHash: string }> {
+  const a = o.article;
+  const candidate = { ...a, ...(o.factual as Partial<Article>) };
+  const snapshot = {
+    ...Object.fromEntries(FACTUAL_ARTICLE_FIELDS.map((k) => [k, candidate[k]])),
+    wordCount: o.wordCount,
+  };
+  await tx
+    .update(schema.seoArticleRevisions)
+    .set({ reason: 'superseded_update' })
+    .where(
+      and(
+        eq(schema.seoArticleRevisions.articleId, a.id),
+        eq(schema.seoArticleRevisions.reason, 'pending_update'),
+      ),
+    );
+  const [rev] = await tx
+    .insert(schema.seoArticleRevisions)
+    .values({
+      articleId: a.id,
+      version: a.version + 1,
+      snapshot,
+      reason: 'pending_update',
+      actor: o.actor,
+    })
+    .returning({ id: schema.seoArticleRevisions.id });
+  await tx
+    .insert(schema.seoTasks)
+    .values({
+      kind: 'review_article',
+      agent: 'content',
+      idempotencyKey: `review_article:${a.id}:rev:${rev!.id}`,
+      articleId: a.id,
+      payload: { articleId: a.id, pendingRevisionId: rev!.id },
+      priority: 85,
+    })
+    .onConflictDoNothing();
+  return { revisionId: rev!.id, contentHash: articleContentHash(candidate) };
 }

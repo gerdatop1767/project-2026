@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { SEO_GATE_REASON_LABELS } from '@zybrilka/shared';
+import { classifyFactIssue, type ClassifiedIssue } from './factClassification.js';
 
 /**
  * Publication Safety Gate (SEO Center, stage 2.1).
@@ -32,16 +33,19 @@ const ALLOWED_STATUSES: Record<GateTarget, readonly string[]> = {
   apply_update: ['published', 'needs_update'],
 };
 
-/** Issue as the fact-check model reports it (severity/status are required in its output schema). */
+/** Issue as the fact-check model reports it (category/status are required in its output schema). */
 export interface FactCheckIssueInput {
   claim: string;
   problem?: string;
-  severity?: 'critical' | 'minor' | string;
-  status?: 'contradicted' | 'unverified' | string;
+  /** One of FACT_CATEGORIES; anything else is «ambiguous» (factClassification.ts). */
+  category?: string;
+  /** The model's suggestion only — the server decides by category. */
+  severity?: string;
+  status?: string;
 }
 
 export interface FactCheckRecord {
-  v: 1;
+  v: 2;
   /** articleContentHash of the text that was checked. */
   contentHash: string;
   checkedAt: string;
@@ -49,9 +53,15 @@ export interface FactCheckRecord {
   webChecked: boolean;
   /** URLs the search tool returned (API data, not model text). */
   webSources: string[];
+  /** critical + contradicted: blocks everything, a manual approval included. */
   criticalContradictions: string[];
+  /** critical + unverified, and every ambiguous issue: blocks automatic publication. */
   unverifiedCritical: string[];
+  /** Issues the server could not file as critical or minor (subset of unverifiedCritical). */
+  ambiguous: string[];
   minorIssues: string[];
+  /** Every issue with the server's classification and the rule that decided. */
+  issues: ClassifiedIssue[];
   /** The pending update this check was for (null = the article itself). */
   revisionId: string | null;
 }
@@ -104,8 +114,9 @@ export function articleContentHash(c: GateContent): string {
 /**
  * Builds the record the gate trusts. `webSources` must come from the API's
  * search results (web_search_tool_result / citations), never from model
- * text. Fail-closed: an issue without a known severity counts as critical,
- * one without a known status as a contradiction.
+ * text. Criticality is the server's (classifyFactIssue), not the model's.
+ * «verified» needs real search results, no critical or ambiguous issue, and a
+ * verdict that is not «reject» — «pass», or «fix» for minor issues only.
  */
 export function buildFactCheckRecord(input: {
   verdict: string;
@@ -116,31 +127,44 @@ export function buildFactCheckRecord(input: {
   checkedAt: Date;
   revisionId?: string | null;
 }): FactCheckRecord {
-  const criticalContradictions: string[] = [];
-  const unverifiedCritical: string[] = [];
-  const minorIssues: string[] = [];
-  for (const i of input.factualIssues) {
-    const claim = i.claim.slice(0, 500);
-    if (i.severity === 'minor') minorIssues.push(claim);
-    else if (i.status === 'unverified') unverifiedCritical.push(claim);
-    else criticalContradictions.push(claim);
-  }
+  const issues = input.factualIssues.slice(0, 30).map(classifyFactIssue);
+  // More than we keep: whatever was cut off is unknown → ambiguous.
+  const overflow = input.factualIssues.length > 30;
+  const pick = (f: (i: ClassifiedIssue) => boolean) => issues.filter(f).map((i) => i.claim);
+  const criticalContradictions = pick(
+    (i) => i.criticality === 'critical' && i.status === 'contradicted',
+  );
+  const ambiguous = [
+    ...pick((i) => i.criticality === 'ambiguous'),
+    ...(overflow ? ['(список проблем обрезан)'] : []),
+  ];
+  const unverifiedCritical = [
+    ...pick((i) => i.criticality === 'critical' && i.status === 'unverified'),
+    ...ambiguous,
+  ];
+  const minorIssues = pick((i) => i.criticality === 'minor');
   const webSources = [...new Set(input.webSources)].slice(0, 30);
+  const verdictOk =
+    input.verdict === 'pass' ||
+    (input.verdict === 'fix' && issues.length > 0 && minorIssues.length === issues.length);
   const verified =
-    input.verdict === 'pass' &&
-    input.factualIssues.length === 0 &&
+    verdictOk &&
+    criticalContradictions.length === 0 &&
+    unverifiedCritical.length === 0 &&
     input.webChecked &&
     webSources.length > 0;
   return {
-    v: 1,
+    v: 2,
     contentHash: input.contentHash,
     checkedAt: input.checkedAt.toISOString(),
     result: verified ? 'verified' : 'failed',
     webChecked: input.webChecked,
     webSources,
-    criticalContradictions: criticalContradictions.slice(0, 30),
-    unverifiedCritical: unverifiedCritical.slice(0, 30),
-    minorIssues: minorIssues.slice(0, 30),
+    criticalContradictions,
+    unverifiedCritical,
+    ambiguous,
+    minorIssues,
+    issues,
     revisionId: input.revisionId ?? null,
   };
 }
@@ -150,7 +174,7 @@ export function readFactCheckRecord(notes: unknown): FactCheckRecord | null {
     Record<string, unknown> | undefined;
   if (!r || typeof r !== 'object') return null;
   const ok =
-    r.v === 1 &&
+    r.v === 2 &&
     isHash(r.contentHash) &&
     isStr(r.checkedAt) &&
     (r.result === 'verified' || r.result === 'failed') &&
@@ -158,7 +182,9 @@ export function readFactCheckRecord(notes: unknown): FactCheckRecord | null {
     isStrs(r.webSources) &&
     isStrs(r.criticalContradictions) &&
     isStrs(r.unverifiedCritical) &&
+    isStrs(r.ambiguous) &&
     isStrs(r.minorIssues) &&
+    Array.isArray(r.issues) &&
     (r.revisionId === null || isStr(r.revisionId));
   return ok ? (r as unknown as FactCheckRecord) : null;
 }
