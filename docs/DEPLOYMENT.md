@@ -611,3 +611,50 @@ $C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.
 ```
 
 Затем `$C config --quiet` и `$C config | grep -c ZybrilkaRussian10` → `1`.
+
+
+## Авторский банк Зубрилки по русскому, №4–22 (кроме №10), на VPS
+
+Задания импортирует `importZybrilkaRussianBank.js`: одна коллекция на номер (`zybrilka-russian-N`), 5 наборов по 10 заданий, описание в `docs/imports/zybrilka-russian-4-22-plan.md`. Новых миграций нет.
+
+Импортёр загружает **только полные номера** (50 заданий). Номер, который ещё дописывается, пропускается с сообщением «not complete, skipped». Поэтому строку можно добавить в цепочку сразу, а новые номера будут появляться сами при деплоях.
+
+**Важно: production использует свой `docker-compose.deploy.yml`**, которого нет в репозитории. Изменения цепочки `sync-content` из `infra/docker-compose.yml` сами туда не попадают. На прошлом этапе из-за этого №10 пришлось импортировать вручную.
+
+`C` — как в разделе о словаре ударений.
+
+**0. Резервная копия базы** (`pg_dump`).
+
+**1. Проверить образ** (ничего не меняет):
+
+```bash
+$C run --rm --no-deps migrate ls node_modules/@zybrilka/db/dist/ | grep ZybrilkaRussian
+```
+
+Должны быть `importZybrilkaRussian10.js` и `importZybrilkaRussianBank.js`.
+
+**2. Разовый импорт без изменения файлов:**
+
+```bash
+$C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.js
+$C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussianBank.js
+```
+
+Повторный запуск безопасен: для каждого номера будет `created 0, updated 0`. Навыки Learning Engine API проставит при следующем старте. Вручную: `node node_modules/@zybrilka/db/dist/learningSkills.js`.
+
+**3. Чтобы банк обновлялся при каждом деплое**, в локальном `docker-compose.deploy.yml`, в цепочке `sync-content` должны стоять **обе** строки — после сборника 2026 года и перед словарём ударений:
+
+```diff
+         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js &&
++        node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.js &&
++        node node_modules/@zybrilka/db/dist/importZybrilkaRussianBank.js &&
+         node node_modules/@zybrilka/db/dist/stressDictionary/import.js
+```
+
+Если строка №10 там уже есть, добавить только вторую.
+
+**4. Проверка:**
+- `$C config --quiet` — без ошибок;
+- `$C config | grep -c ZybrilkaRussian` → `2`.
+
+Если `sync-content` в файле нет, файл не трогать и выполнять шаг 2 после каждого деплоя.
