@@ -4,6 +4,7 @@ import {
   buildFactCheckRecord,
   enqueueSeoTask,
   FACT_CATEGORIES,
+  STYLE_TRIAGE,
   gateReasonText,
   loadSeoSettings,
   reviewNotesWithRecord,
@@ -84,6 +85,12 @@ const reviewSchema = z.object({
     .max(20),
   styleIssues: z.array(z.string().max(300)).max(10),
   summary: z.string().max(1000),
+});
+
+const styleTriageSchema = z.object({
+  notes: z
+    .array(z.object({ index: z.number().int().min(0).max(30), kind: z.enum(STYLE_TRIAGE) }))
+    .max(30),
 });
 
 const WRITER_SYSTEM = `Ты — образовательный редактор «Зубрилки», бесплатного тренажёра ЕГЭ (zybrilka.ru). Пишешь статьи для школьников 10–11 классов.
@@ -579,9 +586,47 @@ ${a.sources.map((s) => `- ${s.url}`).join('\n') || '—'}`,
       },
       reviewSchema,
     );
+    // Style notes are the only remarks that may not block — and only when a
+    // separate triage confirms each one is purely stylistic (the server then
+    // also checks it for fact markers). No answer = not confirmed. Skipped
+    // when the check failed anyway.
+    let triage: (string | null)[] = verified.styleIssues.map(() => null);
+    if (
+      verified.styleIssues.length > 0 &&
+      verified.verdict === 'pass' &&
+      verified.factualIssues.length === 0 &&
+      check.sources.length > 0
+    ) {
+      try {
+        const { data: t } = await ai.json(
+          {
+            agent: 'content',
+            purpose: 'article.factcheck.style_triage',
+            taskId: ctx.task.id,
+            tier: 'cheap',
+            effort: 'low',
+            maxTokens: 1000,
+            system: `Ты проверяешь замечания редактора к статье об ЕГЭ. Для каждого замечания ответь kind:
+style_only — замечание только о стиле или форме (повтор, вода, порядок слов) и его исправление НЕ меняет ни одного факта: дат, сроков, чисел, баллов, количества заданий, правил, критериев, документов;
+may_change_facts — замечание касается фактов или его исправление может изменить смысл фактического утверждения;
+unsure — не можешь уверенно решить.
+Если сомневаешься — unsure.`,
+            prompt: verified.styleIssues.map((x, n) => `${n}. ${x}`).join('\n'),
+          },
+          styleTriageSchema,
+        );
+        triage = verified.styleIssues.map(
+          (_, n) => t.notes.find((x) => x.index === n)?.kind ?? null,
+        );
+      } catch (err) {
+        if (err instanceof TaskAborted) throw err;
+        // Fail-closed: notes stay unconfirmed → automatic publication blocked.
+      }
+    }
     const record = buildFactCheckRecord({
       verdict: verified.verdict,
       factualIssues: verified.factualIssues,
+      styleNotes: verified.styleIssues.map((text, n) => ({ text, triage: triage[n] })),
       webChecked: true,
       webSources: check.sources.map((s) => s.url),
       contentHash: articleContentHash(a),

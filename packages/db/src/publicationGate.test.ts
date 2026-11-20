@@ -64,20 +64,57 @@ describe('publication gate (pure)', () => {
       'minor_category',
       'unknown_category',
       'unknown_category',
-      'minor_with_number',
+      'minor_with_marker',
       'critical_category',
     ]);
   });
 
-  it('minor issues alone do not block; «reject» and «fix» without issues do', () => {
+  it('conservative: any factual issue blocks auto mode, whatever its category', () => {
     const minor = [{ claim: 'лучше «решать», чем «прорешивать»', category: 'wording' }];
-    expect(rec({ verdict: 'fix', factualIssues: minor }).result).toBe('verified');
-    expect(rec({ verdict: 'pass', factualIssues: minor }).result).toBe('verified');
-    expect(rec({ verdict: 'reject', factualIssues: minor }).result).toBe('failed');
+    for (const verdict of ['pass', 'fix', 'reject'])
+      expect(rec({ verdict, factualIssues: minor }).result).toBe('failed');
+    // …but stays manually approvable (no critical contradiction).
+    const g = evaluatePublicationGate({
+      target: 'publish',
+      status: 'review',
+      content: C,
+      reviewNotes: { factCheck: rec({ verdict: 'pass', factualIssues: minor }) },
+    });
+    expect(g).toMatchObject({ allowed: false, manualAllowed: true });
     expect(rec({ verdict: 'fix' }).result).toBe('failed');
-    expect(rec({ verdict: 'fix', factualIssues: minor, webSources: [] }).result).toBe('failed');
-    const many = Array.from({ length: 31 }, (_, i) => ({ claim: `w${i}`, category: 'style' }));
-    expect(rec({ verdict: 'pass', factualIssues: many }).result).toBe('failed');
+  });
+
+  it('sources are evidence: adding, removing or changing a URL changes the hash; titles, order, slash do not', () => {
+    const base = {
+      ...C,
+      sources: [
+        { title: 'ФИПИ', url: 'https://fipi.ru/ege/demoversii' },
+        { title: 'Рособрнадзор', url: 'https://obrnadzor.gov.ru/ege' },
+      ],
+    };
+    const h = articleContentHash(base);
+    expect(
+      articleContentHash({
+        ...base,
+        sources: [
+          { title: 'Рособрнадзор — ЕГЭ', url: 'https://OBRNADZOR.gov.ru/ege/' },
+          { title: 'ФИПИ, демоверсии', url: 'https://fipi.ru/ege/demoversii#v2027' },
+        ],
+      }),
+    ).toBe(h);
+    expect(articleContentHash({ ...base, sources: base.sources.slice(0, 1) })).not.toBe(h);
+    expect(
+      articleContentHash({
+        ...base,
+        sources: [...base.sources, { title: 'x', url: 'https://example.com/a' }],
+      }),
+    ).not.toBe(h);
+    expect(
+      articleContentHash({
+        ...base,
+        sources: [base.sources[0]!, { title: 'Рособрнадзор', url: 'https://obrnadzor.gov.ru/oge' }],
+      }),
+    ).not.toBe(h);
   });
 
   it('decides only from the server record and the manual approval', () => {

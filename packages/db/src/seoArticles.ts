@@ -544,9 +544,12 @@ export async function approveArticleManually(
 }
 
 /**
- * Fields whose text readers see — exactly what articleContentHash covers and
- * a fact-check vouches for. Everything else an editor can change (slug, call
- * to action, keywords, sources list, subject, format, cover) is technical.
+ * Fields a fact-check vouches for — exactly what articleContentHash covers:
+ * the text readers see and the sources (evidence). Everything else an editor
+ * can change (slug, call to action, keywords, subject, format, cover) is
+ * technical. For `sources` only the set of URLs counts: renaming or
+ * reordering a link keeps the check valid (applied at once), adding,
+ * removing or changing a URL does not.
  */
 export const FACTUAL_ARTICLE_FIELDS = [
   'title',
@@ -557,6 +560,7 @@ export const FACTUAL_ARTICLE_FIELDS = [
   'ogDescription',
   'bodyMd',
   'faq',
+  'sources',
 ] as const;
 
 /**

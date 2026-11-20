@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { SEO_GATE_REASON_LABELS } from '@zybrilka/shared';
-import { classifyFactIssue, type ClassifiedIssue } from './factClassification.js';
+import {
+  classifyFactIssue,
+  classifyStyleNote,
+  type ClassifiedIssue,
+  type ClassifiedStyleNote,
+} from './factClassification.js';
 
 /**
  * Publication Safety Gate (SEO Center, stage 2.1).
@@ -45,7 +50,7 @@ export interface FactCheckIssueInput {
 }
 
 export interface FactCheckRecord {
-  v: 2;
+  v: 3;
   /** articleContentHash of the text that was checked. */
   contentHash: string;
   checkedAt: string;
@@ -62,6 +67,8 @@ export interface FactCheckRecord {
   minorIssues: string[];
   /** Every issue with the server's classification and the rule that decided. */
   issues: ClassifiedIssue[];
+  /** Style notes: safe only when the triage and the marker check both cleared them. */
+  styleNotes: ClassifiedStyleNote[];
   /** The pending update this check was for (null = the article itself). */
   revisionId: string | null;
 }
@@ -88,12 +95,36 @@ export interface GateContent {
   ogDescription?: string | null;
   bodyMd: string;
   faq: { question: string; answer: string }[];
+  /** The article's sources — evidence: the set of URLs is part of what was checked. */
+  sources?: { url: string; title?: string }[] | null;
 }
 
 /**
- * sha256 of the checked text. Images (`![alt](media:<uuid>)`, inserted by the
- * visual agent after the review) and whitespace are left out, so adding
- * pictures does not invalidate a check; any change of words does.
+ * A source URL as evidence: scheme/host case, a trailing slash and the
+ * fragment do not matter; path and query do.
+ */
+export function normalizeSourceUrl(raw: string): string {
+  try {
+    const u = new URL(raw.trim());
+    u.hash = '';
+    const path = u.pathname.replace(/\/+$/, '');
+    return `${u.protocol}//${u.host.toLowerCase()}${path}${u.search}`;
+  } catch {
+    return raw.trim();
+  }
+}
+
+/** The evidence of an article: its sources' URLs as a sorted set (titles and order excluded). */
+export function sourceUrlSet(sources: GateContent['sources']): string[] {
+  return [...new Set((sources ?? []).map((x) => normalizeSourceUrl(x.url)))].sort();
+}
+
+/**
+ * sha256 of what a check vouches for: the text and the evidence. Images
+ * (`![alt](media:<uuid>)`, inserted by the visual agent after the review),
+ * whitespace, source titles and source order are left out, so adding
+ * pictures or renaming a link does not invalidate a check; any change of
+ * words, and adding, removing or changing a source URL, does.
  */
 export function articleContentHash(c: GateContent): string {
   const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
@@ -107,6 +138,7 @@ export function articleContentHash(c: GateContent): string {
     norm(c.ogDescription),
     norm(body),
     (c.faq ?? []).map((f) => [norm(f.question), norm(f.answer)]),
+    sourceUrlSet(c.sources),
   ]);
   return createHash('sha256').update(payload).digest('hex');
 }
@@ -114,13 +146,17 @@ export function articleContentHash(c: GateContent): string {
 /**
  * Builds the record the gate trusts. `webSources` must come from the API's
  * search results (web_search_tool_result / citations), never from model
- * text. Criticality is the server's (classifyFactIssue), not the model's.
- * «verified» needs real search results, no critical or ambiguous issue, and a
- * verdict that is not «reject» — «pass», or «fix» for minor issues only.
+ * text. Conservative policy (factClassification.ts): «verified» needs a
+ * «pass» verdict, real search results, NO factual issue of any category,
+ * and every style note confirmed as purely stylistic by the triage and the
+ * marker check. The category of an issue only decides whether a manual
+ * approval can override it (critical + contradicted → never).
  */
 export function buildFactCheckRecord(input: {
   verdict: string;
   factualIssues: FactCheckIssueInput[];
+  /** Style notes with the separate triage's answer (null/missing = no answer). */
+  styleNotes?: { text: string; triage?: string | null }[];
   webChecked: boolean;
   webSources: string[];
   contentHash: string;
@@ -130,13 +166,15 @@ export function buildFactCheckRecord(input: {
   const issues = input.factualIssues.slice(0, 30).map(classifyFactIssue);
   // More than we keep: whatever was cut off is unknown → ambiguous.
   const overflow = input.factualIssues.length > 30;
+  const styleNotes = (input.styleNotes ?? []).slice(0, 30).map(classifyStyleNote);
   const pick = (f: (i: ClassifiedIssue) => boolean) => issues.filter(f).map((i) => i.claim);
   const criticalContradictions = pick(
     (i) => i.criticality === 'critical' && i.status === 'contradicted',
   );
   const ambiguous = [
     ...pick((i) => i.criticality === 'ambiguous'),
-    ...(overflow ? ['(список проблем обрезан)'] : []),
+    ...styleNotes.filter((n) => !n.safe).map((n) => `Стиль (не подтверждено): ${n.text}`),
+    ...(overflow || (input.styleNotes?.length ?? 0) > 30 ? ['(список замечаний обрезан)'] : []),
   ];
   const unverifiedCritical = [
     ...pick((i) => i.criticality === 'critical' && i.status === 'unverified'),
@@ -144,17 +182,14 @@ export function buildFactCheckRecord(input: {
   ];
   const minorIssues = pick((i) => i.criticality === 'minor');
   const webSources = [...new Set(input.webSources)].slice(0, 30);
-  const verdictOk =
-    input.verdict === 'pass' ||
-    (input.verdict === 'fix' && issues.length > 0 && minorIssues.length === issues.length);
   const verified =
-    verdictOk &&
-    criticalContradictions.length === 0 &&
-    unverifiedCritical.length === 0 &&
+    input.verdict === 'pass' &&
+    input.factualIssues.length === 0 &&
+    ambiguous.length === 0 &&
     input.webChecked &&
     webSources.length > 0;
   return {
-    v: 2,
+    v: 3,
     contentHash: input.contentHash,
     checkedAt: input.checkedAt.toISOString(),
     result: verified ? 'verified' : 'failed',
@@ -165,6 +200,7 @@ export function buildFactCheckRecord(input: {
     ambiguous,
     minorIssues,
     issues,
+    styleNotes,
     revisionId: input.revisionId ?? null,
   };
 }
@@ -174,7 +210,7 @@ export function readFactCheckRecord(notes: unknown): FactCheckRecord | null {
     Record<string, unknown> | undefined;
   if (!r || typeof r !== 'object') return null;
   const ok =
-    r.v === 2 &&
+    r.v === 3 &&
     isHash(r.contentHash) &&
     isStr(r.checkedAt) &&
     (r.result === 'verified' || r.result === 'failed') &&
@@ -185,6 +221,7 @@ export function readFactCheckRecord(notes: unknown): FactCheckRecord | null {
     isStrs(r.ambiguous) &&
     isStrs(r.minorIssues) &&
     Array.isArray(r.issues) &&
+    Array.isArray(r.styleNotes) &&
     (r.revisionId === null || isStr(r.revisionId));
   return ok ? (r as unknown as FactCheckRecord) : null;
 }

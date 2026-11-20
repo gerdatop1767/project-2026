@@ -23,6 +23,10 @@ const CONTENT = {
   ogDescription: 'Разбор задания 13 ЕГЭ по профильной математике',
   bodyMd: BODY,
   faq: [{ question: 'Сколько баллов?', answer: 'Два первичных балла.' }],
+  sources: [
+    { title: 'ФИПИ: демоверсии', url: 'https://fipi.ru/ege/demoversii' },
+    { title: 'Рособрнадзор', url: 'https://obrnadzor.gov.ru/ege' },
+  ],
 };
 
 describe('stage 2.1 hardening: editing a live article (admin PATCH)', () => {
@@ -162,7 +166,6 @@ describe('stage 2.1 hardening: editing a live article (admin PATCH)', () => {
       ctaPath: '/subjects/math',
       primaryKeyword: 'задание 13 егэ',
       secondaryKeywords: ['13 задание'],
-      sources: [{ title: 'ФИПИ', url: 'https://fipi.ru/ege' }],
     });
     expect(r.statusCode).toBe(200);
     expect(await get(a.id)).toMatchObject({
@@ -241,5 +244,80 @@ describe('stage 2.1 hardening: editing a live article (admin PATCH)', () => {
       expect(await page('race-draft')).not.toContain('4 балла');
     }
     expect([pub.statusCode, edit.statusCode]).not.toContain(500);
+  });
+
+  describe('sources are evidence', () => {
+    const FIPI = CONTENT.sources[0]!;
+    const RON = CONTENT.sources[1]!;
+    const expectPending = async (id: string, sources: unknown) => {
+      const after = await get(id);
+      expect(after.sources).toEqual(CONTENT.sources); // the public list is unchanged
+      expect(after.status).toBe('needs_update');
+      const [rev] = await pendingOf(id);
+      expect((rev!.snapshot as { sources: unknown }).sources).toEqual(sources);
+      const audit = await t.db
+        .select()
+        .from(schema.adminAuditLog)
+        .where(eq(schema.adminAuditLog.action, 'seo.article.edit_live_proposed'));
+      expect(audit.at(-1)!.details).toMatchObject({ fields: ['sources'] });
+    };
+
+    it('removing a source the check relied on → pending update with a new check', async () => {
+      const a = await live();
+      const r = await req('PATCH', a.id, { sources: [RON] });
+      expect(r.statusCode).toBe(202);
+      await expectPending(a.id, [RON]);
+      expect(await page(a.slug)).toContain('fipi.ru/ege/demoversii');
+    });
+
+    it('adding a source → pending update', async () => {
+      const a = await live();
+      const added = [...CONTENT.sources, { title: 'Блог', url: 'https://example.com/ege-2027' }];
+      expect((await req('PATCH', a.id, { sources: added })).statusCode).toBe(202);
+      await expectPending(a.id, added);
+      expect(await page(a.slug)).not.toContain('example.com/ege-2027');
+    });
+
+    it('changing a URL → pending update', async () => {
+      const a = await live();
+      const changed = [{ ...FIPI, url: 'https://fipi.ru/ege/demoversii-2026' }, RON];
+      expect((await req('PATCH', a.id, { sources: changed })).statusCode).toBe(202);
+      await expectPending(a.id, changed);
+    });
+
+    it('renaming or reordering links (same URLs) saves at once; the check stays valid', async () => {
+      const a = await live();
+      const same = [
+        { title: 'Рособрнадзор — ЕГЭ', url: 'https://obrnadzor.gov.ru/ege/' },
+        { title: 'Демоверсии ФИПИ', url: FIPI.url },
+      ];
+      const r = await req('PATCH', a.id, { sources: same });
+      expect(r.statusCode).toBe(200);
+      const after = await get(a.id);
+      expect(after).toMatchObject({ status: 'published', sources: same });
+      expect(await pendingOf(a.id)).toHaveLength(0);
+      expect(articleContentHash(after)).toBe(articleContentHash(a));
+      const audit = await t.db
+        .select()
+        .from(schema.adminAuditLog)
+        .where(eq(schema.adminAuditLog.action, 'seo.article.edit'));
+      expect(audit.at(-1)!.details).toMatchObject({ fields: ['sources'] });
+    });
+
+    it('a not-yet-published article: changing sources after the check makes it stale', async () => {
+      const [d] = await t.db
+        .insert(schema.seoArticles)
+        .values({
+          slug: 'src-draft',
+          status: 'review',
+          reviewNotes: verifiedReviewNotes(CONTENT),
+          ...CONTENT,
+        })
+        .returning();
+      expect((await req('PATCH', d!.id, { sources: [RON] })).statusCode).toBe(200);
+      const r = await req('POST', `${d!.id}/publish`, { confirm: true });
+      expect(r.statusCode).toBe(409);
+      expect(r.json().reasons).toContain('stale_fact_check');
+    });
   });
 });
