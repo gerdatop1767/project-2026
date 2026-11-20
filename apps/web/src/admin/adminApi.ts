@@ -51,7 +51,8 @@ async function request<T>(
     try {
       const body = (await response.json()) as { error?: string; message?: unknown };
       code = body.error ?? code;
-      if (code === 'invalid_content' && typeof body.message === 'string') detail = body.message;
+      if ((code === 'invalid_content' || code === 'fact_check') && typeof body.message === 'string')
+        detail = body.message;
     } catch {
       // a non-JSON error body
     }
@@ -105,6 +106,10 @@ export function errorText(error: unknown): string {
         'Статью изменили, пока вы её редактировали (агент или другая вкладка). Обновите страницу — ваши правки не сохранены.',
       not_pending: 'Это обновление уже применено или отменено — обновите страницу.',
       article_busy: 'Агент сейчас пишет эту статью — попробуйте через пару минут.',
+      fact_check: 'Гейт публикации: статья не прошла факт-чек.',
+      critical_contradiction:
+        'Ручное подтверждение невозможно: факт-чек нашёл критичное противоречие. Исправьте текст и запустите проверку заново.',
+      not_schedulable: 'Эту статью нельзя запланировать в её текущем статусе.',
     };
     if (error.detail) return error.detail;
     if (known[error.code]) return known[error.code]!;
