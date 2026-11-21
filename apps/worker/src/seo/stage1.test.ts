@@ -13,7 +13,7 @@ import {
   saveSeoSettings,
   schema,
 } from '@zybrilka/db';
-import { createTestDb } from '@zybrilka/db/testing';
+import { createTestDb, verifiedReviewNotes } from '@zybrilka/db/testing';
 import { DEFAULT_SEO_SETTINGS, isAllowedCampaignTarget, SEO_SITE_PAGES } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
 import { pino } from 'pino';
@@ -618,6 +618,13 @@ describe('stage 1: queue, AI gateway and article lifecycle', () => {
         metaDescription: 'd'.repeat(120),
         bodyMd: 'x'.repeat(300),
         ctaPath: '/admin',
+        reviewNotes: verifiedReviewNotes({
+          title: 'Legacy',
+          seoTitle: 'Legacy title',
+          metaDescription: 'd'.repeat(120),
+          bodyMd: 'x'.repeat(300),
+          faq: [],
+        }),
       })
       .returning();
     const out = await publishSeoArticle(t.db, a!.id, { kind: 'agent' });

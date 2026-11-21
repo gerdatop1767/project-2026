@@ -254,3 +254,18 @@ export const SEO_SITE_PAGES: readonly { path: string; title: string }[] = [
   { path: '/games/stress', title: 'Тренажёр ударений (задание 4)' },
   { path: '/faq', title: 'Частые вопросы' },
 ];
+
+/**
+ * Why the Publication Safety Gate refused (stage 2.1). The decision itself is
+ * server-side only (@zybrilka/db publicationGate.ts); these are the labels.
+ */
+export const SEO_GATE_REASON_LABELS = {
+  status_not_allowed: 'Статус статьи не допускает это действие',
+  no_fact_check: 'Факт-чек не проводился или его результат не сохранён',
+  stale_fact_check: 'Текст изменился после факт-чека — нужна новая проверка',
+  fact_check_failed: 'Факт-чек не подтвердил статью',
+  no_web_evidence: 'Проверка не опиралась на найденные источники',
+  unverified_critical_claims: 'Есть неподтверждённые критичные утверждения',
+  critical_contradiction: 'Есть критичные утверждения, противоречащие источникам',
+} as const;
+export type SeoGateReason = keyof typeof SEO_GATE_REASON_LABELS;

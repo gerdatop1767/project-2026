@@ -1,3 +1,4 @@
+import { articleContentHash, buildFactCheckRecord, type GateContent } from './publicationGate.js';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
@@ -163,4 +164,29 @@ export async function createImportedRussian2027TestDb() {
     await importVariant(testDb.db);
   }
   return testDb;
+}
+
+/**
+ * Review notes with a server fact-check record that verifies exactly this
+ * text (tests of paths that publish; the real record comes from the worker).
+ */
+export function verifiedReviewNotes(
+  content: GateContent,
+  opts: { revisionId?: string | null } = {},
+): Record<string, unknown> {
+  return {
+    verdict: 'pass',
+    factualIssues: [],
+    styleIssues: [],
+    summary: 'ok',
+    factCheck: buildFactCheckRecord({
+      verdict: 'pass',
+      factualIssues: [],
+      webChecked: true,
+      webSources: ['https://fipi.ru/ege'],
+      contentHash: articleContentHash(content),
+      checkedAt: new Date(),
+      revisionId: opts.revisionId ?? null,
+    }),
+  };
 }

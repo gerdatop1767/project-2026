@@ -1,6 +1,7 @@
 import {
   enqueueSeoTask,
   ensureSeoDefaults,
+  gateReasonText,
   loadSeoSettings,
   publishSeoArticle,
   schema,
@@ -274,7 +275,22 @@ export class SeoScheduler {
       .limit(5);
     for (const a of due) {
       const out = await publishSeoArticle(db, a.id, { kind: 'agent' });
-      if (!out.ok) {
+      if (!out.ok && out.reason === 'fact_check') {
+        // Edited after scheduling, or the check no longer holds: back to the
+        // owner (not retried every tick, not published).
+        await db
+          .update(schema.seoArticles)
+          .set({ status: 'review', scheduledFor: null, updatedAt: this.deps.now() })
+          .where(and(eq(schema.seoArticles.id, a.id), eq(schema.seoArticles.status, 'scheduled')));
+        await writeSeoLog(db, {
+          agent: 'content',
+          level: 'warn',
+          action: 'article.publish_blocked',
+          message: `«${a.title}» не опубликована — гейт публикации: ${gateReasonText(out.gate.reasons)}. Статья возвращена на проверку`,
+          articleId: a.id,
+          details: { reasons: out.gate.reasons },
+        });
+      } else if (!out.ok) {
         await writeSeoLog(db, {
           agent: 'content',
           level: 'warn',

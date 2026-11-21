@@ -5,7 +5,7 @@
  * URL normalisation without an open redirect.
  */
 import { publishSeoArticle, schema } from '@zybrilka/db';
-import { createTestDb } from '@zybrilka/db/testing';
+import { createTestDb, verifiedReviewNotes } from '@zybrilka/db/testing';
 import { SEO_SITE_PAGES } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -170,6 +170,13 @@ describe('stage 1: SEO analytics, trainer links, blog URLs', () => {
           metaDescription: 'd'.repeat(120),
           bodyMd: 'x'.repeat(300),
           ctaPath: p.path,
+          reviewNotes: verifiedReviewNotes({
+            title: `CTA ${i}`,
+            seoTitle: 'Заголовок статьи',
+            metaDescription: 'd'.repeat(120),
+            bodyMd: 'x'.repeat(300),
+            faq: [],
+          }),
         })
         .returning();
       const out = await publishSeoArticle(t.db, a!.id, { kind: 'agent' });
@@ -342,6 +349,16 @@ describe('stage 1 audit: admin writes race safely', () => {
         actor: 'agent',
       })
       .returning();
+    // The pending text was fact-checked (worker) — the gate lets it through once.
+    await t.db
+      .update(schema.seoArticles)
+      .set({
+        reviewNotes: verifiedReviewNotes(
+          { title: 'Upd', bodyMd: 'new text', faq: [] },
+          { revisionId: rev!.id },
+        ),
+      })
+      .where(eq(schema.seoArticles.id, a!.id));
     const url = `/api/v1/admin/seo/articles/${a!.id}/revisions/${rev!.id}/apply`;
     const [r1, r2] = await Promise.all([
       send(url, { confirm: true }),

@@ -1,5 +1,7 @@
 import {
   SEO_ARTICLE_FORMAT_LABELS,
+  SEO_GATE_REASON_LABELS,
+  type SeoGateReason,
   SEO_ARTICLE_STATUS_LABELS,
   SEO_ARTICLE_STATUSES,
   type SeoArticleFormat,
@@ -295,6 +297,7 @@ interface Detail {
       summary?: string;
       factualIssues?: { claim: string; problem: string; correction: string }[];
       pendingRevisionId?: string;
+      passed?: boolean;
     } | null;
     lastCheck: Record<string, unknown> | null;
     publishedAt: string | null;
@@ -304,6 +307,15 @@ interface Detail {
   url: string;
   previewHtml: string;
   qualityIssues: string[];
+  /** Server decision of the Publication Safety Gate for the current text. */
+  publicationGate?: {
+    allowed: boolean;
+    basis: 'verified' | 'manual' | null;
+    reasons: SeoGateReason[];
+    criticalContradictions: string[];
+    unverifiedCritical: string[];
+    manualAllowed: boolean;
+  };
   revisions: { id: string; version: number; reason: string; actor: string; createdAt: string }[];
   media: {
     id: string;
@@ -368,47 +380,54 @@ export function SeoArticlePage({ id = '' }: Record<string, string>) {
   const [msg, setMsg] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | 'publish' | 'unpublish' | { apply: string }>(null);
   const [instructions, setInstructions] = useState('');
+  const [approveReason, setApproveReason] = useState('');
 
-  const call = async (fn: () => Promise<unknown>, ok: string) => {
+  const call = async (fn: () => Promise<unknown>, ok: string | ((r: unknown) => string)) => {
     setMsg(null);
     try {
-      await fn();
-      setMsg(ok);
+      const r = await fn();
+      setMsg(typeof ok === 'function' ? ok(r) : ok);
       query.reload();
     } catch (e) {
       setMsg(errorText(e));
     }
   };
   const save = (form: Form) =>
-    call(() => {
-      const faq = form.faqText
-        .split(/\n\s*\n/)
-        .map((b) => b.trim().split('\n'))
-        .filter((l) => l.length >= 2)
-        .map(([question, ...rest]) => ({
-          question: question!.trim(),
-          answer: rest.join(' ').trim(),
-        }));
-      return adminApi.patch(`/seo/articles/${id}`, {
-        // The version this editor was opened on: the server refuses (409) if it changed.
-        version: query.data?.article.version,
-        title: form.title,
-        seoTitle: form.seoTitle,
-        metaDescription: form.metaDescription,
-        h1: form.h1,
-        bodyMd: form.bodyMd,
-        ogTitle: form.ogTitle,
-        ogDescription: form.ogDescription,
-        primaryKeyword: form.primaryKeyword,
-        secondaryKeywords: form.secondary
-          .split(',')
-          .map((x) => x.trim())
-          .filter((x) => x.length >= 2),
-        ctaPath: form.ctaPath,
-        faq,
-        ...(query.data?.article.publishedAt ? {} : { slug: form.slug }),
-      });
-    }, 'Сохранено (предыдущая версия — в ревизиях).').then(() => setForm(null));
+    call(
+      () => {
+        const faq = form.faqText
+          .split(/\n\s*\n/)
+          .map((b) => b.trim().split('\n'))
+          .filter((l) => l.length >= 2)
+          .map(([question, ...rest]) => ({
+            question: question!.trim(),
+            answer: rest.join(' ').trim(),
+          }));
+        return adminApi.patch(`/seo/articles/${id}`, {
+          // The version this editor was opened on: the server refuses (409) if it changed.
+          version: query.data?.article.version,
+          title: form.title,
+          seoTitle: form.seoTitle,
+          metaDescription: form.metaDescription,
+          h1: form.h1,
+          bodyMd: form.bodyMd,
+          ogTitle: form.ogTitle,
+          ogDescription: form.ogDescription,
+          primaryKeyword: form.primaryKeyword,
+          secondaryKeywords: form.secondary
+            .split(',')
+            .map((x) => x.trim())
+            .filter((x) => x.length >= 2),
+          ctaPath: form.ctaPath,
+          faq,
+          ...(query.data?.article.publishedAt ? {} : { slug: form.slug }),
+        });
+      },
+      (r) =>
+        (r as { pendingRevisionId?: string } | null)?.pendingRevisionId
+          ? 'Правка текста опубликованной статьи сохранена как обновление: на сайте прежняя версия, пока обновление не пройдёт факт-чек и не будет применено.'
+          : 'Сохранено (предыдущая версия — в ревизиях).',
+    ).then(() => setForm(null));
   const generate = (mode: 'write' | 'update' | 'visuals' | 'review' | 'distribute') =>
     call(
       () =>
@@ -511,7 +530,100 @@ export function SeoArticlePage({ id = '' }: Record<string, string>) {
                 >
                   Применить обновление
                 </button>
+                {a.reviewNotes?.passed !== true && (
+                  <span className={s.small}>
+                    {' '}
+                    Без подтверждённого факт-чека обновление применится только после ручного
+                    подтверждения:
+                    <textarea
+                      className={s.input}
+                      value={approveReason}
+                      maxLength={1000}
+                      placeholder="Что и по какому источнику вы проверили (от 10 символов)"
+                      onChange={(e) => setApproveReason(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className={s.button}
+                      disabled={approveReason.trim().length < 10}
+                      onClick={() =>
+                        call(
+                          () =>
+                            adminApi.post(`/seo/articles/${id}/fact-check/approve`, {
+                              reason: approveReason.trim(),
+                              revisionId: pending,
+                              confirm: true,
+                            }),
+                          'Обновление подтверждено вручную — теперь его можно применить.',
+                        )
+                      }
+                    >
+                      Подтвердить обновление вручную
+                    </button>
+                  </span>
+                )}
               </Note>
+            )}
+            {!live && d.publicationGate && (
+              <Card title="Гейт публикации">
+                {d.publicationGate.allowed ? (
+                  <p className={s.small}>
+                    {d.publicationGate.basis === 'manual'
+                      ? 'Можно публиковать: факт-чек подтверждён вручную (не автоматической проверкой).'
+                      : 'Можно публиковать: факт-чек подтверждён по источникам.'}
+                  </p>
+                ) : (
+                  <>
+                    <ul className={s.small}>
+                      {d.publicationGate.reasons.map((r) => (
+                        <li key={r}>{SEO_GATE_REASON_LABELS[r] ?? r}</li>
+                      ))}
+                      {d.publicationGate.criticalContradictions.map((c) => (
+                        <li key={`c:${c}`}>
+                          <strong>Противоречие:</strong> {c}
+                        </li>
+                      ))}
+                      {d.publicationGate.unverifiedCritical.map((c) => (
+                        <li key={`u:${c}`}>
+                          <strong>Не подтверждено:</strong> {c}
+                        </li>
+                      ))}
+                    </ul>
+                    {d.publicationGate.manualAllowed &&
+                      !d.publicationGate.reasons.includes('status_not_allowed') && (
+                        <div className={s.small}>
+                          <label>
+                            Подтвердить вручную (что и по какому источнику вы проверили, от 10
+                            символов):
+                            <textarea
+                              className={s.input}
+                              value={approveReason}
+                              maxLength={1000}
+                              onChange={(e) => setApproveReason(e.target.value)}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className={s.button}
+                            disabled={approveReason.trim().length < 10}
+                            onClick={() =>
+                              call(
+                                () =>
+                                  adminApi.post(`/seo/articles/${id}/fact-check/approve`, {
+                                    reason: approveReason.trim(),
+                                    confirm: true,
+                                  }),
+                                'Подтверждено вручную — действует только для этого текста.',
+                              )
+                            }
+                          >
+                            Подтвердить вручную
+                          </button>
+                        </div>
+                      )}
+                  </>
+                )}
+              </Card>
             )}
             {(d.qualityIssues.length > 0 || a.factCheckPassed === false) && (
               <Card title="Требует внимания">
@@ -805,7 +917,7 @@ export function SeoArticlePage({ id = '' }: Record<string, string>) {
               }}
             >
               {confirm === 'publish'
-                ? `Статья появится на ${d.url}, в sitemap блога и будет отправлена в IndexNow.${d.qualityIssues.length ? ' Внимание: есть замечания качества.' : ''}${a.factCheckPassed ? '' : ' Факт-чек не пройден или не выполнялся.'}`
+                ? `Статья появится на ${d.url}, в sitemap блога и будет отправлена в IndexNow.${d.qualityIssues.length ? ' Внимание: есть замечания качества.' : ''}${d.publicationGate && !d.publicationGate.allowed ? ' Гейт публикации не пропустит статью — см. блок «Гейт публикации».' : ''}`
                 : confirm === 'unpublish'
                   ? 'Страница начнёт отвечать 404 и выпадет из sitemap.'
                   : 'Текст на сайте заменится новой версией; старая сохранится в ревизиях.'}

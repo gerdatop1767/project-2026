@@ -128,6 +128,26 @@ function pipelineModel(p: Anthropic.MessageStreamParams): Anthropic.Message {
   const structured = Boolean(
     p.output_config && 'format' in p.output_config && p.output_config.format,
   );
+  if (!structured && systemOf(p).includes('по официальным источникам'))
+    // The fact-check web pass: the API returns real search results (the gate's evidence).
+    return message('Утверждения верны: задание 13 — 2 первичных балла.', {
+      content: [
+        {
+          type: 'web_search_tool_result',
+          tool_use_id: 'srv_1',
+          content: [
+            {
+              type: 'web_search_result',
+              url: 'https://fipi.ru/ege/demoversii',
+              title: 'ФИПИ',
+              encrypted_content: '',
+              page_age: null,
+            },
+          ],
+        },
+        { type: 'text', text: 'Утверждения верны.', citations: null },
+      ] as unknown as Anthropic.Message['content'],
+    });
   if (!structured)
     return message(
       'Заметки исследования: задание 13 профильной математики (тригонометрические уравнения, отбор корней), по демоверсии ФИПИ 2027 — без изменений относительно 2026. Частые вопросы школьников: как отбирать корни, сколько баллов. https://fipi.ru/ege',
@@ -152,7 +172,7 @@ function pipelineModel(p: Anthropic.MessageStreamParams): Anthropic.Message {
     );
   }
   if (system.includes('образовательный редактор')) return message(JSON.stringify(ARTICLE));
-  if (system.includes('факт-чекер'))
+  if (system.includes('факт-чекер') || system.includes('Сведи итог проверки фактов'))
     return message(
       JSON.stringify({
         verdict: 'pass',
