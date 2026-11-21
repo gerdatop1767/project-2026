@@ -118,8 +118,11 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
         expect(t4Books.has(contentOptions(t.conditionMd)), `№4.${t.n}`).toBe(false);
       else
         for (const l of contentLines(t.conditionMd).filter(
-          // Matching tasks: only the column of sentences is content; the terms are shared.
-          (x) => t.answer.type !== 'match' || /^[абвгд]\) /.test(x),
+          // Matching tasks: only the column of sentences is content (№22: А–Д, №8: 1–9);
+          // the other column is the exam's shared list of terms or error types.
+          (x) =>
+            t.answer.type !== 'match' ||
+            (t.taskNumber === 8 ? /^\d\) /.test(x) : /^[абвгд]\) /.test(x)),
         ))
           expect(lines.has(l), `№${t.taskNumber}.${t.n}: ${l}`).toBe(false);
     }

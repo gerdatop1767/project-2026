@@ -2,6 +2,7 @@ import { TASK4 } from './data/task04.js';
 import { TASK5 } from './data/task05.js';
 import { TASK6 } from './data/task06.js';
 import { TASK7 } from './data/task07.js';
+import { TASK8 } from './data/task08.js';
 import { TASK9 } from './data/task09.js';
 import { TASK11 } from './data/task11.js';
 import { TASK12 } from './data/task12.js';
@@ -27,6 +28,7 @@ export const BANK_NUMBERS: readonly BankNumber[] = [
   TASK5,
   TASK6,
   TASK7,
+  TASK8,
   TASK9,
   TASK11,
   TASK12,
