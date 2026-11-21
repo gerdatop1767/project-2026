@@ -34,7 +34,9 @@ export type GateTarget = 'publish' | 'schedule' | 'apply_update';
 
 const ALLOWED_STATUSES: Record<GateTarget, readonly string[]> = {
   publish: ['draft', 'review', 'scheduled', 'needs_update'],
-  schedule: ['draft', 'review', 'needs_update', 'scheduled'],
+  // Not needs_update: that article is live — «scheduled» would take it off the
+  // site until the due time (and for good if the gate then refuses).
+  schedule: ['draft', 'review', 'scheduled'],
   apply_update: ['published', 'needs_update'],
 };
 

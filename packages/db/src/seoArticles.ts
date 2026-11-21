@@ -235,7 +235,7 @@ export async function scheduleSeoArticle(
         and(
           eq(schema.seoArticles.id, id),
           eq(schema.seoArticles.version, current.version),
-          inArray(schema.seoArticles.status, ['draft', 'review', 'needs_update', 'scheduled']),
+          inArray(schema.seoArticles.status, ['draft', 'review', 'scheduled']),
         ),
       )
       .returning();

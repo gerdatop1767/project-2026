@@ -188,9 +188,23 @@ describe('stage 2.1: publication safety gate (admin API)', () => {
     const s = await schedule(ok.id);
     expect(s.statusCode).toBe(200);
     expect(s.json().article.status).toBe('scheduled');
-    // Already published → not schedulable at all.
-    const live = await article({ status: 'published', publishedAt: new Date() });
-    expect((await schedule(live.id)).json().error).toBe('not_schedulable');
+    // Live (published / needs_update) → not schedulable: «scheduled» would
+    // take it off the site. Even with a valid check; nothing changes.
+    for (const status of ['published', 'needs_update'] as const) {
+      const live = await article({
+        status,
+        publishedAt: new Date(),
+        slug: `live-sched-${status.length}`,
+        reviewNotes: verifiedReviewNotes(CONTENT),
+      });
+      const r = await schedule(live.id);
+      expect(r.statusCode, status).toBe(409);
+      expect(r.json().error).toBe('not_schedulable');
+      expect(await get(live.id)).toMatchObject({ status, scheduledFor: null });
+      expect(
+        (await app.inject({ method: 'GET', url: `/blog/live-sched-${status.length}` })).statusCode,
+      ).toBe(200);
+    }
   });
 
   it('7: applying an update to a live article needs a check of that revision', async () => {
