@@ -104,30 +104,39 @@ describe('«36 вариантов» data (static checks)', () => {
 describe('«36 вариантов» does not duplicate content already in the bot', () => {
   const letters = (s: string) => s.toLowerCase().replace(/[^а-яё]/g, '');
   const dir = fileURLToPath(new URL('.', import.meta.url));
-  const existing = readdirSync(dir)
-    .filter((f) => /^importRussianDoshchinsky2027Variant\d+\.ts$/.test(f))
-    .map((f) => letters(readFileSync(dir + f, 'utf8').replace(/\\n/g, ' ')));
   /** 30-letter windows of a text, taken every 15 letters. */
-  const windows = (s: string) => {
-    const n = letters(s);
+  const windows = (n: string) => {
     const out: string[] = [];
     for (let i = 0; i + 30 < n.length; i += 15) out.push(n.slice(i, i + 30));
     return out;
   };
-  const shared = (text: string, other: string) => {
-    const ws = windows(text);
-    return ws.length === 0 ? 0 : ws.filter((w) => other.includes(w)).length / ws.length;
+  /**
+   * Every 30-letter substring of a text: «window occurs in the text» is the
+   * same as «window is in this set», but costs one lookup instead of a scan
+   * of the whole text. Built once per text, not once per pair of texts.
+   */
+  const grams = (n: string) => {
+    const out = new Set<string>();
+    for (let i = 0; i + 30 <= n.length; i++) out.add(n.slice(i, i + 30));
+    return out;
   };
+  const existing = readdirSync(dir)
+    .filter((f) => /^importRussianDoshchinsky2027Variant\d+\.ts$/.test(f))
+    .map((f) => grams(letters(readFileSync(dir + f, 'utf8').replace(/\\n/g, ' '))));
+  const shared = (ws: readonly string[], other: ReadonlySet<string>) =>
+    ws.length === 0 ? 0 : ws.filter((w) => other.has(w)).length / ws.length;
 
   it('no passage of the book repeats a passage of the earlier 18 variants or of another book variant', () => {
     const all = r36Variants.flatMap((v) =>
-      (['A', 'B'] as const).map((k) => ({ id: `В${v.variant}${k}`, text: v.passages[k].bodyMd })),
+      (['A', 'B'] as const).map((k) => {
+        const n = letters(v.passages[k].bodyMd);
+        return { id: `В${v.variant}${k}`, ws: windows(n), grams: grams(n) };
+      }),
     );
     for (const p of all) {
-      for (const e of existing) expect(shared(p.text, e), p.id).toBeLessThan(0.3);
+      for (const e of existing) expect(shared(p.ws, e), p.id).toBeLessThan(0.3);
       for (const q of all)
-        if (q.id !== p.id)
-          expect(shared(p.text, letters(q.text)), `${p.id} ~ ${q.id}`).toBeLessThan(0.3);
+        if (q.id !== p.id) expect(shared(p.ws, q.grams), `${p.id} ~ ${q.id}`).toBeLessThan(0.3);
     }
   });
 });
