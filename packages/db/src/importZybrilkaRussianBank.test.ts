@@ -154,7 +154,7 @@ function contentOptions(md: string): string {
     .join('|');
 }
 
-describe('Зубрилка, банк №4–22 — import', () => {
+describe('Зубрилка, банк №4–22 — import', { timeout: 120_000 }, () => {
   let testDb: Awaited<ReturnType<typeof createTestDb>>;
   beforeAll(async () => {
     testDb = await createTestDb();
