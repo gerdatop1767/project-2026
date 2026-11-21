@@ -249,6 +249,42 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
     }
   });
 
+  it('tasks 17–20 have the exam form: 4–8 places, 40–50% traps, few one-digit answers; the answer agrees with the explanation', () => {
+    for (const n of [17, 18, 19, 20]) {
+      let places = 0;
+      let traps = 0;
+      let single = 0;
+      const seen = new Set<string>();
+      for (const t of byNumber(n)) {
+        const where = `№${n}.${t.n}`;
+        const text = t.conditionMd.split('\n\n')[1]!;
+        const count = (text.match(/\(\d\)/g) ?? []).length;
+        expect(count, where).toBeGreaterThanOrEqual(4);
+        expect(count, where).toBeLessThanOrEqual(8);
+        const lines = t.explanationMd.split('\n\n').filter((l) => /^\(\d\) Между/.test(l));
+        expect(lines, where).toHaveLength(count);
+        const needed = lines.flatMap((l, i) =>
+          l.includes('**запятая нужна**') ? [String(i + 1)] : [],
+        );
+        const digits = t.answer.type === 'digits' ? t.answer.digits : '';
+        expect(needed.join(''), where).toBe(digits);
+        const fixed = /Расставим знаки: «(.*)»/.exec(t.explanationMd)![1]!;
+        expect(fixed.split(',').length - 1, where).toBe(digits.length);
+        expect(fixed.replace(/[\s,]/g, ''), where).toBe(
+          text.replace(/\s*\(\d\)/g, '').replace(/[\s,]/g, ''),
+        );
+        expect(seen.has(fixed), where).toBe(false);
+        seen.add(fixed);
+        places += count;
+        traps += count - digits.length;
+        if (digits.length === 1) single++;
+      }
+      expect(traps / places, `№${n} traps`).toBeGreaterThanOrEqual(0.4);
+      expect(traps / places, `№${n} traps`).toBeLessThanOrEqual(0.5);
+      expect(single, `№${n} one-digit answers`).toBeLessThanOrEqual(10);
+    }
+  });
+
   it('maps every number to its Learning Engine skill', () => {
     for (const b of BANK_NUMBERS) {
       const link = examSkillsForTask({
