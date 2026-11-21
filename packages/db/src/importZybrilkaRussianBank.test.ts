@@ -23,7 +23,7 @@ import { createTestDb } from './testing.js';
 import { BANK_NUMBERS, bankCollectionSlug, bankSource } from './zybrilkaRussian/bank.js';
 import { TASK4_INSTRUCTION } from './zybrilkaRussian/data/task04.js';
 import { TASK8_CORRECT, TASK8_ERRORS, TASK8_TYPES } from './zybrilkaRussian/data/task08.js';
-import { MAX_SHARED, TASK21_SENTENCES } from './zybrilkaRussian/data/task21.js';
+import { generalRule21, TEXTS_21 } from './zybrilkaRussian/data/task21.js';
 import { TASK22_TERMS, TASK22_UNITS } from './zybrilkaRussian/data/task22.js';
 import { MAX_SHARED_RIGHT } from './zybrilkaRussian/compose.js';
 import { BANK_SIZE, normalizeCondition } from './zybrilkaRussian/validate.js';
@@ -133,7 +133,7 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
     }
   });
 
-  it('neighbouring tasks are not near-copies (5, 7: ≤ 2 shared right units; 21: ≤ 4 sentences)', () => {
+  it('neighbouring tasks are not near-copies (5, 7: ≤ 2 shared right units)', () => {
     const items = (md: string) =>
       new Set(
         md
@@ -147,7 +147,6 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
     for (const [n, from, max] of [
       [5, 11, MAX_SHARED_RIGHT],
       [7, 1, MAX_SHARED_RIGHT],
-      [21, 1, MAX_SHARED],
     ] as const) {
       const sets = byNumber(n)
         .filter((t) => t.n >= from)
@@ -162,31 +161,54 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
     }
   });
 
-  it('task 21: the answer is recomputed from the sentences under both readings of the rules', () => {
-    const tags = new Map(TASK21_SENTENCES.map((s) => [s.text, s.rules]));
-    for (const t of byNumber(21)) {
-      const sign = { запятая: 'c', тире: 'd', двоеточие: 'k' }[
-        /\*\*(запятая|тире|двоеточие)/.exec(t.conditionMd)![1] as 'запятая'
-      ];
+  it('task 21: one connected text per task; the answer is recomputed under both readings of the rules', () => {
+    const tasks = byNumber(21);
+    expect(TEXTS_21).toHaveLength(100);
+    const seen = new Set<string>();
+    tasks.forEach((t, i) => {
+      const text = TEXTS_21[i]!;
+      const where = `№21.${t.n} «${text.title}»`;
       const sentences = t.conditionMd
         .split('\n\n')[1]!
         .split(/\(\d\)/)
-        .filter(Boolean);
+        .filter(Boolean)
+        .map((x) => x.trim());
+      expect(sentences, where).toEqual(text.sentences.map((s) => s.text));
+      expect(sentences.length, where).toBeGreaterThanOrEqual(7);
+      expect(sentences.length, where).toBeLessThanOrEqual(9);
+      for (const s of sentences) {
+        expect(seen.has(s), `${where}: ${s}`).toBe(false);
+        seen.add(s);
+      }
+      const mark = { c: ',', d: '—', k: ':' }[text.sign];
       for (const general of [true, false]) {
-        const groups = new Map<string, number[]>();
-        sentences.forEach((x, i) => {
-          const r = tags.get(x.trim())![sign];
-          if (!r) return;
-          const g = general ? r.split('.')[0]! : r;
-          groups.set(g, [...(groups.get(g) ?? []), i + 1]);
+        const groups = new Map<string, Set<number>>();
+        text.sentences.forEach((s, k) => {
+          expect(s.text.split(mark).length - 1, where).toBe(s.tags.length);
+          for (const tag of s.tags) {
+            const key = general ? generalRule21(text.sign, tag)! : tag;
+            groups.set(key, (groups.get(key) ?? new Set()).add(k + 1));
+          }
         });
-        const repeated = [...groups.values()].filter((v) => v.length >= 2);
-        expect(repeated, `№21.${t.n}`).toHaveLength(1);
-        expect(repeated[0]!.join(''), `№21.${t.n}`).toBe(
+        const repeated = [...groups.values()].filter((v) => v.size >= 2);
+        expect(repeated, `${where} (${general ? 'общая' : 'подробная'} трактовка)`).toHaveLength(1);
+        expect([...repeated[0]!].join(''), where).toBe(
           t.answer.type === 'digits' ? t.answer.digits : '',
         );
       }
-    }
+    });
+    const count = (f: (t: (typeof tasks)[number]) => string) =>
+      tasks.reduce<Record<string, number>>((a, t) => ({ ...a, [f(t)]: (a[f(t)] ?? 0) + 1 }), {});
+    expect(count((t) => t.kind)).toEqual({
+      'знак: запятая': 50,
+      'знак: тире': 32,
+      'знак: двоеточие': 18,
+    });
+    expect(count((t) => String(t.answer.type === 'digits' ? t.answer.digits.length : 0))).toEqual({
+      2: 45,
+      3: 35,
+      4: 20,
+    });
   });
 
   it('tasks 8 and 22: the answer is recomputed from the pools; no two listed terms overlap', () => {
