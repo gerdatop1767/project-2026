@@ -67,7 +67,10 @@ export function buildTask10(task: AuthoredTask10): BuiltTask10 {
 }
 
 /** Everything wrong with the authored set; empty = ready to import. */
-export function validateAuthoredTasks10(tasks: readonly AuthoredTask10[], expected = 50): string[] {
+export function validateAuthoredTasks10(
+  tasks: readonly AuthoredTask10[],
+  expected = 100,
+): string[] {
   const problems: string[] = [];
   if (tasks.length !== expected) problems.push(`expected ${expected} tasks, found ${tasks.length}`);
   const numbers = tasks.map((t) => t.n);
@@ -106,7 +109,7 @@ export function validateAuthoredTasks10(tasks: readonly AuthoredTask10[], expect
     if (task.note.trim().length < 40) problems.push(`${where}: the note is too short`);
   }
   for (const [word, n] of wordUse) {
-    if (n > 3) problems.push(`«${word}» is used ${n} times (3 at most)`);
+    if (n > 6) problems.push(`«${word}» is used ${n} times (6 at most)`);
   }
   return problems;
 }

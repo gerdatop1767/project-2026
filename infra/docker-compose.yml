@@ -156,6 +156,13 @@ services:
   # word against its spelling rule), one transaction, stable ids, nothing
   # deleted; it never matches or changes rows of the books.
   #
+  # Then the rest of that bank, tasks 4–22 except 10
+  # (importZybrilkaRussianBank.ts, one collection per number
+  # `zybrilka-russian-N`, docs/imports/zybrilka-russian-4-22-plan.md). It
+  # imports only numbers that are complete (100 tasks), validates them all
+  # first, one transaction, stable ids, nothing deleted; №10 and the books
+  # are never touched.
+  #
   # Last in the chain: the «Ударения» mini-game's stress dictionary
   # (packages/db/src/stressDictionary, docs/MINI_GAMES.md). Same rules as
   # the variant importers: upsert by a stable key (word ids — and players'
@@ -235,6 +242,7 @@ services:
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2027Book36.js &&
         node node_modules/@zybrilka/db/dist/importRussianDoshchinsky2026Book36.js &&
         node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.js &&
+        node node_modules/@zybrilka/db/dist/importZybrilkaRussianBank.js &&
         node node_modules/@zybrilka/db/dist/stressDictionary/import.js
     restart: 'no'
 

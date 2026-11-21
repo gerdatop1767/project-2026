@@ -127,12 +127,21 @@ describe(`infra/docker-compose.yml — sync-content runs every EGE variant impor
     expect(serviceBlock.match(/importZybrilkaRussian10\.js/g)).toHaveLength(1);
   });
 
+  it('runs Зубрилка’s bank 4–22 exactly once, right after task 10 and before the stress dictionary', () => {
+    const bank = serviceBlock.indexOf(
+      'node node_modules/@zybrilka/db/dist/importZybrilkaRussianBank.js &&',
+    );
+    expect(bank).toBeGreaterThan(serviceBlock.indexOf('importZybrilkaRussian10.js'));
+    expect(bank).toBeLessThan(serviceBlock.indexOf('stressDictionary/import.js'));
+    expect(serviceBlock.match(/importZybrilkaRussianBank\.js/g)).toHaveLength(1);
+  });
+
   it('chains every import with && so a failing importer stops the sequence with a non-zero exit', () => {
     // 10 math 2026 + N math 2027 + 18 Russian + the 2027 and 2026 36-variant
     // books + Зубрилка's task-10 bank + the stress dictionary, joined by && — one "&&" fewer than
     // invocations. Not ";" (which would silently continue past a failure)
     // and not "||" (which would swallow one).
-    const invocations = 10 + MATH_2027_VARIANTS + 18 + 2 + 1 + 1;
+    const invocations = 10 + MATH_2027_VARIANTS + 18 + 2 + 1 + 1 + 1;
     const andCount = (serviceBlock.match(/&&/g) ?? []).length;
     expect(andCount).toBe(invocations - 1);
     expect(serviceBlock).not.toMatch(/importEge2026Variant\d{1,2}\.js\s*;/);
@@ -140,6 +149,7 @@ describe(`infra/docker-compose.yml — sync-content runs every EGE variant impor
     expect(serviceBlock).not.toMatch(/importRussianDoshchinsky2027Book36\.js\s*;/);
     expect(serviceBlock).not.toMatch(/importRussianDoshchinsky2026Book36\.js\s*;/);
     expect(serviceBlock).not.toMatch(/importZybrilkaRussian10\.js\s*;/);
+    expect(serviceBlock).not.toMatch(/importZybrilkaRussianBank\.js\s*;/);
     expect(serviceBlock).not.toContain('||');
   });
 
@@ -176,9 +186,10 @@ describe(`infra/docker-compose.yml — sync-content runs every EGE variant impor
     expect(stress).toBeGreaterThan(serviceBlock.indexOf('importRussianDoshchinsky2027Book36.js'));
     expect(stress).toBeGreaterThan(serviceBlock.indexOf('importRussianDoshchinsky2026Book36.js'));
     expect(stress).toBeGreaterThan(serviceBlock.indexOf('importZybrilkaRussian10.js'));
+    expect(stress).toBeGreaterThan(serviceBlock.indexOf('importZybrilkaRussianBank.js'));
     // Chained with && like the rest: a failing import fails the service.
     expect(serviceBlock).toMatch(
-      /importZybrilkaRussian10\.js &&\s+node node_modules\/@zybrilka\/db\/dist\/stressDictionary\/import\.js/,
+      /importZybrilkaRussianBank\.js &&\s+node node_modules\/@zybrilka\/db\/dist\/stressDictionary\/import\.js/,
     );
   });
 });
