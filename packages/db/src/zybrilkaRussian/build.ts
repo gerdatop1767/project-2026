@@ -13,6 +13,17 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const dot = (s: string) => (/[.!?…]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);
 
 /** `{слово}` → **СЛОВО**. */
+/** «Верен и ответ «…»» — when several answers are right, the explanation says so. */
+function alsoRight(accepted: readonly string[] | undefined): string[] {
+  if (!accepted?.length) return [];
+  const words = accepted.map((w) => `«${w}»`).join(', ');
+  return [
+    accepted.length > 1
+      ? `Верны и ответы ${words}: они нормативны и не меняют смысла предложения.`
+      : `Верен и ответ ${words}: он нормативен и не меняет смысла предложения.`,
+  ];
+}
+
 export function showHighlights(text: string): string {
   return text.replace(HIGHLIGHT, (_, w: string) => `**${w.toUpperCase()}**`);
 }
@@ -88,6 +99,7 @@ export function buildOneWrong(n: number, t: Paronym5, spec: OneWrongSpec): BankT
     explanationMd: [
       spec.intro,
       `**Ошибка — в ${spec.taskNumber === 5 ? 'предложении' : 'строке'} ${t.wrong}.** ${cap(t.why[i]!)}. Правильно: «${fixed}»`,
+      ...alsoRight(t.accepted),
       `${spec.othersTitle}\n\n${others.join('\n')}`,
       `**Обрати внимание.** ${t.note}`,
       `Ответ: ${[t.fix, ...(t.accepted ?? [])].join(' / ')}.`,
@@ -145,6 +157,7 @@ export function buildLexical6(n: number, t: Lexical6): BankTask {
         : 'Ищем слово, которое не сочетается с соседними по смыслу или по устойчивому употреблению, и подбираем верное, сохраняя смысл.',
       `**Ошибка: «${target}».** ${cap(dot(t.why))}`,
       `Исправленное предложение: «${dot(cap(t.corrected ?? corrected))}»`,
+      ...alsoRight(t.accepted),
       `**Обрати внимание.** ${t.note}`,
       `Ответ: ${[answer.toLowerCase(), ...(t.accepted ?? [])].join(' / ')}.`,
     ].join('\n\n'),
