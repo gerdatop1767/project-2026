@@ -26,16 +26,16 @@ import { BANK_SIZE, validateNumber } from './zybrilkaRussian/validate.js';
 /**
  * Зубрилка's own ЕГЭ Russian bank, tasks 4–22 except 10
  * (docs/imports/zybrilka-russian-4-22-plan.md). One collection per number
- * (`zybrilka-russian-N`, 5 sets × 10), its own `tasks.source` per number,
+ * (`zybrilka-russian-N`, 10 sets × 10), its own `tasks.source` per number,
  * so rows of every other source — №10 included — are never matched.
  *
- * Idempotent: a task is upserted by (subject, source, sourceVariant = 1…50),
+ * Idempotent: a task is upserted by (subject, source, sourceVariant = 1…100),
  * collections by slug, sets by number; ids never change and a row is
  * rewritten only when its content changed. All numbers are validated
  * before anything is written and imported in one transaction. Nothing is
  * deleted; user data is never touched.
  *
- * By default only complete numbers (50 tasks) are imported — a number
+ * By default only complete numbers (100 tasks) are imported — a number
  * still being written never reaches students. `allowIncomplete` (tests,
  * a local stand) imports whatever is ready.
  */
@@ -159,7 +159,7 @@ export async function importZybrilkaRussianBank(
       const meta = {
         title: bankCollectionTitle(N),
         publisher: 'Зубрилка',
-        description: `Задания составлены командой Зубрилки по образцу задания №${N} ЕГЭ по русскому языку. Это не материалы ФИПИ и не задания из сборников. 50 заданий в пяти наборах, к каждому — подробный разбор.`,
+        description: `Задания составлены командой Зубрилки по образцу задания №${N} ЕГЭ по русскому языку. Это не материалы ФИПИ и не задания из сборников. 100 заданий в десяти наборах, к каждому — подробный разбор.`,
         year: BANK_YEAR,
       };
       const [collection] = await tx

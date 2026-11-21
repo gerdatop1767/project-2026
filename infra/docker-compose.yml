@@ -159,7 +159,7 @@ services:
   # Then the rest of that bank, tasks 4–22 except 10
   # (importZybrilkaRussianBank.ts, one collection per number
   # `zybrilka-russian-N`, docs/imports/zybrilka-russian-4-22-plan.md). It
-  # imports only numbers that are complete (50 tasks), validates them all
+  # imports only numbers that are complete (100 tasks), validates them all
   # first, one transaction, stable ids, nothing deleted; №10 and the books
   # are never touched.
   #
