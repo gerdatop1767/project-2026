@@ -1,4 +1,5 @@
 import { buildParonym5, type Paronym5 } from '../build.js';
+import { tooClose } from '../compose.js';
 import { rng, shuffle, type BankNumber } from '../types.js';
 import { PARONYM_ERRORS, PARONYM_RIGHT } from './task05pool.js';
 
@@ -297,6 +298,7 @@ export function composeParonymTasks(seed = 5052027): Paronym5[] {
   const rand = rng(seed);
   const uses = new Map<string, number>();
   let pool = shuffle(PARONYM_RIGHT, rand);
+  const earlier: Set<string>[] = [];
   return PARONYM_ERRORS.map(([d, family, pos, s, fix, why, note, accepted]) => {
     const nests = new Set([nestOf(family)]);
     const picked: (typeof PARONYM_RIGHT)[number][] = [];
@@ -304,10 +306,20 @@ export function composeParonymTasks(seed = 5052027): Paronym5[] {
     for (const unit of pool) {
       if (picked.length === 4) break;
       if (nests.has(nestOf(unit[0]))) continue;
+      if (
+        tooClose(
+          earlier,
+          picked.map((u) => u[1]),
+          unit[1],
+        )
+      )
+        continue;
       picked.push(unit);
       nests.add(nestOf(unit[0]));
     }
+    if (picked.length < 4) throw new Error(`task 5: not enough right units for «${s}»`);
     for (const u of picked) uses.set(u[1], (uses.get(u[1]) ?? 0) + 1);
+    earlier.push(new Set(picked.map((u) => u[1])));
     const at = Math.floor(rand() * 5);
     const order = shuffle(picked, rand);
     const sentences = [...order.map((u) => u[1])];

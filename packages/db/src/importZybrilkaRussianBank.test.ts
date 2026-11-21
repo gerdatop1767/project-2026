@@ -22,9 +22,14 @@ import { STRESS_ENTRIES } from './stressDictionary/data.js';
 import { createTestDb } from './testing.js';
 import { BANK_NUMBERS, bankCollectionSlug, bankSource } from './zybrilkaRussian/bank.js';
 import { TASK4_INSTRUCTION } from './zybrilkaRussian/data/task04.js';
+import { TASK8_CORRECT, TASK8_ERRORS, TASK8_TYPES } from './zybrilkaRussian/data/task08.js';
+import { MAX_SHARED, TASK21_SENTENCES } from './zybrilkaRussian/data/task21.js';
+import { TASK22_TERMS, TASK22_UNITS } from './zybrilkaRussian/data/task22.js';
+import { MAX_SHARED_RIGHT } from './zybrilkaRussian/compose.js';
 import { BANK_SIZE, normalizeCondition } from './zybrilkaRussian/validate.js';
 
 const all = BANK_NUMBERS.flatMap((b) => b.tasks);
+const byNumber = (n: number) => BANK_NUMBERS.find((b) => b.taskNumber === n)!.tasks;
 const bookTasks = [...r26Variants, ...r36Variants].flatMap((v) => v.tasks);
 const contentLines = (md: string) =>
   md
@@ -125,6 +130,100 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
             (t.taskNumber === 8 ? /^\d\) /.test(x) : /^[абвгд]\) /.test(x)),
         ))
           expect(lines.has(l), `№${t.taskNumber}.${t.n}: ${l}`).toBe(false);
+    }
+  });
+
+  it('neighbouring tasks are not near-copies (5, 7: ≤ 2 shared right units; 21: ≤ 4 sentences)', () => {
+    const items = (md: string) =>
+      new Set(
+        md
+          .split('\n\n')
+          .slice(1)
+          .join('\n')
+          .split(/\n|\(\d\)/)
+          .map((x) => x.replace(/^\d\) /, '').trim())
+          .filter((x) => x.length > 3),
+      );
+    for (const [n, from, max] of [
+      [5, 11, MAX_SHARED_RIGHT],
+      [7, 1, MAX_SHARED_RIGHT],
+      [21, 1, MAX_SHARED],
+    ] as const) {
+      const sets = byNumber(n)
+        .filter((t) => t.n >= from)
+        .map((t) => ({ n: t.n, s: items(t.conditionMd) }));
+      for (const a of sets)
+        for (const b of sets)
+          if (a.n < b.n)
+            expect(
+              [...a.s].filter((x) => b.s.has(x)).length,
+              `№${n}: ${a.n} и ${b.n}`,
+            ).toBeLessThanOrEqual(max);
+    }
+  });
+
+  it('task 21: the answer is recomputed from the sentences under both readings of the rules', () => {
+    const tags = new Map(TASK21_SENTENCES.map((s) => [s.text, s.rules]));
+    for (const t of byNumber(21)) {
+      const sign = { запятая: 'c', тире: 'd', двоеточие: 'k' }[
+        /\*\*(запятая|тире|двоеточие)/.exec(t.conditionMd)![1] as 'запятая'
+      ];
+      const sentences = t.conditionMd
+        .split('\n\n')[1]!
+        .split(/\(\d\)/)
+        .filter(Boolean);
+      for (const general of [true, false]) {
+        const groups = new Map<string, number[]>();
+        sentences.forEach((x, i) => {
+          const r = tags.get(x.trim())![sign];
+          if (!r) return;
+          const g = general ? r.split('.')[0]! : r;
+          groups.set(g, [...(groups.get(g) ?? []), i + 1]);
+        });
+        const repeated = [...groups.values()].filter((v) => v.length >= 2);
+        expect(repeated, `№21.${t.n}`).toHaveLength(1);
+        expect(repeated[0]!.join(''), `№21.${t.n}`).toBe(
+          t.answer.type === 'digits' ? t.answer.digits : '',
+        );
+      }
+    }
+  });
+
+  it('tasks 8 and 22: the answer is recomputed from the pools; no two listed terms overlap', () => {
+    const column = (md: string, re: RegExp) =>
+      md
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => re.test(l))
+        .map((l) => l.slice(3));
+    const term = new Map(TASK22_UNITS.map((u) => [u[1], u[0]]));
+    for (const t of byNumber(22)) {
+      const left = column(t.conditionMd, /^[АБВГД]\) /);
+      const right = column(t.conditionMd, /^\d\) /);
+      expect(new Set(right.map((x) => TASK22_TERMS[x]!.group)).size, `№22.${t.n}`).toBe(9);
+      expect(right.includes('перифраза') && right.includes('контекстные синонимы')).toBe(false);
+      const parts = left.map((x) => String(right.indexOf(term.get(x)!) + 1));
+      expect(parts, `№22.${t.n}`).toEqual(
+        t.answer.type === 'match' ? t.answer.parts.map(String) : [],
+      );
+    }
+    const error = new Map(TASK8_ERRORS.map((e) => [e[1], TASK8_TYPES[e[0]]!.label]));
+    const right8 = new Set(TASK8_CORRECT.map((c) => c[0]));
+    for (const t of byNumber(8)) {
+      const types = column(t.conditionMd, /^[АБВГД]\) /);
+      const sentences = column(t.conditionMd, /^\d\) /);
+      expect(
+        sentences.filter((x) => right8.has(x)),
+        `№8.${t.n}`,
+      ).toHaveLength(4);
+      const parts = types.map((ty) => {
+        const hits = sentences.flatMap((x, i) => (error.get(x) === ty ? [String(i + 1)] : []));
+        expect(hits, `№8.${t.n} ${ty}`).toHaveLength(1);
+        return hits[0];
+      });
+      expect(parts, `№8.${t.n}`).toEqual(
+        t.answer.type === 'match' ? t.answer.parts.map(String) : [],
+      );
     }
   });
 

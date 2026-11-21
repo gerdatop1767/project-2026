@@ -23,6 +23,24 @@ export interface RightUnit {
   readonly why: string;
 }
 
+/**
+ * Two tasks of a number may share at most this many right units: without
+ * the limit, picking «the least used first» kept returning the same four
+ * units, and neighbouring tasks differed only in the wrong one.
+ */
+export const MAX_SHARED_RIGHT = 2;
+
+/** Would `unit` make `picked` share more than MAX_SHARED_RIGHT with an earlier task? */
+export function tooClose(
+  earlier: readonly ReadonlySet<string>[],
+  picked: readonly string[],
+  unit: string,
+): boolean {
+  return earlier.some(
+    (set) => picked.filter((p) => set.has(p)).length + (set.has(unit) ? 1 : 0) > MAX_SHARED_RIGHT,
+  );
+}
+
 export function composeOneWrong(
   errors: readonly WrongUnit[],
   rights: readonly RightUnit[],
@@ -32,6 +50,7 @@ export function composeOneWrong(
   const rand = rng(seed);
   const uses = new Map<string, number>();
   let pool = shuffle(rights, rand);
+  const earlier: Set<string>[] = [];
   return errors.map((e) => {
     const keys = new Set([conflictKey(e.key)]);
     const picked: RightUnit[] = [];
@@ -40,11 +59,20 @@ export function composeOneWrong(
       if (picked.length === 4) break;
       const k = conflictKey(unit.key);
       if (keys.has(k)) continue;
+      if (
+        tooClose(
+          earlier,
+          picked.map((u) => u.s),
+          unit.s,
+        )
+      )
+        continue;
       picked.push(unit);
       keys.add(k);
     }
     if (picked.length < 4) throw new Error(`not enough right units for «${e.s}»`);
     for (const u of picked) uses.set(u.s, (uses.get(u.s) ?? 0) + 1);
+    earlier.push(new Set(picked.map((u) => u.s)));
     const at = Math.floor(rand() * 5);
     const order = shuffle(picked, rand);
     const s = order.map((u) => u.s);
