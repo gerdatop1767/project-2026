@@ -52,6 +52,11 @@ export function validateTask(t: BankTask): string[] {
   for (const text of [t.conditionMd, t.explanationMd, t.hintMd])
     if (/[а-яё][a-z]|[a-z][а-яё]/i.test(text))
       p.push(`${where}: Latin and Cyrillic letters mixed in a word`);
+  // The app renders only `**bold**` and `*italic*` (no nesting): any other
+  // asterisk, e.g. `***bold italic***`, would show up on screen as a raw «*».
+  for (const text of [t.conditionMd, t.explanationMd, t.hintMd])
+    if (text.replace(/\*\*[^*]+?\*\*|\*[^*]+?\*/g, '').includes('*'))
+      p.push(`${where}: stray «*» the app would show as is`);
   if (/\b(ФИПИ|Дощинск)/i.test(t.conditionMd))
     p.push(`${where}: the condition names another source`);
   return p;
