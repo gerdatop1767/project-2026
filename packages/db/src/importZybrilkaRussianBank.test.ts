@@ -30,7 +30,10 @@ const contentLines = (md: string) =>
   md
     .split('\n')
     .slice(1)
-    .map((l) => normalizeCondition(l.replace(/\*\*/g, '')))
+    .map((l) => l.replace(/\*\*/g, '').trim())
+    // Format lines every task of the number shares: column headers, the closing instruction.
+    .filter((l) => l !== l.toUpperCase() && !l.startsWith('Запишите в таблицу'))
+    .map(normalizeCondition)
     .filter((l) => l.length >= 25);
 
 describe('Зубрилка, банк №4–22 — data (static checks)', () => {
@@ -114,7 +117,10 @@ describe('Зубрилка, банк №4–22 — data (static checks)', () => 
       if (t.taskNumber === 4)
         expect(t4Books.has(contentOptions(t.conditionMd)), `№4.${t.n}`).toBe(false);
       else
-        for (const l of contentLines(t.conditionMd))
+        for (const l of contentLines(t.conditionMd).filter(
+          // Matching tasks: only the column of sentences is content; the terms are shared.
+          (x) => t.answer.type !== 'match' || /^[абвгд]\) /.test(x),
+        ))
           expect(lines.has(l), `№${t.taskNumber}.${t.n}: ${l}`).toBe(false);
     }
   });
