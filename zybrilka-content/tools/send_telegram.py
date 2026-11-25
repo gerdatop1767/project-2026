@@ -55,7 +55,7 @@ def main():
         CHAT = str(ids.pop()); saved.write_text(CHAT + "\n")  # Telegram keeps updates only 24h — remember the chat
     if "--text" in sys.argv:
         call("sendMessage", {"chat_id": CHAT, "text": sys.argv[sys.argv.index("--text") + 1][:4000]}); print("sent text"); return
-    vd = Path(sys.argv[1]); sb = json.loads((vd / "storyboard.json").read_text())
+    vd = Path(sys.argv[1]); sb = json.loads((vd / ("reel.json" if (vd / "reel.json").exists() else "storyboard.json")).read_text())
     slug = sb.get("slug", vd.name); mp4 = vd / f"final/{slug}.mp4"
     meta = sb.get("telegram", {})
     if meta.get("tiktok_description"):  # fixed format: tiktok_api.py publishes exactly the text after the marker

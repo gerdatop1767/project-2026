@@ -10,3 +10,10 @@ videos/*/audio/fish_cache/*.wav
 videos/*/final/*.mp4
 !videos/001-what-is-zybrilka/final/*.mp4
 videos/*/qa_log.txt
+
+# app reels: only reel.json + texts go to git (frames/mp4/audio are rebuilt or live in Telegram)
+reels/*/frames/
+reels/*/final/
+reels/*/audio/
+reels/*/qa/*.png
+reels/000-test-*/
