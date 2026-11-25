@@ -137,7 +137,7 @@ describe('Зубрилка №10 — import', () => {
     await testDb.close();
   });
 
-  it('imports 100 tasks into its own collection of 10 sets × 10', async () => {
+  it('imports 100 tasks as 10 sets × 10 of the one Зубрилка collection', async () => {
     const r = await importZybrilkaRussian10(testDb.db);
     expect(r).toMatchObject({ total: 100, sets: 10, created: 100, updated: 0, unchanged: 0 });
     const tasks = await testDb.db

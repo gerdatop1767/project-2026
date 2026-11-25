@@ -8,6 +8,12 @@ import * as schema from './schema.js';
 import { buildTask10, validateAuthoredTasks10 } from './zybrilkaRussian10/build.js';
 import { ALL_TASKS_10 } from './zybrilkaRussian10/extra.js';
 import type { AuthoredTask10 } from './zybrilkaRussian10/tasks.js';
+import {
+  ensureZrCollection,
+  ensureZrSet,
+  retireLegacyCollection,
+  ZR_COLLECTION_SLUG,
+} from './zybrilkaRussian/collection.js';
 
 /**
  * Зубрилка's own ЕГЭ Russian task 10 bank (docs/imports/zybrilka-russian-10.md):
@@ -15,8 +21,10 @@ import type { AuthoredTask10 } from './zybrilkaRussian10/tasks.js';
  * hand, 51–100 generated from their checked words: zybrilkaRussian10/extra.ts)
  * (правописание приставок), not taken from any book or from ФИПИ.
  *
- * Its own source and collection (`zybrilka-russian-10`, 10 sets × 10 tasks),
- * so rows of other sources are never matched or changed. Idempotent: a task
+ * Its own source; the 10 sets × 10 tasks sit in the one collection of all
+ * authored Russian tasks (`zybrilka-russian`, zybrilkaRussian/collection.ts),
+ * moved there from the old `zybrilka-russian-10`. Rows of other sources are
+ * never matched or changed. Idempotent: a task
  * is upserted by (subject, source, sourceVariant = its number 1…100), the
  * collection by slug, sets by number; ids never change and a row is
  * rewritten only when its content changed. The whole set is validated
@@ -25,20 +33,14 @@ import type { AuthoredTask10 } from './zybrilkaRussian10/tasks.js';
  * never touched.
  */
 export const ZR10_SOURCE = 'Зубрилка. Авторские задания ЕГЭ по русскому языку, №10';
-export const ZR10_COLLECTION_SLUG = 'zybrilka-russian-10';
+/** №10 lives in the one collection of all authored Russian tasks (zybrilkaRussian/collection.ts). */
+export const ZR10_COLLECTION_SLUG = ZR_COLLECTION_SLUG;
 export const ZR10_TAG = 'zybrilka-russian-10';
 export const ZR10_YEAR = 2027;
 export const ZR10_SET_SIZE = 10;
 const SUBJECT_ID = 'russian';
 const TASK_NUMBER = 10;
 const TOPIC = { slug: 'russian-prefix-spelling', name: 'Правописание приставок' };
-const COLLECTION = {
-  title: 'Зубрилка — авторские задания по русскому языку, №10',
-  publisher: 'Зубрилка',
-  description:
-    'Задания составлены командой Зубрилки по образцу задания №10 ЕГЭ по русскому языку (правописание приставок, Ъ/Ь, Ы/И после приставок). Это не материалы ФИПИ. 100 заданий в десяти наборах, к каждому — подробное объяснение каждого слова.',
-};
-
 export function zr10ContentHash(n: number, rawStatement: string): string {
   const normalized = rawStatement.trim().toLowerCase().replace(/\s+/g, ' ');
   return createHash('sha256')
@@ -97,44 +99,11 @@ export async function importZybrilkaRussian10(
       .from(schema.topics)
       .where(and(eq(schema.topics.subjectId, SUBJECT_ID), eq(schema.topics.slug, TOPIC.slug)));
 
-    const [collection] = await tx
-      .insert(schema.collections)
-      .values({
-        subjectId: SUBJECT_ID,
-        slug: ZR10_COLLECTION_SLUG,
-        ...COLLECTION,
-        year: ZR10_YEAR,
-        status: 'published',
-        inAllSources: true,
-        examFormat: null,
-      })
-      .onConflictDoUpdate({
-        target: schema.collections.slug,
-        set: { ...COLLECTION, year: ZR10_YEAR },
-      })
-      .returning();
-
+    const collectionId = await ensureZrCollection(tx);
     const variantIdBySet = new Map<number, string>();
-    for (const set of sets) {
-      const title = `Зубрилка — №10, набор ${set}`;
-      const sourceFile = 'Авторские задания Зубрилки';
-      const [variant] = await tx
-        .insert(schema.variants)
-        .values({
-          collectionId: collection!.id,
-          variantNumber: set,
-          title,
-          year: ZR10_YEAR,
-          status: 'published',
-          sourceFile,
-        })
-        .onConflictDoUpdate({
-          target: [schema.variants.collectionId, schema.variants.variantNumber],
-          set: { title, sourceFile, updatedAt: new Date() },
-        })
-        .returning();
-      variantIdBySet.set(set, variant!.id);
-    }
+    for (const set of sets)
+      variantIdBySet.set(set, await ensureZrSet(tx, collectionId, TASK_NUMBER, set));
+    await retireLegacyCollection(tx, TASK_NUMBER);
 
     const existing = await tx
       .select()

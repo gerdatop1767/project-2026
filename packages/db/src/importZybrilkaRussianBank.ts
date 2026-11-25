@@ -11,8 +11,6 @@ import {
   BANK_SET_SIZE,
   BANK_TAG,
   BANK_YEAR,
-  bankCollectionSlug,
-  bankCollectionTitle,
   bankSource,
 } from './zybrilkaRussian/bank.js';
 import {
@@ -22,15 +20,22 @@ import {
   type BankTask,
 } from './zybrilkaRussian/types.js';
 import { BANK_SIZE, validateNumber } from './zybrilkaRussian/validate.js';
+import {
+  ensureZrCollection,
+  ensureZrSet,
+  retireLegacyCollection,
+} from './zybrilkaRussian/collection.js';
 
 /**
  * Зубрилка's own ЕГЭ Russian bank, tasks 4–22 except 10
- * (docs/imports/zybrilka-russian-4-22-plan.md). One collection per number
- * (`zybrilka-russian-N`, 10 sets × 10), its own `tasks.source` per number,
- * so rows of every other source — №10 included — are never matched.
+ * (docs/imports/zybrilka-russian-4-22-plan.md). All numbers, №10 too, sit in
+ * one collection `zybrilka-russian` — one «Источник» with every number —
+ * as sets of 10 (zybrilkaRussian/collection.ts); each number keeps its own
+ * `tasks.source`, so rows of every other source are never matched.
  *
  * Idempotent: a task is upserted by (subject, source, sourceVariant = 1…100),
- * collections by slug, sets by number; ids never change and a row is
+ * the collection by slug, sets by number (moved, not recreated, from the old
+ * per-number collections, which are then archived); ids never change and a row is
  * rewritten only when its content changed. All numbers are validated
  * before anything is written and imported in one transaction. Nothing is
  * deleted; user data is never touched.
@@ -156,47 +161,11 @@ export async function importZybrilkaRussianBank(
           and(eq(schema.topics.subjectId, SUBJECT_ID), eq(schema.topics.slug, bank.topicSlug)),
         );
 
-      const meta = {
-        title: bankCollectionTitle(N),
-        publisher: 'Зубрилка',
-        description: `Задания составлены командой Зубрилки по образцу задания №${N} ЕГЭ по русскому языку. Это не материалы ФИПИ и не задания из сборников. 100 заданий в десяти наборах, к каждому — подробный разбор.`,
-        year: BANK_YEAR,
-      };
-      const [collection] = await tx
-        .insert(schema.collections)
-        .values({
-          subjectId: SUBJECT_ID,
-          slug: bankCollectionSlug(N),
-          ...meta,
-          status: 'published',
-          inAllSources: true,
-          examFormat: null,
-        })
-        .onConflictDoUpdate({ target: schema.collections.slug, set: meta })
-        .returning();
-
+      const collectionId = await ensureZrCollection(tx);
       const sets = [...new Set(bank.tasks.map((t) => Math.ceil(t.n / BANK_SET_SIZE)))];
       const variantIdBySet = new Map<number, string>();
-      for (const set of sets) {
-        const title = `Зубрилка — №${N}, набор ${set}`;
-        const sourceFile = 'Авторские задания Зубрилки';
-        const [variant] = await tx
-          .insert(schema.variants)
-          .values({
-            collectionId: collection!.id,
-            variantNumber: set,
-            title,
-            year: BANK_YEAR,
-            status: 'published',
-            sourceFile,
-          })
-          .onConflictDoUpdate({
-            target: [schema.variants.collectionId, schema.variants.variantNumber],
-            set: { title, sourceFile, updatedAt: new Date() },
-          })
-          .returning();
-        variantIdBySet.set(set, variant!.id);
-      }
+      for (const set of sets) variantIdBySet.set(set, await ensureZrSet(tx, collectionId, N, set));
+      await retireLegacyCollection(tx, N);
 
       const existing = await tx
         .select()
