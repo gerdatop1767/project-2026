@@ -150,20 +150,28 @@ class Reel:
         self.lines = {l["id"]: (l["start"], l["end"]) for l in lj["lines"]}
 
     def build(self):
-        """Flatten clips into per-output-frame records."""
-        self.frames = []; self.clip_starts = []; self.taps = []; self.vo_places = []
+        """Flatten clips into per-output-frame records. A clip that is shorter than its voice line is stretched
+        by lengthening its own holds (spread out, never one frozen tail) — the phone also drifts all the time."""
+        self.frames = []; self.clip_starts = []; self.clip_lens = []; self.taps = []; self.vo_places = []
         for ci, clip in enumerate(self.tl["clips"]):
             start = len(self.frames); self.clip_starts.append(start / FPS)
-            for f, n, tap in clip["frames"]:
-                for k in range(n):
-                    self.frames.append((ci, f, (tap, k / max(1, n - 1)) if tap else None))
-                if tap: self.taps.append((start + len(self.frames) - start - n) / FPS)
+            items = [list(x) for x in clip["frames"]]
+            total = sum(n for _, n, _ in items)
             lid = f"c{ci + 1}"
             if lid in self.lines:
-                a, b = self.lines[lid]; need = int((b - a + 0.35) * FPS)
-                self.vo_places.append((lid, start / FPS + 0.12))
-                while len(self.frames) - start < need + 4:
-                    self.frames.append((ci, self.frames[-1][1], None))
+                a, b = self.lines[lid]; need = int((b - a + 0.3) * FPS)
+                self.vo_places.append((lid, start / FPS + 0.1))
+                if need - total > 15:
+                    print(f"WARN clip {ci + 1}: actions {total / FPS:.1f}s < voice {need / FPS:.1f}s — add actions (scroll/tap) to this clip, otherwise it is stretched with holds")
+                if need > total:
+                    holds = [x for x in items if x[1] > 1 and not x[2]] or [items[-1]]
+                    hs = sum(x[1] for x in holds); extra = need - total
+                    for x in holds: x[1] += int(round(extra * x[1] / hs))
+            for f, n, tap in items:
+                if tap: self.taps.append(len(self.frames) / FPS)
+                for k in range(n):
+                    self.frames.append((ci, f, (tap, k / max(1, n - 1)) if tap else None))
+            self.clip_lens.append((len(self.frames) - start) / FPS)
         self.outro_start = len(self.frames) / FPS
         o = self.spec.get("outro") or {}
         self.outro_sec = float(o.get("sec", 2.4)) if o else 0
@@ -177,7 +185,7 @@ class Reel:
         ph, sc, off = phone_img(str(self.rd / "frames" / f))
         enter = S.ease_out(S.clamp(t / 0.55)); punch = 1 + 0.035 * math.exp(-ct * 9) if ci else 1.0
         top = PHONE_TOP + (1 - enter) * 900
-        scale = punch * 1.0
+        scale = punch * (1 + 0.035 * S.ease_in_out(S.clamp(ct / max(0.5, self.clip_lens[ci]))))  # slow push-in: never a frozen frame
         pw, phh = paste_scaled(cv, ph, W / 2, top - (ph.height * (scale - 1)) / 2, scale)
         if tap:
             (px, py), k = tap
@@ -251,7 +259,7 @@ def qa(path, rd):
     v = next(s for s in pr["streams"] if s["codec_type"] == "video"); dur = float(pr["format"]["duration"])
     ln = subprocess.run(["ffmpeg", "-i", str(path), "-af", "loudnorm=print_format=json", "-f", "null", "-"], capture_output=True, text=True).stderr
     lufs = float(json.loads(ln[ln.rindex("{"):ln.rindex("}") + 1])["input_i"])
-    checks = {"size_1080x1920": (v["width"], v["height"]) == (1080, 1920), "duration_8_30s": 8 <= dur <= 30,
+    checks = {"size_1080x1920": (v["width"], v["height"]) == (1080, 1920), "duration_15_25s": 15 <= dur <= 25.5,
               "loudness_-15..-13": -15.5 <= lufs <= -12.5, "has_audio": any(s["codec_type"] == "audio" for s in pr["streams"])}
     rep = {"passed": all(checks.values()), "checks": checks, "duration": round(dur, 2), "lufs": lufs}
     (rd / "qa").mkdir(exist_ok=True); (rd / "qa/report.json").write_text(json.dumps(rep, indent=1))
