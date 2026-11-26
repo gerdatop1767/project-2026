@@ -78,3 +78,185 @@
     transition: none;
   }
 }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* In a round: smaller, so the question stays the focus. */
+.compact {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-label);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-accent-ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---- The study material ---- */
+
+.rule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rule strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.case {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: color-mix(in srgb, var(--color-bg-elevated) 70%, transparent);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.caseTitle {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.points {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exceptions li::marker {
+  color: var(--color-warning, #f5a623);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-label);
+  line-height: 1.45;
+}
+
+.table th,
+.table td {
+  padding: 6px var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.table th {
+  background: color-mix(in srgb, var(--color-accent-primary) 12%, transparent);
+  color: var(--color-text-primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.examples,
+.mistakes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.examples li,
+.mistakes li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-accent-primary);
+  border-radius: 0 var(--radius-input) var(--radius-input) 0;
+  background: color-mix(in srgb, var(--color-accent-primary) 6%, transparent);
+}
+
+.exampleText {
+  color: var(--color-text-primary);
+}
+
+.exampleNote,
+.why {
+  font-size: var(--font-size-label);
+}
+
+.mistakes li {
+  border-left-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 6%, transparent);
+}
+
+.wrong,
+.right {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.wrong {
+  color: var(--color-error);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+}
+
+.right {
+  color: var(--color-success);
+}
+
+.memo {
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--color-accent-soft);
+}
+
+.memo .heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
