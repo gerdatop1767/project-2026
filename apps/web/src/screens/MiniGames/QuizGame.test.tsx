@@ -25,6 +25,7 @@ vi.mock('../../lib/api.js', () => ({
   getQuizProgress: vi.fn(),
   getQuizActive: vi.fn(),
   abandonQuizRound: vi.fn(),
+  getMiniGameRating: vi.fn(),
   ApiError: class extends Error {
     constructor(
       public status: number,
@@ -73,6 +74,9 @@ beforeEach(() => {
   vi.mocked(api.finishQuizRound).mockReset().mockResolvedValue(null);
   vi.mocked(api.getQuizActive).mockReset().mockResolvedValue({ session: null });
   vi.mocked(api.abandonQuizRound).mockReset().mockResolvedValue();
+  vi.mocked(api.getMiniGameRating)
+    .mockReset()
+    .mockResolvedValue({ gameId: 'nn', kind: 'best', players: 0, entries: [], me: null });
   vi.mocked(api.getQuizProgress).mockReset().mockResolvedValue({
     gameId: 'nn',
     bankSize: 99,

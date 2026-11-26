@@ -21,6 +21,7 @@ vi.mock('../../lib/api.js', () => ({
   getStressProgress: vi.fn(),
   getStressActive: vi.fn(),
   abandonStressRound: vi.fn(),
+  getMiniGameRating: vi.fn(),
   ApiError: class extends Error {
     constructor(
       public status: number,
@@ -92,6 +93,9 @@ beforeEach(() => {
   vi.mocked(api.finishStressRound).mockReset().mockResolvedValue(null);
   vi.mocked(api.getStressActive).mockReset().mockResolvedValue({ session: null });
   vi.mocked(api.abandonStressRound).mockReset().mockResolvedValue();
+  vi.mocked(api.getMiniGameRating)
+    .mockReset()
+    .mockResolvedValue({ gameId: 'stress', kind: 'best', players: 0, entries: [], me: null });
   window.localStorage.clear();
   resetPrivateCaches();
 });
