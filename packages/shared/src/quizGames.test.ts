@@ -16,6 +16,7 @@ import {
   inputItems,
   keyTokens,
   neItems,
+  gapCount,
   nnItems,
   normalizeWord,
   oneCommaItems,
@@ -40,10 +41,10 @@ const row = (over: Partial<QuizTaskRow>): QuizTaskRow => ({
 });
 
 describe('the registry', () => {
-  it('19 games: «Ударения» + 18 quizzes, each in a subject tab and a topic', () => {
-    expect(MINI_GAMES).toHaveLength(19);
-    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(19);
-    expect(MINI_GAMES.filter((g) => g.subjectId === 'russian')).toHaveLength(16);
+  it('20 games: «Ударения», «Словарные слова» + 18 quizzes, each in a subject tab and a topic', () => {
+    expect(MINI_GAMES).toHaveLength(20);
+    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(20);
+    expect(MINI_GAMES.filter((g) => g.subjectId === 'russian')).toHaveLength(17);
     expect(MINI_GAMES.filter((g) => g.subjectId === 'math').map((g) => g.title)).toEqual([
       'Теория вероятностей',
       'Вычисления',
@@ -114,8 +115,8 @@ describe('parsers — questions only from the task’s own text, key and explana
     };
     const nn = nnItems(row(base));
     expect(nn.map((i) => [i.text, i.correct])).toEqual([
-      ['Утре▢ие улицы прониза..ы запахом.', 'НН'],
-      ['Утре..ие улицы прониза▢ы запахом.', 'Н'],
+      ['Утре▢ие улицы пронизаны запахом.', 'НН'],
+      ['Утренние улицы прониза▢ы запахом.', 'Н'],
     ]);
     const n = nnItems(
       row({
@@ -125,6 +126,63 @@ describe('parsers — questions only from the task’s own text, key and explana
       }),
     );
     expect(n.map((i) => i.correct)).toEqual(['НН', 'Н']);
+  });
+
+  describe('№15 Н/НН: exactly one gap, in the asked word', () => {
+    const many = row({
+      taskNumber: 15,
+      conditionMd:
+        'Укажите цифру(-ы), на месте которой(-ых) пишется НН.\n\nНочью Арсе(1)ию приснилась А(2)а в объятиях солё(3)ого ветра, и звучало долгожда(4)ое слово.',
+      correctAnswer: '24',
+    });
+
+    it('every other place is filled with its right letters', () => {
+      const items = nnItems(many);
+      expect(items.map((i) => i.text)).toEqual([
+        'Ночью Арсе▢ию приснилась Анна в объятиях солёного ветра, и звучало долгожданное слово.',
+        'Ночью Арсению приснилась А▢а в объятиях солёного ветра, и звучало долгожданное слово.',
+        'Ночью Арсению приснилась Анна в объятиях солё▢ого ветра, и звучало долгожданное слово.',
+        'Ночью Арсению приснилась Анна в объятиях солёного ветра, и звучало долгожда▢ое слово.',
+      ]);
+      expect(items.map((i) => i.correct)).toEqual(['Н', 'НН', 'Н', 'НН']);
+      for (const it of items) expect(gapCount(it.text)).toEqual({ quizGaps: 1, otherGaps: 0 });
+    });
+
+    it('capitals stay capitals', () => {
+      const [, second] = nnItems(
+        row({
+          taskNumber: 15,
+          conditionMd:
+            'Укажите цифру(-ы), на месте которой(-ых) пишется НН.\n\nКРАСИВЫЕ ДЕРЕВЯ(1)ЫЕ И СТЕКЛЯ(2)ЫЕ ИГРУШКИ.',
+          correctAnswer: '2',
+        }),
+      );
+      expect(second!.text).toBe('КРАСИВЫЕ ДЕРЕВЯНЫЕ И СТЕКЛЯ▢ЫЕ ИГРУШКИ.');
+    });
+
+    it('a question with a gap nobody numbered never reaches the game', () => {
+      const items = nnItems(
+        row({
+          taskNumber: 15,
+          conditionMd:
+            'Укажите цифру(-ы), на месте которой(-ых) пишется НН.\n\nСере(1)ое утро, в..ликолепный сосно(2)ый бор.',
+          correctAnswer: '2',
+        }),
+      );
+      expect(items).toEqual([]);
+    });
+
+    it('repeated place numbers are refused', () => {
+      expect(
+        nnItems(
+          row({
+            taskNumber: 15,
+            conditionMd: 'Укажите цифру(-ы), на месте которой(-ых) пишется НН.\n\nа(1)а и б(1)б.',
+            correctAnswer: '1',
+          }),
+        ),
+      ).toEqual([]);
+    });
   });
 
   it('№13: НЕ слитно/раздельно by the key and the asked spelling', () => {

@@ -186,6 +186,7 @@ export type OverlayRoute =
   /** «Мини-игры» (entry in «Задания») and the games themselves. */
   | { screen: 'miniGames' }
   | { screen: 'stressGame' }
+  | { screen: 'dictionaryGame' }
   /** A quiz mini-game (`/games/:gameId`; packages/shared quizGames). */
   | { screen: 'quizGame'; gameId: string }
   /** Addressable placeholders for training modes not yet built as
@@ -259,6 +260,7 @@ const routeLabels: Partial<Record<Route['screen'], string>> = {
   variantAttempt: 'Результат варианта',
   miniGames: 'Мини-игры',
   stressGame: 'Ударения',
+  dictionaryGame: 'Словарные слова',
   quizGame: 'Мини-игра',
   subjectCatalog: 'Предметы',
   mistakes: 'Мои ошибки',

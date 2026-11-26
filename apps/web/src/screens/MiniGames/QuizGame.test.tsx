@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
+  GAME_STUDY_RULES,
   MATCH_SEPARATOR,
   MINI_GAMES,
   MINI_GAME_RULES,
@@ -107,7 +108,7 @@ describe('«Мини-игры»: subjects and topics', () => {
       'aria-selected',
       'true',
     );
-    expect(within(tabs).getByRole('tab', { name: /Русский язык/ })).toHaveTextContent('16');
+    expect(within(tabs).getByRole('tab', { name: /Русский язык/ })).toHaveTextContent('17');
     const orth = screen.getByRole('heading', { name: 'Орфография' }).closest('section')!;
     expect(within(orth).getByRole('heading', { name: 'Н и НН' })).toBeInTheDocument();
     const text = screen.getByRole('heading', { name: 'Текст и лексика' }).closest('section')!;
@@ -172,7 +173,9 @@ describe('a quiz game', () => {
     expect(progress).toHaveTextContent('90 очк.');
     await user.click(screen.getByRole('button', { name: /Играть/ }));
     expect(await screen.findByText('Вопрос 1 из 2')).toBeInTheDocument();
-    expect(screen.getByText('Утре_____ие улицы')).toBeInTheDocument();
+    // The asked word is marked, its gap drawn inside it.
+    const target = screen.getByLabelText('пропуск').closest('mark')!;
+    expect(target).toHaveTextContent(/^Утре\s+ие$/);
     await user.click(screen.getByRole('button', { name: 'НН' }));
     expect(api.answerQuiz).toHaveBeenLastCalledWith(
       'nn',
@@ -490,10 +493,10 @@ describe('round size: own number, bank limit, saved in the account; rules', () =
     expect(api.getMiniGameSettings).not.toHaveBeenCalled();
   });
 
-  it('«Правила игры» opens this game’s own rules, not a generic text', async () => {
+  it('«Как играть» opens this game’s own instructions, not a generic text', async () => {
     const user = userEvent.setup();
     const view = renderWith(<QuizGame gameId="commas" />, makeAuthUser());
-    await user.click(await screen.findByRole('button', { name: 'Правила игры' }));
+    await user.click(await screen.findByRole('button', { name: 'Как играть' }));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText(MINI_GAME_RULES.commas!.goal)).toBeInTheDocument();
     expect(
@@ -502,10 +505,44 @@ describe('round size: own number, bank limit, saved in the account; rules', () =
     await user.click(within(dialog).getByRole('button', { name: 'Понятно' }));
     view.unmount();
     renderWith(<QuizGame gameId="probability-blitz" />, makeAuthUser());
-    await user.click(await screen.findByRole('button', { name: 'Правила игры' }));
+    await user.click(await screen.findByRole('button', { name: 'Как играть' }));
     expect(
       within(screen.getByRole('dialog')).getByText(MINI_GAME_RULES['probability-blitz']!.goal),
     ).toBeInTheDocument();
+  });
+
+  it('«Правила» open the ЕГЭ task’s study material in seven parts — not how to play', async () => {
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: 'Правила' }));
+    const dialog = screen.getByRole('dialog', { name: GAME_STUDY_RULES.nn!.title });
+    for (const part of [
+      'Когда применяется',
+      'Основные случаи',
+      'Исключения',
+      'Примеры',
+      'Типичные ошибки',
+      'Краткая памятка',
+    ])
+      expect(within(dialog).getByRole('heading', { name: part })).toBeInTheDocument();
+    expect(within(dialog).getByText('Задание 15')).toBeInTheDocument();
+    expect(within(dialog).getAllByRole('table').length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText(/стеклянный, оловянный, деревянный/).length).toBeGreaterThan(
+      0,
+    );
+    expect(within(dialog).queryByText(MINI_GAME_RULES.nn!.goal)).not.toBeInTheDocument();
+  });
+
+  it('«Правила» can be opened in the middle of a round, and lead back to the question', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getQuizRound).mockResolvedValue(ROUND);
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    expect(await screen.findByText(/Вопрос 1 из/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Правила' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Вернуться к вопросу' }));
+    expect(screen.getByText(/Вопрос 1 из/)).toBeInTheDocument();
   });
 });
 

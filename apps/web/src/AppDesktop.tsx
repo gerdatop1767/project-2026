@@ -28,6 +28,7 @@ import { LearningSession } from './screens/LearningSession/LearningSession.js';
 import { VariantAttempt } from './screens/VariantAttempt/VariantAttempt.js';
 import { MiniGames } from './screens/MiniGames/MiniGames.js';
 import { StressGame } from './screens/MiniGames/StressGame.js';
+import { DictionaryGame } from './screens/MiniGames/DictionaryGame.js';
 import { QuizGame } from './screens/MiniGames/QuizGame.js';
 
 /** Screens whose approved desktop composition has no left sidebar. */
@@ -90,6 +91,7 @@ export function AppDesktop() {
         )}
         {overlay.screen === 'miniGames' && <MiniGames />}
         {overlay.screen === 'stressGame' && <StressGame />}
+        {overlay.screen === 'dictionaryGame' && <DictionaryGame />}
         {overlay.screen === 'quizGame' && <QuizGame key={overlay.gameId} gameId={overlay.gameId} />}
         {overlay.screen === 'variantAttempt' && (
           <VariantAttempt key={overlay.sessionId} sessionId={overlay.sessionId} />

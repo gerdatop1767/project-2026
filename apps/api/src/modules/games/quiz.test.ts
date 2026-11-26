@@ -128,11 +128,11 @@ describe('mini-games — quizzes (real content)', () => {
     }
   });
 
-  it('the hub lists all 19 games with their real number of questions', async () => {
+  it('the hub lists all 20 games with their real number of questions', async () => {
     const hub = (await get('/games')).json() as MiniGamesResponse;
     expect(hub.games.map((g) => g.id)).toEqual(MINI_GAMES.map((g) => g.id));
     for (const g of hub.games) {
-      if (g.id === 'stress') continue;
+      if (g.id === 'stress' || g.id === 'dictionary') continue;
       expect(g.questionCount, g.id).toBe((await quizBank(testDb.db, g.id)).items.length);
       expect(g.progress).toBeNull(); // a guest
     }

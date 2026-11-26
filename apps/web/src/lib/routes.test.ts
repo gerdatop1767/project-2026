@@ -250,6 +250,7 @@ describe('theory routes — subject, edition, topic', () => {
       expect(pathForRoute({ screen: 'quizGame', gameId: 'nn' })).toBe('/games/nn');
       expect(routeFromPath('/games/nn')).toEqual({ screen: 'quizGame', gameId: 'nn' });
       expect(routeFromPath('/games/stress')).toEqual({ screen: 'stressGame' });
+      expect(routeFromPath('/games/dictionary')).toEqual({ screen: 'dictionaryGame' });
       expect(routeFromPath('/games')).toEqual({ screen: 'miniGames' });
     });
   });

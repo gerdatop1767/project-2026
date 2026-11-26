@@ -100,6 +100,14 @@ export const INDEXABLE_PAGES: readonly PageSeo[] = [
     parent: '/games',
   },
   {
+    path: '/games/dictionary',
+    title: 'Словарные слова и исключения: тренажёр к заданиям 9–15 ЕГЭ — Zybrilka',
+    description:
+      'Словарные слова, исключения и трудные написания к заданиям 9, 10, 12–15 ЕГЭ по русскому языку: пять видов вопросов, справочник с поиском, приёмы запоминания.',
+    name: 'Словарные слова',
+    parent: '/games',
+  },
+  {
     path: '/help',
     title: 'Помощь — Zybrilka',
     description: 'Как связаться с поддержкой Zybrilka.',
