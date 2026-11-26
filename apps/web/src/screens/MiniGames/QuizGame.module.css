@@ -466,3 +466,9 @@
   border-bottom: 2px solid var(--color-accent-primary);
   line-height: 1;
 }
+
+.inRound {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(var(--space-2) * -1);
+}

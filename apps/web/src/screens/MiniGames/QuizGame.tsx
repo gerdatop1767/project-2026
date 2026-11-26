@@ -24,7 +24,7 @@ import { SlideUp } from '../../ui/motion/motion.js';
 import { AnswerMathText, InlineMathText, MathText } from '../../ui/MathText/MathText.js';
 import { GameIcon } from './GameIcon.js';
 import { RoundSizePicker, effectiveRoundSize, useRoundSize } from './RoundSize.js';
-import { GameRules } from './GameRules.js';
+import { GameRules, StudyRulesButton } from './GameRules.js';
 import { useGameQuestionCount } from './MiniGames.js';
 import styles from './QuizGame.module.css';
 
@@ -319,6 +319,9 @@ export function QuizGame({ gameId }: { gameId: string }) {
               />
             </span>
             <span className={styles.points}>{points} очк.</span>
+          </div>
+          <div className={styles.inRound}>
+            <StudyRulesButton gameId={game.id} compact />
           </div>
           <Card className={styles.question}>
             <p className={styles.instruction}>{question.prompt ?? game.instruction}</p>
