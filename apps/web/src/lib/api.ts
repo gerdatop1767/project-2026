@@ -1,4 +1,5 @@
 import { metrikaGoal } from './metrika.js';
+import { recordTaskResult } from './sessionResults.js';
 import type {
   AdviceResponse,
   NotificationPreferences,
@@ -389,6 +390,7 @@ export function submitAttempt(taskId: string, request: AttemptRequest): Promise<
     body: JSON.stringify(request),
   }).then((result) => {
     if (result.correct) metrikaGoal('task_solved');
+    recordTaskResult(taskId, result.correct);
     return result;
   });
 }

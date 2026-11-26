@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { getVariantAttempt } from './api.js';
 import { hasDraft } from './answerDrafts.js';
 import { registerPrivateCacheReset } from './privateCaches.js';
+import { subscribeTaskResults, taskResult, taskResultsVersion } from './sessionResults.js';
 
 /**
  * What the number panel shows about each task of a variant attempt — only
@@ -9,6 +10,11 @@ import { registerPrivateCacheReset } from './privateCaches.js';
  * attempt was checked), «есть ответ» (typed here, not checked yet),
  * «открыто» (opened, no answer). Nothing for a task never opened —
  * opening alone never makes a task solved.
+ *
+ * Outside a variant attempt (a «По номерам» list, «Мои ошибки», …) there is
+ * no attempt to ask, so the marks are the latest server-checked result of
+ * each task answered in this visit (sessionResults.ts) plus unchecked
+ * drafts — the same states, from the answers actually sent.
  */
 export type TaskMark = 'correct' | 'incorrect' | 'draft' | 'opened';
 
@@ -49,8 +55,18 @@ export function useVariantTaskMarks(
     };
   }, [sessionId, currentTaskId]);
 
-  if (!sessionId) return {};
+  // Re-render when an answer elsewhere in this visit is checked.
+  useSyncExternalStore(subscribeTaskResults, taskResultsVersion, taskResultsVersion);
+
   const out: Record<string, TaskMark> = {};
+  if (!sessionId) {
+    for (const id of taskIds) {
+      const result = taskResult(id);
+      if (result) out[id] = result;
+      else if (id !== currentTaskId && hasDraft(id)) out[id] = 'draft';
+    }
+    return out;
+  }
   for (const id of taskIds) {
     const mark = server?.get(id);
     if (mark === 'correct' || mark === 'incorrect') out[id] = mark;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { clsx } from '../../lib/clsx.js';
 import type { SessionTask } from '../../data/sampleTask.js';
 import styles from './SessionTaskListCard.module.css';
@@ -7,6 +7,9 @@ export interface SessionTaskListCardProps {
   title: string;
   sessionTasks: readonly SessionTask[];
   onSelect: (index: number) => void;
+  /** `card` (default): the desktop sidebar card. `sheet`: the same grid
+   * inside a bottom sheet (mobile) — no own title or surface. */
+  variant?: 'card' | 'sheet';
 }
 
 type Status = SessionTask['status'];
@@ -37,15 +40,27 @@ const STATUS_CLASS: Record<Status, string | undefined> = {
   pending: undefined,
 };
 
+/** Past this many numbers the grid scrolls inside its own box (about six
+ * rows in the sidebar) instead of stretching the page. */
+export const SCROLL_AFTER = 42;
+
 /**
- * Desktop's session task navigator (Task / Result sidebars): a compact grid
- * of numbers — all 27 of a variant fit in a few rows, so any task is one
- * click away without scrolling a long list. State is shown by tint, not by
- * extra icons: current = accent fill, correct/incorrect = soft success/error
- * tint, draft = accent ring, skipped = dashed outline, not yet opened =
- * plain. A small legend names only the states that occur.
+ * The session's task navigator (Task / Result sidebars on desktop, a bottom
+ * sheet on mobile): a compact grid of numbers. State is shown by tint, not
+ * by extra icons: current = accent fill, correct/incorrect = soft
+ * success/error tint, draft = accent ring, skipped = dashed outline, not
+ * yet opened = plain. A small legend names only the states that occur.
+ *
+ * A long list (a «По номерам» session can hold 200 tasks) scrolls inside
+ * the grid, which keeps the current number in view by moving only its own
+ * scroll position — never the page's.
  */
-export function SessionTaskListCard({ title, sessionTasks, onSelect }: SessionTaskListCardProps) {
+export function SessionTaskListCard({
+  title,
+  sessionTasks,
+  onSelect,
+  variant = 'card',
+}: SessionTaskListCardProps) {
   const present = new Set(sessionTasks.map((t) => t.status));
   const legend = LEGEND.filter((item) => present.has(item.status));
   // The number just clicked, until it becomes the current task: on a slow
@@ -57,6 +72,9 @@ export function SessionTaskListCard({ title, sessionTasks, onSelect }: SessionTa
     requested && requested.from === currentIndex && requested.index !== currentIndex
       ? requested.index
       : null;
+  const scrollable = sessionTasks.length > SCROLL_AFTER;
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ top: false, bottom: false });
 
   // Never pulse forever if that task fails to open (the screen shows the
   // error itself).
@@ -65,6 +83,30 @@ export function SessionTaskListCard({ title, sessionTasks, onSelect }: SessionTa
     const timer = window.setTimeout(() => setRequested(null), 8000);
     return () => window.clearTimeout(timer);
   }, [requested]);
+
+  function updateEdges() {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const top = grid.scrollTop > 2;
+    const bottom = grid.scrollTop + grid.clientHeight < grid.scrollHeight - 2;
+    setEdges((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+  }
+
+  // Bring the current number into the grid's own view (centred when it was
+  // out of view; left alone when already visible, so a reader who scrolled
+  // the grid is not fought back).
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!scrollable || !grid || currentIndex === null) return;
+    const cell = grid.querySelector<HTMLElement>('[aria-current="step"]');
+    if (cell) {
+      const top = cell.offsetTop;
+      const bottom = top + cell.offsetHeight;
+      if (top < grid.scrollTop || bottom > grid.scrollTop + grid.clientHeight)
+        grid.scrollTop = top - (grid.clientHeight - cell.offsetHeight) / 2;
+    }
+    updateEdges();
+  }, [scrollable, currentIndex, sessionTasks.length]);
 
   function select(task: SessionTask) {
     if (task.status !== 'current') {
@@ -79,9 +121,28 @@ export function SessionTaskListCard({ title, sessionTasks, onSelect }: SessionTa
   }
 
   return (
-    <nav className={styles.card} aria-label={title}>
-      <p className="text-h3">{title}</p>
-      <div className={styles.grid}>
+    <nav className={clsx(styles.card, variant === 'sheet' && styles.sheet)} aria-label={title}>
+      {variant === 'card' && (
+        <div className={styles.head}>
+          <p className="text-h3">{title}</p>
+          {currentIndex !== null && sessionTasks.length > 1 && (
+            <span className={styles.counter}>
+              <strong>{currentIndex}</strong> из {sessionTasks.length}
+            </span>
+          )}
+        </div>
+      )}
+      <div
+        ref={gridRef}
+        className={clsx(
+          styles.grid,
+          scrollable && styles.scroll,
+          edges.top && styles.fadeTop,
+          edges.bottom && styles.fadeBottom,
+        )}
+        onScroll={scrollable ? updateEdges : undefined}
+        tabIndex={scrollable ? -1 : undefined}
+      >
         {sessionTasks.map((task) => {
           const state = STATUS_LABEL[task.status];
           return (
