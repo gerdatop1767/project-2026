@@ -28,6 +28,8 @@ import {
 import { AdminLink, useAdminRouter } from '../router.js';
 import { useAdminQuery } from '../useAdminQuery.js';
 import s from '../admin.module.css';
+import type { ActivityStatsResponse } from '@zybrilka/shared';
+import { ActiveTimeView } from '../../ui/Statistics/ActiveTimeCard.js';
 
 type UserStatus = 'new' | 'active' | 'no_solves' | 'dormant' | 'idle';
 
@@ -89,6 +91,8 @@ type UserComplaint = {
 };
 
 interface UserCard {
+  /** Active time on the platform (docs/ACTIVE_TIME.md). */
+  activity?: ActivityStatsResponse;
   user: UserRow & {
     firstAnswer: string | null;
     lastAnswer: string | null;
@@ -490,6 +494,9 @@ export function UserPage({ id = '' }: Record<string, string>) {
               />
               <div className={s.grid}>
                 {revokeResult && <Note>{revokeResult}</Note>}
+                <Card title="Активное время" note="Видимая страница и действия (МСК)">
+                  <ActiveTimeView data={d.activity ?? null} />
+                </Card>
                 <Card title="Профиль">
                   <dl className={s.dl}>
                     <dt>Способы входа</dt>
