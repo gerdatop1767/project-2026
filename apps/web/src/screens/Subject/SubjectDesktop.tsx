@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { CollectionListItem, ProgressByTopicResponse, TaskPublic } from '@zybrilka/shared';
 import { useNavigation, type Route } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
@@ -19,14 +19,14 @@ import { BackRow, type BackRowProps } from '../../ui/BackRow/BackRow.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import type { IconName } from '../../ui/Icon/icons.js';
 import { Select } from '../../ui/Select/Select.js';
 import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { FavoritesList } from '../../ui/Favorites/FavoritesList.js';
 import { clsx } from '../../lib/clsx.js';
 import { ContentSwap, FadeIn } from '../../ui/motion/motion.js';
-import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { SubjectHero } from '../../ui/SubjectHero/SubjectHero.js';
+import { SubjectModeSwitcher } from '../../ui/SubjectModeSwitcher/SubjectModeSwitcher.js';
 import styles from './SubjectDesktop.module.css';
 import { SkeletonList } from '../../ui/Skeleton/Skeleton.js';
 import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
@@ -59,23 +59,6 @@ export interface SubjectDesktopProps {
 
 type TopicProgressItem = ProgressByTopicResponse['items'][number];
 
-const modes: readonly {
-  id: SubjectModeId;
-  label: string;
-  caption: string;
-  icon: IconName;
-}[] = [
-  { id: 'topics', label: 'Темы', caption: 'Все темы по номерам', icon: 'reference' },
-  {
-    id: 'byNumber',
-    label: 'Задания по номерам',
-    caption: 'Выбрать конкретное задание',
-    icon: 'checklist',
-  },
-  { id: 'variants', label: 'Варианты', caption: 'Полные варианты ЕГЭ', icon: 'variant' },
-  { id: 'favorites', label: 'Избранное', caption: 'Сохранённые задания', icon: 'favorite' },
-];
-
 /**
  * Desktop Subject page (approved references: 01_MATH…09_HISTORY_
  * DESKTOP.png) — one generic component for every subject. Per-subject
@@ -104,6 +87,10 @@ export function SubjectDesktop({
   const [mode, setMode] = useState<SubjectModeId>(
     isGuest && initialMode === 'favorites' ? 'topics' : (initialMode ?? 'topics'),
   );
+  // Modes opened so far stay mounted (hidden) so a half-made pick in
+  // «По номерам» / «Варианты» survives a look at another mode.
+  const [visited, setVisited] = useState<ReadonlySet<SubjectModeId>>(() => new Set([mode]));
+  const panelId = useId();
   const [selectedTopic, setSelectedTopic] = useState<TopicProgressItem | null>(null);
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   const [collectionsLoaded, setCollectionsLoaded] = useState(false);
@@ -261,6 +248,13 @@ export function SubjectDesktop({
     });
   }
 
+  function selectMode(id: SubjectModeId) {
+    if (id === 'favorites' && !requireAccount('favorites')) return;
+    setMode(id);
+    setVisited((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    setSelectedTopic(null);
+  }
+
   const parentLabel = from === 'learningCenter' ? 'К учебному центру' : 'К предметам';
   const parentScreen: 'subjectCatalog' | 'learningCenter' = from ?? 'subjectCatalog';
   const backProps: BackRowProps = selectedTopic
@@ -271,102 +265,102 @@ export function SubjectDesktop({
     <FadeIn>
       <BackRow {...backProps} />
 
-      <div className={styles.hero}>
-        <div
-          className={styles.heroIllustration}
-          style={{ ['--subject-accent' as string]: subject.color }}
-        >
-          <SubjectIcon subjectId={subject.id} selected parallax />
-        </div>
-        <div className={styles.heroText}>
-          <h1 className="text-h1">{subject.shortName}</h1>
-          <p className="text-body-sm text-secondary">{content.tagline}</p>
-          <div className={styles.heroStats}>
-            <span className={styles.heroStat}>
-              <Icon name="target" size={16} />
-              <strong>{solved ?? pending}</strong> заданий решено
-            </span>
-            <span className={styles.heroStat}>
-              <Icon name="progress" size={16} />
-              <strong>{accuracyPercent !== null ? `${accuracyPercent}%` : pending}</strong> средняя
-              точность
-            </span>
-          </div>
-        </div>
-      </div>
+      <SubjectHero
+        layout="wide"
+        subjectId={subject.id}
+        name={subject.shortName}
+        tagline={content.tagline}
+        accent={subject.color}
+        stats={[
+          {
+            icon: 'target',
+            value: solved !== null ? String(solved) : pending,
+            label: 'решено',
+          },
+          {
+            icon: 'progress',
+            value: accuracyPercent !== null ? `${accuracyPercent}%` : pending,
+            label: 'точность',
+          },
+        ]}
+      />
 
-      <div className={styles.modes}>
-        {modes.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={clsx(styles.modeButton, mode === item.id && styles.modeButtonActive)}
-            aria-pressed={mode === item.id}
-            onClick={() => {
-              if (item.id === 'favorites' && !requireAccount('favorites')) return;
-              setMode(item.id);
-              setSelectedTopic(null);
-            }}
-          >
-            <Icon name={item.icon} size={18} />
-            <span>
-              <span className={styles.modeLabel}>{item.label}</span>
-              <span className={styles.modeCaption}>{item.caption}</span>
-            </span>
-          </button>
-        ))}
-      </div>
+      <SubjectModeSwitcher
+        layout="wide"
+        value={mode}
+        onChange={selectMode}
+        panelId={panelId}
+        className={styles.modes}
+      />
 
       <div className={styles.grid}>
         <div className={styles.main}>
-          <ContentSwap key={selectedTopic ? 'topicDetail' : mode}>
-            {mode === 'topics' && !selectedTopic && (
-              <TopicsList
-                topics={topics}
-                onRetry={() => setTopicsAttempt((n) => n + 1)}
-                collections={collections}
-                selectedSlug={effectiveTopicsSlug}
-                onSourceChange={setTopicsSlug}
-                onSelect={setSelectedTopic}
-              />
-            )}
+          <div id={panelId} role="tabpanel" aria-label={modeLabel(mode)}>
             {mode === 'topics' && selectedTopic && (
-              <TopicDetail
-                subjectName={subject.shortName}
-                topic={selectedTopic}
-                onStart={() => startTopicTraining(selectedTopic)}
-              />
+              <ContentSwap key="topicDetail">
+                <TopicDetail
+                  subjectName={subject.shortName}
+                  topic={selectedTopic}
+                  onStart={() => startTopicTraining(selectedTopic)}
+                />
+              </ContentSwap>
             )}
-            {mode === 'byNumber' && (
-              <ByNumberPanel
-                subjectId={subject.id}
-                collections={collections}
-                collectionSlug={collectionSlug}
-                initialTaskNumber={initialTaskNumber}
-                returnTo={(slug) => ({
-                  screen: 'subject',
-                  subjectId: subject.id,
-                  collectionSlug: slug,
-                  initialMode: 'byNumber',
-                })}
-              />
+            {visited.has('topics') && (
+              <div hidden={mode !== 'topics' || selectedTopic !== null}>
+                <ContentSwap>
+                  <TopicsList
+                    topics={topics}
+                    onRetry={() => setTopicsAttempt((n) => n + 1)}
+                    collections={collections}
+                    selectedSlug={effectiveTopicsSlug}
+                    onSourceChange={setTopicsSlug}
+                    onSelect={setSelectedTopic}
+                  />
+                </ContentSwap>
+              </div>
             )}
-            {mode === 'variants' && (
-              <VariantBuilder
-                subjectId={subject.id}
-                collections={collections}
-                onStart={startVariant}
-              />
+            {visited.has('byNumber') && (
+              <div hidden={mode !== 'byNumber'}>
+                <ContentSwap>
+                  <ByNumberPanel
+                    subjectId={subject.id}
+                    collections={collections}
+                    collectionSlug={collectionSlug}
+                    initialTaskNumber={initialTaskNumber}
+                    returnTo={(slug) => ({
+                      screen: 'subject',
+                      subjectId: subject.id,
+                      collectionSlug: slug,
+                      initialMode: 'byNumber',
+                    })}
+                  />
+                </ContentSwap>
+              </div>
             )}
-            {mode === 'favorites' && (
-              <Card>
-                <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
-                  Избранное
-                </p>
-                <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
-              </Card>
+            {visited.has('variants') && (
+              <div hidden={mode !== 'variants'}>
+                <ContentSwap>
+                  <VariantBuilder
+                    subjectId={subject.id}
+                    collections={collections}
+                    onStart={startVariant}
+                  />
+                </ContentSwap>
+              </div>
             )}
-          </ContentSwap>
+            {visited.has('favorites') && (
+              <div hidden={mode !== 'favorites'}>
+                <ContentSwap>
+                  <Card>
+                    <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
+                      Избранное
+                    </p>
+                    <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
+                  </Card>
+                </ContentSwap>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={styles.sidebar}>
@@ -414,10 +408,7 @@ export function SubjectDesktop({
               <button
                 type="button"
                 className={styles.quickRow}
-                onClick={() => {
-                  setMode('variants');
-                  setSelectedTopic(null);
-                }}
+                onClick={() => selectMode('variants')}
               >
                 <Icon name="variant" size={18} />
                 <span>
@@ -441,6 +432,12 @@ export function SubjectDesktop({
       </div>
     </FadeIn>
   );
+}
+
+function modeLabel(mode: SubjectModeId): string {
+  return { topics: 'Темы', byNumber: 'По номерам', variants: 'Варианты', favorites: 'Избранное' }[
+    mode
+  ];
 }
 
 function TopicsList({

@@ -216,9 +216,9 @@ describe('SubjectDesktop — "Случайные задания" mode removed (n
   it('only shows the remaining three mode tabs, so the grid is not empty/broken', () => {
     mockCollections();
     renderSubject();
-    expect(screen.getByText('Темы')).toBeInTheDocument();
-    expect(screen.getByText('Варианты')).toBeInTheDocument();
-    expect(screen.getByText('Избранное')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Темы' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Варианты' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Избранное' })).toBeInTheDocument();
   });
 
   it('"Быстрый старт" → "Случайное задание" now navigates to Training instead of a removed mode', async () => {
@@ -235,7 +235,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
     mockCollections();
     const user = userEvent.setup();
     renderSubject();
-    await user.click(screen.getByText('Полные варианты ЕГЭ'));
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
     expect(
       screen.getByText('Собери собственный вариант из нужных заданий и источников'),
     ).toBeInTheDocument();
@@ -271,7 +271,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
       mockCollections([YASHCHENKO_COLLECTION, FIPI_COLLECTION]);
       const user = userEvent.setup();
       renderSubject();
-      await user.click(screen.getByText('Полные варианты ЕГЭ'));
+      await user.click(screen.getByRole('tab', { name: 'Варианты' }));
       await user.click(screen.getByRole('button', { name: 'Общий банк' }));
       expect(screen.getAllByRole('option', { name: 'ЕГЭ 2026 Ященко' })).toHaveLength(1);
       expect(screen.getAllByRole('option', { name: 'ФИПИ 2026' })).toHaveLength(1);
@@ -281,7 +281,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
       mockCollections([YASHCHENKO_COLLECTION, FIPI_COLLECTION]);
       const user = userEvent.setup();
       renderSubject();
-      await user.click(screen.getByText('Полные варианты ЕГЭ'));
+      await user.click(screen.getByRole('tab', { name: 'Варианты' }));
       await user.click(screen.getByRole('button', { name: 'Общий банк' }));
       const fipiOption = screen.getByRole('option', { name: 'ФИПИ 2026' });
       expect(fipiOption.textContent).not.toContain('Ященко');
@@ -293,7 +293,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
       mockCollections([YASHCHENKO_COLLECTION, FIPI_COLLECTION]);
       const user = userEvent.setup();
       renderSubject();
-      await user.click(screen.getByText('Полные варианты ЕГЭ'));
+      await user.click(screen.getByRole('tab', { name: 'Варианты' }));
       expect(screen.getByText(/Источник: Общий банк/)).toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: 'Общий банк' }));
       expect(screen.getAllByRole('option').length).toBe(3); // Общий банк + Ященко + ФИПИ
@@ -304,7 +304,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
     mockCollections();
     const user = userEvent.setup();
     renderSubject();
-    await user.click(screen.getByText('Полные варианты ЕГЭ'));
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
     await user.click(screen.getByRole('button', { name: /Выбрать всё/ }));
     expect(screen.getByText('Выбрано 19 заданий')).toBeInTheDocument();
   });
@@ -326,7 +326,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
     ]);
     const user = userEvent.setup();
     renderSubject();
-    await user.click(screen.getByText('Полные варианты ЕГЭ'));
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
     expect(screen.queryByRole('button', { name: '20' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Общий банк' }));
     await user.click(screen.getByRole('option', { name: 'ЕГЭ 2027 Ященко' }));
@@ -339,7 +339,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
     mockCollections();
     const user = userEvent.setup();
     renderSubject();
-    await user.click(screen.getByText('Полные варианты ЕГЭ'));
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
     await user.click(screen.getByRole('button', { name: '1' }));
     await user.click(screen.getByRole('button', { name: /Сбросить/ }));
     expect(screen.getByText('Выбрано 0 заданий')).toBeInTheDocument();
@@ -350,7 +350,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
     mockCollections();
     const user = userEvent.setup();
     renderSubject();
-    await user.click(screen.getByText('Полные варианты ЕГЭ'));
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
     expect(screen.getByRole('button', { name: /Собрать вариант/ })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: '1' }));
     expect(screen.getByRole('button', { name: /Собрать вариант/ })).toBeEnabled();
@@ -399,7 +399,7 @@ describe('SubjectDesktop — Варианты (real collections, source isolatio
         <TaskOverlayProbe />
       </NavigationProvider>,
     );
-    await user.click(screen.getByText('Полные варианты ЕГЭ'));
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
     for (const n of [1, 3, 4, 7]) {
       await user.click(screen.getByRole('button', { name: String(n) }));
     }
@@ -417,8 +417,8 @@ describe('SubjectDesktop — Задания по номерам tab (audit: the 
   it('shows a separate "Задания по номерам" tab alongside Темы/Варианты/Избранное', () => {
     mockCollections();
     renderSubject();
-    expect(screen.getByText('Задания по номерам')).toBeInTheDocument();
-    expect(screen.getByText('Выбрать конкретное задание')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'По номерам' })).toBeInTheDocument();
+    expect(screen.getByText('Конкретные номера')).toBeInTheDocument();
   });
 
   it('opens in place, like Темы/Варианты — same page, no new screen or history entry', async () => {
@@ -427,7 +427,7 @@ describe('SubjectDesktop — Задания по номерам tab (audit: the 
     renderSubject();
     const before = screen.getByTestId('overlay').textContent;
     const historyLength = window.history.length;
-    await user.click(screen.getByText('Задания по номерам'));
+    await user.click(screen.getByRole('tab', { name: 'По номерам' }));
     expect(await screen.findByRole('button', { name: '№1' })).toBeInTheDocument();
     expect(screen.getByTestId('overlay').textContent).toBe(before);
     expect(window.history.length).toBe(historyLength);
