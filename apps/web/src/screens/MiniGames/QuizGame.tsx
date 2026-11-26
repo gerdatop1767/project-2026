@@ -70,8 +70,28 @@ export function splitWords(text: string): { word: boolean; text: string }[] {
   return out;
 }
 
-/** The gap «▢» of a question, drawn as a blank. */
-const showGap = (text: string) => text.replace(/▢/g, '_____');
+/**
+ * A line with the gap «▢»: the word that holds it is marked, the gap drawn
+ * as a blank inside it — so it is plain which word the question is about.
+ */
+function GapLine({ line }: { line: string }) {
+  const m = line.match(/[А-Яа-яЁё-]*▢[А-Яа-яЁё-]*/);
+  if (!m) return <>{line}</>;
+  const [before, after] = m[0].split('▢') as [string, string];
+  return (
+    <>
+      {line.slice(0, m.index)}
+      <mark className={styles.target}>
+        {before}
+        <span className={styles.gap} aria-label="пропуск">
+          {'\u2002'}
+        </span>
+        {after}
+      </mark>
+      {line.slice(m.index! + m[0].length)}
+    </>
+  );
+}
 
 /**
  * A quiz mini-game (docs/MINI_GAMES.md § Игры-викторины): rounds of 10
@@ -369,11 +389,13 @@ export function QuizGame({ gameId }: { gameId: string }) {
               </div>
             ) : (
               <div className={styles.text}>
-                {showGap(question.text)
+                {question.text
                   .split('\n')
                   .filter((l) => l.trim())
                   .map((line, i) => (
-                    <p key={i}>{line}</p>
+                    <p key={i}>
+                      <GapLine line={line} />
+                    </p>
                   ))}
               </div>
             )}

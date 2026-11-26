@@ -156,7 +156,9 @@ describe('a quiz game', () => {
     expect(progress).toHaveTextContent('90 очк.');
     await user.click(screen.getByRole('button', { name: /Играть/ }));
     expect(await screen.findByText('Вопрос 1 из 2')).toBeInTheDocument();
-    expect(screen.getByText('Утре_____ие улицы')).toBeInTheDocument();
+    // The asked word is marked, its gap drawn inside it.
+    const target = screen.getByLabelText('пропуск').closest('mark')!;
+    expect(target).toHaveTextContent(/^Утре\s+ие$/);
     await user.click(screen.getByRole('button', { name: 'НН' }));
     expect(api.answerQuiz).toHaveBeenLastCalledWith(
       'nn',

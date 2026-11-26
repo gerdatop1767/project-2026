@@ -447,3 +447,22 @@
   color: var(--color-error);
   background: color-mix(in srgb, var(--color-error) 14%, var(--color-bg-elevated));
 }
+
+/* The word the question is about, and its blank. */
+.target {
+  padding: 0 0.15em;
+  border-radius: 0.35em;
+  background: var(--color-accent-soft);
+  color: inherit;
+  font-weight: var(--font-weight-semibold);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.gap {
+  display: inline-block;
+  min-width: 1.6em;
+  margin: 0 0.08em;
+  border-bottom: 2px solid var(--color-accent-primary);
+  line-height: 1;
+}
