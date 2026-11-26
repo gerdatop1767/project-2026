@@ -40,10 +40,10 @@ const row = (over: Partial<QuizTaskRow>): QuizTaskRow => ({
 });
 
 describe('the registry', () => {
-  it('19 games: «Ударения» + 18 quizzes, each in a subject tab and a topic', () => {
-    expect(MINI_GAMES).toHaveLength(19);
-    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(19);
-    expect(MINI_GAMES.filter((g) => g.subjectId === 'russian')).toHaveLength(16);
+  it('20 games: «Ударения», «Словарные слова» + 18 quizzes, each in a subject tab and a topic', () => {
+    expect(MINI_GAMES).toHaveLength(20);
+    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(20);
+    expect(MINI_GAMES.filter((g) => g.subjectId === 'russian')).toHaveLength(17);
     expect(MINI_GAMES.filter((g) => g.subjectId === 'math').map((g) => g.title)).toEqual([
       'Теория вероятностей',
       'Вычисления',

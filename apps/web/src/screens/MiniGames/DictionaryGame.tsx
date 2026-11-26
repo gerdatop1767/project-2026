@@ -69,6 +69,42 @@ interface Checked {
 
 const newAnswerId = () => crypto.randomUUID();
 
+/**
+ * The line after an answer, in the question's own terms: in «Найди
+ * ошибку» the right choice IS the misspelling, so it says where the
+ * error was and how the word is written; elsewhere — the word written right.
+ */
+export function verdict(mechanic: DictionaryMechanic, r: DictionaryAnswerResponse) {
+  const head = r.correct ? 'Верно' : 'Неверно';
+  if (mechanic === 'find-error') {
+    return (
+      <>
+        {head}: ошибка в «{r.correctOption}», правильно — <strong>{r.word}</strong>
+      </>
+    );
+  }
+  if (mechanic === 'exception') {
+    return (
+      <>
+        {head}: исключение — <strong>{r.word}</strong>
+      </>
+    );
+  }
+  if (mechanic === 'group') {
+    return (
+      <>
+        {head}: <strong>{r.word}</strong> — «{r.correctOption}»
+      </>
+    );
+  }
+  return (
+    <>
+      {r.correct ? 'Верно: ' : 'Правильно: '}
+      <strong>{r.word}</strong>
+    </>
+  );
+}
+
 /** Parses the session mode `9:nn:all` back into the choice it was made from. */
 function parseMode(mode: string): { task: number; category: string | null; mode: Mode } | null {
   const [task, category, m] = mode.split(':');
@@ -292,10 +328,7 @@ export function DictionaryGame() {
             {playingTask ? `Задание ${playingTask.taskNumber} · ` : ''}
             {mechanicTitles[question.mechanic]}
           </span>
-          <span
-            className={styles.counter}
-            aria-label={`Вопрос ${shown} из ${round.queue.length}`}
-          >
+          <span className={styles.counter} aria-label={`Вопрос ${shown} из ${round.queue.length}`}>
             {shown} / {round.queue.length}
           </span>
         </div>
@@ -332,8 +365,7 @@ export function DictionaryGame() {
               <>
                 <p className={checked.result.correct ? styles.good : styles.bad}>
                   <Icon name={checked.result.correct ? 'success' : 'errorCircle'} size={18} />
-                  {checked.result.correct ? 'Верно: ' : 'Правильно: '}
-                  <strong>{checked.result.word}</strong>
+                  {verdict(question.mechanic, checked.result)}
                 </p>
                 <p className={styles.explanation}>{checked.result.explanation}</p>
                 {checked.result.memo && (
@@ -371,8 +403,8 @@ export function DictionaryGame() {
           <h1 className="text-h1">Словарные слова и исключения</h1>
         </div>
         <p className="text-body-sm text-secondary">
-          Слова, которые нельзя проверить правилом, исключения и трудные написания к заданиям 9,
-          10, 12–15 ЕГЭ. Выбери задание — и тренируй его слова в пяти видах вопросов.
+          Слова, которые нельзя проверить правилом, исключения и трудные написания к заданиям 9, 10,
+          12–15 ЕГЭ. Выбери задание — и тренируй его слова в пяти видах вопросов.
         </p>
       </header>
 
@@ -470,7 +502,9 @@ export function DictionaryGame() {
       )}
       {phase.kind === 'error' && (
         <Card role="alert">
-          <p className="text-body">{phase.message ?? 'Не удалось загрузить вопросы — попробуй ещё раз.'}</p>
+          <p className="text-body">
+            {phase.message ?? 'Не удалось загрузить вопросы — попробуй ещё раз.'}
+          </p>
         </Card>
       )}
 

@@ -67,7 +67,11 @@ export function dictScore(s: DictRoundState) {
 
 /** «Справочник» search: case- and «ё»-insensitive, by word or explanation. */
 export const normalizeSearch = (s: string): string =>
-  s.toLowerCase().replace(/ё/g, 'е').replace(/[\s-]+/g, ' ').trim();
+  s
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[\s-]+/g, ' ')
+    .trim();
 
 export function matchesSearch(query: string, ...fields: readonly string[]): boolean {
   const q = normalizeSearch(query);

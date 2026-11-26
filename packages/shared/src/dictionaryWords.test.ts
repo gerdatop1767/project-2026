@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DICTIONARY_TASKS,
-  allDictionaryItems,
-  dictionaryItems,
-  writtenForm,
-} from './index.js';
+import { DICTIONARY_TASKS, allDictionaryItems, dictionaryItems, writtenForm } from './index.js';
 
 const words = DICTIONARY_TASKS.flatMap((t) =>
   t.categories.flatMap((c) => c.words.map((w) => ({ t, c, w }))),
@@ -53,8 +48,14 @@ describe('«Словарные слова и исключения» — the word
   it('exceptions are marked and explained; every task with exceptions also has rule-following words', () => {
     for (const t of DICTIONARY_TASKS.filter((x) => [9, 10, 12, 15].includes(x.taskNumber))) {
       const all = t.categories.flatMap((c) => c.words);
-      expect(all.some((w) => w.exception), `№${t.taskNumber}`).toBe(true);
-      expect(all.some((w) => !w.exception), `№${t.taskNumber}`).toBe(true);
+      expect(
+        all.some((w) => w.exception),
+        `№${t.taskNumber}`,
+      ).toBe(true);
+      expect(
+        all.some((w) => !w.exception),
+        `№${t.taskNumber}`,
+      ).toBe(true);
     }
   });
 
@@ -100,9 +101,10 @@ describe('the five mechanics', () => {
       const regular = new Set(
         t.categories.flatMap((c) => c.words.filter((w) => !w.exception).map((w) => w.word)),
       );
-      expect(it.options.filter((o) => o !== it.correct).every((o) => regular.has(o)), it.key).toBe(
-        true,
-      );
+      expect(
+        it.options.filter((o) => o !== it.correct).every((o) => regular.has(o)),
+        it.key,
+      ).toBe(true);
     }
   });
 

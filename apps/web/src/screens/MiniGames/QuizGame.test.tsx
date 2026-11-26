@@ -107,7 +107,7 @@ describe('«Мини-игры»: subjects and topics', () => {
       'aria-selected',
       'true',
     );
-    expect(within(tabs).getByRole('tab', { name: /Русский язык/ })).toHaveTextContent('16');
+    expect(within(tabs).getByRole('tab', { name: /Русский язык/ })).toHaveTextContent('17');
     const orth = screen.getByRole('heading', { name: 'Орфография' }).closest('section')!;
     expect(within(orth).getByRole('heading', { name: 'Н и НН' })).toBeInTheDocument();
     const text = screen.getByRole('heading', { name: 'Текст и лексика' }).closest('section')!;

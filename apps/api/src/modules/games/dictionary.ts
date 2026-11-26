@@ -310,9 +310,7 @@ export async function dictionarySummary(
     const rows = await db
       .select({ task, best: max(s.score) })
       .from(s)
-      .where(
-        and(eq(s.userId, userId), eq(s.gameId, GAME), isNotNull(s.score), like(s.mode, '%:%')),
-      )
+      .where(and(eq(s.userId, userId), eq(s.gameId, GAME), isNotNull(s.score), like(s.mode, '%:%')))
       .groupBy(task);
     for (const r of rows) if (r.best !== null) best.set(Number(r.task), r.best);
   }

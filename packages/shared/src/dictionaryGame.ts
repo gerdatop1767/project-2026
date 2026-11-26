@@ -39,14 +39,11 @@ export interface DictionaryItem {
 
 /** The written form of a «(НЕ)ВЕЖДА»-gap for one way of writing it. */
 export function writtenForm(gap: string, how: string): string {
-  return gap.replace(
-    /([А-ЯЁ]*)\(([А-ЯЁ]+)\)([А-ЯЁ]*)/,
-    (_m, a: string, b: string, c: string) => {
-      const parts = [a, b, c].filter(Boolean).map((p) => p.toLowerCase());
-      const sep = how === 'слитно' ? '' : how === 'раздельно' ? ' ' : '-';
-      return parts.join(sep);
-    },
-  );
+  return gap.replace(/([А-ЯЁ]*)\(([А-ЯЁ]+)\)([А-ЯЁ]*)/, (_m, a: string, b: string, c: string) => {
+    const parts = [a, b, c].filter(Boolean).map((p) => p.toLowerCase());
+    const sep = how === 'слитно' ? '' : how === 'раздельно' ? ' ' : '-';
+    return parts.join(sep);
+  });
 }
 
 /** The word misspelt with the other letter (letters), or written the other way. */

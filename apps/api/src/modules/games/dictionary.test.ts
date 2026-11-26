@@ -37,7 +37,12 @@ describe('mini-game «Словарные слова и исключения»', 
   const get = (url: string, cookie?: string) =>
     app.inject({ method: 'GET', url: `/api/v1${url}`, headers: cookie ? { cookie } : {} });
   const post = (url: string, payload: object, cookie?: string) =>
-    app.inject({ method: 'POST', url: `/api/v1${url}`, payload, headers: cookie ? { cookie } : {} });
+    app.inject({
+      method: 'POST',
+      url: `/api/v1${url}`,
+      payload,
+      headers: cookie ? { cookie } : {},
+    });
   const round = async (query: string, cookie?: string) =>
     (await get(`/games/dictionary/round?${query}`, cookie)).json() as DictionaryRoundResponse;
   const answer = async (
@@ -133,7 +138,11 @@ describe('mini-game «Словарные слова и исключения»', 
     // A retry of the wrong one, and a re-sent first answer: no extra points.
     await answer(r, r.questions[4]!, true, me.phone);
     const finish = (
-      await post('/games/dictionary/finish', { sessionId: r.sessionId, firstTryCorrect: 5 }, me.phone)
+      await post(
+        '/games/dictionary/finish',
+        { sessionId: r.sessionId, firstTryCorrect: 5 },
+        me.phone,
+      )
     ).json() as MiniGameFinishResponse;
     expect(finish).toEqual({ questionCount: 5, answered: 5, firstTryCorrect: 4, score: 40 });
     await post('/games/dictionary/finish', { sessionId: r.sessionId }, me.laptop);
