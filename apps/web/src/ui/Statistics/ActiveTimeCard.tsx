@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react';
 import type { ActivityDay, ActivityStatsResponse } from '@zybrilka/shared';
-import { getActivityStats } from '../../lib/api.js';
 import { formatDurationLong } from '../../lib/statisticsDetailFormat.js';
 import { BarChart } from '../Charts/BarChart.js';
-import { Card } from '../Card/Card.js';
-import { Icon } from '../Icon/Icon.js';
 import { SkeletonValue } from '../Skeleton/Skeleton.js';
 import styles from './ActiveTimeCard.module.css';
 
@@ -60,32 +56,9 @@ export function ActiveTimeView({ data }: { data: ActivityStatsResponse | null | 
         </>
       )}
       <p className={styles.note}>
-        Считается только активное время: страница открыта и ты что-то делаешь. Вкладка без действий,
-        свёрнутое приложение и несколько вкладок сразу время не добавляют.
+        Считается только активное время: страница открыта и пользователь что-то делает. Вкладка без
+        действий, свёрнутое приложение и несколько вкладок сразу время не добавляют.
       </p>
     </div>
-  );
-}
-
-/** «Время на платформе» in the profile: the signed-in user's own. */
-export function ActiveTimeCard() {
-  const [data, setData] = useState<ActivityStatsResponse | null | undefined>(undefined);
-  useEffect(() => {
-    let live = true;
-    getActivityStats().then(
-      (d) => live && setData(d),
-      () => live && setData(null),
-    );
-    return () => {
-      live = false;
-    };
-  }, []);
-  return (
-    <Card>
-      <h2 className={styles.title}>
-        <Icon name="time" size={20} /> Время на платформе
-      </h2>
-      <ActiveTimeView data={data} />
-    </Card>
   );
 }

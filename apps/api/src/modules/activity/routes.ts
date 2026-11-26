@@ -1,13 +1,17 @@
 import type { Database } from '@zybrilka/db';
 import { activityHeartbeatSchema } from '@zybrilka/shared';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { activityStats, recordActiveSlots } from './service.js';
+import { recordActiveSlots } from './service.js';
 
 export interface ActivityRoutesOptions {
   db: Database;
 }
 
-/** Active time (docs/ACTIVE_TIME.md) — the signed-in user's own only. */
+/**
+ * Active time (docs/ACTIVE_TIME.md): the client only reports its active
+ * slots. The totals are shown in the admin panel only (/admin/activity,
+ * /admin/users/:id) — never to the users themselves.
+ */
 export const activityRoutes: FastifyPluginAsync<ActivityRoutesOptions> = async (app, { db }) => {
   const userOf = (request: FastifyRequest) => request.sessionUserId ?? null;
 
@@ -30,11 +34,4 @@ export const activityRoutes: FastifyPluginAsync<ActivityRoutesOptions> = async (
       return { counted: await recordActiveSlots(db, userId, body.data.slots) };
     },
   );
-
-  app.get('/progress/activity', async (request, reply) => {
-    const userId = userOf(request);
-    if (!userId) return reply.code(401).send({ error: 'unauthorized' });
-    reply.header('cache-control', 'no-store');
-    return activityStats(db, userId);
-  });
 };

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { schema } from '@zybrilka/db';
 import { createTestDb } from '@zybrilka/db/testing';
-import type { ActivityStatsResponse } from '@zybrilka/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
@@ -56,15 +55,29 @@ describe('active time', () => {
     // The laptop was open at the same time; a re-sent request too.
     expect((await beat(slots, me.laptop)).json()).toEqual({ counted: 0 });
     expect((await beat(slots.slice(0, 4), me.phone)).json()).toEqual({ counted: 0 });
-    const stats = (
-      await app.inject({
-        method: 'GET',
-        url: '/api/v1/progress/activity',
-        headers: { cookie: me.phone },
-      })
-    ).json() as ActivityStatsResponse;
+    const stats = await activityStats(testDb.db, me.id);
     expect(stats.todaySeconds + (stats.days.at(-2)?.seconds ?? 0)).toBe(300);
     expect(stats.allSeconds).toBe(300);
+  });
+
+  it('the time is for the admin panel only: users have no endpoint to read it', async () => {
+    const me = await player();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/progress/activity',
+      headers: { cookie: me.phone },
+    });
+    expect(res.statusCode).toBe(404);
+    // Nor the admin view: it needs an admin.
+    const admin = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/activity',
+      headers: { cookie: me.phone },
+    });
+    expect([401, 403]).toContain(admin.statusCode);
+    // The heartbeat answers with a count only, never the totals.
+    const slot = Math.floor(Date.now() / 1000 / 30) * 30;
+    expect(Object.keys((await beat([slot], me.phone)).json() as object)).toEqual(['counted']);
   });
 
   it('only real slots: multiples of 30 s, not in the future, not older than 48 h', async () => {
