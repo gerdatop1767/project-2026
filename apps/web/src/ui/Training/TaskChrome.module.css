@@ -47,6 +47,47 @@
 
 .progressRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-2);
+}
+
+/* «Задание N из M · Все номера» — opens the whole list as a sheet. */
+.allNumbers {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target-min);
+  margin: calc((var(--touch-target-min) - 1.25rem) / -2) 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.allNumbersHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-chip);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-secondary);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  transition: transform var(--duration-fast) var(--easing-out);
+}
+
+.allNumbers:active .allNumbersHint {
+  transform: scale(0.96);
+}
+
+.allNumbers:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-input);
 }
