@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { ActiveTimeCard } from '../../ui/Statistics/ActiveTimeCard.js';
 import { getLearningProfile, getProgressSummary } from '../../lib/api.js';
 import { useAuth } from '../../lib/authContext.js';
 import { GuestProfileCard } from '../../ui/AccountGate/GuestProfileCard.js';
@@ -104,8 +103,6 @@ function AccountProfile() {
           suffix={progress ? '%' : undefined}
         />
       </div>
-
-      <ActiveTimeCard />
 
       <Card>
         <SignInMethodsSection identities={identities} />

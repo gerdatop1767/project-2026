@@ -1,6 +1,5 @@
 import { metrikaGoal } from './metrika.js';
 import type {
-  ActivityStatsResponse,
   MiniGameRatingKind,
   MiniGameRatingResponse,
   MiniGameActiveResponse,
@@ -892,10 +891,6 @@ export function sendActivity(slots: number[]): Promise<void> {
     body: JSON.stringify({ slots }),
     keepalive: true,
   }).then(() => undefined);
-}
-
-export function getActivityStats(): Promise<ActivityStatsResponse> {
-  return rawApiFetch('/progress/activity');
 }
 
 /** A mini-game's own rating, all time: best round or all points. */
