@@ -702,14 +702,18 @@
 
 .kpiRow {
   display: flex;
+  /* A narrow tile moves the sparkline under the value instead of
+     squeezing the value onto two lines («3 / мин»). */
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
 }
 
 .sparkline {
   flex-shrink: 0;
+  margin-left: auto;
   opacity: 0.9;
 }
 
