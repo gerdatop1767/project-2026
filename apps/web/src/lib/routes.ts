@@ -60,6 +60,7 @@ const simpleOverlayPaths: Partial<Record<OverlayRoute['screen'], string>> = {
   notifications: '/notifications',
   miniGames: '/games',
   stressGame: '/games/stress',
+  dictionaryGame: '/games/dictionary',
   onboarding: '/onboarding',
   landing: '/landing',
   telegramReturn: '/telegram-return',
@@ -351,7 +352,7 @@ export function routeFromPath(pathname: string): Route {
   if (attemptMatch) return { screen: 'variantAttempt', sessionId: attemptMatch[1]! };
 
   const quizMatch = path.match(/^\/games\/([a-z0-9-]+)$/);
-  if (quizMatch && quizMatch[1] !== 'stress') return { screen: 'quizGame', gameId: quizMatch[1]! };
+  if (quizMatch && quizMatch[1] !== 'stress' && quizMatch[1] !== 'dictionary') return { screen: 'quizGame', gameId: quizMatch[1]! };
 
   const friendMatch = path.match(/^\/friends\/([a-zA-Z0-9_-]+)$/);
   if (friendMatch) {

@@ -57,6 +57,12 @@ import type {
   QuizMode,
   QuizProgressResponse,
   QuizRoundResponse,
+  DictionaryAnswerRequest,
+  DictionaryAnswerResponse,
+  DictionaryQuestion,
+  DictionaryReferenceResponse,
+  DictionaryRoundResponse,
+  DictionarySummaryResponse,
   StressAnswerRequest,
   StressAnswerResponse,
   StressMode,
@@ -882,6 +888,57 @@ export function abandonStressRound(sessionId: string): Promise<void> {
 
 export function getStressProgress(): Promise<StressProgressResponse> {
   return rawApiFetch('/games/stress/progress');
+}
+
+/** «Словарные слова и исключения» (docs/DICTIONARY_GAME.md). */
+export function getDictionarySummary(): Promise<DictionarySummaryResponse> {
+  return rawApiFetch('/games/dictionary/summary');
+}
+
+export function getDictionaryReference(task: number): Promise<DictionaryReferenceResponse> {
+  return rawApiFetch(`/games/dictionary/reference/${task}`);
+}
+
+export function getDictionaryRound(query: {
+  task: number;
+  category: string | null;
+  mode: 'all' | 'mistakes';
+  size: number;
+}): Promise<DictionaryRoundResponse> {
+  const params = new URLSearchParams({
+    task: String(query.task),
+    mode: query.mode,
+    size: String(query.size),
+  });
+  if (query.category) params.set('category', query.category);
+  return rawApiFetch(`/games/dictionary/round?${params.toString()}`);
+}
+
+export function answerDictionary(
+  request: DictionaryAnswerRequest,
+): Promise<DictionaryAnswerResponse> {
+  return apiFetch('/games/dictionary/answer', { method: 'POST', body: JSON.stringify(request) });
+}
+
+export function finishDictionaryRound(sessionId: string): Promise<MiniGameFinishResponse | null> {
+  return apiFetch<MiniGameFinishResponse>('/games/dictionary/finish', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => null);
+}
+
+export function getDictionaryActive(
+  sessionId?: string,
+): Promise<MiniGameActiveResponse<DictionaryQuestion>> {
+  const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  return rawApiFetch(`/games/dictionary/active${q}`);
+}
+
+export function abandonDictionaryRound(sessionId: string): Promise<void> {
+  return apiFetch<void>('/games/dictionary/abandon', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  });
 }
 
 /** Active time (docs/ACTIVE_TIME.md): slots this client was active in. */

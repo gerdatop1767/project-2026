@@ -16,7 +16,11 @@ import styles from './MiniGames.module.css';
 /** Where a game's «Играть» leads: «Ударения» has its own screen, every
  * quiz game the shared one (`/games/:gameId`). */
 const gameRoute = (id: string): Route =>
-  id === 'stress' ? { screen: 'stressGame' } : { screen: 'quizGame', gameId: id };
+  id === 'stress'
+    ? { screen: 'stressGame' }
+    : id === 'dictionary'
+      ? { screen: 'dictionaryGame' }
+      : { screen: 'quizGame', gameId: id };
 
 const CATEGORIES = [
   { id: 'russian', label: 'Русский язык' },

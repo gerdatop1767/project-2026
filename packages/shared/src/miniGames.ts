@@ -30,6 +30,16 @@ export const MINI_GAMES: readonly MiniGameInfo[] = [
     egeTask: 'Задание 4',
     topic: 'norms',
   },
+  {
+    id: 'dictionary',
+    title: 'Словарные слова и исключения',
+    subjectId: 'russian',
+    subjectName: 'Русский язык',
+    description:
+      'Словарные слова, исключения и трудные написания к заданиям 9, 10, 12–15 ЕГЭ: пять видов вопросов, справочник и приёмы запоминания.',
+    egeTask: 'Задания 9–15',
+    topic: 'orthography',
+  },
   ...QUIZ_GAMES.map((g) => ({
     id: g.id,
     title: g.title,

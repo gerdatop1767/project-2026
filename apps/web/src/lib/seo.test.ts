@@ -58,6 +58,7 @@ const sampleRoutes: Route[] = [
       'notifications',
       'miniGames',
       'stressGame',
+      'dictionaryGame',
       'onboarding',
       'landing',
       'telegramReturn',
