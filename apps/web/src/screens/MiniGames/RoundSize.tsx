@@ -172,7 +172,11 @@ export function RoundSizePicker({
       </div>
       <p className={styles.groupLabel}>Длинная игра — сохраняется, можно продолжить позже</p>
       {long.length > 0 ? (
-        <div className={styles.chips} role="radiogroup" aria-label="Длинная игра">
+        <div
+          className={clsx(styles.chips, styles.longChips)}
+          role="radiogroup"
+          aria-label="Длинная игра"
+        >
           {long.map((n) => (
             <button
               key={n}
