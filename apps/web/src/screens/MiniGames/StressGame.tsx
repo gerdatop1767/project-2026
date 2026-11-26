@@ -23,7 +23,7 @@ import { Skeleton } from '../../ui/Skeleton/Skeleton.js';
 import { SlideUp } from '../../ui/motion/motion.js';
 import { GameIcon } from './GameIcon.js';
 import { RoundSizePicker, effectiveRoundSize, useRoundSize } from './RoundSize.js';
-import { GameRules } from './GameRules.js';
+import { GameRules, StudyRulesButton } from './GameRules.js';
 import { useGameQuestionCount } from './MiniGames.js';
 import {
   currentQuestion,
@@ -199,6 +199,7 @@ export function StressGame() {
           <span className={styles.counter} aria-label={`Слово ${shown} из ${round.queue.length}`}>
             {shown} / {round.queue.length}
           </span>
+          <StudyRulesButton gameId="stress" compact />
         </div>
         <Card className={styles.question}>
           <p className="text-body-sm text-secondary">
