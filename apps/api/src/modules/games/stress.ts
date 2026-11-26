@@ -14,7 +14,7 @@ import {
   type StressQuestion,
   type StressRoundResponse,
 } from '@zybrilka/shared';
-import { and, eq, gt, gte, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, sql } from 'drizzle-orm';
 import { moscowDate } from '../admin/period.js';
 import {
   NotEnoughQuestionsError,

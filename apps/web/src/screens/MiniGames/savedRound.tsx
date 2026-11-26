@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { MiniGameActiveResponse, MiniGameResume } from '@zybrilka/shared';
 import { Button } from '../../ui/Button/Button.js';
 import { Icon } from '../../ui/Icon/Icon.js';
@@ -54,32 +54,33 @@ export function useSavedRound<Q>({
   abandon: (sessionId: string) => Promise<void>;
 }) {
   const [resume, setResume] = useState<MiniGameResume<Q> | null>(null);
-  const [checked, setChecked] = useState(false);
+  const [version, setVersion] = useState(0);
+  // A guest without a kept round id has nothing to ask the server about.
+  const guestId = signedIn ? undefined : readGuestId(gameId);
+  const askServer = signedIn || guestId !== undefined;
 
-  const refresh = useCallback(() => {
-    const guestId = signedIn ? undefined : readGuestId(gameId);
-    if (!signedIn && !guestId) {
-      setResume(null);
-      setChecked(true);
-      return;
-    }
+  useEffect(() => {
+    if (!askServer) return;
+    let live = true;
     fetchActive(guestId)
       .then((r) => {
-        const live =
+        if (!live) return;
+        const open =
           r.session && r.session.answered.length < r.session.questions.length ? r.session : null;
-        setResume(live);
+        setResume(open);
         if (!signedIn && !r.session) writeGuestId(gameId, null);
       })
-      .catch(() => setResume(null))
-      .finally(() => setChecked(true));
-  }, [fetchActive, gameId, signedIn]);
-
-  useEffect(refresh, [refresh]);
+      .catch(() => {
+        if (live) setResume(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [askServer, fetchActive, gameId, guestId, signedIn, version]);
 
   return {
-    resume,
-    checked,
-    refresh,
+    resume: askServer ? resume : null,
+    refresh: () => setVersion((v) => v + 1),
     /** A new round started: a guest's id is remembered, the old offer gone. */
     started(sessionId: string | null) {
       if (!signedIn) writeGuestId(gameId, sessionId);
