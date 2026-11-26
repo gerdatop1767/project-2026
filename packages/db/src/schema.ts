@@ -2070,6 +2070,37 @@ export const miniGameSettings = pgTable(
  * as the answer. `streak` = correct answers in a row; an item counts as
  * learned at `MINI_GAME_LEARNED_STREAK` (packages/shared).
  */
+/**
+ * A player's standing in one mini-game (docs/MINI_GAMES.md § Рейтинги):
+ * the best finished round and the points of every finished round, both
+ * counted by the server. Written once per round, in the same transaction
+ * that finishes it — a replayed «finish» adds nothing.
+ */
+export const miniGameScores = pgTable(
+  'mini_game_scores',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    gameId: text('game_id').notNull(),
+    /** The best round: its points, right answers, questions and when. */
+    bestScore: integer('best_score').notNull(),
+    bestCorrect: integer('best_correct').notNull(),
+    bestQuestions: integer('best_questions').notNull(),
+    bestSessionId: uuid('best_session_id'),
+    bestAt: timestamp('best_at', { withTimezone: true }).notNull(),
+    /** Points of every finished round, all time. */
+    totalPoints: integer('total_points').notNull().default(0),
+    rounds: integer('rounds').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.gameId] }),
+    index('mini_game_scores_best_idx').on(table.gameId, table.bestScore),
+    index('mini_game_scores_total_idx').on(table.gameId, table.totalPoints),
+  ],
+);
+
 export const miniGameItemProgress = pgTable(
   'mini_game_item_progress',
   {

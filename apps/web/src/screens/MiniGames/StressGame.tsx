@@ -40,6 +40,7 @@ import {
   type RoundState,
 } from './stressRound.js';
 import { ContinueCard, NewGameChoice, resumeProgress, useSavedRound } from './savedRound.js';
+import { GameRating } from './GameRating.js';
 import styles from './StressGame.module.css';
 
 const modeTitles: Record<StressMode, string> = {
@@ -384,6 +385,8 @@ export function StressGame() {
           {isGuest && <Icon name="lock" size={14} />}
         </Button>
       </div>
+
+      <GameRating gameId="stress" />
 
       {isGuest ? (
         <p className="text-body-sm text-secondary">

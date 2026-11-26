@@ -37,6 +37,7 @@ import { GameRules } from './GameRules.js';
 import { useGameQuestionCount } from './MiniGames.js';
 import styles from './QuizGame.module.css';
 import { ContinueCard, NewGameChoice, resumeProgress, useSavedRound } from './savedRound.js';
+import { GameRating } from './GameRating.js';
 
 type Phase =
   | { kind: 'menu' }
@@ -333,6 +334,7 @@ export function QuizGame({ gameId }: { gameId: string }) {
         </Card>
       )}
 
+      {phase.kind === 'menu' && <GameRating gameId={game.id} />}
       {phase.kind === 'loading' && <Skeleton height={220} />}
 
       {phase.kind === 'error' && (

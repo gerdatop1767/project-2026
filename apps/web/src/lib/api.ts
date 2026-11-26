@@ -1,5 +1,7 @@
 import { metrikaGoal } from './metrika.js';
 import type {
+  MiniGameRatingKind,
+  MiniGameRatingResponse,
   MiniGameActiveResponse,
   MiniGameFinishResponse,
   QuizQuestion,
@@ -879,6 +881,14 @@ export function abandonStressRound(sessionId: string): Promise<void> {
 
 export function getStressProgress(): Promise<StressProgressResponse> {
   return rawApiFetch('/games/stress/progress');
+}
+
+/** A mini-game's own rating, all time: best round or all points. */
+export function getMiniGameRating(
+  gameId: string,
+  kind: MiniGameRatingKind,
+): Promise<MiniGameRatingResponse> {
+  return rawApiFetch(`/games/${encodeURIComponent(gameId)}/rating?kind=${kind}&limit=10`);
 }
 
 // ------------------------------------------------------- quiz mini-games (docs/MINI_GAMES.md)
