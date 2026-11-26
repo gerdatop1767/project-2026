@@ -229,11 +229,11 @@ class Reel:
             inputs += ["-i", str(sfx_dir / f"{name}.wav")]; d = int(max(0, at) * 1000)
             fl.append(f"[{idx}:a]volume={0.5 if name != 'click' else 0.35},adelay={d}|{d}[e{idx}]"); labs.append(f"[e{idx}]"); idx += 1
         if self.voice:
-            vo = ad / "voiceover.wav"; parts = []
-            for lid, at in self.vo_places:
-                a, b = self.lines[lid]; d = int(at * 1000)
-                inputs += ["-i", str(vo)]
-                fl.append(f"[{idx}:a]atrim={a:.3f}:{b + 0.05:.3f},asetpts=PTS-STARTPTS,adelay={d}|{d}[v{idx}]"); parts.append(f"[v{idx}]"); idx += 1
+            parts = []
+            for lid, at in self.vo_places:  # each line is its own file (tts_fish → audio/lines/<id>.wav): never cut
+                d = int(at * 1000)
+                inputs += ["-i", str(ad / "lines" / f"{lid}.wav")]
+                fl.append(f"[{idx}:a]adelay={d}|{d}[v{idx}]"); parts.append(f"[v{idx}]"); idx += 1
             fl.append(f"{''.join(parts)}amix=inputs={len(parts)}:normalize=0,apad[vo]")
             fl.append("[vo]asplit[vo1][vo2]")
             fl.append("[mus][vo1]sidechaincompress=threshold=0.04:ratio=6:attack=15:release=300[duck]")
@@ -253,7 +253,40 @@ class Reel:
         return out
 
 
-def qa(path, rd):
+def _toks(text):
+    import lipsync
+    return [t for t in (lipsync.norm(x) for x in re.split(r"[\s\-–—]+", text.replace("\u0301", ""))) if t]
+
+
+def voice_qa(r, path):
+    """Voice must never be cut, overlap, drop out or run into the outro; every word of every line must be heard.
+    Each line file is transcribed on its own (catches a cut/garbled ending), then the whole final mix (catches dropouts)."""
+    import difflib, lipsync
+    problems, per_line, lens = [], {}, {}
+    texts = {f"c{i + 1}": c["line"] for i, c in enumerate(r.spec["clips"]) if c.get("line")}
+    for lid, _ in r.vo_places:
+        f = r.rd / "audio/lines" / f"{lid}.wav"
+        with wave.open(str(f)) as w: lens[lid] = w.getnframes() / w.getframerate()
+        want = _toks(texts[lid]); got = _toks(" ".join(x["w"] for x in lipsync.asr_words(f, texts[lid])))
+        sm = difflib.SequenceMatcher(None, want, got, autojunk=False)
+        miss = [" ".join(want[i1:i2]) for tag, i1, i2, _, _ in sm.get_opcodes() if tag in ("delete", "replace")]
+        per_line[lid] = {"heard": " ".join(got), "missing": miss}
+        if want and want[-1] not in got[-3:]: problems.append(f"{lid}: конец реплики не слышен/обрезан («{want[-1]}»), услышано: «{' '.join(got)}»")
+        elif len(miss) > max(1, len(want) // 6): problems.append(f"{lid}: искажены слова {miss}")
+    for (l1, t1), (l2, t2) in zip(r.vo_places, r.vo_places[1:]):
+        if t1 + lens[l1] + 0.05 > t2: problems.append(f"{l1}→{l2}: реплики наезжают")
+    if r.vo_places:
+        l, t = r.vo_places[-1]
+        if t + lens[l] > r.outro_start + 0.6: problems.append(f"{l}: реплика заходит на финальную заставку")
+    script = " ".join(texts[l] for l, _ in r.vo_places)
+    a = _toks(" ".join(w["w"] for w in lipsync.asr_words(path, script, max_s=r.outro_start + 0.8))); b2 = _toks(script)
+    sm = difflib.SequenceMatcher(None, b2, a, autojunk=False)
+    wer = 1 - sum(bl.size for bl in sm.get_matching_blocks()) / max(1, len(b2))
+    if wer > 0.15: problems.append(f"в итоговом звуке голос пропадает/не слышен: WER {wer:.2f}")
+    return {"voice_wer": round(wer, 3), "voice_lines": per_line, "voice_problems": problems}
+
+
+def qa(path, rd, r=None):
     pr = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)],
                                    capture_output=True, text=True).stdout)
     v = next(s for s in pr["streams"] if s["codec_type"] == "video"); dur = float(pr["format"]["duration"])
@@ -261,7 +294,10 @@ def qa(path, rd):
     lufs = float(json.loads(ln[ln.rindex("{"):ln.rindex("}") + 1])["input_i"])
     checks = {"size_1080x1920": (v["width"], v["height"]) == (1080, 1920), "duration_15_25s": 15 <= dur <= 25.5,
               "loudness_-15..-13": -15.5 <= lufs <= -12.5, "has_audio": any(s["codec_type"] == "audio" for s in pr["streams"])}
-    rep = {"passed": all(checks.values()), "checks": checks, "duration": round(dur, 2), "lufs": lufs}
+    rep = {"duration": round(dur, 2), "lufs": lufs}
+    if r is not None and r.voice:
+        rep.update(voice_qa(r, path)); checks["voice_clean(no cuts/overlaps, WER<=0.15)"] = not rep["voice_problems"]
+    rep = {"passed": all(checks.values()), "checks": checks, **rep}
     (rd / "qa").mkdir(exist_ok=True); (rd / "qa/report.json").write_text(json.dumps(rep, indent=1))
     # contact sheet: 8 frames for the reviewer
     n = 8; shots = []
@@ -283,4 +319,4 @@ if __name__ == "__main__":
         for t in a.preview or [0.6, r.dur / 2, r.dur - 1]:
             r.render_frame(min(int(t * FPS), int(r.dur * FPS) - 1)).convert("RGB").save(r.rd / f"qa/preview_{t:.1f}.png"); print("preview", t)
     else:
-        out = r.render(); print("final:", out, json.dumps(qa(out, r.rd), ensure_ascii=False))
+        out = r.render(); print("final:", out, json.dumps(qa(out, r.rd, r), ensure_ascii=False))

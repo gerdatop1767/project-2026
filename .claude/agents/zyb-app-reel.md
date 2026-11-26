@@ -19,7 +19,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 2. Создай `zybrilka-content/reels/<NNN>-<slug>/reel.json`. Схема — в шапке `tools/reel_render.py`, действия — в шапке `tools/reel_capture.cjs`. Точные подписи кнопок для `tap` бери из вывода `site_explore`.
 3. Запусти `node zybrilka-content/tools/reel_capture.cjs <dir>`. Если упало (кнопка не найдена, сайт не загрузился) — поправь действия и повтори.
 4. Запусти `python3 zybrilka-content/tools/reel_render.py <dir> --preview …` и открой кадры через Read. Поправь, что не так.
-5. Запусти `python3 zybrilka-content/tools/reel_render.py <dir>`. Проверь `qa/report.json` и `qa/contact.png`.
+5. Запусти `python3 zybrilka-content/tools/reel_render.py <dir>`. Проверь `qa/report.json` и `qa/contact.png`. Для голоса обязательно: `voice_problems` пустой, в выводе нет `WARN`, в `voice_lines` каждая реплика услышана целиком. Если нет — переозвучь (`tts_fish.py <dir> --force cN`), поставь ударения ´ или перефразируй, и перерендерь.
 6. Допиши в `reel.json` блок `"telegram"` по APP_REELS.md.
 
 На правки — до 5 циклов той же идеи. Идею не меняй.

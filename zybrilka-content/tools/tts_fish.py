@@ -9,7 +9,7 @@ cached in audio/fish_cache/<hash>.wav so re-renders cost nothing.
 
 Usage: python3 tts_fish.py <video_dir> [--force LINE_ID ...]
 """
-import argparse, hashlib, json, subprocess, sys, urllib.request, urllib.error, wave, io
+import argparse, hashlib, json, re, subprocess, sys, urllib.request, urllib.error, wave, io
 from pathlib import Path
 
 API = "https://api.fish.audio/v1/tts"
@@ -34,9 +34,35 @@ def pcm_mono(wav_bytes):
     """Decode any wav to mono int16 @SR via ffmpeg, trimming leading/trailing silence."""
     p = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", "-", "-ac", "1", "-ar", str(SR), "-af",
                         "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.03,"
-                        "areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.06,areverse",
+                        "areverse,silenceremove=start_periods=1:start_threshold=-55dB:start_silence=0.18,areverse",
                         "-f", "s16le", "-"], input=wav_bytes, capture_output=True, check=True)
     return p.stdout
+
+
+STRESS = Path(__file__).resolve().parent.parent / "pipeline/stress.json"
+
+
+def apply_stress(text):
+    """Owner-maintained dictionary (pipeline/stress.json: {"зубрилка": "Зубри́лка", ...}) applied to every voiced line,
+    unless the word already carries a stress mark. Case of the first letter is preserved."""
+    if not STRESS.exists(): return text
+    d = {k.lower(): v for k, v in json.loads(STRESS.read_text()).items() if not k.startswith("_")}
+    def fix(m):
+        w = m.group(0)
+        if "\u0301" in w or w.lower() not in d: return w
+        v = d[w.lower()]
+        return v[0].upper() + v[1:] if w[0].isupper() else v[0].lower() + v[1:]
+    return re.sub(r"[А-Яа-яЁё\u0301-]+", fix, text)
+
+
+def line_file(out, lid, chunk):
+    """Each line as its own clean file (48 kHz, voice EQ/comp, 10 ms fade-in, 60 ms fade-out) — reels place these
+    files directly, so no line can be cut or bleed into the next one."""
+    dur = len(chunk) / 2 / SR; (out / "lines").mkdir(exist_ok=True)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", "-", "-af",
+                    "highpass=f=70,equalizer=f=3000:t=q:w=1.2:g=1.5,acompressor=threshold=-20dB:ratio=2.5:attack=5:release=80,"
+                    f"afade=t=in:d=0.01,afade=t=out:st={max(0, dur - 0.06):.3f}:d=0.06", "-ar", "48000", str(out / "lines" / f"{lid}.wav")],
+                   input=bytes(chunk), check=True)
 
 
 def main():
@@ -47,12 +73,13 @@ def main():
     lead = spec.get("lead_in", 0.25)
     pcm = bytearray(b"\x00\x00" * int(SR * lead)); t = lead; lines = []; chars = 0
     for ln in spec["lines"]:
-        text = ln.get("fish_text", ln["text"]).replace("́", "")  # Fish uses its own stress model
+        text = apply_stress(ln.get("fish_text", ln["text"])).strip()
+        if text and text[-1] not in ".!?…": text += "."  # a closing mark stops Fish from clipping the last word  # acute marks are kept: they steer Fish's stress
         key = hashlib.sha1(json.dumps([text, fish], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
         f = cache / f"{ln['id']}-{key}.wav"
         if not f.exists() or ln["id"] in a.force:
             f.write_bytes(synth(text, fish)); chars += len(text); print("synth", ln["id"], len(text), "chars")
-        chunk = pcm_mono(f.read_bytes()); dur = len(chunk) / 2 / SR
+        chunk = pcm_mono(f.read_bytes()); dur = len(chunk) / 2 / SR; line_file(out, ln["id"], chunk)
         lines.append({"id": ln["id"], "text": ln["text"].replace("́", ""), "start": round(t, 3), "end": round(t + dur, 3)})
         pcm += chunk; t += dur
         gap = ln.get("pause_after", 0.25); pcm += b"\x00\x00" * int(SR * gap); t += gap
