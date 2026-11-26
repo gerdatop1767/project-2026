@@ -211,7 +211,7 @@ describe('mini-games — quizzes (real content)', () => {
           cookie,
         )
       ).statusCode,
-    ).toBe(204);
+    ).toBe(200);
     const progress = (await get('/games/quiz/nn/progress', cookie)).json() as QuizProgressResponse;
     expect(progress).toMatchObject({
       answers: 2,
@@ -343,20 +343,24 @@ describe('mini-games — quizzes (real content)', () => {
     expect(res.explanation).toMatch(/Других ошибок ключ не проверяет/);
   });
 
-  it('the chosen round size is the real length of the round, capped by the bank', async () => {
+  it('the chosen round size is the real length of the round; never more than the bank', async () => {
     const r30 = (await get('/games/quiz/nn/round?size=30')).json() as QuizRoundResponse;
     expect(r30.questions).toHaveLength(30);
     const r3 = (await get('/games/quiz/nn/round?size=3')).json() as QuizRoundResponse;
     expect(r3.questions).toHaveLength(3);
-    // A bank smaller than the request: every question once, never a repeat.
+    // The whole bank: every question once, never a repeat…
     const bank = await quizBank(testDb.db, 'probability-blitz');
     expect(bank.items.length).toBeLessThan(80);
-    const small = (
-      await get(`/games/quiz/probability-blitz/round?size=50`)
+    const whole = (
+      await get(`/games/quiz/probability-blitz/round?size=${bank.items.length}`)
     ).json() as QuizRoundResponse;
-    expect(small.questions).toHaveLength(Math.min(50, bank.items.length));
-    expect(new Set(small.questions.map((q) => q.itemId)).size).toBe(small.questions.length);
-    expect((await get('/games/quiz/nn/round?size=51')).statusCode).toBe(400);
+    expect(whole.questions).toHaveLength(bank.items.length);
+    expect(new Set(whole.questions.map((q) => q.itemId)).size).toBe(whole.questions.length);
+    // …and more than it has is refused with the real number, never padded.
+    const tooMany = await get(`/games/quiz/probability-blitz/round?size=${bank.items.length + 1}`);
+    expect(tooMany.statusCode).toBe(409);
+    expect(tooMany.json()).toEqual({ error: 'not_enough_questions', available: bank.items.length });
+    expect((await get('/games/quiz/nn/round?size=501')).statusCode).toBe(400);
     expect((await get('/games/quiz/nn/round?size=2')).statusCode).toBe(400);
     const stress = (await get('/games/stress/round?size=60')).json() as { questions: unknown[] };
     expect(stress.questions).toHaveLength(60);
@@ -391,7 +395,7 @@ describe('mini-games — quizzes (real content)', () => {
     expect((await put('nn', { roundSize: 15 })).statusCode).toBe(401);
     expect((await put('nn', { roundSize: 15 }, a.cookie)).statusCode).toBe(200);
     expect((await put('stress', { roundSize: 70 }, a.cookie)).statusCode).toBe(200);
-    expect((await put('nn', { roundSize: 70 }, a.cookie)).statusCode).toBe(400);
+    expect((await put('nn', { roundSize: 501 }, a.cookie)).statusCode).toBe(400);
     expect((await put('nn', { roundSize: 2 }, a.cookie)).statusCode).toBe(400);
     expect((await put('no-such-game', { roundSize: 10 }, a.cookie)).statusCode).toBe(404);
     expect((await put('nn', { roundSize: 25 }, a.cookie)).statusCode).toBe(200);

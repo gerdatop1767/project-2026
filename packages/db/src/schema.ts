@@ -1996,8 +1996,23 @@ export const miniGameSessions = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     lastAnswerAt: timestamp('last_answer_at', { withTimezone: true }),
+    /**
+     * The round's questions in their order — what «Продолжить игру»
+     * restores on any device. Null for rounds started before it existed
+     * (those cannot be resumed).
+     */
+    itemIds: text('item_ids').array(),
+    /** Points of a finished round, counted by the server from the round's
+     * first answers — never sent by the client. Null until finished. */
+    score: integer('score'),
+    /** The player chose «Новая игра» over this unfinished round. */
+    abandonedAt: timestamp('abandoned_at', { withTimezone: true }),
   },
   (table) => [
+    // The player's unfinished round of a game — «Продолжить игру».
+    index('mini_game_sessions_active_idx')
+      .on(table.userId, table.gameId)
+      .where(sql`${table.finishedAt} is null and ${table.abandonedAt} is null`),
     index('mini_game_sessions_game_started_idx').on(table.gameId, table.startedAt),
     index('mini_game_sessions_started_idx').on(table.startedAt),
     index('mini_game_sessions_user_idx').on(table.userId, table.gameId),

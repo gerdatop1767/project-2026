@@ -77,7 +77,8 @@ export type QuizTopic = (typeof QUIZ_TOPICS)[number]['id'];
 export const QUIZ_ROUND_SIZE = 10;
 /** A round's size a player may choose (never more than the game's bank). */
 export const QUIZ_ROUND_MIN = 3;
-export const QUIZ_ROUND_MAX = 50;
+/** Long games: up to 500 questions in one session (never more than the bank has). */
+export const QUIZ_ROUND_MAX = 500;
 /** Points for a question answered right on the first try. */
 export const QUIZ_POINTS_PER_CORRECT = 10;
 /** Bonus for a round with every question right. */

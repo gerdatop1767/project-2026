@@ -251,15 +251,25 @@ describe('mini-games — «Ударения»', () => {
       await answerIn(me.cookie, r.sessionId!, q2!.wordId, false);
       expect(await sessionRow(r.sessionId!)).toMatchObject({ answeredCount: 2, correctCount: 1 });
 
-      expect((await finish(me.cookie, r.sessionId!, 1)).statusCode).toBe(204);
+      // The client's number (here a lie: 5) is ignored — the server counts
+      // the round's first answers: 1 right of 2 answered → 10 points.
+      const finished = await finish(me.cookie, r.sessionId!, 5);
+      expect(finished.statusCode).toBe(200);
+      expect(finished.json()).toEqual({
+        questionCount: 5,
+        answered: 2,
+        firstTryCorrect: 1,
+        score: 10,
+      });
       const done = await sessionRow(r.sessionId!);
       expect(done.finishedAt).not.toBeNull();
-      expect(done.firstTryCorrect).toBe(1);
-      // Finishing again keeps the first end.
-      await finish(me.cookie, r.sessionId!, 5);
+      expect(done).toMatchObject({ firstTryCorrect: 1, score: 10 });
+      // Finishing again changes nothing and returns the same numbers.
+      expect((await finish(me.cookie, r.sessionId!, 5)).json()).toMatchObject({ score: 10 });
       expect(await sessionRow(r.sessionId!)).toMatchObject({
         finishedAt: done.finishedAt,
         firstTryCorrect: 1,
+        score: 10,
       });
     });
 
@@ -275,7 +285,7 @@ describe('mini-games — «Ударения»', () => {
 
       const g = await round(undefined, 'mode=all&size=5');
       await answerIn(undefined, g.sessionId!, g.questions[0]!.wordId, true);
-      expect((await finish(undefined, g.sessionId!)).statusCode).toBe(204);
+      expect((await finish(undefined, g.sessionId!)).statusCode).toBe(200);
       expect(await sessionRow(g.sessionId!)).toMatchObject({
         userId: null,
         answeredCount: 1,

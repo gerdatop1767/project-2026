@@ -2,6 +2,7 @@ import type { Database } from '@zybrilka/db';
 import {
   MINI_GAMES,
   miniGameFinishRequestSchema,
+  miniGameSessionRequestSchema,
   quizAnswerRequestSchema,
   quizRoundQuerySchema,
   stressAnswerRequestSchema,
@@ -16,9 +17,11 @@ import {
   saveMiniGameSettings,
   validRoundSize,
 } from './settings.js';
+import { NotEnoughQuestionsError, abandonSession } from './sessions.js';
 import {
   answerStress,
   finishStressSession,
+  stressResume,
   stressProgress,
   stressRound,
   stressSummary,
@@ -30,9 +33,12 @@ import {
   isQuizGame,
   quizBank,
   quizProgress,
+  quizResume,
   quizRound,
   quizSummaries,
 } from './quiz.js';
+
+const activeQuerySchema = z.object({ sessionId: z.uuid().optional() });
 
 export interface MiniGamesRoutesOptions {
   db: Database;
@@ -111,7 +117,36 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
       return reply.code(401).send({ error: 'unauthorized' });
     }
     reply.header('cache-control', 'no-store');
-    return quizRound(db, userId, gameId, query.data.mode, query.data.size);
+    try {
+      return await quizRound(db, userId, gameId, query.data.mode, query.data.size);
+    } catch (error) {
+      if (error instanceof NotEnoughQuestionsError) {
+        return reply.code(409).send({ error: 'not_enough_questions', available: error.available });
+      }
+      throw error;
+    }
+  });
+
+  // «Продолжить игру»: the signed-in player's round in progress (any
+  // device), or a guest's own round by its id (?sessionId=).
+  app.get('/games/quiz/:gameId/active', async (request, reply) => {
+    const gameId = quizId(request);
+    if (!gameId) return reply.code(404).send({ error: 'game_not_found' });
+    const query = activeQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    reply.header('cache-control', 'no-store');
+    return {
+      session: await quizResume(db, userOf(request), gameId, query.data.sessionId ?? null),
+    };
+  });
+
+  app.post('/games/quiz/:gameId/abandon', { config: limit(60) }, async (request, reply) => {
+    const gameId = quizId(request);
+    if (!gameId) return reply.code(404).send({ error: 'game_not_found' });
+    const body = miniGameSessionRequestSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    await abandonSession(db, gameId, body.data.sessionId, userOf(request));
+    return reply.code(204).send();
   });
 
   app.post('/games/quiz/:gameId/answer', { config: limit(120) }, async (request, reply) => {
@@ -129,15 +164,10 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
     if (!gameId) return reply.code(404).send({ error: 'game_not_found' });
     const body = miniGameFinishRequestSchema.safeParse(request.body);
     if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-    const ok = await finishQuiz(
-      db,
-      userOf(request),
-      gameId,
-      body.data.sessionId,
-      body.data.firstTryCorrect ?? null,
-    );
-    if (!ok) return reply.code(404).send({ error: 'session_not_found' });
-    return reply.code(204).send();
+    // The client's count is ignored: the server counts the round's first answers.
+    const result = await finishQuiz(db, userOf(request), gameId, body.data.sessionId);
+    if (!result) return reply.code(404).send({ error: 'session_not_found' });
+    return result;
   });
 
   app.get('/games/quiz/:gameId/progress', async (request, reply) => {
@@ -157,7 +187,28 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
       return reply.code(401).send({ error: 'unauthorized' });
     }
     reply.header('cache-control', 'no-store');
-    return stressRound(db, userId, query.data.mode, query.data.size);
+    try {
+      return await stressRound(db, userId, query.data.mode, query.data.size);
+    } catch (error) {
+      if (error instanceof NotEnoughQuestionsError) {
+        return reply.code(409).send({ error: 'not_enough_questions', available: error.available });
+      }
+      throw error;
+    }
+  });
+
+  app.get('/games/stress/active', async (request, reply) => {
+    const query = activeQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    reply.header('cache-control', 'no-store');
+    return { session: await stressResume(db, userOf(request), query.data.sessionId ?? null) };
+  });
+
+  app.post('/games/stress/abandon', { config: limit(60) }, async (request, reply) => {
+    const body = miniGameSessionRequestSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    await abandonSession(db, 'stress', body.data.sessionId, userOf(request));
+    return reply.code(204).send();
   });
 
   app.post('/games/stress/answer', { config: limit(120) }, async (request, reply) => {
@@ -171,14 +222,9 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
   app.post('/games/stress/finish', { config: limit(60) }, async (request, reply) => {
     const body = miniGameFinishRequestSchema.safeParse(request.body);
     if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
-    const ok = await finishStressSession(
-      db,
-      userOf(request),
-      body.data.sessionId,
-      body.data.firstTryCorrect ?? null,
-    );
-    if (!ok) return reply.code(404).send({ error: 'session_not_found' });
-    return reply.code(204).send();
+    const result = await finishStressSession(db, userOf(request), body.data.sessionId);
+    if (!result) return reply.code(404).send({ error: 'session_not_found' });
+    return result;
   });
 
   app.get('/games/stress/progress', async (request, reply) => {

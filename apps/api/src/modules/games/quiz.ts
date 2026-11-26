@@ -23,6 +23,8 @@ import {
   quizRoundScore,
   rowItems,
   wordMeaningItems,
+  type MiniGameFinishResponse,
+  type MiniGameResume,
   type QuizAnswerRequest,
   type QuizAnswerResponse,
   type QuizItem,
@@ -32,9 +34,18 @@ import {
   type QuizRoundResponse,
   type QuizTaskRow,
 } from '@zybrilka/shared';
-import { and, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { shuffle } from './stress.js';
-import { recordRoundAnswer } from './roundAnswers.js';
+import {
+  NotEnoughQuestionsError,
+  activeSession,
+  countRoundAnswer,
+  finishGameSession,
+  liveSessionById,
+  roundAnswerState,
+  sessionAnswers,
+  startGameSession,
+} from './sessions.js';
 
 /**
  * Quiz mini-games (docs/MINI_GAMES.md § Игры-викторины): questions cut out
@@ -223,6 +234,10 @@ export async function quizRound(
   const state = new Map(
     (userId ? await progressRows(db, userId, gameId) : []).map((p) => [p.itemId, p]),
   );
+  // A whole game is never padded with repeats: more than the game has is refused.
+  if (mode === 'all' && size > bank.items.length) {
+    throw new NotEnoughQuestionsError(bank.items.length);
+  }
   let picked: (QuizItem & { id: string })[];
   if (mode === 'mistakes') {
     picked = shuffle(bank.items.filter((it) => state.get(it.id)?.lastCorrect === false)).slice(
@@ -233,24 +248,52 @@ export async function quizRound(
     picked = orderRoundItems(bank.items, state).slice(0, size);
   }
   const questions = shuffle(picked).map(toQuestion);
-  let sessionId: string | null = null;
-  if (questions.length > 0) {
-    const [row] = await db
-      .insert(schema.miniGameSessions)
-      .values({ gameId, mode, userId, questionCount: questions.length })
-      .returning({ id: schema.miniGameSessions.id });
-    sessionId = row!.id;
-  }
+  const sessionId =
+    questions.length > 0
+      ? await startGameSession(db, {
+          gameId,
+          mode,
+          userId,
+          itemIds: questions.map((q) => q.itemId),
+        })
+      : null;
   return { gameId, mode, questions, bankSize: bank.items.length, sessionId };
 }
 
-function ownSession(gameId: string, sessionId: string, userId: string | null) {
-  const s = schema.miniGameSessions;
-  return and(
-    eq(s.id, sessionId),
-    eq(s.gameId, gameId),
-    userId ? eq(s.userId, userId) : isNull(s.userId),
-  );
+/**
+ * «Продолжить игру»: the round in progress — the signed-in player's
+ * (any device), or a guest's by its id. Its questions come back in their
+ * order (a question the content no longer has is skipped), with the
+ * answers already given.
+ */
+export async function quizResume(
+  db: Database,
+  userId: string | null,
+  gameId: string,
+  sessionId: string | null,
+): Promise<MiniGameResume<QuizQuestion> | null> {
+  const session = sessionId
+    ? await liveSessionById(db, gameId, sessionId, userId)
+    : userId
+      ? await activeSession(db, userId, gameId)
+      : null;
+  if (!session?.itemIds) return null;
+  const bank = await quizBank(db, gameId);
+  const questions = session.itemIds
+    .map((id) => bank.byId.get(id))
+    .filter((it): it is QuizItem & { id: string } => it !== undefined)
+    .map(toQuestion);
+  const kept = new Set(questions.map((q) => q.itemId));
+  const answered = (await sessionAnswers(db, session.id)).filter((a) => kept.has(a.itemId));
+  return {
+    sessionId: session.id,
+    gameId,
+    mode: session.mode,
+    questions,
+    answered,
+    startedAt: session.startedAt.toISOString(),
+    lastAnswerAt: session.lastAnswerAt?.toISOString() ?? null,
+  };
 }
 
 /**
@@ -273,31 +316,12 @@ export async function answerQuiz(
   let recorded = false;
   if (userId) {
     recorded = await db.transaction(async (tx) => {
-      const s = schema.miniGameSessions;
       const a = schema.miniGameAnswers;
-      let session: { startedAt: Date } | undefined;
-      if (input.sessionId) {
-        [session] = await tx
-          .select({ startedAt: s.startedAt })
-          .from(s)
-          .where(ownSession(gameId, input.sessionId, userId));
-        if (session) {
-          // The first answer to this question in this round is the one that counts.
-          const [earlier] = await tx
-            .select({ id: a.id })
-            .from(a)
-            .where(
-              and(
-                eq(a.userId, userId),
-                eq(a.gameId, gameId),
-                eq(a.itemId, item.id),
-                gte(a.createdAt, session.startedAt),
-              ),
-            )
-            .limit(1);
-          if (earlier) return false;
-        }
-      }
+      const round = input.sessionId
+        ? await roundAnswerState(tx, gameId, input.sessionId, userId, item.id)
+        : 'none';
+      // The first answer to this question in this round is the one that counts.
+      if (round === 'answered') return false;
       const inserted = await tx
         .insert(a)
         .values({
@@ -312,20 +336,12 @@ export async function answerQuiz(
         .onConflictDoNothing({ target: [a.userId, a.clientAnswerId] })
         .returning({ id: a.id });
       if (inserted.length === 0) return false; // the same answer, re-sent
-      if (session) {
-        await tx
-          .update(s)
-          .set({
-            answeredCount: sql`${s.answeredCount} + 1`,
-            correctCount: correct ? sql`${s.correctCount} + 1` : s.correctCount,
-            lastAnswerAt: now,
-          })
-          .where(ownSession(gameId, input.sessionId!, userId));
-        await recordRoundAnswer(tx, {
-          sessionId: input.sessionId!,
+      if (round === 'new') {
+        await countRoundAnswer(tx, {
           gameId,
-          itemId: item.id,
+          sessionId: input.sessionId!,
           userId,
+          itemId: item.id,
           correct,
           now,
         });
@@ -362,27 +378,18 @@ export async function answerQuiz(
       return true;
     });
   } else if (input.sessionId) {
-    // A guest's answer is not stored; only the round's counters move.
-    const s = schema.miniGameSessions;
-    const own = await db
-      .update(s)
-      .set({
-        answeredCount: sql`${s.answeredCount} + 1`,
-        correctCount: correct ? sql`${s.correctCount} + 1` : s.correctCount,
-        lastAnswerAt: now,
-      })
-      .where(ownSession(gameId, input.sessionId, null))
-      .returning({ id: s.id });
-    if (own.length > 0) {
-      await recordRoundAnswer(db, {
-        sessionId: input.sessionId,
+    // A guest's answer is not stored; only the round's first answers and
+    // counters move — once per question, a re-sent request moves nothing.
+    await db.transaction((tx) =>
+      countRoundAnswer(tx, {
         gameId,
-        itemId: item.id,
+        sessionId: input.sessionId!,
         userId: null,
+        itemId: item.id,
         correct,
         now,
-      });
-    }
+      }),
+    );
   }
   return {
     correct,
@@ -399,30 +406,15 @@ export async function answerQuiz(
   };
 }
 
-/** The player reached the summary. Idempotent; false for someone else's round. */
-export async function finishQuiz(
+/** The player reached the summary: the server counts the result. */
+export function finishQuiz(
   db: Database,
   userId: string | null,
   gameId: string,
   sessionId: string,
-  firstTryCorrect: number | null,
   now = new Date(),
-): Promise<boolean> {
-  const s = schema.miniGameSessions;
-  const [own] = await db
-    .select({ id: s.id })
-    .from(s)
-    .where(ownSession(gameId, sessionId, userId));
-  if (!own) return false;
-  await db
-    .update(s)
-    .set({
-      finishedAt: now,
-      firstTryCorrect:
-        firstTryCorrect === null ? null : sql`least(${firstTryCorrect}, ${s.questionCount})`,
-    })
-    .where(and(ownSession(gameId, sessionId, userId), isNull(s.finishedAt)));
-  return true;
+): Promise<MiniGameFinishResponse | null> {
+  return finishGameSession(db, gameId, sessionId, userId, now);
 }
 
 export async function quizProgress(
