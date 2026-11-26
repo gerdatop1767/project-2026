@@ -1,0 +1,148 @@
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.count {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.count strong {
+  color: var(--color-text-primary);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--touch-target-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-chip);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--easing-out);
+}
+
+.action:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Long topics scroll inside the list, the toolbar stays in view. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: min(60vh, 34rem);
+  margin: 0;
+  padding: 0 4px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  min-height: var(--touch-target-min);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-input);
+  background: var(--color-bg-elevated);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-fast) var(--easing-standard);
+}
+
+.rowOn {
+  border-color: var(--color-accent-primary);
+  background: color-mix(in srgb, var(--color-accent-primary) 12%, var(--color-bg-elevated));
+}
+
+.checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 2px 0 0;
+  accent-color: var(--color-accent-primary);
+  cursor: pointer;
+}
+
+.index {
+  min-width: 1.75rem;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.meta {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta strong {
+  color: var(--color-text-primary);
+}
+
+.preview {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body-sm);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}

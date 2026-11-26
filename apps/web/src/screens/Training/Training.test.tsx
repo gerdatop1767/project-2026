@@ -22,6 +22,7 @@ vi.mock('../../lib/api.js', () => {
   return {
     listCollections: vi.fn(),
     getRandomTask: vi.fn(),
+    listTasksByTopic: vi.fn(),
     getProgressByTopic: vi.fn(),
     startLearningSession: vi.fn(),
     startVariantSession: vi.fn(),
@@ -74,6 +75,13 @@ const RANDOM_TASK = {
   status: 'published' as const,
 };
 
+/** The topic's real tasks, as GET /tasks lists them (two №13, one №14). */
+const TOPIC_TASKS = [
+  { ...RANDOM_TASK, id: 'lt-1', taskNumber: 13, conditionMd: 'Решите уравнение log₂x = 3.' },
+  { ...RANDOM_TASK, id: 'lt-2', taskNumber: 14, conditionMd: 'Найдите корень log₃(x+1) = 2.' },
+  { ...RANDOM_TASK, id: 'lt-3', taskNumber: 13, conditionMd: 'Решите log₅x = 1.' },
+];
+
 function OverlayMarker() {
   const { overlay } = useNavigation();
   if (overlay?.screen === 'task') {
@@ -123,7 +131,10 @@ const SETUP: SmartSetupResponse = {
 };
 
 beforeEach(() => {
+  // Training keeps its choices for the tab (sessionStorage): every test starts fresh.
+  window.sessionStorage.clear();
   vi.mocked(api.listCollections).mockResolvedValue([]);
+  vi.mocked(api.listTasksByTopic).mockReset().mockResolvedValue(TOPIC_TASKS);
   vi.mocked(api.getProgressByTopic).mockResolvedValue(TOPICS);
   vi.mocked(api.getSmartSetup).mockReset().mockResolvedValue(SETUP);
   vi.mocked(api.startLearningSession).mockReset();
@@ -181,19 +192,73 @@ describe('Training — "По теме" (real topics, independent 🎲/🔄, numb
     expect(api.getRandomTask).not.toHaveBeenCalled();
   });
 
-  it('starts an "∞ Без ограничения" single task for the selected topic by default', async () => {
+  it('«Без ограничения» (the default) shows the whole list of the topic at once', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getRandomTask).mockResolvedValue(RANDOM_TASK);
     renderTraining();
     await user.click(await screen.findByRole('button', { name: 'Логарифмические уравнения' }));
+    const list = await screen.findByRole('list', { name: 'Задания темы' });
+    expect(within(list).getAllByRole('checkbox')).toHaveLength(TOPIC_TASKS.length);
+    expect(api.listTasksByTopic).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: 'math', topic: 'topic-logs', unsolved: false }),
+    );
+    expect(screen.getByText(/Выбрано/)).toHaveTextContent(`Выбрано 0 из ${TOPIC_TASKS.length}`);
+    // Nothing starts by itself.
+    expect(screen.getByTestId('overlay')).not.toHaveTextContent('task:');
+  });
+
+  it('pick several, all, or none — the count follows; the training starts with exactly them', async () => {
+    const user = userEvent.setup();
+    renderTraining();
+    await user.click(await screen.findByRole('button', { name: 'Логарифмические уравнения' }));
+    const boxes = within(await screen.findByRole('list', { name: 'Задания темы' })).getAllByRole(
+      'checkbox',
+    );
+    await user.click(boxes[0]!);
+    await user.click(boxes[2]!);
+    expect(screen.getByText(/Выбрано/)).toHaveTextContent('Выбрано 2 из 3');
+    await user.click(screen.getByRole('button', { name: 'Выбрать все' }));
+    expect(screen.getByText(/Выбрано/)).toHaveTextContent('Выбрано 3 из 3');
+    await user.click(screen.getByRole('button', { name: 'Снять выбор' }));
+    expect(screen.getByText(/Выбрано/)).toHaveTextContent('Выбрано 0 из 3');
+
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
-    await waitFor(() => {
-      expect(api.getRandomTask).toHaveBeenCalledTimes(1);
-      expect(api.getRandomTask).toHaveBeenCalledWith(
-        expect.objectContaining({ subject: 'math', topic: 'topic-logs' }),
-      );
-    });
-    await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:5'));
+    expect(await screen.findByText(/Отметь хотя бы одно задание/)).toBeInTheDocument();
+
+    await user.click(boxes[1]!);
+    await user.click(boxes[2]!);
+    await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
+    // The list is ordered by number: the two picked are №13 (lt-3) and №14 (lt-2).
+    await waitFor(() => expect(screen.getByTestId('overlay')).toHaveTextContent('task:13'));
+    expect(api.getRandomTask).not.toHaveBeenCalled();
+  });
+
+  it('the pick survives leaving the screen and coming back', async () => {
+    const user = userEvent.setup();
+    const first = renderTraining();
+    await user.click(await screen.findByRole('button', { name: 'Логарифмические уравнения' }));
+    const boxes = within(await screen.findByRole('list', { name: 'Задания темы' })).getAllByRole(
+      'checkbox',
+    );
+    await user.click(boxes[1]!);
+    first.unmount();
+
+    renderTraining();
+    const again = within(await screen.findByRole('list', { name: 'Задания темы' })).getAllByRole(
+      'checkbox',
+    );
+    expect(again[1]).toBeChecked();
+    expect(screen.getByText(/Выбрано/)).toHaveTextContent('Выбрано 1 из 3');
+  });
+
+  it('picked numbers narrow the list to those numbers', async () => {
+    const user = userEvent.setup();
+    renderTraining();
+    await user.click(await screen.findByRole('button', { name: 'Логарифмические уравнения' }));
+    await screen.findByRole('list', { name: 'Задания темы' });
+    await user.click(screen.getByRole('button', { name: '№13' }));
+    const list = screen.getByRole('list', { name: 'Задания темы' });
+    expect(within(list).getAllByRole('checkbox')).toHaveLength(2);
+    expect(screen.getByText(/Выбрано/)).toHaveTextContent('из 2');
   });
 
   it('🎲 and 🔄 are independent for topic training — both can be on at once', async () => {
@@ -211,6 +276,13 @@ describe('Training — "По теме" (real topics, independent 🎲/🔄, numb
       'aria-pressed',
       'true',
     );
+    // «Без ограничения» lists only the unsolved ones.
+    await waitFor(() =>
+      expect(api.listTasksByTopic).toHaveBeenLastCalledWith(
+        expect.objectContaining({ topic: 'topic-logs', unsolved: true }),
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: '5' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     await waitFor(() => {
       expect(api.getRandomTask).toHaveBeenCalledWith(
@@ -230,6 +302,7 @@ describe('Training — "По теме" (real topics, independent 🎲/🔄, numb
     );
     renderTraining();
     await user.click(await screen.findByRole('button', { name: 'Логарифмические уравнения' }));
+    await user.click(screen.getByRole('button', { name: '5' }));
     await user.click(screen.getByRole('button', { name: '№13' }));
     await user.click(screen.getByRole('button', { name: '№15' }));
     await user.click(screen.getByRole('button', { name: 'Только нерешённые' }));
@@ -246,13 +319,15 @@ describe('Training — "По теме" (real topics, independent 🎲/🔄, numb
     );
   });
 
-  it('hides the amount selector once specific numbers are picked (amount only applies without numbers)', async () => {
+  it('with a fixed amount and picked numbers, it says one task per number', async () => {
     const user = userEvent.setup();
     renderTraining();
     await user.click(await screen.findByRole('button', { name: 'Логарифмические уравнения' }));
-    expect(screen.getByText('Количество заданий')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '5' }));
     await user.click(screen.getByRole('button', { name: '№13' }));
-    expect(screen.queryByText('Количество заданий')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('С выбранными номерами — по одному заданию на номер.'),
+    ).toBeInTheDocument();
   });
 
   it('a fixed amount (e.g. 5) resolves that many real tasks for the topic', async () => {
@@ -303,6 +378,7 @@ describe('Training — "По теме" (real topics, independent 🎲/🔄, numb
     );
     renderTraining();
     await user.click(await screen.findByRole('button', { name: 'Логарифмические уравнения' }));
+    await user.click(screen.getByRole('button', { name: '5' }));
     await user.click(screen.getByRole('button', { name: 'Только нерешённые' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
     expect(
