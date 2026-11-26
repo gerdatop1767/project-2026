@@ -1,5 +1,6 @@
 import { metrikaGoal } from './metrika.js';
 import type {
+  ActivityStatsResponse,
   MiniGameRatingKind,
   MiniGameRatingResponse,
   MiniGameActiveResponse,
@@ -881,6 +882,20 @@ export function abandonStressRound(sessionId: string): Promise<void> {
 
 export function getStressProgress(): Promise<StressProgressResponse> {
   return rawApiFetch('/games/stress/progress');
+}
+
+/** Active time (docs/ACTIVE_TIME.md): slots this client was active in. */
+export function sendActivity(slots: number[]): Promise<void> {
+  // rawApiFetch: a heartbeat changes nothing the app reads — the read cache stays.
+  return rawApiFetch<{ counted: number }>('/activity/heartbeat', {
+    method: 'POST',
+    body: JSON.stringify({ slots }),
+    keepalive: true,
+  }).then(() => undefined);
+}
+
+export function getActivityStats(): Promise<ActivityStatsResponse> {
+  return rawApiFetch('/progress/activity');
 }
 
 /** A mini-game's own rating, all time: best round or all points. */

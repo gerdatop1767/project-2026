@@ -20,6 +20,7 @@ import { bucketLabel, num, pct, ratio, sourceText, taskStatusText } from '../for
 import { AdminLink } from '../router.js';
 import { useAdminQuery } from '../useAdminQuery.js';
 import s from '../admin.module.css';
+import { activeTime } from '../../ui/Statistics/ActiveTimeCard.js';
 
 interface Overview {
   period: PeriodInfo;
@@ -319,6 +320,57 @@ export function OverviewPage() {
           );
         }}
       </QueryView>
+      <ActiveTimeSection />
     </>
+  );
+}
+
+interface ActivityWindow {
+  seconds: number;
+  users: number;
+  perUserSeconds: number;
+}
+interface ActivityOverview {
+  today: ActivityWindow;
+  last7: ActivityWindow;
+  last30: ActivityWindow;
+  all: ActivityWindow;
+  days: { date: string; seconds: number; users: number }[];
+}
+
+/** Active time on the platform (docs/ACTIVE_TIME.md), every user. */
+function ActiveTimeSection() {
+  const query = useAdminQuery<ActivityOverview>('/activity');
+  return (
+    <QueryView query={query} skeleton={160}>
+      {(d) => (
+        <Section title="Активное время на платформе">
+          <div className={s.kpis}>
+            {(
+              [
+                ['Сегодня', d.today],
+                ['7 дней', d.last7],
+                ['30 дней', d.last30],
+                ['Всё время', d.all],
+              ] as const
+            ).map(([label, w]) => (
+              <Kpi
+                key={label}
+                label={label}
+                value={w.seconds}
+                format={(v) => (v == null ? '—' : activeTime(v))}
+                hint={`${num(w.users)} польз. · в среднем ${activeTime(w.perUserSeconds)}`}
+                trend={label === '30 дней' ? d.days.map((x) => x.seconds) : undefined}
+              />
+            ))}
+          </div>
+          <Note>
+            Только активное время: страница видна и есть действия за последнюю минуту. Вкладки и
+            устройства одного человека в одну и ту же минуту не суммируются. Учитываются вошедшие
+            пользователи.
+          </Note>
+        </Section>
+      )}
+    </QueryView>
   );
 }

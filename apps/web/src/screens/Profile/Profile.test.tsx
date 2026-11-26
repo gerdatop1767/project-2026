@@ -8,6 +8,8 @@ import * as api from '../../lib/api.js';
 import { makeAuthUser, TestAuthProvider } from '../../lib/authTestUtils.js';
 
 vi.mock('../../lib/api.js', () => ({
+  getActivityStats: vi.fn(() => new Promise(() => {})),
+  sendActivity: vi.fn(() => Promise.resolve()),
   getProgressSummary: vi.fn(),
   getLearningProfile: vi.fn(),
   getIdentities: vi.fn(() =>

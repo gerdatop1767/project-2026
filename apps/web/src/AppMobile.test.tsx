@@ -7,6 +7,8 @@ import { ToastProvider } from './ui/Toast/ToastProvider.js';
 import * as api from './lib/api.js';
 
 vi.mock('./lib/api.js', () => ({
+  getActivityStats: vi.fn(() => new Promise(() => {})),
+  sendActivity: vi.fn(() => Promise.resolve()),
   getRandomTask: vi.fn(),
   getTask: vi.fn(),
   listTasksByNumber: vi.fn(),
