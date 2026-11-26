@@ -181,8 +181,9 @@ describe('SubjectMobile', () => {
     mockProgress();
     const user = userEvent.setup();
     renderSubject();
-    await user.click(screen.getByRole('button', { name: 'Варианты' }));
-    expect(screen.getByText('Общий банк')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
+    // Role queries skip the hidden Темы panel (it stays mounted, with its own picker).
+    expect(screen.getByRole('button', { name: 'Общий банк' })).toBeInTheDocument();
     expect(screen.getByText('Выбрать всё')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Общий банк' }));
@@ -210,7 +211,7 @@ describe('SubjectMobile', () => {
       mockProgress();
       const user = userEvent.setup();
       renderSubject();
-      await user.click(screen.getByRole('button', { name: 'Варианты' }));
+      await user.click(screen.getByRole('tab', { name: 'Варианты' }));
       await user.click(screen.getByRole('button', { name: 'Общий банк' }));
       expect(screen.getAllByRole('option', { name: 'ЕГЭ 2026 Ященко' })).toHaveLength(1);
       expect(screen.getAllByRole('option', { name: 'ФИПИ 2026' })).toHaveLength(1);
@@ -221,7 +222,7 @@ describe('SubjectMobile', () => {
       mockProgress();
       const user = userEvent.setup();
       renderSubject();
-      await user.click(screen.getByRole('button', { name: 'Варианты' }));
+      await user.click(screen.getByRole('tab', { name: 'Варианты' }));
       await user.click(screen.getByRole('button', { name: 'Общий банк' }));
       const fipiOption = screen.getByRole('option', { name: 'ФИПИ 2026' });
       expect(fipiOption.textContent).not.toContain('Ященко');
@@ -234,7 +235,7 @@ describe('SubjectMobile', () => {
       mockProgress();
       const user = userEvent.setup();
       renderSubject();
-      await user.click(screen.getByRole('button', { name: 'Варианты' }));
+      await user.click(screen.getByRole('tab', { name: 'Варианты' }));
       expect(screen.getByText(/Источник: Общий банк/)).toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: 'Общий банк' }));
       expect(screen.getAllByRole('option').length).toBe(3); // Общий банк + Ященко + ФИПИ
@@ -302,7 +303,7 @@ describe('SubjectMobile — Задания по номерам tab (audit: the t
     mockCollections();
     mockProgress();
     renderSubject();
-    expect(screen.getByRole('button', { name: 'По номерам' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'По номерам' })).toBeInTheDocument();
   });
 
   it('opens in place, like Темы/Варианты — same page, no new screen or history entry', async () => {
@@ -312,7 +313,7 @@ describe('SubjectMobile — Задания по номерам tab (audit: the t
     renderSubject();
     const before = screen.getByTestId('overlay').textContent;
     const historyLength = window.history.length;
-    await user.click(screen.getByRole('button', { name: 'По номерам' }));
+    await user.click(screen.getByRole('tab', { name: 'По номерам' }));
     expect(await screen.findByText('Задания по номерам')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '№1' })).toBeInTheDocument();
     expect(screen.getByTestId('overlay').textContent).toBe(before);
@@ -346,7 +347,7 @@ describe('SubjectMobile — VariantBuilder (Task Workspace block — "Вариа
         <TaskOverlayProbe />
       </NavigationProvider>,
     );
-    await user.click(screen.getByText('Варианты'));
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
     for (const n of [1, 3, 4, 7]) {
       await user.click(screen.getByRole('button', { name: String(n) }));
     }
@@ -357,5 +358,75 @@ describe('SubjectMobile — VariantBuilder (Task Workspace block — "Вариа
     expect(probeData.taskId).toBe('task-1');
     expect(probeData.customOrderedNumbers).toEqual([1, 3, 4, 7]);
     expect(vi.mocked(api.getRandomTask)).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('SubjectMobile — mode switcher', () => {
+  it('marks exactly one mode as selected and points it at the content', async () => {
+    mockCollections();
+    mockProgress();
+    const user = userEvent.setup();
+    renderSubject();
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs).toEqual(
+      ['Темы', 'По номерам', 'Варианты', 'Избранное'].map((name) =>
+        screen.getByRole('tab', { name }),
+      ),
+    );
+    expect(screen.getByRole('tab', { name: 'Темы' })).toHaveAttribute('aria-selected', 'true');
+    const panel = screen.getByRole('tabpanel');
+    expect(screen.getByRole('tab', { name: 'Темы' })).toHaveAttribute('aria-controls', panel.id);
+
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
+    expect(screen.getByRole('tab', { name: 'Варианты' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Темы' })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('arrows move focus between modes without switching; Enter switches', async () => {
+    mockCollections();
+    mockProgress();
+    const user = userEvent.setup();
+    renderSubject();
+    screen.getByRole('tab', { name: 'Темы' }).focus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'По номерам' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: 'Темы' })).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{ArrowLeft}{ArrowLeft}');
+    expect(screen.getByRole('tab', { name: 'Избранное' })).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(screen.getByRole('tab', { name: 'Темы' })).toHaveFocus();
+    await user.keyboard('{End}{ArrowLeft}{Enter}');
+    expect(screen.getByRole('tab', { name: 'Варианты' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Выбрать всё')).toBeVisible();
+  });
+
+  it('a half-made pick in Варианты survives a look at another mode', async () => {
+    mockCollections();
+    mockProgress();
+    const user = userEvent.setup();
+    renderSubject();
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
+    await user.click(screen.getByRole('button', { name: '1' }));
+    await user.click(screen.getByRole('button', { name: '2' }));
+    expect(screen.getByText('Выбрано 2 заданий')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Темы' }));
+    expect(screen.queryByRole('button', { name: 'Выбрать всё' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
+    expect(screen.getByText('Выбрано 2 заданий')).toBeVisible();
+  });
+
+  it('a half-made pick in По номерам survives a look at another mode', async () => {
+    mockCollections();
+    mockProgress();
+    const user = userEvent.setup();
+    renderSubject();
+    await user.click(screen.getByRole('tab', { name: 'По номерам' }));
+    await user.click(await screen.findByRole('button', { name: '№3' }));
+    expect(screen.getByRole('button', { name: '№3' })).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(screen.getByRole('tab', { name: 'Варианты' }));
+    await user.click(screen.getByRole('tab', { name: 'По номерам' }));
+    expect(screen.getByRole('button', { name: '№3' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

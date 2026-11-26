@@ -75,7 +75,7 @@ describe('AppDesktop — Subject → Задания по номерам → task
 
     await user.click(screen.getByRole('link', { name: 'Предметы' }));
     await user.click(await screen.findByText('Математика'));
-    await user.click(await screen.findByText('Задания по номерам'));
+    await user.click(await screen.findByRole('tab', { name: 'По номерам' }));
     expect(screen.getByTestId('overlay')).toHaveTextContent('subject');
 
     await user.click(await screen.findByRole('button', { name: '№5' }));
