@@ -120,81 +120,128 @@
   color: #f5b432;
 }
 
-/* ---- Podium: 2 · 1 · 3, the winner raised ---- */
+/* ---- Podium: 2 · 1 · 3 ----
+ * The list stays in rank order (1, 2, 3) for screen readers; the grid
+ * areas put 1 in the middle, 2 left, 3 right. Each place = a card of the
+ * same parts (one line each) on a pedestal of a fixed height, so 1 is
+ * always taller than 2, and 2 than 3, at every width and with any name. */
 
 .podium {
+  --step-1: 5.5rem;
+  --step-2: 4rem;
+  --step-3: 2.75rem;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas: 'second first third';
   align-items: end;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-5) 0 0;
+  padding: var(--space-6) 0 0;
   list-style: none;
 }
 
+.podiumPlace {
+  --place: #c9d2e3;
+  --place-deep: #8e99ad;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  animation: podiumIn 360ms var(--easing-out) both;
+}
+
+.podiumPlace[data-place='1'] {
+  --place: #f5c242;
+  --place-deep: #c98a12;
+  grid-area: first;
+  animation-delay: 40ms;
+}
+
+.podiumPlace[data-place='2'] {
+  --place: #d3dbe8;
+  --place-deep: #8f9bb0;
+  grid-area: second;
+  animation-delay: 90ms;
+}
+
+.podiumPlace[data-place='3'] {
+  --place: #dc9a5c;
+  --place-deep: #a05f2a;
+  grid-area: third;
+  animation-delay: 130ms;
+}
+
 .podiumCard {
-  --place: #8aa4ff;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
+  gap: 4px;
   min-width: 0;
-  padding: var(--space-6) var(--space-2) var(--space-4);
+  padding: var(--space-5) var(--space-2) var(--space-3);
   text-align: center;
-  border-radius: var(--radius-modal);
+  border-radius: var(--radius-modal) var(--radius-modal) 0 0;
   border: 1px solid color-mix(in srgb, var(--place) 40%, var(--color-border-subtle));
+  border-bottom: 0;
   background:
     radial-gradient(
       120% 70% at 50% 0%,
-      color-mix(in srgb, var(--place) 24%, transparent),
+      color-mix(in srgb, var(--place) 20%, transparent),
       transparent 70%
     ),
     var(--color-bg-surface);
-  box-shadow: 0 10px 28px -20px var(--place);
-  animation: podiumIn 360ms var(--easing-out) both;
-  transition:
-    transform var(--duration-base) var(--easing-out),
-    box-shadow var(--duration-base) var(--easing-out);
+  transition: transform var(--duration-base) var(--easing-out);
 }
 
-@media (hover: hover) {
-  .podiumCard:hover {
+.podiumPlace[data-place='1'] .podiumCard {
+  box-shadow: 0 -10px 34px -18px color-mix(in srgb, var(--place) 80%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .podiumPlace:hover .podiumCard {
     transform: translateY(-2px);
   }
 }
 
-.podiumCard[data-place='1'] {
-  --place: #f5b432;
-  order: 2;
-  padding-top: var(--space-8);
-  padding-bottom: var(--space-6);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--place) 30%, transparent),
-    0 14px 32px -20px color-mix(in srgb, var(--place) 70%, transparent);
-  animation-delay: 40ms;
-}
-
-.podiumCard[data-place='2'] {
-  --place: #7f9dff;
-  order: 1;
-  animation-delay: 90ms;
-}
-
-.podiumCard[data-place='3'] {
-  --place: #f07fb3;
-  order: 3;
-  animation-delay: 130ms;
-}
-
-.podiumCard.isMe {
+.podiumPlace.isMe .podiumCard {
   outline: 2px solid var(--color-accent-primary-end);
   outline-offset: 2px;
 }
 
+.step {
+  display: grid;
+  place-items: center;
+  border-radius: 0 0 var(--radius-input) var(--radius-input);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--place) 55%, var(--color-bg-elevated)),
+    color-mix(in srgb, var(--place-deep) 45%, var(--color-bg-base))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent);
+  color: color-mix(in srgb, #fff 85%, var(--place));
+  font-family: var(--font-display, inherit);
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.podiumPlace[data-place='1'] .step {
+  height: var(--step-1);
+  font-size: 2rem;
+}
+
+.podiumPlace[data-place='2'] .step {
+  height: var(--step-2);
+}
+
+.podiumPlace[data-place='3'] .step {
+  height: var(--step-3);
+  font-size: 1.25rem;
+}
+
 .podiumCard .medal {
   position: absolute;
-  top: -15px;
+  top: -14px;
   left: 50%;
   transform: translateX(-50%);
   box-shadow:
@@ -207,13 +254,17 @@
   place-items: center;
   padding: 3px;
   border-radius: 50%;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--place) 70%, #fff), var(--place));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--place) 70%, #fff),
+    var(--place-deep)
+  );
 }
 
 .podiumName {
   max-width: 100%;
   overflow: hidden;
-  margin-top: var(--space-1);
+  margin-top: 2px;
   font-weight: var(--font-weight-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -221,37 +272,90 @@
 
 .podiumBadges {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: var(--space-1);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .podiumPoints {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 4px;
   font-family: var(--font-display, inherit);
-  font-size: clamp(1.1rem, 4.5vw, 1.6rem);
+  font-size: clamp(1rem, 4vw, 1.45rem);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .podiumStats {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   color: var(--color-text-secondary);
   font-size: var(--font-size-label);
+  white-space: nowrap;
 }
 
 .podiumStats strong {
   color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .pointsIcon {
   flex-shrink: 0;
-  color: var(--color-accent-primary-end);
+  color: var(--place);
   fill: currentColor;
+}
+
+.statShort {
+  display: none;
+}
+
+/* Phones: lower pedestals, shorter labels — still 1 > 2 > 3. */
+@media (max-width: 480px) {
+  .podium {
+    --step-1: 4.25rem;
+    --step-2: 3rem;
+    --step-3: 2.25rem;
+    gap: 6px;
+  }
+
+  .podiumCard {
+    padding: var(--space-5) 4px var(--space-2);
+  }
+
+  .step {
+    font-size: 1.25rem;
+  }
+
+  .podiumPlace[data-place='1'] .step {
+    font-size: 1.6rem;
+  }
+
+  .podiumPlace[data-place='3'] .step {
+    font-size: 1.1rem;
+  }
+
+  .statLabel {
+    display: none;
+  }
+
+  .statShort {
+    display: inline;
+  }
+
+  .podiumBadges .meBadge {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .podiumPlace {
+    animation: none;
+  }
 }
 
 /* ---- Table ---- */
