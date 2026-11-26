@@ -18,7 +18,7 @@ reel.json
      "line": "Не помнишь, где Н, а где НН?"},      # voice text (only when "voice": true)
     ...
   ],
-  "outro": {"caption": "Всё *бесплатно*", "sub": "Пиши в Telegram: @Zybrilka_bot", "sec": 2.4},
+  "outro": {"caption": "Готовься к ЕГЭ\n*в Зубрилке*", "sub": "Бесплатно · Telegram: @Zybrilka_bot", "sec": 2.4},
   "telegram": {"header": "...", "tiktok_description": "...", "details": "..."}
 }
 A clip lasts as long as its recorded actions, or longer if its voice line needs it (last frame is held).
@@ -207,9 +207,9 @@ class Reel:
         cv = bg_frame(pal, self.outro_start + ot)
         wm = S.wordmark(150); k = S.back_out(S.clamp(ot / 0.4))
         paste_scaled(cv, wm, W / 2, 640 + (1 - k) * 60, 0.5 + 0.5 * k, S.clamp(ot / 0.2))
-        ci = caption_img(o.get("caption", "Всё *бесплатно*")); k2 = S.back_out(S.clamp((ot - 0.25) / 0.35))
+        ci = caption_img(o.get("caption", "Готовься к ЕГЭ\n*в Зубрилке*")); k2 = S.back_out(S.clamp((ot - 0.25) / 0.35))
         if k2 > 0: paste_scaled(cv, ci, W / 2, 860, 0.6 + 0.4 * k2, S.clamp((ot - 0.25) / 0.15))
-        b = S.badge(o.get("sub", "Пиши в Telegram: @Zybrilka_bot"), size=50); k3 = S.ease_out(S.clamp((ot - 0.6) / 0.35))
+        b = S.badge(o.get("sub", "Бесплатно · Telegram: @Zybrilka_bot"), size=50); k3 = S.ease_out(S.clamp((ot - 0.6) / 0.35))
         if k3 > 0: paste_scaled(cv, b, W / 2, 870 + ci.height + (1 - k3) * 30, 1.0, k3)
         return cv
 

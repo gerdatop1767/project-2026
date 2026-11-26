@@ -16,7 +16,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 ## Шаги
 1. Прочитай память тем. Запусти `node zybrilka-content/tools/site_explore.cjs / /training /games` и нужные подстраницы. Найди фишку, которой не было 7 дней. Новинка сайта — в приоритете.
-2. Создай `zybrilka-content/reels/<NNN>-<slug>/reel.json`. Схема — в шапке `tools/reel_render.py`, действия — в шапке `tools/reel_capture.cjs`. Точные подписи кнопок для `tap` бери из вывода `site_explore`.
+2. Создай `zybrilka-content/reels/<NNN>-<slug>/reel.json`. Тексты пиши по пп. 5–7 APP_REELS.md: конкретно, без воды, «бесплатно» максимум один раз и без «без регистрации». Выпиши все надписи и реплики в `texts.md`, перечитай подряд и перепиши слабые до съёмки. Схема — в шапке `tools/reel_render.py`, действия — в шапке `tools/reel_capture.cjs`. Точные подписи кнопок для `tap` бери из вывода `site_explore`.
 3. Запусти `node zybrilka-content/tools/reel_capture.cjs <dir>`. Если упало (кнопка не найдена, сайт не загрузился) — поправь действия и повтори.
 4. Запусти `python3 zybrilka-content/tools/reel_render.py <dir> --preview …` и открой кадры через Read. Поправь, что не так.
 5. Запусти `python3 zybrilka-content/tools/reel_render.py <dir>`. Проверь `qa/report.json` и `qa/contact.png`. Для голоса обязательно: `voice_problems` пустой, в выводе нет `WARN`, в `voice_lines` каждая реплика услышана целиком. Если нет — переозвучь (`tts_fish.py <dir> --force cN`), поставь ударения ´ или перефразируй, и перерендерь.
