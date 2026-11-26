@@ -54,3 +54,23 @@ export function roundScore(s: RoundState): { correct: number; total: number; mis
     missed: entries.filter(([, ok]) => !ok).map(([id]) => id),
   };
 }
+
+/**
+ * A saved round, continued: the words already answered stay behind (their
+ * first answers kept for the score), play goes on from the first word not
+ * answered yet. Words answered before are not sent back again.
+ */
+export function resumeRound(
+  questions: readonly StressQuestion[],
+  answered: readonly { readonly itemId: string; readonly firstCorrect: boolean }[],
+): RoundState {
+  const firstTry = new Map(answered.map((a) => [a.itemId, a.firstCorrect]));
+  const done = questions.filter((q) => firstTry.has(q.wordId));
+  const rest = questions.filter((q) => !firstTry.has(q.wordId));
+  return {
+    queue: [...done, ...rest],
+    position: done.length,
+    firstTry,
+    requeued: new Set(firstTry.keys()),
+  };
+}

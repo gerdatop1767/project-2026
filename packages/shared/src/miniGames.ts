@@ -99,11 +99,53 @@ export interface MiniGameSettingsResponse {
 }
 
 /** The round sizes a game offers and allows (the bank may be smaller). */
-export function roundSizeLimits(gameId: string): { min: number; max: number; preset: number[] } {
+export function roundSizeLimits(gameId: string): {
+  min: number;
+  max: number;
+  preset: number[];
+  long: number[];
+} {
   return gameId === 'stress'
-    ? { min: STRESS_ROUND_MIN, max: STRESS_ROUND_MAX, preset: [10, 20, 30, 40] }
-    : { min: QUIZ_ROUND_MIN, max: QUIZ_ROUND_MAX, preset: [5, 10, 15, 20] };
+    ? {
+        min: STRESS_ROUND_MIN,
+        max: STRESS_ROUND_MAX,
+        preset: [10, 20, 30, 40],
+        long: LONG_GAME_SIZES,
+      }
+    : { min: QUIZ_ROUND_MIN, max: QUIZ_ROUND_MAX, preset: [5, 10, 15, 20], long: LONG_GAME_SIZES };
 }
+
+/** «Длинная игра»: 100, 150 … 500 questions in one saved session. */
+export const LONG_GAME_MIN = 100;
+export const LONG_GAME_SIZES = [100, 150, 200, 250, 300, 350, 400, 450, 500];
+
+/** What «Продолжить игру» restores: the round's order and its first answers. */
+export interface MiniGameResume<Q> {
+  readonly sessionId: string;
+  readonly gameId: string;
+  readonly mode: string;
+  /** Every question of the round, in its order. */
+  readonly questions: readonly Q[];
+  /** Questions answered so far and whether the FIRST answer was right. */
+  readonly answered: readonly { readonly itemId: string; readonly firstCorrect: boolean }[];
+  readonly startedAt: string;
+  readonly lastAnswerAt: string | null;
+}
+
+/** The player's unfinished round of a game, or none. */
+export interface MiniGameActiveResponse<Q> {
+  readonly session: MiniGameResume<Q> | null;
+}
+
+/** A finished round, as the server counted it. */
+export interface MiniGameFinishResponse {
+  readonly questionCount: number;
+  readonly answered: number;
+  readonly firstTryCorrect: number;
+  readonly score: number;
+}
+
+export const miniGameSessionRequestSchema = z.object({ sessionId: z.uuid() });
 
 // ------------------------------------------------------------------ «Ударения»
 
@@ -228,7 +270,7 @@ export type StressMode = (typeof stressModes)[number];
 
 export const STRESS_ROUND_SIZE = 20;
 export const STRESS_ROUND_MIN = 5;
-export const STRESS_ROUND_MAX = 100;
+export const STRESS_ROUND_MAX = 500;
 
 export const stressRoundQuerySchema = z.object({
   mode: z.enum(stressModes).default('all'),
@@ -274,8 +316,9 @@ export type StressAnswerRequest = z.infer<typeof stressAnswerRequestSchema>;
 /** The player reached the round's summary. */
 export const miniGameFinishRequestSchema = z.object({
   sessionId: z.uuid(),
-  /** Words right on the first try (the summary's result); capped at the round's size. */
-  firstTryCorrect: z.number().int().min(0).max(100).optional(),
+  /** Ignored: the server counts the round's first answers itself (kept so
+   * an older client's request still parses). */
+  firstTryCorrect: z.number().int().min(0).max(500).optional(),
 });
 export type MiniGameFinishRequest = z.infer<typeof miniGameFinishRequestSchema>;
 

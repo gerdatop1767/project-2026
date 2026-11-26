@@ -3,6 +3,8 @@ import { schema, type Database } from '@zybrilka/db';
 import {
   MINI_GAME_LEARNED_STREAK,
   orderRoundItems,
+  type MiniGameFinishResponse,
+  type MiniGameResume,
   unstressedDisplay,
   vowelIndices,
   type StressAnswerRequest,
@@ -12,9 +14,18 @@ import {
   type StressQuestion,
   type StressRoundResponse,
 } from '@zybrilka/shared';
-import { and, eq, gt, gte, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, sql } from 'drizzle-orm';
 import { moscowDate } from '../admin/period.js';
-import { recordRoundAnswer } from './roundAnswers.js';
+import {
+  NotEnoughQuestionsError,
+  activeSession,
+  countRoundAnswer,
+  finishGameSession,
+  liveSessionById,
+  roundAnswerState,
+  sessionAnswers,
+  startGameSession,
+} from './sessions.js';
 
 export const STRESS_GAME_ID = 'stress';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -79,6 +90,8 @@ export async function stressRound(
   const words = await playableWords(db);
   const progress = userId ? await progressRows(db, userId) : [];
   const stateOf = new Map(progress.map((p) => [p.itemId, p]));
+  // A whole game is never padded with repeats: more than the game has is refused.
+  if (mode === 'all' && size > words.length) throw new NotEnoughQuestionsError(words.length);
   let picked: WordRow[];
   if (mode === 'all') {
     picked = orderRoundItems(words, stateOf).slice(0, size);
@@ -99,88 +112,56 @@ export async function stressRound(
     mode,
     questions,
     dictionarySize: words.length,
-    sessionId: questions.length > 0 ? await startSession(db, userId, mode, questions.length) : null,
+    sessionId:
+      questions.length > 0
+        ? await startGameSession(db, {
+            gameId: STRESS_GAME_ID,
+            mode,
+            userId,
+            itemIds: questions.map((q) => q.wordId),
+          })
+        : null,
   };
 }
 
-/** A round was handed out: one launch (docs/MINI_GAMES.md §Статистика). */
-async function startSession(
+/** «Продолжить игру» — see quizResume: the same, for «Ударения». */
+export async function stressResume(
   db: Database,
   userId: string | null,
-  mode: StressMode,
-  questionCount: number,
-): Promise<string> {
-  const [row] = await db
-    .insert(schema.miniGameSessions)
-    .values({ gameId: STRESS_GAME_ID, mode, userId, questionCount })
-    .returning({ id: schema.miniGameSessions.id });
-  return row!.id;
+  sessionId: string | null,
+): Promise<MiniGameResume<StressQuestion> | null> {
+  const session = sessionId
+    ? await liveSessionById(db, STRESS_GAME_ID, sessionId, userId)
+    : userId
+      ? await activeSession(db, userId, STRESS_GAME_ID)
+      : null;
+  if (!session?.itemIds) return null;
+  const words = new Map((await playableWords(db)).map((w) => [w.id, w]));
+  const questions = session.itemIds
+    .map((id) => words.get(id))
+    .filter((w): w is WordRow => w !== undefined)
+    .map(toQuestion);
+  const kept = new Set(questions.map((q) => q.wordId));
+  const answered = (await sessionAnswers(db, session.id)).filter((a) => kept.has(a.itemId));
+  return {
+    sessionId: session.id,
+    gameId: STRESS_GAME_ID,
+    mode: session.mode,
+    questions,
+    answered,
+    startedAt: session.startedAt.toISOString(),
+    lastAnswerAt: session.lastAnswerAt?.toISOString() ?? null,
+  };
 }
 
-/** Only the session's own player (or the same guest-less session) can move it. */
-function ownSession(sessionId: string, userId: string | null) {
-  const s = schema.miniGameSessions;
-  return and(
-    eq(s.id, sessionId),
-    eq(s.gameId, STRESS_GAME_ID),
-    userId ? eq(s.userId, userId) : isNull(s.userId),
-  );
-}
-
-async function countInSession(
-  db: Pick<Database, 'update' | 'insert'>,
-  sessionId: string,
-  userId: string | null,
-  correct: boolean,
-  now: Date,
-  wordId: string,
-): Promise<void> {
-  const s = schema.miniGameSessions;
-  const own = await db
-    .update(s)
-    .set({
-      answeredCount: sql`${s.answeredCount} + 1`,
-      correctCount: correct ? sql`${s.correctCount} + 1` : s.correctCount,
-      lastAnswerAt: now,
-    })
-    .where(ownSession(sessionId, userId))
-    .returning({ id: s.id });
-  // Only the player's own round gets the question's first-answer row.
-  if (own.length > 0) {
-    await recordRoundAnswer(db, {
-      sessionId,
-      gameId: STRESS_GAME_ID,
-      itemId: wordId,
-      userId,
-      correct,
-      now,
-    });
-  }
-}
-
-/**
- * The player reached the summary. Idempotent: a finished round stays as
- * first finished. False when the session is not this player's.
- */
-export async function finishStressSession(
+/** The player reached the summary: the server counts the result (sessions.ts). */
+export function finishStressSession(
   db: Database,
   userId: string | null,
   sessionId: string,
-  firstTryCorrect: number | null = null,
   now = new Date(),
-): Promise<boolean> {
-  const s = schema.miniGameSessions;
-  const [own] = await db.select({ id: s.id }).from(s).where(ownSession(sessionId, userId));
-  if (!own) return false;
-  await db
-    .update(s)
-    .set({
-      finishedAt: now,
-      firstTryCorrect:
-        firstTryCorrect === null ? null : sql`least(${firstTryCorrect}, ${s.questionCount})`,
-    })
-    .where(and(ownSession(sessionId, userId), isNull(s.finishedAt)));
-  return true;
+): Promise<MiniGameFinishResponse | null> {
+  return finishGameSession(db, STRESS_GAME_ID, sessionId, userId, now);
 }
 
 /**
@@ -203,6 +184,9 @@ export async function answerStress(
   const correct = input.index === word.stressIndex;
   if (userId) {
     await db.transaction(async (tx) => {
+      const round = input.sessionId
+        ? await roundAnswerState(tx, STRESS_GAME_ID, input.sessionId, userId, word.id)
+        : 'none';
       const inserted = await tx
         .insert(schema.miniGameAnswers)
         .values({
@@ -219,8 +203,17 @@ export async function answerStress(
         })
         .returning({ id: schema.miniGameAnswers.id });
       if (inserted.length === 0) return; // already counted
-      if (input.sessionId) {
-        await countInSession(tx, input.sessionId, userId, correct, now, word.id);
+      if (round !== 'none') {
+        // A word's first answer in the round is its result; «Повторить
+        // слово» answers it again — kept in the history, not in the score.
+        await countRoundAnswer(tx, {
+          gameId: STRESS_GAME_ID,
+          sessionId: input.sessionId!,
+          userId,
+          itemId: word.id,
+          correct,
+          now,
+        });
       }
       const p = schema.miniGameItemProgress;
       await tx
@@ -253,8 +246,17 @@ export async function answerStress(
         });
     });
   } else if (input.sessionId) {
-    // A guest's answer is not stored; only the round's counters move.
-    await countInSession(db, input.sessionId, null, correct, now, word.id);
+    // A guest's answer is not stored; only the round's first answers move.
+    await db.transaction((tx) =>
+      countRoundAnswer(tx, {
+        gameId: STRESS_GAME_ID,
+        sessionId: input.sessionId!,
+        userId: null,
+        itemId: word.id,
+        correct,
+        now,
+      }),
+    );
   }
   return {
     correct,

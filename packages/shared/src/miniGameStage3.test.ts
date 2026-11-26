@@ -147,12 +147,13 @@ describe('rounds without repeats', () => {
 });
 
 describe('round size limits', () => {
-  it('quiz 3–50, «Ударения» 5–100, with quick presets inside the limits', () => {
-    expect(roundSizeLimits('nn')).toMatchObject({ min: 3, max: 50 });
-    expect(roundSizeLimits('stress')).toMatchObject({ min: 5, max: 100 });
+  it('quiz 3–500, «Ударения» 5–500, with short and long presets inside the limits', () => {
+    expect(roundSizeLimits('nn')).toMatchObject({ min: 3, max: 500 });
+    expect(roundSizeLimits('stress')).toMatchObject({ min: 5, max: 500 });
     for (const id of ['nn', 'stress']) {
       const l = roundSizeLimits(id);
-      for (const p of l.preset) expect(p >= l.min && p <= l.max).toBe(true);
+      for (const p of [...l.preset, ...l.long]) expect(p >= l.min && p <= l.max).toBe(true);
+      expect(l.long).toEqual([100, 150, 200, 250, 300, 350, 400, 450, 500]);
     }
   });
 });

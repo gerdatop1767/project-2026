@@ -1,6 +1,10 @@
 import { metrikaGoal } from './metrika.js';
 import { recordTaskResult } from './sessionResults.js';
 import type {
+  MiniGameActiveResponse,
+  MiniGameFinishResponse,
+  QuizQuestion,
+  StressQuestion,
   AdviceResponse,
   NotificationPreferences,
   PersonalRecommendationsResponse,
@@ -873,11 +877,27 @@ export function answerStress(request: StressAnswerRequest): Promise<StressAnswer
 }
 
 /** The round reached its summary (admin statistics). Never blocks the game. */
-export function finishStressRound(sessionId: string, firstTryCorrect: number): Promise<void> {
-  return apiFetch<void>('/games/stress/finish', {
+/** The round is over: the server counts it (null when it could not answer). */
+export function finishStressRound(sessionId: string): Promise<MiniGameFinishResponse | null> {
+  return apiFetch<MiniGameFinishResponse>('/games/stress/finish', {
     method: 'POST',
-    body: JSON.stringify({ sessionId, firstTryCorrect }),
-  }).catch(() => undefined);
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => null);
+}
+
+/** «Продолжить игру»: the round in progress (a guest's — by its id). */
+export function getStressActive(
+  sessionId?: string,
+): Promise<MiniGameActiveResponse<StressQuestion>> {
+  const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  return rawApiFetch(`/games/stress/active${q}`);
+}
+
+export function abandonStressRound(sessionId: string): Promise<void> {
+  return apiFetch<void>('/games/stress/abandon', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  });
 }
 
 export function getStressProgress(): Promise<StressProgressResponse> {
@@ -901,15 +921,31 @@ export function answerQuiz(gameId: string, body: QuizAnswerRequest): Promise<Qui
   });
 }
 
+/** The round is over: the server counts it (null when it could not answer). */
 export function finishQuizRound(
   gameId: string,
   sessionId: string,
-  firstTryCorrect: number,
-): Promise<void> {
-  return apiFetch<void>(`/games/quiz/${encodeURIComponent(gameId)}/finish`, {
+): Promise<MiniGameFinishResponse | null> {
+  return apiFetch<MiniGameFinishResponse>(`/games/quiz/${encodeURIComponent(gameId)}/finish`, {
     method: 'POST',
-    body: JSON.stringify({ sessionId, firstTryCorrect }),
-  }).catch(() => undefined);
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => null);
+}
+
+/** «Продолжить игру»: the round in progress (a guest's — by its id). */
+export function getQuizActive(
+  gameId: string,
+  sessionId?: string,
+): Promise<MiniGameActiveResponse<QuizQuestion>> {
+  const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  return rawApiFetch(`/games/quiz/${encodeURIComponent(gameId)}/active${q}`);
+}
+
+export function abandonQuizRound(gameId: string, sessionId: string): Promise<void> {
+  return apiFetch<void>(`/games/quiz/${encodeURIComponent(gameId)}/abandon`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  });
 }
 
 export function getQuizProgress(gameId: string): Promise<QuizProgressResponse> {
