@@ -7,12 +7,21 @@ import {
   QUIZ_POINTS_PER_CORRECT,
   quizGameById,
   quizRoundScore,
+  type MiniGameFinishResponse,
   type QuizAnswerResponse,
   type QuizMode,
   type QuizProgressResponse,
   type QuizQuestion,
 } from '@zybrilka/shared';
-import { answerQuiz, finishQuizRound, getQuizProgress, getQuizRound } from '../../lib/api.js';
+import {
+  ApiError,
+  abandonQuizRound,
+  answerQuiz,
+  finishQuizRound,
+  getQuizActive,
+  getQuizProgress,
+  getQuizRound,
+} from '../../lib/api.js';
 import { useAccountGate } from '../../lib/accountGate.js';
 import { clsx } from '../../lib/clsx.js';
 import { BackRow } from '../../ui/BackRow/BackRow.js';
@@ -27,12 +36,13 @@ import { RoundSizePicker, effectiveRoundSize, useRoundSize } from './RoundSize.j
 import { GameRules } from './GameRules.js';
 import { useGameQuestionCount } from './MiniGames.js';
 import styles from './QuizGame.module.css';
+import { ContinueCard, NewGameChoice, resumeProgress, useSavedRound } from './savedRound.js';
 
 type Phase =
   | { kind: 'menu' }
   | { kind: 'loading' }
   | { kind: 'empty'; mode: QuizMode }
-  | { kind: 'error' }
+  | { kind: 'error'; message?: string }
   | { kind: 'playing' }
   | { kind: 'summary' };
 
@@ -102,6 +112,12 @@ export function QuizGame({ gameId }: { gameId: string }) {
   const answerId = useRef(newId());
   const [roundSize, setRoundSize] = useRoundSize(gameId, QUIZ_ROUND_SIZE);
   const available = useGameQuestionCount(gameId);
+  // The round in progress, kept on the server (any device, after a reload).
+  const fetchActive = useCallback((sid?: string) => getQuizActive(gameId, sid), [gameId]);
+  const abandon = useCallback((sid: string) => abandonQuizRound(gameId, sid), [gameId]);
+  const saved = useSavedRound({ gameId, signedIn: !isGuest, fetchActive, abandon });
+  const [choiceFor, setChoiceFor] = useState<QuizMode | null>(null);
+  const [counted, setCounted] = useState<MiniGameFinishResponse | null>(null);
 
   const loadProgress = useCallback(() => {
     if (isGuest) return;
@@ -131,8 +147,17 @@ export function QuizGame({ gameId }: { gameId: string }) {
     answerId.current = newId();
   };
 
-  const play = async (mode: QuizMode) => {
+  const play = (mode: QuizMode) => {
     if (mode === 'mistakes' && !requireAccount('gameProgress')) return;
+    // A round is unfinished: continue it or start anew — never lost silently.
+    if (saved.resume) {
+      setChoiceFor(mode);
+      return;
+    }
+    void startRound(mode);
+  };
+
+  const startRound = async (mode: QuizMode) => {
     setPhase({ kind: 'loading' });
     try {
       const round = await getQuizRound(
@@ -145,14 +170,48 @@ export function QuizGame({ gameId }: { gameId: string }) {
         return;
       }
       sessionId.current = round.sessionId;
+      saved.started(round.sessionId);
       setQuestions(round.questions);
       setIndex(0);
       setResults([]);
+      setCounted(null);
       resetQuestion();
       setPhase({ kind: 'playing' });
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        const n = (error.body as { available?: number } | null)?.available;
+        setPhase({
+          kind: 'error',
+          message:
+            n !== undefined
+              ? `В игре сейчас ${n} вопросов — выбери не больше ${n}.`
+              : 'В игре меньше вопросов, чем выбрано.',
+        });
+        return;
+      }
       setPhase({ kind: 'error' });
     }
+  };
+
+  /** «Продолжить игру»: the saved round from where it stopped. */
+  const resumeRound = () => {
+    const r = saved.resume;
+    if (!r) return;
+    const firstOf = new Map(r.answered.map((a) => [a.itemId, a.firstCorrect]));
+    const next = r.questions.findIndex((q) => !firstOf.has(q.itemId));
+    sessionId.current = r.sessionId;
+    setQuestions(r.questions);
+    setIndex(next === -1 ? r.questions.length - 1 : next);
+    setResults(r.questions.filter((q) => firstOf.has(q.itemId)).map((q) => firstOf.get(q.itemId)!));
+    setCounted(null);
+    resetQuestion();
+    setPhase({ kind: 'playing' });
+  };
+
+  const startAnew = async (mode: QuizMode) => {
+    setChoiceFor(null);
+    await saved.giveUp();
+    void startRound(mode);
   };
 
   const question = questions[index];
@@ -183,10 +242,14 @@ export function QuizGame({ gameId }: { gameId: string }) {
       resetQuestion();
       return;
     }
-    const right = results.filter(Boolean).length;
-    if (sessionId.current) void finishQuizRound(gameId, sessionId.current, right);
+    // The server counts the result; the screen shows its numbers.
+    if (sessionId.current)
+      void finishQuizRound(gameId, sessionId.current).then((r) => {
+        setCounted(r);
+        loadProgress();
+      });
+    saved.finished();
     setPhase({ kind: 'summary' });
-    loadProgress();
   };
 
   const right = results.filter(Boolean).length;
@@ -245,6 +308,13 @@ export function QuizGame({ gameId }: { gameId: string }) {
               </section>
             )
           )}
+          {saved.resume && (
+            <ContinueCard
+              {...resumeProgress(saved.resume, QUIZ_POINTS_PER_CORRECT)}
+              onContinue={resumeRound}
+              onNew={() => void saved.giveUp()}
+            />
+          )}
           <GameRules gameId={game.id} title={game.title} />
           <RoundSizePicker
             gameId={game.id}
@@ -253,10 +323,10 @@ export function QuizGame({ gameId }: { gameId: string }) {
             available={available}
           />
           <div className={styles.actions}>
-            <Button onClick={() => void play('all')}>
+            <Button onClick={() => play('all')}>
               <Icon name="play" size={18} /> Играть
             </Button>
-            <Button variant="secondary" onClick={() => void play('mistakes')}>
+            <Button variant="secondary" onClick={() => play('mistakes')}>
               Мои ошибки
             </Button>
           </div>
@@ -267,7 +337,7 @@ export function QuizGame({ gameId }: { gameId: string }) {
 
       {phase.kind === 'error' && (
         <Card role="alert" className={styles.menu}>
-          <p className="text-body">Не удалось загрузить вопросы.</p>
+          <p className="text-body">{phase.message ?? 'Не удалось загрузить вопросы.'}</p>
           <Button variant="secondary" onClick={() => setPhase({ kind: 'menu' })}>
             Назад
           </Button>
@@ -570,11 +640,26 @@ export function QuizGame({ gameId }: { gameId: string }) {
         </>
       )}
 
+      {saved.resume && (
+        <NewGameChoice
+          open={choiceFor !== null}
+          {...resumeProgress(saved.resume, QUIZ_POINTS_PER_CORRECT)}
+          onClose={() => setChoiceFor(null)}
+          onContinue={() => {
+            setChoiceFor(null);
+            resumeRound();
+          }}
+          onNew={() => void startAnew(choiceFor ?? 'all')}
+        />
+      )}
+
       {phase.kind === 'summary' && (
         <Card className={styles.summary} aria-label="Итог раунда">
           <h2 className="text-h2">Итог раунда</h2>
           <p>
-            <span className={styles.bigScore}>{quizRoundScore(right, questions.length)}</span>{' '}
+            <span className={styles.bigScore}>
+              {counted?.score ?? quizRoundScore(right, questions.length)}
+            </span>{' '}
             <span className="text-body text-secondary">очков</span>
           </p>
           <p className="text-body">
@@ -585,11 +670,11 @@ export function QuizGame({ gameId }: { gameId: string }) {
             <p className={styles.note}>Результат не сохранён: войди, чтобы копить прогресс.</p>
           )}
           <div className={styles.actions}>
-            <Button onClick={() => void play('all')}>
+            <Button onClick={() => play('all')}>
               <Icon name="play" size={18} /> Ещё раунд
             </Button>
             {!isGuest && right < questions.length && (
-              <Button variant="secondary" onClick={() => void play('mistakes')}>
+              <Button variant="secondary" onClick={() => play('mistakes')}>
                 Мои ошибки
               </Button>
             )}

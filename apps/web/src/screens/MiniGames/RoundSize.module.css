@@ -148,3 +148,9 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.groupLabel {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+}

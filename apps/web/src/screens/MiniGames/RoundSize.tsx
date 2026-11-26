@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { roundSizeLimits } from '@zybrilka/shared';
+import { LONG_GAME_MIN, roundSizeLimits } from '@zybrilka/shared';
 import { getMiniGameSettings, saveMiniGameSettings } from '../../lib/api.js';
 import { useAuth } from '../../lib/authContext.js';
 import { clsx } from '../../lib/clsx.js';
@@ -111,7 +111,9 @@ export function RoundSizePicker({
   const limits = roundSizeLimits(gameId);
   const max = available === null ? limits.max : Math.max(1, Math.min(limits.max, available));
   const presets = limits.preset.filter((n) => n <= max);
-  const custom = !presets.includes(value);
+  // «Длинная игра»: 100…500 in one saved session — only what the game has.
+  const long = limits.long.filter((n) => n <= max);
+  const custom = !presets.includes(value) && !long.includes(value);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const inputId = useId();
@@ -168,6 +170,32 @@ export function RoundSizePicker({
           {custom && !editing ? value : 'Своё'}
         </button>
       </div>
+      <p className={styles.groupLabel}>Длинная игра — сохраняется, можно продолжить позже</p>
+      {long.length > 0 ? (
+        <div className={styles.chips} role="radiogroup" aria-label="Длинная игра">
+          {long.map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={value === n && !editing}
+              className={clsx(styles.chip, value === n && !editing && styles.chipOn)}
+              onClick={() => {
+                setEditing(false);
+                onChange(n);
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className={styles.hint} role="status">
+          {available !== null
+            ? `Для длинной игры нужно от ${LONG_GAME_MIN} ${unit} — сейчас в игре ${available}.`
+            : `Длинная игра — от ${LONG_GAME_MIN} ${unit}.`}
+        </p>
+      )}
       {editing && (
         <form
           className={styles.customRow}

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   MATCH_SEPARATOR,
@@ -23,7 +23,16 @@ vi.mock('../../lib/api.js', () => ({
   answerQuiz: vi.fn(),
   finishQuizRound: vi.fn(),
   getQuizProgress: vi.fn(),
-  ApiError: class extends Error {},
+  getQuizActive: vi.fn(),
+  abandonQuizRound: vi.fn(),
+  ApiError: class extends Error {
+    constructor(
+      public status: number,
+      public body: unknown,
+    ) {
+      super(`API ${status}`);
+    }
+  },
 }));
 
 function Where() {
@@ -47,6 +56,7 @@ function renderWith(ui: React.ReactNode, user: ReturnType<typeof makeAuthUser> |
 const SESSION = '0b5d6a7e-1111-4222-8333-444455556666';
 const ID1 = '11111111-1111-5111-8111-111111111111';
 const ID2 = '22222222-2222-5222-8222-222222222222';
+const ID3 = '33333333-3333-5333-8333-333333333333';
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -60,7 +70,9 @@ beforeEach(() => {
   vi.mocked(api.saveMiniGameSettings).mockReset().mockResolvedValue({});
   vi.mocked(api.getQuizRound).mockReset();
   vi.mocked(api.answerQuiz).mockReset();
-  vi.mocked(api.finishQuizRound).mockReset().mockResolvedValue(undefined);
+  vi.mocked(api.finishQuizRound).mockReset().mockResolvedValue(null);
+  vi.mocked(api.getQuizActive).mockReset().mockResolvedValue({ session: null });
+  vi.mocked(api.abandonQuizRound).mockReset().mockResolvedValue();
   vi.mocked(api.getQuizProgress).mockReset().mockResolvedValue({
     gameId: 'nn',
     bankSize: 99,
@@ -176,7 +188,8 @@ describe('a quiz game', () => {
     const summary = screen.getByLabelText('Итог раунда');
     expect(within(summary).getByText('10')).toBeInTheDocument();
     expect(within(summary).getByText('Верно 1 из 2')).toBeInTheDocument();
-    expect(api.finishQuizRound).toHaveBeenCalledWith('nn', SESSION, 1);
+    // The server counts the result: the client sends only the round.
+    expect(api.finishQuizRound).toHaveBeenCalledWith('nn', SESSION);
     await user.click(within(summary).getByRole('button', { name: /Ещё раунд/ }));
     expect(await screen.findByText('Вопрос 1 из 2')).toBeInTheDocument();
   });
@@ -548,5 +561,98 @@ describe('«Теория на практике»', () => {
     expect(GAME_ICONS['theory-practice']).toBeDefined();
     const others = Object.entries(GAME_ICONS).filter(([id]) => id !== 'theory-practice');
     expect(others.map(([, icon]) => icon)).not.toContain(GAME_ICONS['theory-practice']);
+  });
+});
+
+describe('«Продолжить игру» — a saved round', () => {
+  const SAVED = {
+    sessionId: SESSION,
+    gameId: 'nn',
+    mode: 'all',
+    questions: [
+      { itemId: ID1, kind: 'choice' as const, text: 'Утре▢ие улицы', options: ['Н', 'НН'] },
+      { itemId: ID2, kind: 'choice' as const, text: 'Прониза▢ы запахом', options: ['Н', 'НН'] },
+      { itemId: ID3, kind: 'choice' as const, text: 'Стекля▢ый шар', options: ['Н', 'НН'] },
+    ],
+    answered: [{ itemId: ID1, firstCorrect: true }],
+    startedAt: '2026-11-26T10:00:00.000Z',
+    lastAnswerAt: '2026-11-26T10:01:00.000Z',
+  };
+
+  it('the server’s unfinished round is offered and continues from the first unanswered question', async () => {
+    vi.mocked(api.getQuizActive).mockResolvedValue({ session: SAVED });
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    const card = await screen.findByRole('region', { name: 'Незаконченная игра' });
+    expect(card).toHaveTextContent('Отвечено 1 из 3 · 10 очк.');
+    await user.click(within(card).getByRole('button', { name: /Продолжить игру/ }));
+    expect(await screen.findByText('Вопрос 2 из 3')).toBeInTheDocument();
+    expect(screen.getByText('10 очк.')).toBeInTheDocument();
+    expect(api.getQuizRound).not.toHaveBeenCalled();
+  });
+
+  it('«Играть» over an unfinished round asks: continue it or start anew', async () => {
+    vi.mocked(api.getQuizActive).mockResolvedValue({ session: SAVED });
+    vi.mocked(api.getQuizRound).mockResolvedValue({
+      gameId: 'nn',
+      mode: 'all',
+      questions: SAVED.questions,
+      bankSize: 99,
+      sessionId: '9b5d6a7e-1111-4222-8333-444455556666',
+    });
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    await screen.findByRole('region', { name: 'Незаконченная игра' });
+    await user.click(screen.getByRole('button', { name: /Играть/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Есть незаконченная игра' });
+    await user.click(within(dialog).getByRole('button', { name: 'Начать новую' }));
+    await waitFor(() => expect(api.abandonQuizRound).toHaveBeenCalledWith('nn', SESSION));
+    expect(api.getQuizRound).toHaveBeenCalled();
+  });
+
+  it('a guest’s round is found again by the id this browser kept', async () => {
+    window.localStorage.setItem('zybrilka.miniGames.round.nn', SESSION);
+    vi.mocked(api.getQuizActive).mockResolvedValue({ session: SAVED });
+    renderWith(<QuizGame gameId="nn" />, null);
+    await screen.findByRole('region', { name: 'Незаконченная игра' });
+    expect(api.getQuizActive).toHaveBeenCalledWith('nn', SESSION);
+  });
+
+  it('too many questions: the game says how many it really has', async () => {
+    vi.mocked(api.getQuizRound).mockRejectedValue(
+      new api.ApiError(409, { error: 'not_enough_questions', available: 99 }),
+    );
+    const user = userEvent.setup();
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    await user.click(await screen.findByRole('button', { name: /Играть/ }));
+    expect(
+      await screen.findByText('В игре сейчас 99 вопросов — выбери не больше 99.'),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('«Длинная игра» — 100 to 500 questions', () => {
+  it('offers only the long sizes the game has, and says so when it has fewer than 100', async () => {
+    vi.mocked(api.getMiniGames).mockResolvedValue({
+      games: MINI_GAMES.map((g) => ({ ...g, progress: null, questionCount: 320 })),
+    });
+    const view = renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    const long = await screen.findByRole('radiogroup', { name: 'Длинная игра' });
+    await waitFor(() =>
+      expect(
+        within(long)
+          .getAllByRole('radio')
+          .map((r) => r.textContent),
+      ).toEqual(['100', '150', '200', '250', '300']),
+    );
+    view.unmount();
+
+    vi.mocked(api.getMiniGames).mockResolvedValue({
+      games: MINI_GAMES.map((g) => ({ ...g, progress: null, questionCount: 90 })),
+    });
+    renderWith(<QuizGame gameId="nn" />, makeAuthUser());
+    expect(
+      await screen.findByText('Для длинной игры нужно от 100 вопросов — сейчас в игре 90.'),
+    ).toBeInTheDocument();
   });
 });

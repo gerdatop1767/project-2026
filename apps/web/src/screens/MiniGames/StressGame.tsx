@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  MiniGameFinishResponse,
   StressAnswerResponse,
   StressMode,
   StressProgressResponse,
@@ -7,8 +8,11 @@ import type {
 } from '@zybrilka/shared';
 import { STRESS_ROUND_MIN, STRESS_ROUND_SIZE } from '@zybrilka/shared';
 import {
+  ApiError,
+  abandonStressRound,
   answerStress,
   finishStressRound,
+  getStressActive,
   getStressProgress,
   getStressRound,
 } from '../../lib/api.js';
@@ -30,10 +34,12 @@ import {
   isFinished,
   next,
   recordAnswer,
+  resumeRound,
   roundScore,
   startRound,
   type RoundState,
 } from './stressRound.js';
+import { ContinueCard, NewGameChoice, resumeProgress, useSavedRound } from './savedRound.js';
 import styles from './StressGame.module.css';
 
 const modeTitles: Record<StressMode, string> = {
@@ -46,7 +52,7 @@ type Phase =
   | { kind: 'menu' }
   | { kind: 'loading'; mode: StressMode }
   | { kind: 'empty'; mode: StressMode }
-  | { kind: 'error'; mode: StressMode }
+  | { kind: 'error'; mode: StressMode; message?: string }
   | { kind: 'playing'; mode: StressMode };
 
 interface Checked {
@@ -80,6 +86,14 @@ export function StressGame() {
   const sessionId = useRef<string | null>(null);
   const [roundSize, setRoundSize] = useRoundSize('stress', STRESS_ROUND_SIZE);
   const available = useGameQuestionCount('stress');
+  const saved = useSavedRound({
+    gameId: 'stress',
+    signedIn: !isGuest,
+    fetchActive: getStressActive,
+    abandon: abandonStressRound,
+  });
+  const [choiceFor, setChoiceFor] = useState<StressMode | null>(null);
+  const [counted, setCounted] = useState<MiniGameFinishResponse | null>(null);
 
   const loadProgress = useCallback(() => {
     if (isGuest) return;
@@ -88,8 +102,38 @@ export function StressGame() {
 
   useEffect(loadProgress, [loadProgress]);
 
-  async function play(mode: StressMode) {
+  function play(mode: StressMode) {
     if (mode !== 'all' && !requireAccount('gameProgress')) return;
+    // A round is unfinished: continue it or start anew — never lost silently.
+    if (saved.resume) {
+      setChoiceFor(mode);
+      return;
+    }
+    void begin(mode);
+  }
+
+  /** «Продолжить игру»: the saved round from the first word not answered. */
+  function continueSaved() {
+    const r = saved.resume;
+    if (!r) return;
+    setChoiceFor(null);
+    setChecked(null);
+    setMarkedOf(new Map());
+    setCounted(null);
+    setRound(resumeRound(r.questions, r.answered));
+    sessionId.current = r.sessionId;
+    answerId.current = newAnswerId();
+    const mode = (['all', 'mistakes', 'hard'] as const).find((m) => m === r.mode) ?? 'all';
+    setPhase({ kind: 'playing', mode });
+  }
+
+  async function startAnew(mode: StressMode) {
+    setChoiceFor(null);
+    await saved.giveUp();
+    void begin(mode);
+  }
+
+  async function begin(mode: StressMode) {
     setPhase({ kind: 'loading', mode });
     setChecked(null);
     setMarkedOf(new Map());
@@ -104,9 +148,20 @@ export function StressGame() {
       }
       setRound(startRound(data.questions));
       sessionId.current = data.sessionId;
+      saved.started(data.sessionId);
+      setCounted(null);
       answerId.current = newAnswerId();
       setPhase({ kind: 'playing', mode });
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        const n = (error.body as { available?: number } | null)?.available;
+        setPhase({
+          kind: 'error',
+          mode,
+          message: n !== undefined ? `В игре сейчас ${n} слов — выбери не больше ${n}.` : undefined,
+        });
+        return;
+      }
       setPhase({ kind: 'error', mode });
     }
   }
@@ -144,9 +199,14 @@ export function StressGame() {
     const moved = next(round);
     setRound(moved);
     if (isFinished(moved)) {
-      if (sessionId.current) void finishStressRound(sessionId.current, roundScore(moved).correct);
+      // The server counts the result; the screen shows its numbers.
+      if (sessionId.current)
+        void finishStressRound(sessionId.current).then((r) => {
+          setCounted(r);
+          loadProgress();
+        });
       sessionId.current = null;
-      loadProgress();
+      saved.finished();
     }
   }
 
@@ -165,6 +225,11 @@ export function StressGame() {
               {score.correct}{' '}
               <span className="text-body text-secondary">из {score.total} с первого раза</span>
             </p>
+            {counted && (
+              <p className="text-body-sm text-secondary">
+                Очков за раунд: <strong>{counted.score}</strong>
+              </p>
+            )}
             {score.missed.length > 0 && (
               <div>
                 <p className="text-body-sm text-secondary">Повтори эти слова:</p>
@@ -176,9 +241,9 @@ export function StressGame() {
               </div>
             )}
             <div className={styles.actions}>
-              <Button onClick={() => void play(phase.mode)}>Ещё раунд</Button>
+              <Button onClick={() => play(phase.mode)}>Ещё раунд</Button>
               {score.missed.length > 0 && (
-                <Button variant="secondary" onClick={() => void play('mistakes')}>
+                <Button variant="secondary" onClick={() => play('mistakes')}>
                   Тренировать ошибки
                 </Button>
               )}
@@ -275,10 +340,28 @@ export function StressGame() {
       )}
       {phase.kind === 'error' && (
         <Card role="alert">
-          <p className="text-body">Не удалось загрузить слова — попробуй ещё раз.</p>
+          <p className="text-body">
+            {phase.message ?? 'Не удалось загрузить слова — попробуй ещё раз.'}
+          </p>
         </Card>
       )}
 
+      {saved.resume && (
+        <ContinueCard
+          {...resumeProgress(saved.resume, 10)}
+          onContinue={continueSaved}
+          onNew={() => void saved.giveUp()}
+        />
+      )}
+      {saved.resume && (
+        <NewGameChoice
+          open={choiceFor !== null}
+          {...resumeProgress(saved.resume, 10)}
+          onClose={() => setChoiceFor(null)}
+          onContinue={continueSaved}
+          onNew={() => void startAnew(choiceFor ?? 'all')}
+        />
+      )}
       <GameRules gameId="stress" title="Ударения" />
       <RoundSizePicker
         gameId="stress"
@@ -288,15 +371,15 @@ export function StressGame() {
         unit="слов"
       />
       <div className={styles.modes}>
-        <Button fullWidth onClick={() => void play('all')}>
+        <Button fullWidth onClick={() => play('all')}>
           <Icon name="play" size={18} />{' '}
           {progress && progress.seen > 0 ? 'Продолжить тренировку' : 'Начать'}
         </Button>
-        <Button variant="secondary" fullWidth onClick={() => void play('mistakes')}>
+        <Button variant="secondary" fullWidth onClick={() => play('mistakes')}>
           Мои ошибки{progress && progress.mistakes > 0 ? ` · ${progress.mistakes}` : ''}
           {isGuest && <Icon name="lock" size={14} />}
         </Button>
-        <Button variant="secondary" fullWidth onClick={() => void play('hard')}>
+        <Button variant="secondary" fullWidth onClick={() => play('hard')}>
           Сложные слова
           {isGuest && <Icon name="lock" size={14} />}
         </Button>

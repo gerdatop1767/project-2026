@@ -19,7 +19,16 @@ vi.mock('../../lib/api.js', () => ({
   answerStress: vi.fn(),
   finishStressRound: vi.fn(),
   getStressProgress: vi.fn(),
-  ApiError: class extends Error {},
+  getStressActive: vi.fn(),
+  abandonStressRound: vi.fn(),
+  ApiError: class extends Error {
+    constructor(
+      public status: number,
+      public body: unknown,
+    ) {
+      super(`API ${status}`);
+    }
+  },
 }));
 
 function Where() {
@@ -80,7 +89,9 @@ beforeEach(() => {
     });
   vi.mocked(api.getMiniGameSettings).mockReset().mockResolvedValue({ settings: {} });
   vi.mocked(api.saveMiniGameSettings).mockReset().mockResolvedValue({});
-  vi.mocked(api.finishStressRound).mockReset().mockResolvedValue();
+  vi.mocked(api.finishStressRound).mockReset().mockResolvedValue(null);
+  vi.mocked(api.getStressActive).mockReset().mockResolvedValue({ session: null });
+  vi.mocked(api.abandonStressRound).mockReset().mockResolvedValue();
   window.localStorage.clear();
   resetPrivateCaches();
 });
@@ -206,7 +217,8 @@ describe('Ударения', () => {
     }
     expect(api.finishStressRound).toHaveBeenCalledTimes(1);
     // The summary's own result: 1 of 2 words right on the first try.
-    expect(api.finishStressRound).toHaveBeenCalledWith(ROUND.sessionId, 1);
+    // The server counts the result: the client sends only the round.
+    expect(api.finishStressRound).toHaveBeenCalledWith(ROUND.sessionId);
     expect(screen.getByText('тОрты', { selector: 'li' })).toBeInTheDocument();
   });
 
