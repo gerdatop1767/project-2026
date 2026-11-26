@@ -145,7 +145,13 @@ export function OverviewPage() {
                     hint={`${num(d.answers.registeredCorrect.current)} из ${num(d.answers.registered.current)}`}
                   />
                   <Kpi
-                    label="Решённые задания"
+                    label="Решено задач"
+                    value={d.answers.registered.current}
+                    compare={d.answers.registered}
+                    hint="все проверенные ответы зарегистрированных: верные и неверные"
+                  />
+                  <Kpi
+                    label="Разных заданий решено верно"
                     value={d.answers.solvedTasks.current}
                     compare={d.answers.solvedTasks}
                   />

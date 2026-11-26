@@ -79,8 +79,9 @@ describe('HomeMobile', () => {
     expect(document.querySelector('[data-animated-number]')).toBeNull();
   });
 
-  // «Решено» showed answer rows: one task answered three times read as 3.
-  it('«Решено» shows distinct solved tasks (uniqueSolvedTotal), not the answer count', async () => {
+  // «Решено» = every checked answer, right or wrong, repeats included (owner's
+  // decision, stage 3): 12 right + 19 wrong = 31; accuracy is its own tile.
+  it('«Решено» counts every checked answer (solvedTotal), not distinct tasks', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 31,
       uniqueSolvedTotal: 7,
@@ -93,8 +94,8 @@ describe('HomeMobile', () => {
       timeBySubject: [],
     });
     renderHome();
-    await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
-    expect(screen.queryByText('31')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('31')).toBeInTheDocument());
+    expect(screen.queryByText('7')).not.toBeInTheDocument();
   });
 
   it('the rating place sits next to «Решено»; «Правильно» keeps its place', () => {

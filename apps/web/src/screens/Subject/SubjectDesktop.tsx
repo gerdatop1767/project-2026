@@ -120,12 +120,11 @@ export function SubjectDesktop({
   // `subject.taskCount`/`mastery` demo fields. null until loaded — never
   // a `0` placeholder masquerading as a real "0 solved / 0% accuracy"
   // (see SubjectMobile.tsx for why: same component shape, same bug).
-  // "Решено" is `uniqueSolved` (distinct tasks with >=1 correct
-  // attempt), NOT `solved` (an attempt-row count — re-solving one task
-  // 100 times used to show "100 решено"; see the nav/stats bugfix
-  // report). `accuracyPercent` stays the existing attempt-based metric,
-  // unchanged.
+  // «Решено» = every checked answer, right or wrong, repeats included
+  // (`solved`, one row per attempt — never counted twice); accuracy is
+  // the share of right ones, shown apart.
   const [solved, setSolved] = useState<number | null>(null);
+  const [correct, setCorrect] = useState<number | null>(null);
   const [accuracyPercent, setAccuracyPercent] = useState<number | null>(null);
   const [totalTasks, setTotalTasks] = useState<number | null>(null);
 
@@ -137,12 +136,14 @@ export function SubjectDesktop({
         .then((data) => {
           if (cancelled) return;
           const entry = data.bySubject.find((s) => s.subjectId === subject.id);
-          setSolved(entry?.uniqueSolved ?? 0);
+          setSolved(entry?.solved ?? 0);
+          setCorrect(entry?.correct ?? 0);
           setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
         })
         .catch(() => {
           if (!cancelled) {
             setSolved(0);
+            setCorrect(0);
             setAccuracyPercent(0);
           }
         });
@@ -150,7 +151,7 @@ export function SubjectDesktop({
       .then((res) => {
         if (cancelled) return;
         const entry = res.items.find((i) => i.subjectId === subject.id);
-        // «из N» for «Решено» (uniqueSolved, any source) — every published task.
+        // «в банке N»: every published task of the subject, any source.
         setTotalTasks(entry?.countAllSources ?? 0);
       })
       .catch(() => {
@@ -380,7 +381,11 @@ export function SubjectDesktop({
               </CircularProgress>
             </div>
             <p className="text-body-sm text-secondary" style={{ textAlign: 'center' }}>
-              {solved ?? pending} из {totalTasks ?? '—'} заданий решено
+              {solved ?? pending} решено
+              {solved !== null &&
+                correct !== null &&
+                ` · верно ${correct}, неверно ${solved - correct}`}
+              {totalTasks !== null && ` · в банке ${totalTasks}`}
             </p>
           </Card>
 

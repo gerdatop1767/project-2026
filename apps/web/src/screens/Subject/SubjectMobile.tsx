@@ -109,6 +109,7 @@ export function SubjectMobile({
   // state before the real number replaces it (confirmed via frame-by-
   // frame video of exactly this screen opening).
   const [solved, setSolved] = useState<number | null>(null);
+  const [correct, setCorrect] = useState<number | null>(null);
   const [accuracyPercent, setAccuracyPercent] = useState<number | null>(null);
   const [totalTasks, setTotalTasks] = useState<number | null>(null);
 
@@ -120,15 +121,16 @@ export function SubjectMobile({
         .then((data) => {
           if (cancelled) return;
           const entry = data.bySubject.find((s) => s.subjectId === subject.id);
-          // "Решено" is uniqueSolved (distinct tasks with >=1 correct
-          // attempt), not solved (an attempt-row count) — see the
-          // nav/stats bugfix report.
-          setSolved(entry?.uniqueSolved ?? 0);
+          // «Решено» = every checked answer, right or wrong, repeats
+          // included (`solved`); accuracy is its own number.
+          setSolved(entry?.solved ?? 0);
+          setCorrect(entry?.correct ?? 0);
           setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
         })
         .catch(() => {
           if (!cancelled) {
             setSolved(0);
+            setCorrect(0);
             setAccuracyPercent(0);
           }
         });
@@ -136,7 +138,7 @@ export function SubjectMobile({
       .then((res) => {
         if (cancelled) return;
         const entry = res.items.find((i) => i.subjectId === subject.id);
-        // «из N» for «Решено» (uniqueSolved, any source) — every published task.
+        // «в банке N»: every published task of the subject, any source.
         setTotalTasks(entry?.countAllSources ?? 0);
       })
       .catch(() => {
@@ -358,7 +360,11 @@ export function SubjectMobile({
               </CircularProgress>
             </div>
             <p className="text-body-sm text-secondary" style={{ textAlign: 'center' }}>
-              {solved ?? pending} из {totalTasks ?? '—'} заданий решено
+              {solved ?? pending} решено
+              {solved !== null &&
+                correct !== null &&
+                ` · верно ${correct}, неверно ${solved - correct}`}
+              {totalTasks !== null && ` · в банке ${totalTasks}`}
             </p>
           </Card>
 

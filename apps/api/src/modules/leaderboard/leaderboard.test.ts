@@ -138,9 +138,10 @@ describe('leaderboard', () => {
       [2, 'Вера', 20],
       [3, 'Участник', 15],
     ]);
-    expect(r.entries[0]).toMatchObject({ solved: 3, accuracyPercent: 75, isMe: true, level: 3 });
+    // «Решено» = every checked answer today, the wrong one and the repeat included.
+    expect(r.entries[0]).toMatchObject({ solved: 4, accuracyPercent: 75, isMe: true, level: 3 });
     expect(r.participants).toBe(3);
-    expect(r.me).toMatchObject({ rank: 1, points: 40, solved: 3, accuracyPercent: 75 });
+    expect(r.me).toMatchObject({ rank: 1, points: 40, solved: 4, accuracyPercent: 75 });
     expect(r.since).toBe('2026-10-23T21:00:00.000Z');
   });
 
@@ -173,7 +174,7 @@ describe('leaderboard', () => {
   it('a subject filter counts only that subject’s XP, solved tasks and answers', async () => {
     const r = await board('anna', { period: 'today', subject: 'math' });
     expect(r.entries.map((e) => [e.name, e.points, e.solved, e.accuracyPercent])).toEqual([
-      ['Анна С.', 20, 2, 67],
+      ['Анна С.', 20, 3, 67],
       ['Участник', 15, 1, 100],
     ]);
     const russian = await board('anna', { period: 'all', subject: 'russian' });
@@ -187,7 +188,8 @@ describe('leaderboard', () => {
   it('someone with no points is not ranked but still gets their own numbers', async () => {
     const r = await board('newbie', { period: 'today' });
     expect(r.entries.some((e) => e.isMe)).toBe(false);
-    expect(r.me).toEqual({ rank: null, level: 1, points: 0, solved: 0, accuracyPercent: 0 });
+    // One wrong answer: no points, but it counts as solved (an attempt).
+    expect(r.me).toEqual({ rank: null, level: 1, points: 0, solved: 1, accuracyPercent: 0 });
   });
 
   it('the limit cuts the list but «me» keeps the real rank; limit 0 returns only «me»', async () => {
