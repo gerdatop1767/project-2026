@@ -82,6 +82,7 @@ describe('admin endpoints (as the owner)', () => {
     '/api/v1/admin/alerts',
     '/api/v1/admin/audit',
     '/api/v1/admin/settings',
+    '/api/v1/admin/activity',
     '/api/v1/admin/mini-games?period=7d',
     '/api/v1/admin/mini-games?period=15d&game=nn',
     '/api/v1/admin/mini-games?period=all&game=theory-practice',

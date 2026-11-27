@@ -11,6 +11,8 @@ import type * as ApiModule from './lib/api.js';
 
 vi.mock('./lib/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
+  // Active-time heartbeats are not what these tests are about.
+  sendActivity: vi.fn(() => Promise.resolve()),
   getRandomTask: vi.fn(),
   getLearningProfile: vi.fn(),
   getIdentities: vi.fn(() =>

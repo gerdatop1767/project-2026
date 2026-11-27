@@ -10,6 +10,8 @@ vi.mock('../../lib/api.js', async () => {
   const actual = await vi.importActual<typeof ApiModule>('../../lib/api.js');
   return {
     ...actual,
+    // Active-time heartbeats are not what these tests are about.
+    sendActivity: vi.fn(() => Promise.resolve()),
     getCurrentUser: vi.fn(() => Promise.resolve({ user: null })),
     yandexLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/yandex/start'),
     vkLoginUrl: vi.fn(() => 'https://api.test/api/v1/auth/vk/start'),

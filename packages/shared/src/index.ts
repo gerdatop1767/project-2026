@@ -63,3 +63,4 @@ export * from './gameStudyRules.js';
 export * from './mathDrills.js';
 export * from './statsPeriod.js';
 export * from './theory/index.js';
+export * from './activity.js';
