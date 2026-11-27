@@ -272,7 +272,7 @@ describe('AppMobile — Subject → Задания по номерам → task 
     // screen-swap + Back chain starting from inside По номерам.
     await user.click(await screen.findByRole('button', { name: /Все предметы/ }));
     await user.click(await screen.findByText('Математика'));
-    await user.click(await screen.findByRole('button', { name: 'По номерам' }));
+    await user.click(await screen.findByRole('tab', { name: 'По номерам' }));
 
     await user.click(await screen.findByRole('button', { name: '№5' }));
     await user.click(screen.getByRole('button', { name: 'Начать тренировку' }));
@@ -304,7 +304,7 @@ describe('AppMobile — Subject → Задания по номерам → task 
     await user.click(await screen.findByText('Математика'));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
-    await user.click(await screen.findByRole('button', { name: 'По номерам' }));
+    await user.click(await screen.findByRole('tab', { name: 'По номерам' }));
     expect(container.querySelector('[class*="_shell_"]')).toBe(shell);
 
     await user.click(await screen.findByRole('button', { name: '№5' }));

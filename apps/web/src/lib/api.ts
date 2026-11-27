@@ -1,4 +1,5 @@
 import { metrikaGoal } from './metrika.js';
+import { recordTaskResult } from './sessionResults.js';
 import type {
   MiniGameRatingKind,
   MiniGameRatingResponse,
@@ -288,6 +289,27 @@ export function listTasksByNumber(
   return listAllPages(query);
 }
 
+/**
+ * Every published task of a topic (optionally one Сборник, «Только
+ * нерешённые» = no correct attempt yet) — the full list «Без ограничения»
+ * shows before a training starts.
+ */
+export function listTasksByTopic(params: {
+  subject: string;
+  topic: string;
+  collection?: string;
+  unsolved?: boolean;
+}): Promise<TaskPublic[]> {
+  const query = new URLSearchParams({
+    subject: params.subject,
+    topic: params.topic,
+    limit: String(TASK_LIST_PAGE_SIZE),
+  });
+  if (params.collection) query.set('collection', params.collection);
+  if (params.unsolved) query.set('unsolved', 'true');
+  return listAllPages(query);
+}
+
 /** GET /tasks's largest page (its zod `limit` max). */
 const TASK_LIST_PAGE_SIZE = 100;
 /** A safety stop: 20 pages = 2000 copies of one number, far above any source. */
@@ -395,6 +417,7 @@ export function submitAttempt(taskId: string, request: AttemptRequest): Promise<
     body: JSON.stringify(request),
   }).then((result) => {
     if (result.correct) metrikaGoal('task_solved');
+    recordTaskResult(taskId, result.correct);
     return result;
   });
 }

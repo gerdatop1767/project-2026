@@ -146,6 +146,22 @@ describe('Рейтинг', () => {
     expect(document.querySelector('[aria-busy="true"]')).toBeNull();
   });
 
+  it('the podium is a classic one: list in rank order, 1 in the middle on the tallest pedestal', async () => {
+    vi.mocked(api.getLeaderboard).mockResolvedValue(board());
+    renderRating();
+    const podium = await screen.findByRole('list', { name: 'Тройка лидеров' });
+    const places = within(podium).getAllByRole('listitem');
+    // Screen readers hear 1, 2, 3; the grid places them 2 · 1 · 3.
+    expect(places.map((li) => li.dataset.place)).toEqual(['1', '2', '3']);
+    // Every place stands on its own pedestal, numbered.
+    expect(places.map((li) => li.lastElementChild!.textContent)).toEqual(['1', '2', '3']);
+    // Each card shows the same parts: «Решено» and «Точность».
+    for (const li of places) {
+      expect(li).toHaveTextContent(/Решено/);
+      expect(li).toHaveTextContent(/Точность/);
+    }
+  });
+
   it('the podium wears the medal of the real place — a tie shares it', async () => {
     vi.mocked(api.getLeaderboard).mockResolvedValue(
       board({ entries: [entry(1, 'А'), entry(1, 'Б'), entry(3, 'В')] }),

@@ -20,7 +20,12 @@ import { r36Variants } from './russianDoshchinsky36/index.js';
 import * as schema from './schema.js';
 import { STRESS_ENTRIES } from './stressDictionary/data.js';
 import { createTestDb } from './testing.js';
-import { BANK_NUMBERS, bankCollectionSlug, bankSource } from './zybrilkaRussian/bank.js';
+import { BANK_NUMBERS, bankSource } from './zybrilkaRussian/bank.js';
+import {
+  legacyCollectionSlug,
+  ZR_COLLECTION_SLUG,
+  zrSetNumber,
+} from './zybrilkaRussian/collection.js';
 import { TASK4_INSTRUCTION } from './zybrilkaRussian/data/task04.js';
 import { TASK8_CORRECT, TASK8_ERRORS, TASK8_TYPES } from './zybrilkaRussian/data/task08.js';
 import { generalRule21, TEXTS_21 } from './zybrilkaRussian/data/task21.js';
@@ -338,7 +343,7 @@ describe('Зубрилка, банк №4–22 — import', { timeout: 120_000 }
     expect(r.map((x) => x.taskNumber)).toEqual(complete.map((b) => b.taskNumber));
   });
 
-  it('imports every number into its own collection of sets × 10', async () => {
+  it('imports every number, №10 too, into one collection of sets × 10', async () => {
     const r = await importZybrilkaRussianBank(testDb.db, { allowIncomplete: true });
     expect(r).toHaveLength(BANK_NUMBERS.length);
     const rows = await bankRows();
@@ -350,21 +355,54 @@ describe('Зубрилка, банк №4–22 — import', { timeout: 120_000 }
       expect(t.contentHash).toBe(bankContentHash(t.taskNumber, t.sourceVariant!, t.conditionMd));
       expect(`${t.source} ${t.sourceDocument}`).not.toMatch(/ФИПИ|Дощинск/i);
     }
-    for (const b of BANK_NUMBERS) {
-      const [c] = await testDb.db
-        .select()
-        .from(schema.collections)
-        .where(eq(schema.collections.slug, bankCollectionSlug(b.taskNumber)));
-      expect(c).toMatchObject({ publisher: 'Зубрилка', inAllSources: true, examFormat: null });
-      const links = await testDb.db
-        .select({ taskNumber: schema.tasks.taskNumber })
-        .from(schema.variantTasks)
-        .innerJoin(schema.variants, eq(schema.variants.id, schema.variantTasks.variantId))
-        .innerJoin(schema.tasks, eq(schema.tasks.id, schema.variantTasks.taskId))
-        .where(eq(schema.variants.collectionId, c!.id));
-      expect(links).toHaveLength(b.tasks.length);
-      expect(new Set(links.map((l) => l.taskNumber))).toEqual(new Set([b.taskNumber]));
-    }
+    const zr = await testDb.db
+      .select()
+      .from(schema.collections)
+      .where(eq(schema.collections.slug, ZR_COLLECTION_SLUG));
+    expect(zr).toHaveLength(1);
+    expect(zr[0]).toMatchObject({
+      publisher: 'Зубрилка',
+      status: 'published',
+      inAllSources: true,
+      examFormat: null,
+    });
+    const links = await testDb.db
+      .select({
+        taskNumber: schema.tasks.taskNumber,
+        set: schema.variants.variantNumber,
+        n: schema.tasks.sourceVariant,
+      })
+      .from(schema.variantTasks)
+      .innerJoin(schema.variants, eq(schema.variants.id, schema.variantTasks.variantId))
+      .innerJoin(schema.tasks, eq(schema.tasks.id, schema.variantTasks.taskId))
+      .where(eq(schema.variants.collectionId, zr[0]!.id));
+    // №10 (100 tasks) + the bank, every number in the one source.
+    expect(links).toHaveLength(100 + all.length);
+    expect([...new Set(links.map((l) => l.taskNumber))].sort((a, b) => a - b)).toEqual(
+      [...BANK_NUMBERS.map((b) => b.taskNumber), 10].sort((a, b) => a - b),
+    );
+    for (const l of links) expect(l.set).toBe(zrSetNumber(l.taskNumber, Math.ceil(l.n! / 10)));
+    const sets = await testDb.db
+      .select({ id: schema.variants.id })
+      .from(schema.variants)
+      .where(eq(schema.variants.collectionId, zr[0]!.id));
+    expect(sets).toHaveLength(
+      10 + BANK_NUMBERS.reduce((s, b) => s + Math.ceil(b.tasks.length / 10), 0),
+    );
+    // No per-number source is left in the picker.
+    const perNumber = await testDb.db
+      .select({ slug: schema.collections.slug })
+      .from(schema.collections)
+      .where(
+        and(
+          inArray(
+            schema.collections.slug,
+            [10, ...BANK_NUMBERS.map((b) => b.taskNumber)].map(legacyCollectionSlug),
+          ),
+          eq(schema.collections.status, 'published'),
+        ),
+      );
+    expect(perNumber).toEqual([]);
   });
 
   it('a second run changes nothing; №10 stays untouched', async () => {
@@ -407,5 +445,61 @@ describe('Зубрилка, банк №4–22 — import', { timeout: 120_000 }
     await expect(
       importZybrilkaRussianBank(testDb.db, { numbers: broken, allowIncomplete: true }),
     ).rejects.toThrow(/hint is missing/);
+  });
+});
+
+describe('Зубрилка — moving sets out of the old per-number sources', { timeout: 120_000 }, () => {
+  let testDb: Awaited<ReturnType<typeof createTestDb>>;
+  beforeAll(async () => {
+    testDb = await createTestDb();
+  });
+  afterAll(async () => {
+    await testDb.close();
+  });
+
+  it('keeps set ids, moves them into the one source and archives the emptied one', async () => {
+    const five = BANK_NUMBERS.find((b) => b.taskNumber === 5)!;
+    await testDb.db.insert(schema.subjects).values({ id: 'russian', name: 'Русский язык' });
+    const [old] = await testDb.db
+      .insert(schema.collections)
+      .values({ subjectId: 'russian', slug: legacyCollectionSlug(5), title: 'Зубрилка — №5' })
+      .returning({ id: schema.collections.id });
+    const oldSets = await testDb.db
+      .insert(schema.variants)
+      .values(
+        Array.from({ length: 10 }, (_, i) => ({
+          collectionId: old!.id,
+          variantNumber: i + 1,
+          title: `Зубрилка — №5, набор ${i + 1}`,
+        })),
+      )
+      .returning({ id: schema.variants.id, n: schema.variants.variantNumber });
+
+    await importZybrilkaRussianBank(testDb.db, { numbers: [five] });
+    const moved = await testDb.db
+      .select({
+        id: schema.variants.id,
+        n: schema.variants.variantNumber,
+        slug: schema.collections.slug,
+      })
+      .from(schema.variants)
+      .innerJoin(schema.collections, eq(schema.collections.id, schema.variants.collectionId));
+    expect(moved).toHaveLength(10);
+    for (const s of oldSets)
+      expect(moved.find((m) => m.id === s.id)).toEqual({
+        id: s.id,
+        n: zrSetNumber(5, s.n),
+        slug: ZR_COLLECTION_SLUG,
+      });
+    const [archived] = await testDb.db
+      .select({ status: schema.collections.status })
+      .from(schema.collections)
+      .where(eq(schema.collections.id, old!.id));
+    expect(archived).toEqual({ status: 'archived' });
+
+    // A second run finds the sets in place and creates none.
+    await importZybrilkaRussianBank(testDb.db, { numbers: [five] });
+    const again = await testDb.db.select({ id: schema.variants.id }).from(schema.variants);
+    expect(again.map((v) => v.id).sort()).toEqual(oldSets.map((v) => v.id).sort());
   });
 });

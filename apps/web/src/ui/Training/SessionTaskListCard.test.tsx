@@ -97,3 +97,73 @@ describe('SessionTaskListCard — instant click feedback', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('SessionTaskListCard — long lists stay compact', () => {
+  const list = (n: number, current: number): SessionTask[] =>
+    Array.from({ length: n }, (_, i) => ({
+      index: i + 1,
+      status: i + 1 === current ? 'current' : 'pending',
+    }));
+
+  it('shows where you are: «N из M» next to the title', () => {
+    render(<SessionTaskListCard title="Задания" sessionTasks={list(200, 37)} onSelect={vi.fn()} />);
+    const nav = screen.getByRole('navigation', { name: 'Задания' });
+    expect(nav).toHaveTextContent('37 из 200');
+  });
+
+  it('a short variant keeps a plain grid; a long list scrolls inside its own box', () => {
+    const { rerender } = render(
+      <SessionTaskListCard title="Задания" sessionTasks={list(27, 1)} onSelect={vi.fn()} />,
+    );
+    const grid = () => screen.getByRole('button', { name: 'Задание 1' }).parentElement!;
+    expect(grid().className).not.toMatch(/scroll/);
+    rerender(
+      <SessionTaskListCard title="Задания" sessionTasks={list(200, 1)} onSelect={vi.fn()} />,
+    );
+    expect(grid().className).toMatch(/scroll/);
+    expect(screen.getAllByRole('button')).toHaveLength(200);
+  });
+
+  it('keeps the current number in the grid’s own view, never scrolling the page', () => {
+    const scrollTo = vi.fn();
+    window.scrollTo = scrollTo as unknown as typeof window.scrollTo;
+    const proto = HTMLElement.prototype;
+    const offsetTop = Object.getOwnPropertyDescriptor(proto, 'offsetTop');
+    const offsetHeight = Object.getOwnPropertyDescriptor(proto, 'offsetHeight');
+    const clientHeight = Object.getOwnPropertyDescriptor(proto, 'clientHeight');
+    Object.defineProperty(proto, 'offsetHeight', { configurable: true, get: () => 36 });
+    Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => 250 });
+    Object.defineProperty(proto, 'offsetTop', {
+      configurable: true,
+      get(this: HTMLElement) {
+        const n = Number(this.textContent);
+        return Number.isFinite(n) ? Math.floor((n - 1) / 7) * 42 : 0;
+      },
+    });
+    try {
+      render(
+        <SessionTaskListCard title="Задания" sessionTasks={list(200, 150)} onSelect={vi.fn()} />,
+      );
+      const grid = screen.getByRole('button', { name: 'Задание 150' }).parentElement!;
+      // Row 21 (offset 882) centred in a 250px box.
+      expect(grid.scrollTop).toBe(882 - (250 - 36) / 2);
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      if (offsetTop) Object.defineProperty(proto, 'offsetTop', offsetTop);
+      if (offsetHeight) Object.defineProperty(proto, 'offsetHeight', offsetHeight);
+      if (clientHeight) Object.defineProperty(proto, 'clientHeight', clientHeight);
+    }
+  });
+
+  it('the sheet variant leaves the title to its sheet', () => {
+    render(
+      <SessionTaskListCard
+        variant="sheet"
+        title="Все задания"
+        sessionTasks={list(60, 3)}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('navigation', { name: 'Все задания' })).not.toHaveTextContent('из 60');
+  });
+});

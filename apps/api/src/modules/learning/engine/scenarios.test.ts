@@ -33,7 +33,7 @@ describe('Learning Engine scenarios (real content, production auth)', () => {
       db: testDb.db,
       authConfig: loadConfig({ NODE_ENV: 'test' }),
     });
-  });
+  }, 300_000); // the full content takes long to import on a busy CI runner
   afterAll(async () => {
     await app.close();
     await testDb.close();

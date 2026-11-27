@@ -334,33 +334,46 @@ const PodiumCard = memo(function PodiumCard({
 }) {
   return (
     <li
-      className={clsx(styles.podiumCard, entry.isMe && styles.isMe)}
+      className={clsx(styles.podiumPlace, entry.isMe && styles.isMe)}
       data-place={place}
       aria-label={`${entry.rank} место: ${entry.name}${entry.isMe ? ' (это ты)' : ''}, ${entry.points} очков`}
     >
-      {/* The medal of the real rank (a tie shares it), not of the slot. */}
-      <PlaceIcon rank={entry.rank <= 3 ? entry.rank : null} size={30} className={styles.medal} />
-      <span className={styles.podiumAvatar}>
-        <EntryAvatar entry={entry} avatarUrl={avatarUrl} size={place === 1 ? 72 : 60} />
-      </span>
-      <span className={styles.podiumName}>{entry.name}</span>
-      <span className={styles.podiumBadges}>
-        <LevelPill level={entry.level} />
-        {entry.isMe && <span className={styles.meBadge}>Это ты</span>}
-      </span>
-      <span className={styles.podiumPoints}>
-        <Icon name="star" size={18} className={styles.pointsIcon} />
-        {num.format(entry.points)}
-      </span>
-      <span className={styles.podiumStats}>
-        <span>
-          Решено задач: <strong>{num.format(entry.solved)}</strong>
+      {/* The card: same parts for every place, one line each — so the
+          pedestal alone decides the height order, whatever the names. */}
+      <div className={styles.podiumCard}>
+        {/* The medal of the real rank (a tie shares it), not of the slot. */}
+        <PlaceIcon rank={entry.rank <= 3 ? entry.rank : null} size={28} className={styles.medal} />
+        <span className={styles.podiumAvatar}>
+          <EntryAvatar entry={entry} avatarUrl={avatarUrl} size={place === 1 ? 68 : 56} />
         </span>
-        <span>
-          Точность:{' '}
-          <strong>{entry.accuracyPercent === null ? '—' : `${entry.accuracyPercent}%`}</strong>
+        <span className={styles.podiumName} title={entry.name}>
+          {entry.name}
         </span>
-      </span>
+        <span className={styles.podiumBadges}>
+          <LevelPill level={entry.level} />
+          {entry.isMe && <span className={styles.meBadge}>Это ты</span>}
+        </span>
+        <span className={styles.podiumPoints}>
+          <Icon name="star" size={16} className={styles.pointsIcon} />
+          {num.format(entry.points)}
+        </span>
+        <span className={styles.podiumStats}>
+          <span title="Решено задач">
+            <span className={styles.statLabel}>Решено </span>
+            <span className={styles.statShort}>реш. </span>
+            <strong>{num.format(entry.solved)}</strong>
+          </span>
+          <span title="Точность">
+            <span className={styles.statLabel}>Точность </span>
+            <span className={styles.statShort}>точн. </span>
+            <strong>{entry.accuracyPercent === null ? '—' : `${entry.accuracyPercent}%`}</strong>
+          </span>
+        </span>
+      </div>
+      {/* The pedestal: 1 tallest, 2 lower, 3 lowest — fixed heights. */}
+      <div className={styles.step} aria-hidden="true">
+        {place}
+      </div>
     </li>
   );
 });

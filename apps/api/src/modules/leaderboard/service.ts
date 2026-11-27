@@ -158,7 +158,6 @@ export async function getLeaderboard(
         userId: schema.attempts.userId,
         answers: count(),
         correct: count(sql`case when ${schema.attempts.isCorrect} then 1 end`),
-        solved: sql<number>`count(distinct ${schema.attempts.taskId}) filter (where ${schema.attempts.isCorrect})::int`,
       })
       .from(schema.attempts)
       .innerJoin(schema.tasks, eq(schema.tasks.id, schema.attempts.taskId))
@@ -206,7 +205,9 @@ export async function getLeaderboard(
     const s = statsOf.get(id);
     return {
       level: levelForXp(personOf.get(id)?.totalXp ?? 0),
-      solved: s?.solved ?? 0,
+      // «Решено» = every checked answer, right or wrong, repeats included;
+      // accuracy is its own number.
+      solved: s?.answers ?? 0,
       accuracyPercent: percent(s?.correct ?? 0, s?.answers ?? 0),
     };
   };

@@ -291,7 +291,7 @@ describe('StatisticsMobile — real progress data', () => {
     );
     renderWithNav();
     await waitFor(() => expect(screen.getByText('9 из 12')).toBeInTheDocument());
-    expect(screen.getByText('10 пробовал')).toBeInTheDocument();
+    expect(screen.getByText('верно 9 · неверно 3')).toBeInTheDocument();
     expect(screen.getByText('активных 4 дня')).toBeInTheDocument();
     expect(screen.getByText(/в среднем .* на ответ/)).toBeInTheDocument();
   });
@@ -604,11 +604,10 @@ describe('StatisticsMobile — «Рейтинг»', () => {
   });
 });
 
-// «Решено заданий 3 из 190» used to count answer rows against a
-// «Все источники»-only total: one task answered three times read as 3,
-// and ЕГЭ-2027 work could overtake a total that ignored it.
-describe('StatisticsMobile — «Решено N из M» counts tasks, out of every source', () => {
-  it('uses distinct solved tasks and the all-sources total', async () => {
+// «Решено» = every checked answer, right and wrong (stage 3); the bank's
+// size (every source) is shown next to it, never as «N из M».
+describe('StatisticsMobile — «Решено» counts every answer', () => {
+  it('3 right + 2 wrong = 5 решено, with the split and the bank size', async () => {
     vi.mocked(api.getProgressSummary).mockResolvedValue({
       solvedTotal: 5,
       uniqueSolvedTotal: 2,
@@ -624,8 +623,8 @@ describe('StatisticsMobile — «Решено N из M» counts tasks, out of ev
     });
     renderWithNav();
     await userEvent.click(screen.getByRole('tab', { name: 'По заданиям' }));
-    await waitFor(() => expect(screen.getByText('2 из 678')).toBeInTheDocument());
-    expect(screen.queryByText('5 из 678')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('5 решено')).toBeInTheDocument());
+    expect(screen.getByText('верно 3, неверно 2 · в банке 678 заданий')).toBeInTheDocument();
     expect(screen.queryByText(/из 190/)).not.toBeInTheDocument();
   });
 });

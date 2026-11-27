@@ -1,89 +1,5 @@
-.hero {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-6);
-  margin-bottom: var(--space-5);
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-modal);
-  background-image: radial-gradient(
-    circle at 100% 0%,
-    color-mix(in srgb, var(--subject-accent, var(--color-accent-primary)) 18%, transparent),
-    transparent 60%
-  );
-}
-
-.heroIllustration {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 9rem;
-  height: 9rem;
-}
-
-.heroStats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-5);
-  margin-top: var(--space-3);
-}
-
-.heroStat {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-body-sm);
-  color: var(--color-text-secondary);
-}
-
-.heroStat strong {
-  color: var(--color-text-primary);
-}
-
 .modes {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.modeButton {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-card);
-  background: var(--color-bg-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  text-align: left;
-}
-
-.modeButton:hover {
-  background: var(--color-bg-elevated);
-}
-
-.modeButtonActive {
-  border-color: var(--color-accent-primary);
-  background: color-mix(in srgb, var(--color-accent-primary) 14%, var(--color-bg-surface));
-  color: var(--color-text-primary);
-}
-
-.modeLabel {
-  display: block;
-  font-size: var(--font-size-body-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-}
-
-.modeCaption {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  margin: var(--space-4) 0;
 }
 
 .grid {
@@ -381,10 +297,6 @@
 }
 
 @media (max-width: 1440px) {
-  .modes {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .numberGrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -395,20 +307,6 @@
 }
 
 @media (max-width: 1180px) {
-  .hero {
-    grid-template-columns: 1fr;
-    text-align: center;
-    justify-items: center;
-  }
-
-  .heroStats {
-    justify-content: center;
-  }
-
-  .modes {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .grid {
     grid-template-columns: 1fr;
   }

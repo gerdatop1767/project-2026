@@ -1,3 +1,4 @@
+import { ZR_COLLECTION_SLUG } from './collection.js';
 import { TASK4 } from './data/task04.js';
 import { TASK5 } from './data/task05.js';
 import { TASK6 } from './data/task06.js';
@@ -47,9 +48,8 @@ export const BANK_NUMBERS: readonly BankNumber[] = [
 
 export const bankSource = (taskNumber: number) =>
   `Зубрилка. Авторские задания ЕГЭ по русскому языку, №${taskNumber}`;
-export const bankCollectionSlug = (taskNumber: number) => `zybrilka-russian-${taskNumber}`;
-export const bankCollectionTitle = (taskNumber: number) =>
-  `Зубрилка — авторские задания по русскому языку, №${taskNumber}`;
+/** All numbers share one collection (zybrilkaRussian/collection.ts); kept for callers. */
+export const bankCollectionSlug = (_taskNumber: number) => ZR_COLLECTION_SLUG;
 export const BANK_TAG = 'zybrilka-russian-bank';
 export const BANK_YEAR = 2027;
 export const BANK_SET_SIZE = 10;

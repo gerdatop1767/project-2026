@@ -122,7 +122,7 @@ describe('StatisticsDesktop — every number follows the period', () => {
       await user.click(screen.getByRole('tab', { name: tab }));
       await expectBars(bars);
       expect(await screen.findByText(`${answers - 2} из ${answers}`)).toBeInTheDocument();
-      expect(screen.getByText(`${answers} пробовал`)).toBeInTheDocument();
+      expect(screen.getByText(`верно ${answers - 2} · неверно 2`)).toBeInTheDocument();
     }
     // All time since the first answer (1 March), drawn by weeks.
     await user.click(screen.getByRole('tab', { name: 'Всё время' }));
