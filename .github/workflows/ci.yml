@@ -45,8 +45,12 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      # Build first: the tests import the workspace packages (@zybrilka/shared,
+      # @zybrilka/db) through their built `dist/`, and apps/web/vite.config.ts
+      # loads them while vitest starts. On a clean checkout `pnpm test` before
+      # `pnpm build` cannot even load its config.
       - run: pnpm build
+      - run: pnpm test
 
       - name: Apply migrations to PostgreSQL 16 (twice, must be idempotent)
         env:

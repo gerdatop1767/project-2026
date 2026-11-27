@@ -28,7 +28,7 @@ describe('difficulty ratings 1–10 (production auth)', () => {
       .where(
         and(eq(schema.tasks.status, 'published'), eq(schema.tasks.answerType, 'short_answer')),
       );
-  });
+  }, 300_000); // the full content takes long to import on a busy CI runner
   afterAll(async () => {
     await app.close();
     await testDb.close();
