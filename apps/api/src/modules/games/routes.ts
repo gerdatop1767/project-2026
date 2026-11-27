@@ -2,6 +2,7 @@ import type { Database } from '@zybrilka/db';
 import {
   MINI_GAMES,
   miniGameFinishRequestSchema,
+  miniGameRatingQuerySchema,
   miniGameSessionRequestSchema,
   quizAnswerRequestSchema,
   quizRoundQuerySchema,
@@ -18,6 +19,7 @@ import {
   validRoundSize,
 } from './settings.js';
 import { NotEnoughQuestionsError, abandonSession } from './sessions.js';
+import { miniGameRating } from './ratings.js';
 import {
   answerStress,
   finishStressSession,
@@ -195,6 +197,18 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
       }
       throw error;
     }
+  });
+
+  // A game's own ratings, all time: «Лучший результат» / «Всего очков».
+  app.get('/games/:gameId/rating', { config: limit(120) }, async (request, reply) => {
+    const gameId = (request.params as { gameId?: string }).gameId ?? '';
+    if (!MINI_GAMES.some((g) => g.id === gameId)) {
+      return reply.code(404).send({ error: 'game_not_found' });
+    }
+    const query = miniGameRatingQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    reply.header('cache-control', 'no-store');
+    return miniGameRating(db, gameId, query.data.kind, query.data.limit, userOf(request));
   });
 
   app.get('/games/stress/active', async (request, reply) => {
