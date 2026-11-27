@@ -9,6 +9,8 @@ import { makeAuthUser } from './authTestUtils.js';
 
 vi.mock('./api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
+  // Active-time heartbeats are not what these tests are about.
+  sendActivity: vi.fn(() => Promise.resolve()),
   getCurrentUser: vi.fn(),
   loginWithTelegram: vi.fn(),
   logout: vi.fn(),

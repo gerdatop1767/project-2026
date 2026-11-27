@@ -1,6 +1,8 @@
 import { schema, type Database } from '@zybrilka/db';
+import { DICTIONARY_GAME_ID } from '@zybrilka/shared';
 import { inArray } from 'drizzle-orm';
 import { STRESS_GAME_ID } from './stress.js';
+import { dictionaryItemById } from './dictionary.js';
 import { isQuizGame, quizBank } from './quiz.js';
 
 export interface ItemLabel {
@@ -37,6 +39,13 @@ export async function miniGameItemLabels(
       .from(schema.stressWords)
       .where(inArray(schema.stressWords.id, [...ids]));
     for (const w of words) out.set(w.id, { text: w.word, answer: w.marked });
+    return out;
+  }
+  if (gameId === DICTIONARY_GAME_ID) {
+    for (const id of ids) {
+      const item = dictionaryItemById(id);
+      if (item) out.set(id, { text: short(`${item.prompt} — ${item.text}`), answer: item.correct });
+    }
     return out;
   }
   if (!isQuizGame(gameId)) return out;

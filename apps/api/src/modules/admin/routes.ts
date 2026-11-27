@@ -9,6 +9,7 @@ import type { Config } from '../../config.js';
 import { rejectCrossSiteWrites } from '../../plugins/authSession.js';
 import type { RequestMetrics } from '../../plugins/requestMetrics.js';
 import { requireAdmin } from './access.js';
+import { activityOverview, activityStats } from '../activity/service.js';
 import { writeAudit } from './audit.js';
 import {
   PeriodError,
@@ -232,8 +233,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   app.get('/admin/users/:id', async (request, reply) => {
     const { id } = parse(idParams, request.params, 'invalid_id');
     const card = await userCardReport(db, id);
-    return card ?? notFound(reply);
+    if (!card) return notFound(reply);
+    // Active time on the platform (docs/ACTIVE_TIME.md).
+    return { ...card, activity: await activityStats(db, id) };
   });
+
+  // ── Активное время на платформе (docs/ACTIVE_TIME.md) ────────────────
+  app.get('/admin/activity', async () => activityOverview(db));
   app.post('/admin/users/:id/revoke-sessions', async (request, reply) => {
     const { id } = parse(idParams, request.params, 'invalid_id');
     parse(z.object({ confirm: z.literal(true) }), request.body, 'invalid_body');

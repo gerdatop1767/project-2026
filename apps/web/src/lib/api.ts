@@ -1,6 +1,8 @@
 import { metrikaGoal } from './metrika.js';
 import { recordTaskResult } from './sessionResults.js';
 import type {
+  MiniGameRatingKind,
+  MiniGameRatingResponse,
   MiniGameActiveResponse,
   MiniGameFinishResponse,
   QuizQuestion,
@@ -55,6 +57,12 @@ import type {
   QuizMode,
   QuizProgressResponse,
   QuizRoundResponse,
+  DictionaryAnswerRequest,
+  DictionaryAnswerResponse,
+  DictionaryQuestion,
+  DictionaryReferenceResponse,
+  DictionaryRoundResponse,
+  DictionarySummaryResponse,
   StressAnswerRequest,
   StressAnswerResponse,
   StressMode,
@@ -902,6 +910,75 @@ export function abandonStressRound(sessionId: string): Promise<void> {
 
 export function getStressProgress(): Promise<StressProgressResponse> {
   return rawApiFetch('/games/stress/progress');
+}
+
+/** «Словарные слова и исключения» (docs/DICTIONARY_GAME.md). */
+export function getDictionarySummary(): Promise<DictionarySummaryResponse> {
+  return rawApiFetch('/games/dictionary/summary');
+}
+
+export function getDictionaryReference(task: number): Promise<DictionaryReferenceResponse> {
+  return rawApiFetch(`/games/dictionary/reference/${task}`);
+}
+
+export function getDictionaryRound(query: {
+  task: number;
+  category: string | null;
+  mode: 'all' | 'mistakes';
+  size: number;
+}): Promise<DictionaryRoundResponse> {
+  const params = new URLSearchParams({
+    task: String(query.task),
+    mode: query.mode,
+    size: String(query.size),
+  });
+  if (query.category) params.set('category', query.category);
+  return rawApiFetch(`/games/dictionary/round?${params.toString()}`);
+}
+
+export function answerDictionary(
+  request: DictionaryAnswerRequest,
+): Promise<DictionaryAnswerResponse> {
+  return apiFetch('/games/dictionary/answer', { method: 'POST', body: JSON.stringify(request) });
+}
+
+export function finishDictionaryRound(sessionId: string): Promise<MiniGameFinishResponse | null> {
+  return apiFetch<MiniGameFinishResponse>('/games/dictionary/finish', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => null);
+}
+
+export function getDictionaryActive(
+  sessionId?: string,
+): Promise<MiniGameActiveResponse<DictionaryQuestion>> {
+  const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  return rawApiFetch(`/games/dictionary/active${q}`);
+}
+
+export function abandonDictionaryRound(sessionId: string): Promise<void> {
+  return apiFetch<void>('/games/dictionary/abandon', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  });
+}
+
+/** Active time (docs/ACTIVE_TIME.md): slots this client was active in. */
+export function sendActivity(slots: number[]): Promise<void> {
+  // rawApiFetch: a heartbeat changes nothing the app reads — the read cache stays.
+  return rawApiFetch<{ counted: number }>('/activity/heartbeat', {
+    method: 'POST',
+    body: JSON.stringify({ slots }),
+    keepalive: true,
+  }).then(() => undefined);
+}
+
+/** A mini-game's own rating, all time: best round or all points. */
+export function getMiniGameRating(
+  gameId: string,
+  kind: MiniGameRatingKind,
+): Promise<MiniGameRatingResponse> {
+  return rawApiFetch(`/games/${encodeURIComponent(gameId)}/rating?kind=${kind}&limit=10`);
 }
 
 // ------------------------------------------------------- quiz mini-games (docs/MINI_GAMES.md)

@@ -20,6 +20,8 @@ vi.mock('../../lib/api.js', async () => {
   const actual = await vi.importActual<typeof ApiModule>('../../lib/api.js');
   return {
     ...actual,
+    // Active-time heartbeats are not what these tests are about.
+    sendActivity: vi.fn(() => Promise.resolve()),
     startVkHandoff: vi.fn(),
     claimVkHandoff: vi.fn(),
     startYandexHandoff: vi.fn(),

@@ -11,7 +11,14 @@ import {
 } from 'react';
 import { startAnalytics } from './analytics.js';
 import type { AuthUser } from '@zybrilka/shared';
-import { getCurrentUser, loginWithTelegram, logout as apiLogout, onUnauthorized } from './api.js';
+import {
+  getCurrentUser,
+  loginWithTelegram,
+  logout as apiLogout,
+  onUnauthorized,
+  sendActivity,
+} from './api.js';
+import { startActivityTracker } from './activityTracker.js';
 import { telegramErrorCode } from './telegramErrors.js';
 import { getTelegramInitData, prepareTelegramApp } from './telegramMiniApp.js';
 import { resetPrivateCaches } from './privateCaches.js';
@@ -196,6 +203,17 @@ export function AuthProvider({
   // our back (expiry, revoked, deleted) — drop signed-in state so the
   // app closes the private screens instead of showing a broken trainer.
   useEffect(() => onUnauthorized(() => applyUser(null)), [applyUser]);
+
+  // Active time on the platform — counted for a signed-in user only.
+  const signedInId = user ? user.id : null;
+  useEffect(() => {
+    if (!signedInId) return;
+    const tracker = startActivityTracker({ send: sendActivity });
+    return () => {
+      void tracker.flush();
+      tracker.stop();
+    };
+  }, [signedInId]);
 
   const logout = useCallback(async () => {
     await apiLogout();

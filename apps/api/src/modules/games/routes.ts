@@ -1,7 +1,13 @@
 import type { Database } from '@zybrilka/db';
 import {
+  DICTIONARY_GAME_ID,
   MINI_GAMES,
+  dictionaryAnswerSchema,
+  dictionaryReference,
+  dictionaryTask,
+  dictionaryRoundQuerySchema,
   miniGameFinishRequestSchema,
+  miniGameRatingQuerySchema,
   miniGameSessionRequestSchema,
   quizAnswerRequestSchema,
   quizRoundQuerySchema,
@@ -18,6 +24,17 @@ import {
   validRoundSize,
 } from './settings.js';
 import { NotEnoughQuestionsError, abandonSession } from './sessions.js';
+import { miniGameRating } from './ratings.js';
+import {
+  answerDictionary,
+  dictionaryHubProgress,
+  dictionaryItemCount,
+  dictionaryKnown,
+  dictionaryResume,
+  dictionaryRound,
+  dictionarySummary,
+  finishDictionary,
+} from './dictionary.js';
 import {
   answerStress,
   finishStressSession,
@@ -62,13 +79,17 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
 
   app.get('/games', async (request, reply): Promise<MiniGamesResponse> => {
     const userId = userOf(request);
-    const [stress, quiz, stressTotal] = await Promise.all([
+    const [stress, quiz, stressTotal, dictionary] = await Promise.all([
       userId ? stressSummary(db, userId) : null,
       userId ? quizSummaries(db, userId) : null,
       userId ? null : stressCount(db),
+      userId ? dictionaryHubProgress(db, userId) : null,
     ]);
     const games = await Promise.all(
       MINI_GAMES.map(async (g) => {
+        if (g.id === DICTIONARY_GAME_ID) {
+          return { ...g, progress: dictionary, questionCount: dictionaryItemCount() };
+        }
         if (!isQuizGame(g.id)) {
           return { ...g, progress: stress, questionCount: stress?.total ?? stressTotal ?? 0 };
         }
@@ -197,6 +218,18 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
     }
   });
 
+  // A game's own ratings, all time: «Лучший результат» / «Всего очков».
+  app.get('/games/:gameId/rating', { config: limit(120) }, async (request, reply) => {
+    const gameId = (request.params as { gameId?: string }).gameId ?? '';
+    if (!MINI_GAMES.some((g) => g.id === gameId)) {
+      return reply.code(404).send({ error: 'game_not_found' });
+    }
+    const query = miniGameRatingQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    reply.header('cache-control', 'no-store');
+    return miniGameRating(db, gameId, query.data.kind, query.data.limit, userOf(request));
+  });
+
   app.get('/games/stress/active', async (request, reply) => {
     const query = activeQuerySchema.safeParse(request.query);
     if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
@@ -232,5 +265,69 @@ export const miniGamesRoutes: FastifyPluginAsync<MiniGamesRoutesOptions> = async
     if (!userId) return reply.code(401).send({ error: 'unauthorized' });
     reply.header('cache-control', 'no-store');
     return stressProgress(db, userId);
+  });
+
+  // «Словарные слова и исключения» (docs/DICTIONARY_GAME.md).
+  app.get('/games/dictionary/summary', async (request, reply) => {
+    reply.header('cache-control', 'no-store');
+    return dictionarySummary(db, userOf(request));
+  });
+
+  // «Справочник»: the words of a task — open to everyone, like the lists themselves.
+  app.get('/games/dictionary/reference/:task', async (request, reply) => {
+    const task = dictionaryTask(Number((request.params as { task?: string }).task));
+    if (!task) return reply.code(404).send({ error: 'task_not_found' });
+    reply.header('cache-control', 'public, max-age=3600');
+    return dictionaryReference(task);
+  });
+
+  app.get('/games/dictionary/round', { config: limit(60) }, async (request, reply) => {
+    const query = dictionaryRoundQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    const known = dictionaryKnown(query.data.task, query.data.category);
+    if (known !== 'ok') return reply.code(404).send({ error: `${known}_not_found` });
+    const userId = userOf(request);
+    if (query.data.mode !== 'all' && !userId) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+    reply.header('cache-control', 'no-store');
+    try {
+      return await dictionaryRound(db, userId, query.data);
+    } catch (error) {
+      if (error instanceof NotEnoughQuestionsError) {
+        return reply.code(409).send({ error: 'not_enough_questions', available: error.available });
+      }
+      throw error;
+    }
+  });
+
+  app.get('/games/dictionary/active', async (request, reply) => {
+    const query = activeQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'invalid_query' });
+    reply.header('cache-control', 'no-store');
+    return { session: await dictionaryResume(db, userOf(request), query.data.sessionId ?? null) };
+  });
+
+  app.post('/games/dictionary/abandon', { config: limit(60) }, async (request, reply) => {
+    const body = miniGameSessionRequestSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    await abandonSession(db, DICTIONARY_GAME_ID, body.data.sessionId, userOf(request));
+    return reply.code(204).send();
+  });
+
+  app.post('/games/dictionary/answer', { config: limit(120) }, async (request, reply) => {
+    const body = dictionaryAnswerSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    const result = await answerDictionary(db, userOf(request), body.data);
+    if (!result) return reply.code(404).send({ error: 'item_not_found' });
+    return result;
+  });
+
+  app.post('/games/dictionary/finish', { config: limit(60) }, async (request, reply) => {
+    const body = miniGameFinishRequestSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+    const result = await finishDictionary(db, userOf(request), body.data.sessionId);
+    if (!result) return reply.code(404).send({ error: 'session_not_found' });
+    return result;
   });
 };

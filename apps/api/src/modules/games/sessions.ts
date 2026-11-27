@@ -241,6 +241,18 @@ export async function finishGameSession(
       .update(s)
       .set({ finishedAt: now, firstTryCorrect: right, score })
       .where(eq(s.id, sessionId));
+    // The game's ratings: once per round, in this same transaction.
+    if (session.userId) {
+      await recordScore(tx, {
+        userId: session.userId,
+        gameId,
+        sessionId,
+        score,
+        correct: right,
+        questions: session.questionCount,
+        now,
+      });
+    }
     return { questionCount: session.questionCount, answered, firstTryCorrect: right, score };
   });
 }
@@ -250,4 +262,52 @@ export class NotEnoughQuestionsError extends Error {
   constructor(readonly available: number) {
     super(`only ${available} questions`);
   }
+}
+
+/**
+ * A finished round into the game's ratings (mini_game_scores): its points
+ * are added to the all-time total, and it becomes the best round only if
+ * it beats it (a tie keeps the earlier record).
+ */
+async function recordScore(
+  tx: Tx,
+  input: {
+    userId: string;
+    gameId: string;
+    sessionId: string;
+    score: number;
+    correct: number;
+    questions: number;
+    now: Date;
+  },
+): Promise<void> {
+  const t = schema.miniGameScores;
+  const better = sql`excluded.best_score > ${t.bestScore}`;
+  await tx
+    .insert(t)
+    .values({
+      userId: input.userId,
+      gameId: input.gameId,
+      bestScore: input.score,
+      bestCorrect: input.correct,
+      bestQuestions: input.questions,
+      bestSessionId: input.sessionId,
+      bestAt: input.now,
+      totalPoints: input.score,
+      rounds: 1,
+      updatedAt: input.now,
+    })
+    .onConflictDoUpdate({
+      target: [t.userId, t.gameId],
+      set: {
+        totalPoints: sql`${t.totalPoints} + excluded.total_points`,
+        rounds: sql`${t.rounds} + 1`,
+        bestScore: sql`case when ${better} then excluded.best_score else ${t.bestScore} end`,
+        bestCorrect: sql`case when ${better} then excluded.best_correct else ${t.bestCorrect} end`,
+        bestQuestions: sql`case when ${better} then excluded.best_questions else ${t.bestQuestions} end`,
+        bestSessionId: sql`case when ${better} then excluded.best_session_id else ${t.bestSessionId} end`,
+        bestAt: sql`case when ${better} then excluded.best_at else ${t.bestAt} end`,
+        updatedAt: input.now,
+      },
+    });
 }

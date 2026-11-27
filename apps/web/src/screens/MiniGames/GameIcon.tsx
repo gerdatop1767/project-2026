@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import {
   ArrowLeftRight,
   AudioLines,
+  BookA,
   BookOpenText,
   CaseSensitive,
   Calculator,
@@ -31,6 +32,7 @@ import styles from './GameIcon.module.css';
  */
 export const GAME_ICONS: Record<string, LucideIcon> = {
   stress: AudioLines, // ударение — звучание слова
+  dictionary: BookA, // словарь
   'root-vowels': Sprout, // корень
   prefixes: DoorOpen, // приставка — «вход» в слово
   'suffixes-endings': Puzzle, // части слова

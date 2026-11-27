@@ -63,3 +63,26 @@ export * from './gameStudyRules.js';
 export * from './mathDrills.js';
 export * from './statsPeriod.js';
 export * from './theory/index.js';
+export * from './activity.js';
+export * from './dictionaryWords.js';
+export {
+  DICTIONARY_GAME_ID,
+  allDictionaryItems,
+  dictionaryAnswerSchema,
+  dictionaryItems,
+  dictionaryMechanics,
+  dictionaryReference,
+  dictionaryRoundQuerySchema,
+  writtenForm,
+  type DictionaryAnswerRequest,
+  type DictionaryAnswerResponse,
+  type DictionaryItem,
+  type DictionaryMechanic,
+  type DictionaryQuestion,
+  type DictionaryReferenceResponse,
+  type DictionaryReferenceWord,
+  type DictionaryRoundQuery,
+  type DictionaryRoundResponse,
+  type DictionarySummaryResponse,
+  type DictionaryTaskSummary,
+} from './dictionaryGame.js';

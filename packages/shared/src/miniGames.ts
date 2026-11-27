@@ -30,6 +30,16 @@ export const MINI_GAMES: readonly MiniGameInfo[] = [
     egeTask: 'Задание 4',
     topic: 'norms',
   },
+  {
+    id: 'dictionary',
+    title: 'Словарные слова и исключения',
+    subjectId: 'russian',
+    subjectName: 'Русский язык',
+    description:
+      'Словарные слова, исключения и трудные написания к заданиям 9, 10, 12–15 ЕГЭ: пять видов вопросов, справочник и приёмы запоминания.',
+    egeTask: 'Задания 9–15',
+    topic: 'orthography',
+  },
   ...QUIZ_GAMES.map((g) => ({
     id: g.id,
     title: g.title,
@@ -366,4 +376,42 @@ export interface MiniGamesResponse {
     /** Questions the game has now (from the published tasks). */
     readonly questionCount: number;
   })[];
+}
+
+// ------------------------------------------------------------ рейтинги игр
+
+/** «Лучший результат» — one finished round; «Всего очков» — all rounds. */
+export const miniGameRatingKinds = ['best', 'total'] as const;
+export type MiniGameRatingKind = (typeof miniGameRatingKinds)[number];
+
+export const miniGameRatingQuerySchema = z.object({
+  kind: z.enum(miniGameRatingKinds).default('best'),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export interface MiniGameRatingEntry {
+  /** Shared by equal values. */
+  readonly rank: number;
+  readonly name: string;
+  readonly isMe: boolean;
+  readonly avatarHue: number;
+  readonly avatarVariant: number;
+  readonly avatarUrl: string | null;
+  /** Points: the best round's, or all rounds' together. */
+  readonly points: number;
+  /** The best round: right answers, questions, accuracy, when. */
+  readonly bestCorrect: number;
+  readonly bestQuestions: number;
+  readonly bestAccuracyPercent: number;
+  readonly bestAt: string;
+  readonly rounds: number;
+}
+
+export interface MiniGameRatingResponse {
+  readonly gameId: string;
+  readonly kind: MiniGameRatingKind;
+  readonly players: number;
+  readonly entries: readonly MiniGameRatingEntry[];
+  /** The viewer's own line (null for a guest or before a finished round). */
+  readonly me: MiniGameRatingEntry | null;
 }
