@@ -227,9 +227,10 @@ export function StatisticsMobile() {
   // (same mobile-flash bug fixed in Subject/Profile: `realProgress`
   // itself is correctly null-until-loaded, but collapsing it to 0 here
   // threw that honesty away for the UI).
-  // «Решено» = distinct tasks solved correctly (`uniqueSolved`), never the
-  // attempt-row count `solved`: answering one task three times is not «3».
-  const solvedTotal = realProgress ? (subjectRow?.uniqueSolved ?? 0) : null;
+  // «Решено» = every checked answer, right or wrong, repeats included
+  // (`solved`); how many were right is shown next to it, accuracy apart.
+  const solvedTotal = realProgress ? (subjectRow?.solved ?? 0) : null;
+  const correctTotal = realProgress ? (subjectRow?.correct ?? 0) : null;
   const accuracyPercent = subjectRow
     ? Math.round(subjectRow.accuracyPercent)
     : realProgress
@@ -350,9 +351,13 @@ export function StatisticsMobile() {
             </CircularProgress>
             <div>
               <p className="text-body" style={{ fontWeight: 700 }}>
-                {solvedTotal ?? (summaryLoading ? <SkeletonValue /> : '—')} из {totalLabel}
+                {solvedTotal ?? (summaryLoading ? <SkeletonValue /> : '—')} решено
               </p>
-              <p className="text-body-sm text-secondary">заданий решено</p>
+              <p className="text-body-sm text-secondary">
+                {correctTotal !== null && solvedTotal !== null
+                  ? `верно ${correctTotal}, неверно ${solvedTotal - correctTotal} · в банке ${totalLabel} заданий`
+                  : 'верных и неверных ответов'}
+              </p>
             </div>
           </Card>
           <Card>

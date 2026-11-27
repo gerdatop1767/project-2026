@@ -1,5 +1,5 @@
 import { prefetchMiniGames } from '../MiniGames/MiniGames.js';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { trackSubject } from '../../lib/analytics.js';
 import { useNavigation } from '../../lib/navigation.js';
 import { getSubjectContent } from '../../data/subjectContent.js';
@@ -12,7 +12,7 @@ import {
   startVariantSession,
 } from '../../lib/api.js';
 import { useAccountGate, type AccountFeature } from '../../lib/accountGate.js';
-import type { CollectionListItem, ProgressByTopicResponse } from '@zybrilka/shared';
+import type { CollectionListItem, ProgressByTopicResponse, TaskPublic } from '@zybrilka/shared';
 import {
   applyLearningSessionResponse,
   useLearningSessionContext,
@@ -37,6 +37,8 @@ const smartSubjects = allSubjectsList.filter((s) =>
 );
 import { TopicPicker } from '../../ui/Training/TopicPicker.js';
 import styles from './Training.module.css';
+import { UnlimitedTaskPicker } from './UnlimitedTaskPicker.js';
+import { useSessionState } from '../../lib/useSessionState.js';
 import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
 
 type TopicItem = ProgressByTopicResponse['items'][number];
@@ -132,13 +134,20 @@ export function Training() {
     set(!on);
   }
   const { setSession } = useLearningSessionContext();
-  const [subjectId, setSubjectId] = useState('math');
-  const [modeId, setModeId] = useState<TrainingMode['id']>('topic');
+  // The choices survive a trip to a task and back (same tab).
+  const [subjectId, setSubjectId] = useSessionState('zybrilka.training.subject', 'math');
+  const [modeId, setModeId] = useSessionState<TrainingMode['id']>(
+    'zybrilka.training.mode',
+    'topic',
+  );
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   // Which subject's collections have answered (success or failure) — until
   // then the «Сборник»/«Вариант» area shows a skeleton, not a gap.
   const [collectionsFor, setCollectionsFor] = useState<string | null>(null);
-  const [collectionSlug, setCollectionSlug] = useState<string | null>(null);
+  const [collectionSlug, setCollectionSlug] = useSessionState<string | null>(
+    'zybrilka.training.collection',
+    null,
+  );
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -160,11 +169,30 @@ export function Training() {
     topicsLoad?.key !== topicsKey ? 'loading' : topicsLoad.items === null ? 'error' : 'ready';
   const topics: readonly TopicItem[] =
     topicsLoad?.key === topicsKey ? (topicsLoad.items ?? []) : [];
-  const [topicId, setTopicId] = useState<string | null>(null);
-  const [topicRandom, setTopicRandom] = useState(false);
-  const [topicUnseen, setTopicUnseen] = useState(false);
-  const [topicNumbers, setTopicNumbers] = useState<ReadonlySet<number>>(new Set());
-  const [amount, setAmount] = useState<AmountId>('infinite');
+  const [topicId, setTopicId] = useSessionState<string | null>('zybrilka.training.topic', null);
+  const [topicRandom, setTopicRandom] = useSessionState('zybrilka.training.random', false);
+  const [topicUnseen, setTopicUnseen] = useSessionState('zybrilka.training.unseen', false);
+  const [topicNumberList, setTopicNumberList] = useSessionState<number[]>(
+    'zybrilka.training.numbers',
+    [],
+  );
+  const topicNumbers: ReadonlySet<number> = new Set(topicNumberList);
+  const setTopicNumbers = (
+    next: ReadonlySet<number> | ((prev: ReadonlySet<number>) => ReadonlySet<number>),
+  ) => setTopicNumberList((prev) => [...(typeof next === 'function' ? next(new Set(prev)) : next)]);
+  const [amount, setAmount] = useSessionState<AmountId>('zybrilka.training.amount', 'infinite');
+  // «Без ограничения»: picked task ids per subject/topic/source, kept while
+  // the tab lives; and the list as shown, in order, for the start.
+  const [unlimitedPicks, setUnlimitedPicks] = useSessionState<Record<string, string[]>>(
+    'zybrilka.training.unlimitedPicks',
+    {},
+  );
+  const unlimitedKey = `${subjectId}:${topicId ?? ''}:${collectionSlug ?? ''}`;
+  const unlimitedSelected = unlimitedPicks[unlimitedKey] ?? [];
+  const unlimitedTasks = useRef<readonly TaskPublic[]>([]);
+  const onUnlimitedLoaded = useCallback((tasks: readonly TaskPublic[]) => {
+    unlimitedTasks.current = tasks;
+  }, []);
   const [customAmount, setCustomAmount] = useState('');
 
   useEffect(() => {
@@ -322,6 +350,26 @@ export function Training() {
         setStartError('Выбери тему, чтобы начать.');
         return;
       }
+      if (amount === 'infinite') {
+        const picked = new Set(unlimitedSelected);
+        const chosen = unlimitedTasks.current.filter((t) => picked.has(t.id));
+        if (chosen.length === 0) {
+          setStartError('Отметь хотя бы одно задание — или нажми «Выбрать все».');
+          return;
+        }
+        const ordered = topicRandom ? shuffled(chosen) : chosen;
+        const first = ordered[0]!;
+        navigate({
+          screen: 'task',
+          subjectId: first.subjectId,
+          taskNumber: first.taskNumber,
+          taskId: first.id,
+          collectionSlug: collectionSlug ?? undefined,
+          customOrderedTasks: ordered.map((t) => ({ taskId: t.id, taskNumber: t.taskNumber })),
+          returnTo: { screen: 'training' },
+        });
+        return;
+      }
       const numbers = [...topicNumbers].sort((a, b) => a - b);
       let filters: TaskPickFilter[];
       if (numbers.length > 0) {
@@ -334,7 +382,7 @@ export function Training() {
           unseen: topicUnseen,
         }));
       } else {
-        let count = 1;
+        let count: number;
         if (amount === 'custom') {
           const parsed = Number(customAmount);
           if (!Number.isInteger(parsed) || parsed < 1) {
@@ -342,7 +390,7 @@ export function Training() {
             return;
           }
           count = Math.min(parsed, MAX_CUSTOM_AMOUNT);
-        } else if (amount !== 'infinite') {
+        } else {
           count = Number(amount);
         }
         filters = Array.from({ length: count }, () => ({
@@ -604,34 +652,58 @@ export function Training() {
                     </div>
                   </div>
 
-                  {topicNumbers.size === 0 && (
-                    <div>
-                      <SectionHeader title="Количество заданий" />
-                      <div className={styles.chipRow}>
-                        {amountOptions.map((option) => (
-                          <Chip
-                            key={option.id}
-                            icon={option.icon}
-                            selected={amount === option.id}
-                            onClick={() => setAmount(option.id)}
-                          >
-                            {option.label}
-                          </Chip>
-                        ))}
-                      </div>
-                      {amount === 'custom' && (
-                        <Input
-                          label="Сколько заданий"
-                          placeholder="Например, 15"
-                          inputMode="numeric"
-                          value={customAmount}
-                          onChange={(e) => setCustomAmount(e.target.value.replace(/\D/g, ''))}
-                          style={{ marginTop: 'var(--space-2)' }}
-                        />
-                      )}
+                  <div>
+                    <SectionHeader title="Количество заданий" />
+                    <div className={styles.chipRow}>
+                      {amountOptions.map((option) => (
+                        <Chip
+                          key={option.id}
+                          icon={option.icon}
+                          selected={amount === option.id}
+                          onClick={() => setAmount(option.id)}
+                        >
+                          {option.label}
+                        </Chip>
+                      ))}
                     </div>
-                  )}
+                    {amount === 'custom' && (
+                      <Input
+                        label="Сколько заданий"
+                        placeholder="Например, 15"
+                        inputMode="numeric"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value.replace(/\D/g, ''))}
+                        style={{ marginTop: 'var(--space-2)' }}
+                      />
+                    )}
+                    {amount !== 'infinite' && topicNumbers.size > 0 && (
+                      <p
+                        className="text-body-sm text-secondary"
+                        style={{ marginTop: 'var(--space-2)' }}
+                      >
+                        С выбранными номерами — по одному заданию на номер.
+                      </p>
+                    )}
+                  </div>
                 </div>
+
+                {amount === 'infinite' && (
+                  <div>
+                    <SectionHeader title="Задания темы" />
+                    <UnlimitedTaskPicker
+                      subjectId={subjectId}
+                      topicId={topicId}
+                      collection={collectionSlug}
+                      numbers={topicNumbers}
+                      unsolved={topicUnseen}
+                      selected={unlimitedSelected}
+                      onChange={(ids) =>
+                        setUnlimitedPicks((prev) => ({ ...prev, [unlimitedKey]: ids }))
+                      }
+                      onTasksLoaded={onUnlimitedLoaded}
+                    />
+                  </div>
+                )}
               </>
             )}
           </>

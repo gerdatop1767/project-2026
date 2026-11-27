@@ -27,7 +27,7 @@ describe('Learning Engine: automatic connection of new imports', () => {
   beforeAll(async () => {
     testDb = await createFullContentTestDb();
     await syncLearningOnStartup(testDb.db, silent);
-  });
+  }, 300_000); // the full content takes long to import on a busy CI runner
   afterAll(async () => {
     await testDb.close();
   });

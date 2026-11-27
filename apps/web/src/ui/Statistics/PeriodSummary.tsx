@@ -32,8 +32,8 @@ export function PeriodTiles({
         icon="variant"
         iconColor="var(--color-accent-primary-end)"
         label="Решено заданий"
-        value={t ? t.solvedTasks : '—'}
-        deltaLabel={t ? `${t.attemptedTasks} пробовал` : undefined}
+        value={t ? t.answers : '—'}
+        deltaLabel={t ? `верно ${t.correct} · неверно ${t.wrong}` : undefined}
         loading={loading}
         deltaDirection="none"
       />

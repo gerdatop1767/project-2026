@@ -318,7 +318,34 @@ export function hyphenItems(row: QuizTaskRow): QuizItem[] {
   });
 }
 
-/** №15: one question per numbered place — Н или НН. */
+/** The quiz gap: where the player puts the answer. */
+export const QUIZ_GAP = '▢';
+
+/** Gaps a text still has: the quiz gap plus any «..» / «…» left from the
+ * source (a letter nobody filled in). */
+export function gapCount(text: string): { quizGaps: number; otherGaps: number } {
+  return {
+    quizGaps: text.split(QUIZ_GAP).length - 1,
+    otherGaps: (text.match(/\.\.|…/g) ?? []).length,
+  };
+}
+
+/** «н»/«нн» in the case of the letters around the place: «НН» only when
+ * the word around it is written in capitals. */
+function nnLetters(double: boolean, before: string, after: string): string {
+  const upper = /[А-ЯЁ]$/.test(before) && (after === '' || /^[А-ЯЁ]/.test(after));
+  const letters = double ? 'нн' : 'н';
+  return upper ? letters.toUpperCase() : letters;
+}
+
+/**
+ * №15: one question per numbered place — Н или НН. Exactly one gap per
+ * question, in the word asked about: every OTHER numbered place of the
+ * sentence is filled with its right letters (known from the task's
+ * answer), so the rest of the sentence reads in full. A question whose
+ * text would still have another gap (a «..» the source left unnumbered)
+ * or not exactly one quiz gap never reaches the game.
+ */
 export function nnItems(row: QuizTaskRow): QuizItem[] {
   const head = firstLine(row.conditionMd);
   const asksNN = /пишется НН/.test(head);
@@ -328,13 +355,21 @@ export function nnItems(row: QuizTaskRow): QuizItem[] {
   const places = [...body.matchAll(/\((\d)\)/g)].map((m) => Number(m[1]));
   const key = digitSet(row.correctAnswer);
   if (places.length < 2 || !/^\d+$/.test(key)) return [];
+  if (new Set(places).size !== places.length) return [];
   if ([...key].some((d) => !places.includes(Number(d)))) return [];
-  return places.map((n) => {
-    const inKey = key.includes(String(n));
-    const answer = asksNN === inKey ? 'НН' : 'Н';
-    const text = body.replace(/\((\d)\)/g, (_, d: string) => (Number(d) === n ? '▢' : '..'));
+  const isDouble = (n: number) => asksNN === key.includes(String(n));
+  const items: QuizItem[] = [];
+  for (const n of places) {
+    const answer = isDouble(n) ? 'НН' : 'Н';
+    const text = body.replace(/\((\d)\)/g, (_m, d: string, offset: number, all: string) => {
+      const place = Number(d);
+      if (place === n) return QUIZ_GAP;
+      return nnLetters(isDouble(place), all.slice(0, offset), all.slice(offset + 3));
+    });
+    const gaps = gapCount(text);
+    if (gaps.quizGaps !== 1 || gaps.otherGaps !== 0) continue;
     const explanation = explanationPart(row.explanationMd, n);
-    return {
+    items.push({
       key: `${row.id}:${n}`,
       taskId: row.id,
       kind: 'choice' as const,
@@ -343,8 +378,9 @@ export function nnItems(row: QuizTaskRow): QuizItem[] {
       correct: answer,
       display: answer,
       ...(explanation ? { explanation, explanationSource: 'task' as const } : {}),
-    };
-  });
+    });
+  }
+  return items;
 }
 
 /** №16: one question per sentence — нужна ровно одна запятая? */

@@ -11,6 +11,8 @@ import {
 } from '../ReportTask/ReportTaskContent.js';
 import type { Subject } from '../../data/subjects.js';
 import { useFavorite } from '../../lib/useFavorite.js';
+import { buildSessionProgress } from '../../lib/taskAdapter.js';
+import { SessionTaskListCard } from './SessionTaskListCard.js';
 import { clsx } from '../../lib/clsx.js';
 import type { TaskMark } from '../../lib/useVariantTaskMarks.js';
 import styles from './TaskChrome.module.css';
@@ -72,6 +74,8 @@ export function TaskChrome({
   const progressPercent = (indexInSession / totalInSession) * 100;
   const favorite = useFavorite(taskId);
   const [reportOpen, setReportOpen] = useState(false);
+  const [allOpen, setAllOpen] = useState(false);
+  const canShowAll = numberStripRange.length > 1;
 
   return (
     <>
@@ -149,13 +153,49 @@ export function TaskChrome({
 
       <div>
         <div className={styles.progressRow}>
-          <span className="text-body-sm text-secondary">
-            Задание {indexInSession} из {totalInSession}
-          </span>
+          {canShowAll ? (
+            <button
+              type="button"
+              className={styles.allNumbers}
+              aria-haspopup="dialog"
+              onClick={() => setAllOpen(true)}
+            >
+              Задание {indexInSession} из {totalInSession}
+              <span className={styles.allNumbersHint}>
+                <Icon name="grid" size={14} />
+                Все номера
+              </span>
+            </button>
+          ) : (
+            <span className="text-body-sm text-secondary">
+              Задание {indexInSession} из {totalInSession}
+            </span>
+          )}
           <span className="text-body-sm text-secondary">{Math.round(progressPercent)}%</span>
         </div>
         <ProgressBar value={progressPercent} label="Прогресс тренировки" />
       </div>
+
+      {canShowAll && (
+        <BottomSheet
+          open={allOpen}
+          onClose={() => setAllOpen(false)}
+          title="Все задания"
+          subtitle={`Сейчас ${indexInSession} из ${totalInSession}`}
+          icon="grid"
+        >
+          <SessionTaskListCard
+            variant="sheet"
+            title="Все задания"
+            sessionTasks={buildSessionProgress(taskId, numberStripRange, marks).sessionTasks}
+            onSelect={(index) => {
+              const entry = numberStripRange[index - 1];
+              setAllOpen(false);
+              if (entry && entry.taskId !== taskId) onSelectNumber(entry);
+            }}
+          />
+        </BottomSheet>
+      )}
     </>
   );
 }

@@ -59,6 +59,7 @@ export * from './quizGames.js';
 export * from './examScoring.js';
 export * from './broadcastAudience.js';
 export * from './miniGameRules.js';
+export * from './gameStudyRules.js';
 export * from './mathDrills.js';
 export * from './statsPeriod.js';
 export * from './theory/index.js';

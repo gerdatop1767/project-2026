@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { CollectionListItem, ProgressByTopicResponse, TaskPublic } from '@zybrilka/shared';
 import { useNavigation, type Route } from '../../lib/navigation.js';
 import { subjects } from '../../data/subjects.js';
@@ -17,16 +17,15 @@ import { useTaskCountItems } from '../../lib/useTaskCounts.js';
 import { useAccountGate } from '../../lib/accountGate.js';
 import { Card } from '../../ui/Card/Card.js';
 import { Button } from '../../ui/Button/Button.js';
-import { Chip } from '../../ui/Chip/Chip.js';
 import { Icon } from '../../ui/Icon/Icon.js';
-import type { IconName } from '../../ui/Icon/icons.js';
 import { Select } from '../../ui/Select/Select.js';
 import { ProgressBar } from '../../ui/Progress/ProgressBar.js';
 import { CircularProgress } from '../../ui/Progress/CircularProgress.js';
 import { FavoritesList } from '../../ui/Favorites/FavoritesList.js';
 import { clsx } from '../../lib/clsx.js';
 import { ContentSwap, FadeIn, SlideUp, staggerDelay } from '../../ui/motion/motion.js';
-import { SubjectIcon } from '../../ui/SubjectIcon/SubjectIcon.js';
+import { SubjectHero } from '../../ui/SubjectHero/SubjectHero.js';
+import { SubjectModeSwitcher } from '../../ui/SubjectModeSwitcher/SubjectModeSwitcher.js';
 import styles from './SubjectMobile.module.css';
 import { SkeletonList } from '../../ui/Skeleton/Skeleton.js';
 import { EditionNote } from '../../ui/EditionNote/EditionNote.js';
@@ -40,13 +39,6 @@ function sourceSelectOptions(collections: readonly CollectionListItem[]) {
     ...collections.map((item) => ({ value: item.collection.slug, label: item.collection.title })),
   ];
 }
-
-const modes: readonly { id: SubjectModeId; label: string; icon: IconName }[] = [
-  { id: 'topics', label: 'Темы', icon: 'reference' },
-  { id: 'byNumber', label: 'По номерам', icon: 'checklist' },
-  { id: 'variants', label: 'Варианты', icon: 'variant' },
-  { id: 'favorites', label: 'Избранное', icon: 'favorite' },
-];
 
 export interface SubjectMobileProps {
   subjectId: string;
@@ -66,8 +58,8 @@ type TopicProgressItem = ProgressByTopicResponse['items'][number];
  * Mobile Subject page — the same generic per-subject component
  * SubjectDesktop is (data comes from `data/subjectContent.ts`, never
  * hardcoded per subject), restacked into one vertical column instead
- * of desktop's main+sidebar grid: hero, a horizontally scrollable mode
- * switcher, the active mode's content, then the desktop sidebar's
+ * of desktop's main+sidebar grid: hero, the four-card mode switcher
+ * (all four fit at 360px), the active mode's content, then the desktop sidebar's
  * three cards (progress ring, quick start, recent solves) in order
  * below it. No approved mobile screenshot exists for this screen, so
  * it stays a functional adaptation rather than an invented layout.
@@ -89,6 +81,10 @@ export function SubjectMobile({
   const [mode, setMode] = useState<SubjectModeId>(
     isGuest && initialMode === 'favorites' ? 'topics' : (initialMode ?? 'topics'),
   );
+  // Modes opened so far stay mounted (hidden) so a half-made pick in
+  // «По номерам» / «Варианты» survives a look at another mode.
+  const [visited, setVisited] = useState<ReadonlySet<SubjectModeId>>(() => new Set([mode]));
+  const panelId = useId();
   const [selectedTopic, setSelectedTopic] = useState<TopicProgressItem | null>(null);
   const [collections, setCollections] = useState<readonly CollectionListItem[]>([]);
   const [collectionsLoaded, setCollectionsLoaded] = useState(false);
@@ -109,6 +105,7 @@ export function SubjectMobile({
   // state before the real number replaces it (confirmed via frame-by-
   // frame video of exactly this screen opening).
   const [solved, setSolved] = useState<number | null>(null);
+  const [correct, setCorrect] = useState<number | null>(null);
   const [accuracyPercent, setAccuracyPercent] = useState<number | null>(null);
   const [totalTasks, setTotalTasks] = useState<number | null>(null);
 
@@ -120,15 +117,16 @@ export function SubjectMobile({
         .then((data) => {
           if (cancelled) return;
           const entry = data.bySubject.find((s) => s.subjectId === subject.id);
-          // "Решено" is uniqueSolved (distinct tasks with >=1 correct
-          // attempt), not solved (an attempt-row count) — see the
-          // nav/stats bugfix report.
-          setSolved(entry?.uniqueSolved ?? 0);
+          // «Решено» = every checked answer, right or wrong, repeats
+          // included (`solved`); accuracy is its own number.
+          setSolved(entry?.solved ?? 0);
+          setCorrect(entry?.correct ?? 0);
           setAccuracyPercent(entry ? Math.round(entry.accuracyPercent) : 0);
         })
         .catch(() => {
           if (!cancelled) {
             setSolved(0);
+            setCorrect(0);
             setAccuracyPercent(0);
           }
         });
@@ -136,7 +134,7 @@ export function SubjectMobile({
       .then((res) => {
         if (cancelled) return;
         const entry = res.items.find((i) => i.subjectId === subject.id);
-        // «из N» for «Решено» (uniqueSolved, any source) — every published task.
+        // «в банке N»: every published task of the subject, any source.
         setTotalTasks(entry?.countAllSources ?? 0);
       })
       .catch(() => {
@@ -241,6 +239,7 @@ export function SubjectMobile({
   function selectMode(id: SubjectModeId) {
     if (id === 'favorites' && !requireAccount('favorites')) return;
     setMode(id);
+    setVisited((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
     setSelectedTopic(null);
   }
 
@@ -267,84 +266,102 @@ export function SubjectMobile({
 
       {!selectedTopic && (
         <>
-          <Card className={styles.hero} style={{ ['--subject-accent' as string]: subject.color }}>
-            <span className={styles.heroThumb}>
-              <SubjectIcon subjectId={subject.id} selected />
-            </span>
-            <p className="text-h2">{subject.shortName}</p>
-            <p className="text-body-sm text-secondary">{content.tagline}</p>
-            <div className={styles.heroStats}>
-              <span className={styles.heroStat}>
-                <Icon name="target" size={14} />
-                <strong>{solved ?? pending}</strong> решено
-              </span>
-              <span className={styles.heroStat}>
-                <Icon name="progress" size={14} />
-                <strong>{accuracyPercent !== null ? `${accuracyPercent}%` : pending}</strong>{' '}
-                точность
-              </span>
-            </div>
-          </Card>
+          <SubjectHero
+            layout="compact"
+            headingLevel="p"
+            subjectId={subject.id}
+            name={subject.shortName}
+            tagline={content.tagline}
+            accent={subject.color}
+            stats={[
+              {
+                icon: 'target',
+                value: solved !== null ? String(solved) : pending,
+                label: 'решено',
+              },
+              {
+                icon: 'progress',
+                value: accuracyPercent !== null ? `${accuracyPercent}%` : pending,
+                label: 'точность',
+              },
+            ]}
+          />
 
-          <div className={styles.modeRow}>
-            {modes.map((item) => (
-              <Chip
-                key={item.id}
-                icon={item.icon}
-                selected={mode === item.id}
-                onClick={() => selectMode(item.id)}
-              >
-                {item.label}
-              </Chip>
-            ))}
-          </div>
+          <SubjectModeSwitcher
+            layout="stacked"
+            value={mode}
+            onChange={selectMode}
+            panelId={panelId}
+          />
         </>
       )}
 
-      <ContentSwap key={selectedTopic ? 'topicDetail' : mode}>
-        {mode === 'topics' && !selectedTopic && (
-          <TopicsList
-            topics={topics}
-            onRetry={() => setTopicsAttempt((n) => n + 1)}
-            collections={collections}
-            selectedSlug={effectiveTopicsSlug}
-            onSourceChange={setTopicsSlug}
-            onSelect={setSelectedTopic}
-          />
-        )}
+      <div id={panelId} role="tabpanel" aria-label={modeLabel(mode)} className={styles.panels}>
         {mode === 'topics' && selectedTopic && (
-          <TopicDetail
-            subjectName={subject.shortName}
-            topic={selectedTopic}
-            onStart={() => startTopicTraining(selectedTopic)}
-          />
+          <ContentSwap key="topicDetail">
+            <TopicDetail
+              subjectName={subject.shortName}
+              topic={selectedTopic}
+              onStart={() => startTopicTraining(selectedTopic)}
+            />
+          </ContentSwap>
         )}
-        {mode === 'byNumber' && (
-          <ByNumberPanel
-            subjectId={subject.id}
-            collections={collections}
-            collectionSlug={collectionSlug}
-            initialTaskNumber={initialTaskNumber}
-            returnTo={(slug) => ({
-              screen: 'subject',
-              subjectId: subject.id,
-              collectionSlug: slug,
-              initialMode: 'byNumber',
-            })}
-          />
+        {visited.has('topics') && (
+          <div hidden={mode !== 'topics' || selectedTopic !== null}>
+            <ContentSwap>
+              <TopicsList
+                topics={topics}
+                onRetry={() => setTopicsAttempt((n) => n + 1)}
+                collections={collections}
+                selectedSlug={effectiveTopicsSlug}
+                onSourceChange={setTopicsSlug}
+                onSelect={setSelectedTopic}
+              />
+            </ContentSwap>
+          </div>
         )}
-        {mode === 'variants' && (
-          <VariantBuilder subjectId={subject.id} collections={collections} onStart={startVariant} />
+        {visited.has('byNumber') && (
+          <div hidden={mode !== 'byNumber'}>
+            <ContentSwap>
+              <ByNumberPanel
+                subjectId={subject.id}
+                collections={collections}
+                collectionSlug={collectionSlug}
+                initialTaskNumber={initialTaskNumber}
+                returnTo={(slug) => ({
+                  screen: 'subject',
+                  subjectId: subject.id,
+                  collectionSlug: slug,
+                  initialMode: 'byNumber',
+                })}
+              />
+            </ContentSwap>
+          </div>
         )}
-        {mode === 'favorites' && (
-          <Card>
-            <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
-              Избранное
-            </p>
-            <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
-          </Card>
+        {visited.has('variants') && (
+          <div hidden={mode !== 'variants'}>
+            <ContentSwap>
+              <VariantBuilder
+                subjectId={subject.id}
+                collections={collections}
+                onStart={startVariant}
+              />
+            </ContentSwap>
+          </div>
         )}
-      </ContentSwap>
+        {visited.has('favorites') && (
+          <div hidden={mode !== 'favorites'}>
+            <ContentSwap>
+              <Card>
+                <p className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>
+                  Избранное
+                </p>
+                <FavoritesList subjectId={subject.id} onSelect={handleSelectFavorite} />
+              </Card>
+            </ContentSwap>
+          </div>
+        )}
+      </div>
 
       {!selectedTopic && (
         <>
@@ -358,7 +375,11 @@ export function SubjectMobile({
               </CircularProgress>
             </div>
             <p className="text-body-sm text-secondary" style={{ textAlign: 'center' }}>
-              {solved ?? pending} из {totalTasks ?? '—'} заданий решено
+              {solved ?? pending} решено
+              {solved !== null &&
+                correct !== null &&
+                ` · верно ${correct}, неверно ${solved - correct}`}
+              {totalTasks !== null && ` · в банке ${totalTasks}`}
             </p>
           </Card>
 
@@ -416,6 +437,12 @@ export function SubjectMobile({
       )}
     </SlideUp>
   );
+}
+
+function modeLabel(mode: SubjectModeId): string {
+  return { topics: 'Темы', byNumber: 'По номерам', variants: 'Варианты', favorites: 'Избранное' }[
+    mode
+  ];
 }
 
 function TopicsList({

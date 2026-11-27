@@ -587,7 +587,7 @@ $C run --rm migrate node node_modules/@zybrilka/db/dist/importRussianDoshchinsky
 
 ## Авторские задания Зубрилки по русскому, №10, на VPS
 
-100 собственных заданий №10 импортирует `importZybrilkaRussian10.js` (коллекция `zybrilka-russian-10`, 10 наборов по 10 заданий, `docs/imports/zybrilka-russian-10.md`). Новых миграций нет. В `infra/docker-compose.yml` импортёр стоит в цепочке `sync-content` сразу после сборника 2026 года и перед словарём ударений. Задания других источников он не трогает.
+100 собственных заданий №10 импортирует `importZybrilkaRussian10.js` (10 наборов по 10 заданий в общей коллекции авторских заданий `zybrilka-russian`, `docs/imports/zybrilka-russian-10.md`). Новых миграций нет. В `infra/docker-compose.yml` импортёр стоит в цепочке `sync-content` сразу после сборника 2026 года и перед словарём ударений. Задания других источников он не трогает.
 
 `C` — как в разделе о словаре ударений.
 
@@ -600,7 +600,7 @@ $C run --rm --no-deps migrate ls node_modules/@zybrilka/db/dist/ | grep Zybrilka
 $C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.js
 ```
 
-Импорт сначала проверяет все 100 заданий и пишет всё в одной транзакции. Если на сервере уже есть первые 50 (прошлый этап), первый запуск покажет `created 50, updated 0, unchanged 50`: задания 1–50 и их наборы 1–5 не меняются, 51–100 попадают в наборы 6–10. Повторный запуск ничего не меняет (`unchanged 100`). Навыки Learning Engine проставит API при следующем старте, или вручную: `node node_modules/@zybrilka/db/dist/learningSkills.js`.
+Импорт сначала проверяет все 100 заданий и пишет всё в одной транзакции. Если на сервере уже есть первые 50 (прошлый этап), первый запуск покажет `created 50, updated 0, unchanged 50`: задания 1–50 не меняются, 51–100 попадают в наборы 6–10. Наборы 1–5 из прежней коллекции `zybrilka-russian-10` переносятся в `zybrilka-russian` с теми же id (на них ссылаются сессии учеников), а опустевшая коллекция архивируется (`status = archived`), не удаляется. Повторный запуск ничего не меняет (`unchanged 100`). Навыки Learning Engine проставит API при следующем старте, или вручную: `node node_modules/@zybrilka/db/dist/learningSkills.js`.
 
 **2. Чтобы задания обновлялись при каждом деплое** — если в локальном `docker-compose.deploy.yml` есть `sync-content` с цепочкой `&&`:
 
@@ -615,7 +615,7 @@ $C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.
 
 ## Авторский банк Зубрилки по русскому, №4–22 (кроме №10), на VPS
 
-Задания импортирует `importZybrilkaRussianBank.js`: одна коллекция на номер (`zybrilka-russian-N`), 10 наборов по 10 заданий, 18 номеров × 100 = 1800 заданий, описание в `docs/imports/zybrilka-russian-4-22-plan.md`. Новых миграций нет.
+Задания импортирует `importZybrilkaRussianBank.js`: 18 номеров × 100 = 1800 заданий, 10 наборов по 10 заданий на номер. Все номера, вместе с №10, лежат в **одной** коллекции `zybrilka-russian` («Зубрилка — авторские задания по русскому языку»): в выборе источника это один пункт, внутри — все номера 4–22, набор «Зубрилка — №N, набор K»; описание в `docs/imports/zybrilka-russian-4-22-plan.md`. Новых миграций нет.
 
 Импортёр загружает **только полные номера** (100 заданий). Номер, который ещё дописывается, пропускается с сообщением «not complete, skipped». Поэтому строку можно добавить в цепочку сразу, а новые номера будут появляться сами при деплоях.
 
@@ -640,7 +640,7 @@ $C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussian10.
 $C run --rm migrate node node_modules/@zybrilka/db/dist/importZybrilkaRussianBank.js
 ```
 
-Первый запуск: для каждого из 18 номеров `created 100`. Повторный запуск безопасен: для каждого номера будет `created 0, updated 0, unchanged 100`. Навыки Learning Engine API проставит при следующем старте. Вручную: `node node_modules/@zybrilka/db/dist/learningSkills.js`.
+Первый запуск: для каждого из 18 номеров `created 100`. После этого `SELECT slug, status FROM collections WHERE slug LIKE 'zybrilka-russian%'` показывает `zybrilka-russian` — `published` (190 наборов) и, если на сервере была прежняя `zybrilka-russian-10`, её же — `archived`. Повторный запуск безопасен: для каждого номера будет `created 0, updated 0, unchanged 100`. Навыки Learning Engine API проставит при следующем старте. Вручную: `node node_modules/@zybrilka/db/dist/learningSkills.js`.
 
 **3. Чтобы банк обновлялся при каждом деплое**, в локальном `docker-compose.deploy.yml`, в цепочке `sync-content` должны стоять **обе** строки — после сборника 2026 года и перед словарём ударений:
 

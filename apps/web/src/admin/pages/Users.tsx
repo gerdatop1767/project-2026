@@ -569,7 +569,8 @@ export function UserPage({ id = '' }: Record<string, string>) {
                             label: 'Предмет',
                             render: (r) => subjectName(r.subjectId),
                           },
-                          { key: 'attempts', label: 'Ответов', numeric: true },
+                          // «Решено» = every checked answer, right or wrong.
+                          { key: 'attempts', label: 'Решено (попыток)', numeric: true },
                           { key: 'correct', label: 'Верно', numeric: true },
                           {
                             key: 'acc',
@@ -577,7 +578,7 @@ export function UserPage({ id = '' }: Record<string, string>) {
                             numeric: true,
                             render: (r) => pct(ratio(r.correct, r.attempts)),
                           },
-                          { key: 'solved', label: 'Решено заданий', numeric: true },
+                          { key: 'solved', label: 'Разных заданий верно', numeric: true },
                         ]}
                       />
                     )}

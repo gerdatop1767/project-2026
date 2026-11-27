@@ -151,14 +151,14 @@ services:
   # ids, `needs_review` hidden); it never touches 2027 rows.
   #
   # Then Зубрилка's own task-10 bank (importZybrilkaRussian10.ts, its own
-  # source and collection `zybrilka-russian-10`: 50 authored tasks in 5
-  # sets × 10). Same guarantees: the whole set is validated first (every
+  # source: 100 authored tasks in 10 sets × 10 of the one collection
+  # `zybrilka-russian`). Same guarantees: the whole set is validated first (every
   # word against its spelling rule), one transaction, stable ids, nothing
   # deleted; it never matches or changes rows of the books.
   #
   # Then the rest of that bank, tasks 4–22 except 10
-  # (importZybrilkaRussianBank.ts, one collection per number
-  # `zybrilka-russian-N`, docs/imports/zybrilka-russian-4-22-plan.md). It
+  # (importZybrilkaRussianBank.ts, the same one collection
+  # `zybrilka-russian` with every number, docs/imports/zybrilka-russian-4-22-plan.md). It
   # imports only numbers that are complete (100 tasks), validates them all
   # first, one transaction, stable ids, nothing deleted; №10 and the books
   # are never touched.
